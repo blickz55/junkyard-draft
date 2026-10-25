@@ -22,6 +22,9 @@ import { fileURLToPath } from 'node:url';
 import { decodeReplay, verifyReplay, type ReplayFile } from '../game/src/sim/replay';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { dailySeedFor } from '../game/src/sim/daily';
+import pkg from '../package.json' with { type: 'json' };
+
+export const VERSION: string = pkg.version;
 
 export interface BoardEntry { seed: string; score: number; player: string; verifiedAt: string; rulesVersion: number; actions: number; replayHash: string; replayAvailable?: boolean }
 /** Actions of a verified replay, kept so anyone can watch it; bounded by the replay limits enforced at verification. */
@@ -138,7 +141,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       log?.(`${new Date().toISOString()} ${ip} ${req.method} ${url.pathname}${url.search} ${code} ${Date.now() - t0}ms`);
     };
     if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
-    if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, rulesVersion: RULES_VERSION, entries: verifier.size, uptimeSec: Math.round((Date.now() - started) / 1000) });
+    if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, entries: verifier.size, uptimeSec: Math.round((Date.now() - started) / 1000) });
     if (req.method === 'GET' && url.pathname === '/replay') { const r = verifier.replay(url.searchParams.get('hash') || ''); return r ? json(200, { ok: true, ...r }) : json(404, { ok: false, error: 'no verified replay with that hash' }); }
     if (req.method === 'GET' && url.pathname === '/daily') return json(200, verifier.daily(Math.min(50, Number(url.searchParams.get('limit') || 10))));
     if (req.method === 'GET' && url.pathname === '/board') { const seed = url.searchParams.get('seed') || ''; return json(200, { seed, verified: true, entries: verifier.board(seed, Math.min(100, Number(url.searchParams.get('limit') || 20))) }); }
@@ -173,5 +176,5 @@ if (isMain) {
   const limit = Number(flag('rate-limit') || process.env.RATE_LIMIT || 60);
   const trustProxy = process.env.TRUST_PROXY === '1';
   createServer(new Verifier(file), { rateLimit: { limit, windowMs: 60_000 }, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined })
-    .listen(port, host, () => console.log(`replay verifier → http://${host}:${port}/  (board: ${file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, CORS ${corsOrigin}${trustProxy ? ', trusting X-Forwarded-For' : ''})`));
+    .listen(port, host, () => console.log(`replay verifier v${VERSION} → http://${host}:${port}/  (board: ${file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, CORS ${corsOrigin}${trustProxy ? ', trusting X-Forwarded-For' : ''})`));
 }

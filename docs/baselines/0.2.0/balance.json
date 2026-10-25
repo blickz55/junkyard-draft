@@ -1,0 +1,140 @@
+{
+ "seeds": 40,
+ "triesPerRound": 120,
+ "ms": 172879,
+ "kind": "press",
+ "summary": [
+  {
+   "label": "baseline (v2: hold 2, plate $8)",
+   "min": 964,
+   "p25": 1434,
+   "median": 1617,
+   "p75": 1894,
+   "max": 2088,
+   "mean": 1622,
+   "offeredRounds": 56,
+   "pickedRounds": 19,
+   "pickRateWhenOffered": 0.34,
+   "seedsOffered": 31,
+   "seedsPicked": 17,
+   "vsBan": {
+    "meanDelta": 19,
+    "seedsBetter": 7,
+    "seedsWorse": 0,
+    "meanDeltaWhenPicked": 44,
+    "maxGain": 247,
+    "maxLoss": 0
+   }
+  },
+  {
+   "label": "ban press (never drafted)",
+   "min": 859,
+   "p25": 1371,
+   "median": 1614,
+   "p75": 1894,
+   "max": 2088,
+   "mean": 1604,
+   "offeredRounds": 56,
+   "pickedRounds": 0,
+   "pickRateWhenOffered": 0,
+   "seedsOffered": 31,
+   "seedsPicked": 0
+  },
+  {
+   "label": "hold 1 tick",
+   "min": 964,
+   "p25": 1434,
+   "median": 1617,
+   "p75": 1894,
+   "max": 2088,
+   "mean": 1624,
+   "offeredRounds": 56,
+   "pickedRounds": 19,
+   "pickRateWhenOffered": 0.34,
+   "seedsOffered": 31,
+   "seedsPicked": 17,
+   "vsBan": {
+    "meanDelta": 20,
+    "seedsBetter": 7,
+    "seedsWorse": 0,
+    "meanDeltaWhenPicked": 47,
+    "maxGain": 299,
+    "maxLoss": 0
+   }
+  },
+  {
+   "label": "plate $9",
+   "min": 994,
+   "p25": 1359,
+   "median": 1614,
+   "p75": 1894,
+   "max": 2088,
+   "mean": 1607,
+   "offeredRounds": 56,
+   "pickedRounds": 23,
+   "pickRateWhenOffered": 0.41,
+   "seedsOffered": 31,
+   "seedsPicked": 20,
+   "vsBan": {
+    "meanDelta": 4,
+    "seedsBetter": 7,
+    "seedsWorse": 3,
+    "meanDeltaWhenPicked": 7,
+    "maxGain": 283,
+    "maxLoss": -394
+   }
+  },
+  {
+   "label": "plate $10",
+   "min": 1078,
+   "p25": 1394,
+   "median": 1617,
+   "p75": 1894,
+   "max": 2088,
+   "mean": 1620,
+   "offeredRounds": 56,
+   "pickedRounds": 23,
+   "pickRateWhenOffered": 0.41,
+   "seedsOffered": 31,
+   "seedsPicked": 20,
+   "vsBan": {
+    "meanDelta": 16,
+    "seedsBetter": 7,
+    "seedsWorse": 3,
+    "meanDeltaWhenPicked": 33,
+    "maxGain": 319,
+    "maxLoss": -356
+   }
+  },
+  {
+   "label": "hold 1 + plate $9",
+   "min": 1012,
+   "p25": 1359,
+   "median": 1614,
+   "p75": 1894,
+   "max": 2088,
+   "mean": 1609,
+   "offeredRounds": 56,
+   "pickedRounds": 23,
+   "pickRateWhenOffered": 0.41,
+   "seedsOffered": 31,
+   "seedsPicked": 20,
+   "vsBan": {
+    "meanDelta": 5,
+    "seedsBetter": 7,
+    "seedsWorse": 3,
+    "meanDeltaWhenPicked": 11,
+    "maxGain": 337,
+    "maxLoss": -394
+   }
+  }
+ ],
+ "baselinePickedInsteadOfPress": {
+  "hopper": 9,
+  "furnace": 8,
+  "crusher": 13,
+  "conveyor": 3,
+  "dock": 3,
+  "splitter": 1
+ }
+}

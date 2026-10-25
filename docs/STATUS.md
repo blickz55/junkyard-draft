@@ -1,4 +1,29 @@
-# Status — 2026-10-25 (session 2 on the user's PC: rules v2 + keyboard placement)
+# Status — 2026-10-25 (session 2 on the user's PC: 0.2.0 release candidate)
+
+## 0.2.0 release-candidate baseline — 2026-10-25 (this PC: Windows 11, Node 24, 240 Hz display)
+Version bumped to 0.2.0 (`package.json`; title shows `build 0.2.0+<commit>`, verifier `/health` reports `version`); `CHANGELOG.md` written from the history since the 0.1.0 bundle; tag `v0.2.0`. Full battery, actual results:
+
+| check | command | result |
+|---|---|---|
+| typecheck | `npm run typecheck` | clean |
+| test suite | `npm test` | 32/32 in 21 s (sim 14, a11y 3, share 2, verifier 6, control-room 5, gameplay e2e 1, desktop smoke 1) |
+| production build | `npm run build` | dist/main.js 1254 KiB |
+| desktop | `npm run desktop:dist` | win-unpacked 359 MB; `Junkyard-Draft-Setup-0.2.0.exe` 122 MB (NSIS, per-user, unsigned); 31 s |
+| packaged smoke | in `npm test` | launches, plays a round, no page errors |
+| verifier bundle | `npm run verifier:build` | server/dist/verify.mjs, exports VERSION 0.2.0 |
+| autoplayer | 20 seeds × 120 tries | min 1210 / p25 1594 / median 1697 / p75 1788 / max 2088 vs starter 228; dead-end seeds 2; no suspicious scores; press picked 4/120 |
+| press balance | 40 seeds × 120 tries, 6 variants, 173 s | v2 press drafted 19/56 when offered, 0 seeds worse / 7 better vs refusing, +44 when taken — unchanged |
+| colour audit | `tools/a11y-audit.ts` | 0 contrast failures, 0 CVD pair failures |
+| frame budget | `tools/perf.ts` @4× | see below; all within budget |
+
+| perf environment | p95 ms | dropped | CPU ms/frame | script ms/frame |
+|---|---|---|---|---|
+| chromium @4× | 16.7 | 0 | 9 | 0.64 |
+| chromium cpu×4 @4× | 16.7 | 0 | 13.61 | 3.15 |
+| electron packaged @4× | 4.3 | 0 | 0.33 | 0.23 |
+
+Evidence summaries: `docs/baselines/0.2.0/{autoplay,balance,perf,a11y}.json`. Not covered by this pass (needs a human or another machine): a manual playtest, running the installer on a clean machine, building the Docker image, pushing to a remote.
+
 
 ## Session 2 increments — 2026-10-25 (Windows PC)
 **Keyboard-only placement** (ROADMAP M2): arrow keys reveal/move a blue grid cursor (first press lands on the selected machine, else top-left); Enter places the next bin part, or picks up / drops the machine under the cursor (occupied cells refuse with the red flash); Tab cycles bin parts into the hand; R rotates; Delete / Backspace return to the bin; Esc drops → deselects → hides. Same rule-checked actions as the mouse; `window.__jd.cursor()` exposes it to tests.
@@ -91,4 +116,4 @@ Local PC: `npm install` then `npx playwright install chromium` once. `npm run de
 - The repo lives on the user's PC with no remote yet; push to GitHub before setting up any scheduled cloud continuation.
 
 ## Next task
-Release candidate pass: bump to 0.2.0, write `CHANGELOG.md` from the git history since the bundle (rules v2, press, keyboard, accessibility, daily board, verifier, replay viewer, installer), add a `--version` style build stamp to the title (already shows build) and the verifier `/health`, run the full battery (typecheck, tests, autoplayer 20×120, balance 40, perf, a11y audit, desktop:dist, smoke) and record every number in STATUS as the 0.2.0 baseline. Still needed from a human: playtest notes from one full manual run (M1), a Docker build of the verifier image where Docker exists, running the installer once on a clean machine, and a GitHub remote before any scheduled cloud continuation.
+The remaining items all need a human or another machine before more features make sense: (1) **playtest** one full manual run of 0.2.0 (`npm run dev:all` or the packaged app) and write notes into `docs/PLAYTEST.md` — what confused, what felt flat, which draft offers were dead; (2) **run the installer** `release/Junkyard-Draft-Setup-0.2.0.exe` once on a clean Windows machine and note the SmartScreen prompt and install path; (3) **push to GitHub** (`git remote add origin … && git push -u origin main --tags`) so the 22 commits and tag `v0.2.0` exist somewhere other than this PC and scheduled cloud continuation becomes possible; (4) **build the verifier image** where Docker exists. The next code task after the playtest: act on its notes (likely onboarding copy and a second tutorial seed).

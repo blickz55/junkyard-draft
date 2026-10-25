@@ -1,5 +1,7 @@
 # Roadmap
 
+**0.2.0 release candidate cut 2026-10-25** (`CHANGELOG.md`, baseline numbers in `docs/STATUS.md`). Open items below that need a human are marked ⚑.
+
 Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `[~]` in progress, `[ ]` open.
 
 ## M0 — Workshop Control Room v0
@@ -25,7 +27,7 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] Reproducible production build (`npm run build` → `dist/`)
 - [x] Browser e2e test: real drag, rotate, run, pause, save/continue, six rounds, results, no page errors
 - [x] Autoplayer explores seeds (20 seeds: all reach ingots, no exploit; weak offers noted for M2)
-- [ ] Human-readable playtest notes from at least one full manual run (needs a human; nothing here substitutes for it)
+- [ ] ⚑ Human-readable playtest notes from at least one full manual run (needs a human; nothing here substitutes for it)
 
 ## M2 — Readability, controls, depth
 - [x] Per-machine stats after a round are shown as on-grid badges (tooltips not needed)
@@ -39,7 +41,7 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] Electron shell launches (`npm run desktop`, Electron 45 pinned as a devDependency; window verified on Windows 2026-10-25)
 - [x] Packaged build launched and screenshotted on at least one platform (Windows: `npm run desktop:pack` → `release/win-unpacked/Junkyard Draft.exe`, 2026-10-25)
 - [x] NSIS installer (`npm run desktop:dist` → `release/Junkyard-Draft-Setup-0.1.0.exe`, 122 MB, per-user, unsigned) and a packaged-app smoke test (`tests/desktop-smoke.test.mjs`, part of `npm test`, skips without a build)
-- [ ] Code signing (certificate needed to avoid SmartScreen); macOS / Linux builds; auto-update
+- [ ] ⚑ Code signing (certificate needed to avoid SmartScreen); macOS / Linux builds; auto-update; run the installer once on a clean machine
 
 ## M4 — Verification server & leaderboard
 - [x] Local Node verifier service: accepts replay JSON, re-simulates, returns verified score (`npm run verifier`)

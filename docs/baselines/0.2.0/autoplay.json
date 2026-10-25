@@ -1,0 +1,369 @@
+{
+ "seeds": 20,
+ "triesPerRound": 120,
+ "ms": 13564,
+ "starterOnlyScore": 228,
+ "min": 1210,
+ "p25": 1594,
+ "median": 1697,
+ "p75": 1788,
+ "max": 2088,
+ "deadEndSeeds": [
+  "auto-7",
+  "auto-10"
+ ],
+ "flatRoundsTotal": 33,
+ "noIngotSeeds": [
+  "auto-6"
+ ],
+ "pickFrequency": {
+  "crusher": 38,
+  "furnace": 28,
+  "dock": 6,
+  "hopper": 28,
+  "conveyor": 9,
+  "splitter": 7,
+  "press": 4
+ },
+ "suspicious": [],
+ "top": [
+  {
+   "seed": "auto-12",
+   "score": 2088,
+   "rounds": [
+    117,
+    300,
+    340,
+    417,
+    457,
+    457
+   ],
+   "picks": [
+    "crusher",
+    "furnace",
+    "hopper",
+    "crusher",
+    "hopper",
+    "conveyor"
+   ],
+   "offers": [
+    [
+     "crusher",
+     "press",
+     "conveyor"
+    ],
+    [
+     "furnace",
+     "hopper",
+     "conveyor"
+    ],
+    [
+     "splitter",
+     "hopper",
+     "crusher"
+    ],
+    [
+     "splitter",
+     "dock",
+     "crusher"
+    ],
+    [
+     "press",
+     "furnace",
+     "hopper"
+    ],
+    [
+     "conveyor",
+     "furnace",
+     "splitter"
+    ]
+   ],
+   "deadEnd": false,
+   "flatRounds": 1,
+   "ingots": 125,
+   "peakRound": 5
+  },
+  {
+   "seed": "auto-1",
+   "score": 2054,
+   "rounds": [
+    117,
+    300,
+    340,
+    380,
+    420,
+    497
+   ],
+   "picks": [
+    "crusher",
+    "furnace",
+    "hopper",
+    "hopper",
+    "hopper",
+    "crusher"
+   ],
+   "offers": [
+    [
+     "crusher",
+     "splitter",
+     "dock"
+    ],
+    [
+     "furnace",
+     "conveyor",
+     "hopper"
+    ],
+    [
+     "hopper",
+     "furnace",
+     "conveyor"
+    ],
+    [
+     "hopper",
+     "furnace",
+     "conveyor"
+    ],
+    [
+     "furnace",
+     "conveyor",
+     "hopper"
+    ],
+    [
+     "conveyor",
+     "crusher",
+     "hopper"
+    ]
+   ],
+   "deadEnd": false,
+   "flatRounds": 0,
+   "ingots": 125,
+   "peakRound": 6
+  },
+  {
+   "seed": "auto-17",
+   "score": 2048,
+   "rounds": [
+    117,
+    300,
+    340,
+    417,
+    417,
+    457
+   ],
+   "picks": [
+    "crusher",
+    "furnace",
+    "hopper",
+    "crusher",
+    "furnace",
+    "hopper"
+   ],
+   "offers": [
+    [
+     "hopper",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "press",
+     "furnace",
+     "conveyor"
+    ],
+    [
+     "hopper",
+     "conveyor",
+     "furnace"
+    ],
+    [
+     "press",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "furnace",
+     "splitter",
+     "conveyor"
+    ],
+    [
+     "crusher",
+     "hopper",
+     "splitter"
+    ]
+   ],
+   "deadEnd": false,
+   "flatRounds": 1,
+   "ingots": 125,
+   "peakRound": 6
+  }
+ ],
+ "bottom": [
+  {
+   "seed": "auto-6",
+   "score": 1210,
+   "rounds": [
+    117,
+    157,
+    234,
+    234,
+    234,
+    234
+   ],
+   "picks": [
+    "crusher",
+    "hopper",
+    "crusher",
+    "conveyor",
+    "splitter",
+    "crusher"
+   ],
+   "offers": [
+    [
+     "hopper",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "hopper",
+     "press",
+     "crusher"
+    ],
+    [
+     "hopper",
+     "press",
+     "crusher"
+    ],
+    [
+     "conveyor",
+     "press",
+     "dock"
+    ],
+    [
+     "splitter",
+     "conveyor",
+     "dock"
+    ],
+    [
+     "crusher",
+     "dock",
+     "conveyor"
+    ]
+   ],
+   "deadEnd": false,
+   "flatRounds": 3,
+   "ingots": 0,
+   "peakRound": 3
+  },
+  {
+   "seed": "auto-3",
+   "score": 1422,
+   "rounds": [
+    117,
+    157,
+    234,
+    234,
+    300,
+    380
+   ],
+   "picks": [
+    "crusher",
+    "hopper",
+    "crusher",
+    "conveyor",
+    "furnace",
+    "hopper"
+   ],
+   "offers": [
+    [
+     "furnace",
+     "crusher",
+     "splitter"
+    ],
+    [
+     "hopper",
+     "press",
+     "splitter"
+    ],
+    [
+     "crusher",
+     "conveyor",
+     "dock"
+    ],
+    [
+     "conveyor",
+     "splitter",
+     "crusher"
+    ],
+    [
+     "splitter",
+     "furnace",
+     "dock"
+    ],
+    [
+     "hopper",
+     "conveyor",
+     "dock"
+    ]
+   ],
+   "deadEnd": false,
+   "flatRounds": 1,
+   "ingots": 50,
+   "peakRound": 6
+  },
+  {
+   "seed": "auto-8",
+   "score": 1422,
+   "rounds": [
+    117,
+    117,
+    288,
+    300,
+    300,
+    300
+   ],
+   "picks": [
+    "crusher",
+    "dock",
+    "furnace",
+    "furnace",
+    "splitter",
+    "crusher"
+   ],
+   "offers": [
+    [
+     "splitter",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "dock",
+     "splitter",
+     "crusher"
+    ],
+    [
+     "splitter",
+     "crusher",
+     "furnace"
+    ],
+    [
+     "furnace",
+     "splitter",
+     "conveyor"
+    ],
+    [
+     "splitter",
+     "press",
+     "crusher"
+    ],
+    [
+     "crusher",
+     "splitter",
+     "dock"
+    ]
+   ],
+   "deadEnd": false,
+   "flatRounds": 3,
+   "ingots": 99,
+   "peakRound": 4
+  }
+ ]
+}

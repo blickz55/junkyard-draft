@@ -1,0 +1,122 @@
+{
+ "failures": {
+  "contrast": [],
+  "cvd": []
+ },
+ "contrast": [
+  {
+   "name": "body text on panel",
+   "ratio": 13.32,
+   "required": 4.5
+  },
+  {
+   "name": "dim text on panel (notes, legend)",
+   "ratio": 6.05,
+   "required": 4.5
+  },
+  {
+   "name": "amber headings on panel",
+   "ratio": 7.98,
+   "required": 4.5
+  },
+  {
+   "name": "gold score on panel",
+   "ratio": 9.99,
+   "required": 4.5
+  },
+  {
+   "name": "green diagnostics on panel",
+   "ratio": 8.46,
+   "required": 4.5
+  },
+  {
+   "name": "red diagnostics on panel",
+   "ratio": 5.1,
+   "required": 4.5
+  },
+  {
+   "name": "blue text on panel",
+   "ratio": 6.37,
+   "required": 4.5
+  },
+  {
+   "name": "dim mono on page background (title)",
+   "ratio": 6.72,
+   "required": 4.5
+  },
+  {
+   "name": "build label on page background",
+   "ratio": 5.29,
+   "required": 4.5
+  },
+  {
+   "name": "button label on amber",
+   "ratio": 8.86,
+   "required": 4.5
+  },
+  {
+   "name": "button label on steel",
+   "ratio": 6.27,
+   "required": 4.5
+  },
+  {
+   "name": "button label on steelDark",
+   "ratio": 4.84,
+   "required": 4.5
+  },
+  {
+   "name": "badge text on badge",
+   "ratio": 16.54,
+   "required": 4.5
+  },
+  {
+   "name": "badge dim on badge",
+   "ratio": 7.51,
+   "required": 4.5
+  },
+  {
+   "name": "badge red on badge",
+   "ratio": 6.33,
+   "required": 4.5
+  },
+  {
+   "name": "badge green on badge",
+   "ratio": 10.5,
+   "required": 4.5
+  },
+  {
+   "name": "hint text on hint box",
+   "ratio": 13.4,
+   "required": 4.5
+  },
+  {
+   "name": "draft card blurb (dim) on floor card",
+   "ratio": 5.73,
+   "required": 4.5
+  },
+  {
+   "name": "draft card title on floor card",
+   "ratio": 12.62,
+   "required": 4.5
+  },
+  {
+   "name": "offer index [n] dim on floor card",
+   "ratio": 5.73,
+   "required": 4.5
+  }
+ ],
+ "worstCvd": {
+  "materials": {
+   "normal": "shards/plate dE 24.7 dL 21.2",
+   "protanopia": "shards/plate dE 23.5 dL 20.3",
+   "deuteranopia": "scrap/slag dE 20.1 dL 17",
+   "tritanopia": "scrap/slag dE 20.5 dL 17.4"
+  },
+  "semantic": {
+   "normal": "bad/amberSelect dE 49 dL 14.1",
+   "protanopia": "ok/bad dE 26.2 dL 25",
+   "deuteranopia": "ok/bad dE 19.8 dL 10.6",
+   "tritanopia": "ok/cursorFrame dE 29 dL 17.9"
+  }
+ }
+}

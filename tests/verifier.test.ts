@@ -66,8 +66,9 @@ test('http: POST /verify and GET /board return verified data only', async () => 
     assert.equal((await fetch(`${base}/health`)).status, 200);
     const daily = await (await fetch(`${base}/daily`)).json() as { seed: string; verified: boolean; rulesVersion: number; entries: unknown[] };
     assert.equal(daily.seed, dailySeedFor(new Date())); assert.equal(daily.verified, true); assert.deepEqual(daily.entries, []);
-    const health = await (await fetch(`${base}/health`)).json() as { entries: number; uptimeSec: number };
+    const health = await (await fetch(`${base}/health`)).json() as { entries: number; uptimeSec: number; version: string };
     assert.equal(health.entries, 1, 'health reports the number of verified entries');
+    assert.equal(health.version, JSON.parse(fs.readFileSync('package.json', 'utf8')).version, 'health reports the package version');
     const hash = (board.entries[0] as unknown as { replayHash: string }).replayHash;
     const rep = await fetch(`${base}/replay?hash=${hash}`);
     assert.equal(rep.status, 200);
