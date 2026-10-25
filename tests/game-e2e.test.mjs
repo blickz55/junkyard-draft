@@ -127,6 +127,8 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
     const hasSave = await page.evaluate(() => !!localStorage.getItem('jd.save.v1'));
     assert.ok(hasSave, 'run saved to localStorage');
+    // today's verified board on the title screen (verifier spawned by this test; no entries for today yet)
+    await page.waitForFunction(() => { const t = window.__jdGame.scene.getScene('Title').children.getByName('daily-board'); return !!t && /No verified scores yet today/.test(t.text); }, null, { timeout: 15000 });
     await page.keyboard.press('Enter'); // continue
     await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'result', null, { timeout: 15000 });
     st = await api('state'); assert.equal(st.rounds.length, 1); assert.ok(st.score > 38, 'score restored');

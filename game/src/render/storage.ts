@@ -1,5 +1,8 @@
 import type { Action } from '../sim/run';
 import { RULES_VERSION } from '../sim/types';
+import { dailySeed } from '../sim/daily';
+
+export { dailySeed };
 
 const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v1', onboarded: 'jd.onboarded.v1' };
 
@@ -36,10 +39,6 @@ export function recordBest(seed: string, score: number): { newOverall: boolean; 
 export const isOnboarded = () => { try { return localStorage.getItem(K.onboarded) === '1'; } catch { return true; } };
 export const setOnboarded = () => { try { localStorage.setItem(K.onboarded, '1'); } catch { /* ignore */ } };
 
-export function dailySeed(): string {
-  const d = new Date();
-  return `daily-${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-}
 export function randomSeed(): string {
   const words = ['rust', 'bolt', 'gear', 'weld', 'spark', 'scrap', 'ingot', 'belt', 'crate', 'forge', 'piston', 'rivet'];
   return `${words[Math.floor(Math.random() * words.length)]}-${words[Math.floor(Math.random() * words.length)]}-${Math.floor(Math.random() * 900 + 100)}`;

@@ -43,7 +43,8 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 ## M4 — Verification server & leaderboard
 - [x] Local Node verifier service: accepts replay JSON, re-simulates, returns verified score (`npm run verifier`)
 - [x] Results screen submits replays to the local verifier and shows the verified-only board separately from local bests
-- [ ] Daily seed board with identical offers/rules for everyone
+- [x] Daily seed board with identical offers/rules for everyone (`GET /daily` on the verifier + title-screen panel; seed = `daily-YYYY-MM-DD` UTC on both sides)
+- [ ] Hosted verifier (same code, public URL) so boards are shared between devices
 
 ## M5 — Release readiness
 - [ ] Accessibility: colour-blind safe material shapes, scalable UI, reduced motion

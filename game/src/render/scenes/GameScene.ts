@@ -391,7 +391,7 @@ export class GameScene extends Phaser.Scene {
       if (r.round >= 3) { this.tutorial = false; setOnboarded(); }
     }
     if (!text) {
-      const tips = ['Scrap $1 → crusher → shards $3 → furnace → ingot $12.', 'Conveyors accept from behind or the side; crushers, furnaces and splitters only from behind.', 'A splitter alternates left and right. Two furnaces beat one.', 'Docks take items from any side. A second hopper doubles raw supply.', 'Right-click or R rotates. Drop a machine on the bin to remove it.', `A press squeezes ${RULES.pressShards} shards into one ${RULES.value.plate} plate: less than a furnace, but it never backs a line up.`, 'Keyboard: arrows move the cursor, Enter places or picks up, Tab cycles bin parts.'];
+      const tips = ['Scrap $1 → crusher → shards $3 → furnace → ingot $12.', 'Conveyors accept from behind or the side; crushers, furnaces and splitters only from behind.', 'A splitter alternates left and right. Two furnaces beat one.', 'Docks take items from any side. A second hopper doubles raw supply.', 'Right-click or R rotates. Drop a machine on the bin to remove it.', `A press squeezes ${RULES.pressShards} shards into one $${RULES.value.plate} plate: less than a furnace, but it never backs a line up.`, 'Keyboard: arrows move the cursor, Enter places or picks up, Tab cycles bin parts.'];
       text = tips[(r.round + r.layout.machines.length) % tips.length];
     }
     this.hint.setText(text).setWordWrapWidth(GRID_W - 24);

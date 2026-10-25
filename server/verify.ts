@@ -2,6 +2,7 @@
  * Local replay verifier + leaderboard (foundation for trusted server verification).
  * - POST /verify   { replay: ReplayFile, player?: string } → re-simulates; stores ONLY verified scores.
  * - GET  /board?seed=<seed>&limit=20 → verified scores for a seed (never client-claimed scores).
+ * - GET  /daily?limit=10 → today's UTC daily seed (same rule as the client) with its verified board.
  * - GET  /health
  * Storage is a JSON file (server/data/board.json by default). Binds to localhost.
  * Run: node --import tsx server/verify.ts   (PORT, BOARD_FILE env)
@@ -12,6 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decodeReplay, verifyReplay, type ReplayFile } from '../game/src/sim/replay';
 import { RULES_VERSION } from '../game/src/sim/types';
+import { dailySeedFor } from '../game/src/sim/daily';
 
 export interface BoardEntry { seed: string; score: number; player: string; verifiedAt: string; rulesVersion: number; actions: number; replayHash: string }
 export interface Board { entries: BoardEntry[] }
@@ -48,6 +50,11 @@ export class Verifier {
   board(seed: string, limit = 20): BoardEntry[] {
     return this.data.entries.filter((e) => e.seed === seed).sort((a, b) => b.score - a.score || a.verifiedAt.localeCompare(b.verifiedAt)).slice(0, limit);
   }
+  /** Today's challenge: the seed every client derives for this UTC date, plus its verified board. */
+  daily(limit = 10, now = new Date()): { seed: string; date: string; rulesVersion: number; verified: true; entries: BoardEntry[] } {
+    const seed = dailySeedFor(now);
+    return { seed, date: now.toISOString().slice(0, 10), rulesVersion: RULES_VERSION, verified: true, entries: this.board(seed, limit) };
+  }
 }
 
 export function createServer(verifier: Verifier) {
@@ -57,6 +64,7 @@ export function createServer(verifier: Verifier) {
     const json = (code: number, body: unknown) => { res.writeHead(code, { 'Content-Type': 'application/json', ...cors }); res.end(JSON.stringify(body)); };
     if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
     if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, rulesVersion: RULES_VERSION });
+    if (req.method === 'GET' && url.pathname === '/daily') return json(200, verifier.daily(Math.min(50, Number(url.searchParams.get('limit') || 10))));
     if (req.method === 'GET' && url.pathname === '/board') { const seed = url.searchParams.get('seed') || ''; return json(200, { seed, verified: true, entries: verifier.board(seed, Number(url.searchParams.get('limit') || 20)) }); }
     if (req.method === 'POST' && url.pathname === '/verify') {
       let body = '';

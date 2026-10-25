@@ -59,8 +59,24 @@ export class TitleScene extends Phaser.Scene {
     const mute = new Button(this, 990, y + 120, audio.muted ? 'Unmute' : 'Mute', () => { audio.setMuted(!audio.muted); mute.setText(audio.muted ? 'Unmute' : 'Mute'); }, { w: 100, h: 30, color: P.steelDark, textColor: CSS.text, size: 13, name: 'mute' });
     mono(this, 656, y + 150, `build ${import.meta.env.BUILD}`, 11, '#6f6758');
 
-    if (save) mono(this, W / 2, y + 200, 'Starting a new run discards the saved one.', 12, CSS.dim).setOrigin(0.5, 0);
+    if (save) mono(this, W / 2, y + 186, 'Starting a new run discards the saved one.', 12, CSS.dim).setOrigin(0.5, 0);
+    this.dailyBoard(H - 72); // fixed strip above the bottom edge, same place with or without a saved run
     this.input.keyboard?.on('keydown-ENTER', () => { if (save) this.scene.start('Game', { seed: save.seed, fresh: false, actions: save.actions }); else this.start(dailySeed(), true); });
+  }
+
+  /** Today's verified board from the local verifier (optional service). Shown separately from local bests; never mixes claimed scores in. */
+  private dailyBoard(y: number) {
+    const url = new URLSearchParams(location.search).get('verifier') || 'http://127.0.0.1:4400';
+    panel(this, 60, y, 1000, 58, 0.96);
+    label(this, 76, y + 9, "TODAY'S VERIFIED BOARD", 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
+    mono(this, 300, y + 10, `seed ${dailySeed()}`, 12, CSS.dim);
+    const line = mono(this, 76, y + 32, 'Checking the local verifier…', 12, CSS.dim).setName('daily-board');
+    fetch(`${url}/daily?limit=5`).then((r) => r.json()).then((d: { seed: string; rulesVersion: number; entries: { player: string; score: number }[] }) => {
+      if (!this.sys.isActive()) return;
+      if (d.seed !== dailySeed()) { line.setText(`Verifier day differs (${d.seed}); board hidden.`); return; }
+      line.setText(d.entries.length ? d.entries.map((e, i) => `${i + 1}. $${e.score} ${e.player}`).join('   ·   ') + `   ·   re-simulated by the verifier (rules v${d.rulesVersion})` : 'No verified scores yet today. Finish a run and submit the replay from the results screen.');
+      line.setColor(d.entries.length ? CSS.text : CSS.dim);
+    }).catch(() => { if (this.sys.isActive()) line.setText('Verifier offline (optional: npm run verifier). Daily board unavailable; local bests above are unverified.'); });
   }
 
   private start(seed: string, fresh: boolean) {

@@ -50,7 +50,7 @@ Conveyor 30 · Crusher 18 · Furnace 15 · Splitter 15 · Hopper 10 · Press 10 
 Warm industrial palette (charcoal floor, amber accents, rust/steel/green machines), procedural vector textures generated at boot, synthesized WebAudio sounds (place, rotate, ship chimes scaled by value, jam thud, round fanfare). Jams tint cells red live; `+$n` floats at docks; transforms flash in the product colour.
 
 ## Competitive foundation
-Identical seeds give identical offers; nothing in progression changes scoring. Local bests are labelled local/unverified. A server verifier will re-run `verifyReplay` on submitted replays before any leaderboard shows a score.
+Identical seeds give identical offers; nothing in progression changes scoring. Local bests are labelled local/unverified. The verifier re-runs `verifyReplay` on submitted replays before any leaderboard shows a score. The daily challenge seed is `daily-YYYY-MM-DD` in UTC, derived by the same function (`game/src/sim/daily.ts`) on the client and the verifier; `GET /daily` returns today's seed with its verified board and the title screen shows it (or says the verifier is offline).
 
 ## Decisions log
 - 2026-10-25 Grid 8×6, 80-tick rounds, 6 rounds: fits a laptop at 1120×700 and keeps a run under 10 minutes.
