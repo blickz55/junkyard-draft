@@ -49,7 +49,7 @@ export class TitleScene extends Phaser.Scene {
     let ly = y + 40; // lines wrap at larger text sizes; stack them by measured height and grow the panel
     lines.forEach((l, i) => { const t = label(this, 76, ly, l, 15, CSS.text, { wordWrap: { width: 528 } }).setName(`howto-${i + 1}`); ly += t.height + 6; });
     howto.setSize(560, Math.max(180, ly + 6 - y));
-    mono(this, W - 24, 12, `build ${import.meta.env.BUILD}`, 11, '#6f6758').setOrigin(1, 0);
+    mono(this, W - 24, 12, `build ${import.meta.env.BUILD}`, 11, '#948a79').setOrigin(1, 0);
 
     // bests + settings
     panel(this, 640, y, 420, 180, 0.9);

@@ -25,8 +25,8 @@ export function generateTextures(scene: Phaser.Scene) {
   make('tile-sel', C, C, (g) => { g.lineStyle(3, P.amber, 1); g.strokeRect(2, 2, C - 4, C - 4); });
   // keyboard cursor: blue frame with corner ticks (distinct from the amber selection)
   make('tile-cursor', C, C, (g) => {
-    g.lineStyle(2, P.blue, 0.95); g.strokeRect(3, 3, C - 6, C - 6);
-    g.fillStyle(P.blue, 1);
+    g.lineStyle(2, P.cursor, 0.95); g.strokeRect(3, 3, C - 6, C - 6);
+    g.fillStyle(P.cursor, 1);
     for (const [x, y] of [[3, 3], [C - 3, 3], [3, C - 3], [C - 3, C - 3]] as const) { g.fillRect(Math.min(x, x - 10 + (x < H ? 10 : 0)), y - 2, 10, 4); g.fillRect(x - 2, Math.min(y, y - 10 + (y < H ? 10 : 0)), 4, 10); }
   });
 

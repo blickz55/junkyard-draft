@@ -29,6 +29,22 @@ Reading: every environment is vsync-bound (16.7 ms at headless Chromium's 60 Hz,
 
 **Installer + packaged smoke test** (ROADMAP M3): `npm run desktop:dist` builds the unpacked app and `release/Junkyard-Draft-Setup-0.1.0.exe` (NSIS, 122 MB, per-user, user-chosen folder, desktop shortcut, uninstaller; ~20 s). It is **unsigned** (SmartScreen will warn) and has not been run on this PC — verified by listing its archive (7-Zip) and reading its version resource, not by installing. `tests/desktop-smoke.test.mjs` (in `npm test`, skips without a build) launches `release/win-unpacked/Junkyard Draft.exe` with `JD_DEV_API=1`, checks the preload bridge, jumps to the game scene, plays a crusher round through the dev API, asserts the result (> $38, shards shipped), the minimum window size and no page errors.
 
+**Colour-blind / contrast audit** (ROADMAP M5): `tools/a11y-lib.ts` (WCAG luminance/contrast, Machado 2009 CVD matrices in linear RGB, CIE76 ΔE) + `tools/a11y-audit.ts` (20 text/background pairs the scenes actually draw; materials and ok/bad/selection/cursor colours under protanopia, deuteranopia, tritanopia; `--sheet` renders the real textures through each matrix). `tests/a11y.test.ts` enforces it in `npm test`. Before: 2 contrast failures, shards/plate only ΔE 12.7 apart under protanopia. After: 0 failures.
+
+| text | before | after |
+|---|---|---|
+| red diagnostics on panel | #e5574a 4.47:1 | #eb6757 5.1:1 |
+| build label on page background | #6f6758 3.22:1 | #948a79 5.29:1 |
+
+| simulation | closest material pair before | closest material pair after |
+|---|---|---|
+| normal | shards vs plate: ΔE 13.5, ΔL* 11.7 | shards vs plate: ΔE 24.7, ΔL* 21.2 |
+| protanopia | shards vs plate: ΔE 12.7, ΔL* 11.2 | shards vs plate: ΔE 23.5, ΔL* 20.3 |
+| deuteranopia | shards vs plate: ΔE 13.9, ΔL* 12.1 | scrap vs slag: ΔE 20.1, ΔL* 17 |
+| tritanopia | shards vs plate: ΔE 13.5, ΔL* 11.7 | scrap vs slag: ΔE 20.5, ΔL* 17.4 |
+
+Shapes were already distinct per material, so only the palette moved: red, plate, build label, and a dedicated light cursor tint. Evidence: `docs/a11y/audit-2026-10-25.json`, `docs/a11y/materials-cvd-before.png`, `docs/a11y/materials-cvd-after.png`.
+
 
 ## Local restore — 2026-10-25 (session 2, Windows PC)
 Repo restored from the delivered bundle into `C:devjunkyard draft` (9 commits intact). Verified on this machine, actual results:
@@ -67,4 +83,4 @@ Local PC: `npm install` then `npx playwright install chromium` once. `npm run de
 - The repo lives on the user's PC with no remote yet; push to GitHub before setting up any scheduled cloud continuation.
 
 ## Next task
-M5 colour-blind / contrast audit: simulate deuteranopia, protanopia and tritanopia on the four item textures and the badge/diagnostic colours (write a small script that converts the palette and the rendered item PNGs with standard confusion-line matrices), check every material stays distinguishable by shape + value and every text/background pair meets 4.5:1, fix what fails (shape tweaks or colour nudges in `palette.ts`), and record the before/after in DESIGN. Still needed from a human: playtest notes from one full manual run (M1), running the installer once on a clean machine, and a GitHub remote before any scheduled cloud continuation.
+M4 hosted verifier groundwork: make `server/verify.ts` deployable (PORT/HOST env, `--data-dir`, request logging, 60 req/min per-IP rate limit on `/verify`, a `Dockerfile` and a `npm run verifier:prod` script), add a `VERIFIER_URL` build define so the title/results screens can point at a public instance, and cover rate limiting + CORS with tests. No deployment yet (needs a host and the user's say-so). Still needed from a human: playtest notes from one full manual run (M1), running the installer once on a clean machine, and a GitHub remote before any scheduled cloud continuation.

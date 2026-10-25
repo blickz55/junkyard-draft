@@ -49,7 +49,8 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 
 ## M5 — Release readiness
 - [x] Accessibility: reduced motion (belts static, no flashes / pops / travel, items snap; follows the OS preference by default) and text size 100 / 115 / 130 % through the UI helpers — title-screen controls, persisted, e2e-covered
-- [ ] Accessibility audit: colour-blind check of material shapes (already distinct) and contrast; a scalable layout would need the fixed 1120×700 grid revisited
+- [x] Accessibility audit: WCAG AA contrast on every text pair and CVD simulation of materials/semantic colours (`tools/a11y-audit.ts`, enforced by `tests/a11y.test.ts`; palette nudged, shapes already distinct)
+- [ ] A scalable layout would need the fixed 1120×700 grid revisited
 - [x] Performance budget: measured at 4× on the busiest autoplayer layout — 0 dropped frames in Chromium, Chromium with 4× CPU throttling, and the packaged app; game script ≤ 0.7 ms/frame on hardware (`tools/perf.ts`, `docs/perf-2026-10-25.json`)
 - [ ] Re-measure on an actual low-end laptop when one is available
 - [ ] Steam build pipeline (requires the user's Steamworks credentials — not a prerequisite earlier)
