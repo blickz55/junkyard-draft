@@ -158,6 +158,9 @@ test('press: two shards become one $8 plate, scrap passes through, absorbed shar
   const inTransit = line.spawned - line.absorbed - Object.values(line.shipped).reduce((a, b) => a + b, 0);
   assert.ok(inTransit >= 0 && inTransit <= 4, `in transit ${inTransit}`);
   assert.ok(line.events.some((e) => e.kind === 'absorb') && line.events.some((e) => e.kind === 'transform' && e.to === 'plate'));
+  const stored = line.cellStats[2].stored;
+  assert.ok(stored === 0 || stored === 1, `press store at round end is 0 or 1, got ${stored}`);
+  assert.equal(line.absorbed, line.cellStats[2].processed + stored, 'every absorbed shard either became part of a plate or is still stored');
   const raw = runLayout(lay(m('hopper', 0, 0), m('press', 1, 0), m('dock', 2, 0)), 40);
   assert.ok(raw.shipped.scrap > 0 && raw.absorbed === 0 && raw.shipped.plate === 0, 'raw scrap passes through a press unchanged');
   const wrong = runLayout(lay(m('hopper', 0, 0), m('press', 1, 0, 1), m('dock', 2, 0)), 20);

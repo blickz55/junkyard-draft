@@ -1,7 +1,7 @@
 import { apply, newRun, type Action, type RunState } from '../game/src/sim/run';
 import { runLayout } from '../game/src/sim/sim';
 import { Rng } from '../game/src/sim/rng';
-import type { Dir, Layout, Machine } from '../game/src/sim/types';
+import type { Dir, Layout, Machine, MachineKind } from '../game/src/sim/types';
 
 export const clone = (l: Layout): Layout => ({ width: l.width, height: l.height, machines: l.machines.map((m) => ({ ...m })) });
 export const score = (l: Layout) => runLayout(l).earned;
@@ -54,16 +54,24 @@ export function improve(base: Layout, bin: Machine[], rng: Rng, tries: number, r
   return { layout: best, earned: bestScore };
 }
 
-export interface SeedReport { seed: string; score: number; rounds: number[]; picks: string[]; deadEnd: boolean; flatRounds: number; ingots: number; peakRound: number }
+export interface SeedReport { seed: string; score: number; rounds: number[]; picks: string[]; offers: MachineKind[][]; deadEnd: boolean; flatRounds: number; ingots: number; peakRound: number }
 
-export function playSeed(seed: string, rng: Rng, tries = 150): { report: SeedReport; actions: Action[] } {
+export interface PlayOptions {
+  /** machine kinds the player refuses to draft (used by the balance tool to measure a machine's marginal value on identical offers) */
+  ban?: ReadonlySet<MachineKind>;
+}
+
+export function playSeed(seed: string, rng: Rng, tries = 150, opts: PlayOptions = {}): { report: SeedReport; actions: Action[] } {
   const s: RunState = newRun(seed);
   let flatRounds = 0; let ingots = 0;
+  const offers: MachineKind[][] = [];
   while (s.phase !== 'finished') {
     // pick: evaluate each offer by a short search, choose the best resulting score
     let bestI = 0, bestVal = -1;
     const baseScore = score(s.layout);
-    for (let i = 0; i < s.offers.length; i++) {
+    offers.push(s.offers.slice());
+    const allowed = s.offers.map((k, i) => i).filter((i) => !opts.ban?.has(s.offers[i]));
+    for (const i of allowed.length ? allowed : s.offers.map((_, i) => i)) {
       const trial = { ...s, layout: clone(s.layout), bin: s.bin.slice() };
       const part: Machine = { id: 9000 + i, kind: s.offers[i], x: -1, y: -1, dir: 0 };
       const r = improve(trial.layout, [...trial.bin, part], new Rng(`${seed}:${s.round}:${i}`), Math.max(10, Math.floor(tries / 3)), 4);
@@ -80,6 +88,6 @@ export function playSeed(seed: string, rng: Rng, tries = 150): { report: SeedRep
     apply(s, { t: 'next' });
   }
   const rounds = s.rounds.map((r) => r.earned);
-  return { report: { seed, score: s.score, rounds, picks: s.picks, deadEnd: flatRounds >= 4, flatRounds, ingots, peakRound: rounds.indexOf(Math.max(...rounds)) + 1 }, actions: s.actions };
+  return { report: { seed, score: s.score, rounds, picks: s.picks, offers, deadEnd: flatRounds >= 4, flatRounds, ingots, peakRound: rounds.indexOf(Math.max(...rounds)) + 1 }, actions: s.actions };
 }
 

@@ -56,6 +56,8 @@ export interface CellStats {
   blockedTicks: number;
   /** items that entered this cell */
   passed: number;
+  /** shards still stored in a press when the round ended (lost; shown on its badge) */
+  stored: number;
 }
 
 export interface RunResult {

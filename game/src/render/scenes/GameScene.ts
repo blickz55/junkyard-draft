@@ -543,7 +543,11 @@ export class GameScene extends Phaser.Scene {
       let line1 = ''; let line2 = ''; let color = CSS.text; let warn = true;
       if (m.kind === 'hopper') { line1 = st ? `${st.spawned} out` : 'idle'; if (st && st.blockedTicks > 5) { line2 = `blocked ${st.blockedTicks}`; notes.push(`Hopper ${m.x + 1},${m.y + 1} blocked ${st.blockedTicks} ticks: line ahead full or facing wrong.`); } if (!st) { color = CSS.dim; notes.push(`Hopper ${m.x + 1},${m.y + 1} never emitted: nothing accepts items ahead of it.`); } }
       else if (m.kind === 'dock') { if (st && st.shipped) { line1 = `$${st.earned}`; line2 = `${st.shipped} shipped`; color = CSS.green; warn = false; } else { line1 = 'no items'; color = CSS.dim; } }
-      else if (m.kind === 'crusher' || m.kind === 'furnace' || m.kind === 'press') { line1 = st && st.passed ? `${st.processed} made` : 'unused'; if (!st || !st.processed) color = CSS.dim; if (st && st.jammedTicks > 8) { line2 = `waited ${st.jammedTicks}`; notes.push(`${MACHINE_INFO[m.kind].name} ${m.x + 1},${m.y + 1}: output blocked ${st.jammedTicks} ticks.`); } }
+      else if (m.kind === 'crusher' || m.kind === 'furnace' || m.kind === 'press') {
+        line1 = st && st.passed ? `${st.processed} made` : 'unused'; if (!st || !st.processed) color = CSS.dim;
+        if (st && st.jammedTicks > 8) { line2 = `waited ${st.jammedTicks}`; notes.push(`${MACHINE_INFO[m.kind].name} ${m.x + 1},${m.y + 1}: output blocked ${st.jammedTicks} ticks.`); }
+        else if (m.kind === 'press' && st && st.stored) { line2 = `${st.stored} shard held`; warn = false; }
+      }
       else { if (st && st.jammedTicks > 8) line2 = `waited ${st.jammedTicks}`; else if (!st || !st.passed) { line1 = 'unused'; color = CSS.dim; } }
       if (!line1 && !line2) continue;
       const lines = [line1, line2].filter(Boolean);

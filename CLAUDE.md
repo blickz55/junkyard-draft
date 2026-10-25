@@ -13,6 +13,7 @@ Read `docs/STATUS.md` (what works, next task) and `docs/ROADMAP.md` (acceptance 
 - `npm run build` — reproducible production bundle in `dist/` (served by the Control Room at `/verified/`)
 - `node tools/playwright-shots.mjs <url> <name> --task <id> --note "..."` — screenshot + register in the Control Room
 - `node control-room/emit.mjs objective|task|check|screenshot|build|checkpoint|note|selftest …` — structured status updates
+- `node --import tsx tools/autoplay.ts --seeds 20 --tries 120` — score distribution / exploit sweep; `node --import tsx tools/balance.ts --seeds 40` — one machine's marginal value on identical offers (baseline vs banned vs tuning variants; ~4 min)
 
 ## Environment notes
 - **Primary home (since 2026-10-25): the user's Windows 11 PC, `C:devjunkyard draft`** (Node 24, npm 11, git with autocrlf; `.gitattributes` forces LF). `npm install` works; Playwright's Chromium comes from `npx playwright install chromium` (default cache, no env var needed); Electron 45 is a devDependency and `npm run desktop` opens the built `dist/` (run `npm run build` first). `.claude/launch.json` has a `game` config (`npm run dev:all`, port 5173) and a `control-room` attach config (4310) for the desktop app's browser pane.

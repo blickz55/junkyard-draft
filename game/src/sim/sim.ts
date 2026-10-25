@@ -45,7 +45,7 @@ export function createSim(layout: Layout): SimState {
 }
 
 function stats(s: SimState, cell: number): CellStats {
-  return (s.cellStats[cell] ||= { processed: 0, shipped: 0, earned: 0, jammedTicks: 0, spawned: 0, blockedTicks: 0, passed: 0 });
+  return (s.cellStats[cell] ||= { processed: 0, shipped: 0, earned: 0, jammedTicks: 0, spawned: 0, blockedTicks: 0, passed: 0, stored: 0 });
 }
 
 function neighbor(s: SimState, cell: number, dir: Dir): number {
@@ -187,5 +187,7 @@ export function runLayout(layout: Layout, ticks: number = RULES.ticksPerRound): 
   if (errs.length) throw new Error('invalid layout: ' + errs.join('; '));
   const s = createSim(layout);
   for (let i = 0; i < ticks; i++) step(s);
+  // shards left inside presses are lost when time runs out; record them so the round badge can say so
+  for (const [cell, n] of Object.entries(s.pressStore)) if (n > 0) stats(s, Number(cell)).stored = n;
   return { earned: s.earned, shipped: s.shipped, spawned: s.spawned, absorbed: s.absorbed, ticks, cellStats: s.cellStats, events: s.events };
 }

@@ -33,7 +33,7 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] Sell a drafted part from the bin for $10 so useless offers still matter
 - [x] One new machine with a real decision: Plate Press (2 shards → 1 plate $8) behind RULES_VERSION 2
 - [x] Round-end badges on every machine (out/blocked, made/waited, $/shipped) with diagnostics in the side panel
-- [ ] Balance pass driven by autoplayer score distributions per seed
+- [x] Balance pass driven by autoplayer score distributions per seed (`tools/balance.ts`; press kept as tuned in v2 — see DESIGN decisions and `docs/balance-press.json`)
 
 ## M3 — Desktop packaging
 - [x] Electron shell launches (`npm run desktop`, Electron 45 pinned as a devDependency; window verified on Windows 2026-10-25)

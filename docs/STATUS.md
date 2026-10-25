@@ -9,6 +9,8 @@ Verified (actual results):
 - Autoplayer v2 (20 seeds × 120): min 1210 / median 1697 / max 2088 vs starter 228, no suspicious scores; press picked 4/120 (it is the fallback it was designed to be — see Next task)
 - An e2e timing flake was found and fixed in the test (two arrow presses back-to-back under CPU load): keyboard steps are now paced at 150 ms
 
+**Press balance pass** (`tools/balance.ts`, new `ban` option in the autoplayer so the same seeds and offers are played with the press allowed vs refused; 40 seeds × 120 tries, 4 min): v2 press drafted 19/56 times offered (34%), 0 seeds worse / 7 better vs refusing it, +44 mean when taken, +19 mean overall. Hold 1 tick: identical within noise. Plate $9 or $10: pick rate 41% but 3 seeds regress (worst −394) — a trap. **Decision: no tuning change, rules stay v2.** Added: shards left in a press at round end are recorded (`CellStats.stored`) and shown on its badge ("1 shard held"). Evidence summary in `docs/balance-press.json`.
+
 
 ## Local restore — 2026-10-25 (session 2, Windows PC)
 Repo restored from the delivered bundle into `C:devjunkyard draft` (9 commits intact). Verified on this machine, actual results:
@@ -47,4 +49,4 @@ Local PC: `npm install` then `npx playwright install chromium` once. `npm run de
 - The repo lives on the user's PC with no remote yet; push to GitHub before setting up any scheduled cloud continuation.
 
 ## Next task
-Balance pass driven by the autoplayer (last open M2 item): compare per-seed score distributions with and without the press (e.g. 50 seeds × 120 tries), decide whether the press needs a nudge (1-tick hold, $9 plate, or a higher draft weight) or is correctly a fallback; then show the stored-shard count on the press badge at round end. Still needed from a human: playtest notes from one full manual run (M1).
+M3 packaged desktop build: add `electron-builder` (devDependency), a `build` config in package.json with an app icon, produce an unpacked build (`--dir`), launch it, screenshot it, and record the exact command and output size in STATUS. Then M4: a daily-seed board on the verifier (`/board?seed=daily-YYYY-MM-DD` already works; add a `/daily` endpoint returning today's seed + top entries and show it on the title screen when the verifier is reachable). Still needed from a human: playtest notes from one full manual run (M1).
