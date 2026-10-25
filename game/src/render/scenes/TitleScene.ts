@@ -74,7 +74,7 @@ export class TitleScene extends Phaser.Scene {
 
   /** Today's verified board from the local verifier (optional service). Shown separately from local bests; never mixes claimed scores in. */
   private dailyBoard(y: number) {
-    const url = new URLSearchParams(location.search).get('verifier') || 'http://127.0.0.1:4400';
+    const url = new URLSearchParams(location.search).get('verifier') || import.meta.env.VERIFIER_URL;
     panel(this, 60, y, 1000, 58, 0.96);
     const head = label(this, 76, y + 9, "TODAY'S VERIFIED BOARD", 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
     mono(this, head.x + head.width + 18, y + 10, `seed ${dailySeed()}`, 12, CSS.dim);

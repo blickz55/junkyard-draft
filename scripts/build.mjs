@@ -25,6 +25,6 @@ fs.copyFileSync(path.join(ROOT, 'game', 'index.html'), path.join(DIST, 'index.ht
 if (fs.existsSync(path.join(ROOT, 'game', 'public'))) fs.cpSync(path.join(ROOT, 'game', 'public'), DIST, { recursive: true });
 const html = fs.readFileSync(path.join(DIST, 'index.html'), 'utf8').replace('/src/main.ts', './main.js').replace('__BUILD__', `${pkg.version}+${commit}`);
 fs.writeFileSync(path.join(DIST, 'index.html'), html);
-fs.writeFileSync(path.join(DIST, 'build.json'), JSON.stringify({ version: pkg.version, commit, builtAt: new Date().toISOString(), dev: false }, null, 2));
+fs.writeFileSync(path.join(DIST, 'build.json'), JSON.stringify({ version: pkg.version, commit, builtAt: new Date().toISOString(), dev: false, verifierUrl: process.env.VERIFIER_URL || 'http://127.0.0.1:4400' }, null, 2));
 const size = fs.statSync(path.join(DIST, 'main.js')).size;
 console.log(`built dist/ (main.js ${(size / 1024).toFixed(0)} KiB, commit ${commit})`);

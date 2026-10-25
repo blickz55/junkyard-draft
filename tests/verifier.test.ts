@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Verifier, createServer } from '../server/verify';
+import { Verifier, createServer, RateLimiter, clientIp } from '../server/verify';
+import { execFileSync } from 'node:child_process';
 import { apply, newRun } from '../game/src/sim/run';
 import { encodeReplay, exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
@@ -61,5 +62,54 @@ test('http: POST /verify and GET /board return verified data only', async () => 
     assert.equal((await fetch(`${base}/health`)).status, 200);
     const daily = await (await fetch(`${base}/daily`)).json() as { seed: string; verified: boolean; rulesVersion: number; entries: unknown[] };
     assert.equal(daily.seed, dailySeedFor(new Date())); assert.equal(daily.verified, true); assert.deepEqual(daily.entries, []);
+    const health = await (await fetch(`${base}/health`)).json() as { entries: number; uptimeSec: number };
+    assert.equal(health.entries, 1, 'health reports the number of verified entries');
   } finally { server.closeAllConnections(); server.close(); }
+});
+
+test('rate limiter: fixed window per key, resets after the window', () => {
+  let t = 1_000_000;
+  const rl = new RateLimiter(3, 60_000, () => t);
+  assert.deepEqual([rl.take('a').ok, rl.take('a').ok, rl.take('a').ok], [true, true, true]);
+  const fourth = rl.take('a');
+  assert.equal(fourth.ok, false); assert.ok(fourth.retryAfterSec >= 1 && fourth.retryAfterSec <= 60);
+  assert.equal(rl.take('b').ok, true, 'other keys are independent');
+  t += 60_001;
+  assert.equal(rl.take('a').ok, true, 'window reset');
+});
+
+test('http: POST /verify is rate limited per client IP with Retry-After; GETs are not; CORS origin and proxy IP are configurable', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-board-')), 'board.json');
+  const logs: string[] = [];
+  const server = createServer(new Verifier(file), { rateLimit: { limit: 2, windowMs: 60_000 }, corsOrigin: 'https://game.example', trustProxy: true, log: (l) => logs.push(l) });
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
+  const port = (server.address() as { port: number }).port;
+  const base = `http://127.0.0.1:${port}`;
+  try {
+    const run = finishedRun('rl-seed');
+    const body = (claimed?: number) => JSON.stringify({ replay: { ...exportReplay(run), ...(claimed != null ? { claimedScore: claimed } : {}) }, player: 'eve' });
+    const post = (ip: string, b = body()) => fetch(`${base}/verify`, { method: 'POST', headers: { 'X-Forwarded-For': ip }, body: b });
+    assert.equal((await post('10.0.0.1')).status, 200);
+    assert.equal((await post('10.0.0.1')).status, 422, 'duplicate replay is rejected but still counts');
+    const limited = await post('10.0.0.1');
+    assert.equal(limited.status, 429);
+    assert.ok(Number(limited.headers.get('retry-after')) >= 1);
+    assert.equal(limited.headers.get('access-control-allow-origin'), 'https://game.example');
+    assert.equal((await post('10.0.0.2', body(1))).status, 422, 'a different client IP (via X-Forwarded-For, trustProxy) is not limited');
+    for (let i = 0; i < 5; i++) assert.equal((await fetch(`${base}/board?seed=rl-seed`)).status, 200, 'GETs are never limited');
+    const pre = await fetch(`${base}/verify`, { method: 'OPTIONS' });
+    assert.equal(pre.status, 204); assert.equal(pre.headers.get('access-control-allow-origin'), 'https://game.example');
+    assert.ok(logs.some((l) => / POST \/verify 429 /.test(l)), 'request log line for the limited call');
+  } finally { server.closeAllConnections(); server.close(); }
+  // without trustProxy the header is ignored
+  const req = { headers: { 'x-forwarded-for': '10.9.9.9' }, socket: { remoteAddress: '127.0.0.1' } } as unknown as import('node:http').IncomingMessage;
+  assert.equal(clientIp(req, false), '127.0.0.1'); assert.equal(clientIp(req, true), '10.9.9.9');
+});
+
+test('verifier bundles to a single file that exports the server pieces (what the Docker image runs)', async () => {
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-verifier-')), 'verify.mjs');
+  execFileSync(process.execPath, [path.join('node_modules', 'esbuild', 'bin', 'esbuild'), 'server/verify.ts', '--bundle', '--platform=node', '--format=esm', '--target=node20', `--outfile=${out}`, '--log-level=warning'], { stdio: 'pipe' });
+  const mod = await import(`file://${out.replace(/\\\\/g, '/')}`) as { createServer: unknown; Verifier: unknown; RateLimiter: unknown };
+  assert.equal(typeof mod.createServer, 'function'); assert.equal(typeof mod.Verifier, 'function'); assert.equal(typeof mod.RateLimiter, 'function');
+  assert.ok(fs.statSync(out).size < 200_000, 'bundle stays small (sim + server only)');
 });

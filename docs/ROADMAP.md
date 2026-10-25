@@ -45,7 +45,7 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] Local Node verifier service: accepts replay JSON, re-simulates, returns verified score (`npm run verifier`)
 - [x] Results screen submits replays to the local verifier and shows the verified-only board separately from local bests
 - [x] Daily seed board with identical offers/rules for everyone (`GET /daily` on the verifier + title-screen panel; seed = `daily-YYYY-MM-DD` UTC on both sides)
-- [ ] Hosted verifier (same code, public URL) so boards are shared between devices
+- [~] Hosted verifier: service is deployable (HOST/PORT/DATA_DIR, per-IP rate limit, CORS origin, request log, single-file bundle, Dockerfile, `VERIFIER_URL` build define) — image not yet built (no Docker on the dev PC) and nothing deployed
 
 ## M5 — Release readiness
 - [x] Accessibility: reduced motion (belts static, no flashes / pops / travel, items snap; follows the OS preference by default) and text size 100 / 115 / 130 % through the UI helpers — title-screen controls, persisted, e2e-covered

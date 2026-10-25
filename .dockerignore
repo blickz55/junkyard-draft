@@ -1,0 +1,14 @@
+node_modules
+release
+dist
+.dev-build
+.control-room
+.git
+_delivery
+docs
+desktop
+tests
+tools
+control-room
+vendor
+.claude

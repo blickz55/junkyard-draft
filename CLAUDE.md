@@ -10,6 +10,7 @@ Read `docs/STATUS.md` (what works, next task) and `docs/ROADMAP.md` (acceptance 
 - `npm run dev:all` — game dev server (http://127.0.0.1:5173) + Control Room (http://127.0.0.1:4310)
 - `npm run dev` / `npm run control-room` — each alone
 - `npm run typecheck` · `npm test` (node:test; sim + control-room + browser e2e; needs `PLAYWRIGHT_BROWSERS_PATH` if browsers are not in the default cache)
+- `npm run verifier` (dev, tsx) · `npm run verifier:build` → `server/dist/verify.mjs` · `node server/dist/verify.mjs --host 0.0.0.0 --data-dir /data` (prod; see `server/README.md`, `Dockerfile`) · `VERIFIER_URL=https://… npm run build` bakes the default verifier into `dist/`
 - `npm run build` — reproducible production bundle in `dist/` (served by the Control Room at `/verified/`)
 - `npm run desktop` — Electron window over `dist/`; `npm run desktop:pack` — build + unpacked desktop app in `release/win-unpacked/` (electron-builder, config under package.json `build`); `npm run desktop:icon` — re-render the icon PNG from `desktop/build/icon.svg`; `npm run desktop:dist` — unpacked app + NSIS installer in `release/`; `npm run test:desktop` — packaged-app smoke test (also part of `npm test`, skipped when no build exists)
 - `node tools/playwright-shots.mjs <url> <name> --task <id> --note "..."` — screenshot + register in the Control Room

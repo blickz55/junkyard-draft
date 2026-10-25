@@ -53,7 +53,7 @@ export class ResultsScene extends Phaser.Scene {
     new Button(this, W / 2 + 115, 600, 'Download replay', () => this.downloadReplay(run), { w: 200, h: 36, color: P.steelDark, textColor: CSS.text, size: 13, name: 'download' });
     new Button(this, W / 2, 650, 'Title screen', () => this.scene.start('Title'), { w: 160, h: 32, color: P.steelDark, textColor: CSS.text, size: 13, name: 'title' });
     // Local verifier (optional service): verified scores are shown separately from local bests.
-    const verifierUrl = new URLSearchParams(location.search).get('verifier') || 'http://127.0.0.1:4400';
+    const verifierUrl = new URLSearchParams(location.search).get('verifier') || import.meta.env.VERIFIER_URL;
     const status = mono(this, 90, 672, '', 12, CSS.dim);
     const submit = new Button(this, 200, 650, 'Submit to local verifier', () => this.submitToVerifier(run, verifierUrl, submit, status), { w: 210, h: 32, color: P.steelDark, textColor: CSS.text, size: 13, name: 'submit', disabled: !!data.replayed });
     void this.loadBoard(run.seed, verifierUrl, status);

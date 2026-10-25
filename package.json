@@ -21,7 +21,9 @@
     "desktop:icon": "node tools/make-icon.mjs",
     "desktop:pack": "npm run build && electron-builder --dir",
     "desktop:dist": "npm run build && electron-builder --win",
-    "test:desktop": "node --test tests/desktop-smoke.test.mjs"
+    "test:desktop": "node --test tests/desktop-smoke.test.mjs",
+    "verifier:build": "esbuild server/verify.ts --bundle --platform=node --format=esm --target=node20 --outfile=server/dist/verify.mjs --log-level=warning",
+    "verifier:prod": "node server/dist/verify.mjs"
   },
   "devDependencies": {
     "electron": "^45.0.0",

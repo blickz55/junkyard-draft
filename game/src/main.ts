@@ -7,7 +7,7 @@ import { W, H } from './render/layout';
 import { P } from './render/palette';
 
 declare global {
-  interface ImportMeta { env: { DEV: boolean; BUILD: string } }
+  interface ImportMeta { env: { DEV: boolean; BUILD: string; VERIFIER_URL: string } }
 }
 
 const game = new Phaser.Game({
