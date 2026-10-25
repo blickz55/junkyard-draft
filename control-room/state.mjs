@@ -8,7 +8,7 @@ const FEED_LIMIT = 3000;
 
 export function createState() {
   return {
-    rulesVersion: 1,
+    rulesVersion: 2,
     objective: null, // latest cr.objective (reported)
     tasks: {}, // id -> task (reported)
     checks: [], // cr.check (reported)

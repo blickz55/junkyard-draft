@@ -1,6 +1,6 @@
 import type { Dir, MachineKind, Material } from './types';
 
-/** Tuning constants for rules version 1. Changing any value requires bumping RULES_VERSION. */
+/** Tuning constants for rules version 2. Changing any value requires bumping RULES_VERSION. */
 export const RULES = {
   gridWidth: 8,
   gridHeight: 6,
@@ -9,12 +9,14 @@ export const RULES = {
   /** hopper emits one scrap every N ticks */
   hopperPeriod: 2,
   /** processing time in ticks (item is held, then released when output is free) */
-  process: { crusher: 2, furnace: 3 } as Record<string, number>,
-  value: { scrap: 1, shards: 3, ingot: 12, slag: 1 } as Record<Material, number>,
+  process: { crusher: 2, furnace: 3, press: 2 } as Record<string, number>,
+  /** shards a press stores before it outputs one plate */
+  pressShards: 2,
+  value: { scrap: 1, shards: 3, plate: 8, ingot: 12, slag: 1 } as Record<Material, number>,
   /** money for selling an unwanted drafted part from the bin (never a placed machine) */
   sellValue: 10,
   /** Draft offer weights (relative). */
-  draftWeights: { conveyor: 34, crusher: 18, furnace: 15, splitter: 15, hopper: 10, dock: 8 } as Record<MachineKind, number>,
+  draftWeights: { conveyor: 30, crusher: 18, furnace: 15, splitter: 15, hopper: 10, press: 10, dock: 8 } as Record<MachineKind, number>,
   /** Starter layout machine kinds. */
   starter: [
     { kind: 'hopper', x: 1, y: 2, dir: 0 },
@@ -31,13 +33,18 @@ export const MACHINE_INFO: Record<MachineKind, { name: string; blurb: string }> 
   splitter: { name: 'Splitter', blurb: 'Takes from behind, alternates output left and right. Doubles a line.' },
   crusher: { name: 'Crusher', blurb: 'Scrap → Shards ($3). Takes 2 ticks. Other materials pass through.' },
   furnace: { name: 'Furnace', blurb: 'Shards → Ingot ($12). Raw scrap melts to Slag ($1). Takes 3 ticks.' },
+  press: { name: 'Plate Press', blurb: 'Two Shards → one Plate ($8). Takes 2 ticks and halves the traffic behind it. Other materials pass through.' },
   dock: { name: 'Shipping Dock', blurb: 'Accepts items from any side and sells them for their value.' },
 };
 
-/** Material transformation when an item enters a processing machine. */
+/** Processing machines hold an item for RULES.process[kind] ticks. */
+export const isProcessor = (kind: MachineKind): boolean => kind === 'crusher' || kind === 'furnace' || kind === 'press';
+
+/** Material transformation when an item enters a processing machine (for a press: the shard that completes a plate). */
 export function transform(kind: MachineKind, mat: Material): Material {
   if (kind === 'crusher') return mat === 'scrap' ? 'shards' : mat;
   if (kind === 'furnace') return mat === 'shards' ? 'ingot' : mat === 'scrap' ? 'slag' : mat;
+  if (kind === 'press') return mat === 'shards' ? 'plate' : mat;
   return mat;
 }
 

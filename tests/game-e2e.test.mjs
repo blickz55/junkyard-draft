@@ -71,6 +71,41 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     st = await api('state'); assert.equal(st.layout.machines.find((m) => m.kind === 'crusher').dir, 0, 'right-click rotates');
     await page.screenshot({ path: path.join(SHOTS, `e2e-build-${Date.now()}.png`) });
 
+    // 2b) keyboard-only placement: arrows reveal/move the cursor, Enter places the bin part, R rotates,
+    //     Enter picks it up again and drops it elsewhere, Delete returns it to the bin.
+    const cur = () => api('cursor');
+    assert.equal((await cur()).visible, false, 'cursor hidden until an arrow key is pressed');
+    await page.keyboard.press('ArrowRight'); await wait(150);
+    assert.deepEqual([(await cur()).x, (await cur()).y], [2, 2], 'first arrow press reveals the cursor on the selected crusher');
+    await page.keyboard.press('ArrowDown'); await wait(150);
+    assert.deepEqual([(await cur()).x, (await cur()).y], [2, 3]);
+    assert.equal((await api('state')).bin.length, 1, 'the conveyor waits in the bin');
+    await page.keyboard.press('Enter'); await wait(150);
+    st = await api('state');
+    let kbConv = st.layout.machines.find((mm) => mm.x === 2 && mm.y === 3);
+    assert.ok(kbConv && kbConv.kind === 'conveyor', 'Enter placed the bin conveyor at the cursor');
+    assert.equal(st.bin.length, 0);
+    await page.keyboard.press('r'); await wait(150);
+    assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id).dir, 1, 'R rotates the machine just placed');
+    await page.keyboard.press('Enter'); await wait(150);
+    assert.equal((await cur()).held, kbConv.id, 'Enter on a machine picks it up');
+    await page.keyboard.press('ArrowUp'); await wait(150);
+    await page.keyboard.press('Enter'); await wait(150);
+    assert.equal((await cur()).held, kbConv.id, 'dropping onto the occupied crusher cell is refused and the part stays in hand');
+    await page.keyboard.press('ArrowDown'); await wait(150); await page.keyboard.press('ArrowRight'); await wait(150);
+    await page.keyboard.press('Enter'); await wait(150);
+    st = await api('state');
+    kbConv = st.layout.machines.find((mm) => mm.id === kbConv.id);
+    assert.deepEqual([kbConv.x, kbConv.y, (await cur()).held], [3, 3, null], 'moved by keyboard and dropped');
+    await page.keyboard.press('Delete'); await wait(150);
+    st = await api('state');
+    assert.equal(st.bin.length, 1, 'Delete sent the machine under the cursor back to the bin');
+    assert.ok(!st.layout.machines.some((mm) => mm.x === 3 && mm.y === 3));
+    await page.keyboard.press('Escape'); await wait(150); // first Esc clears the selection
+    await page.keyboard.press('Escape'); await wait(150);
+    assert.equal((await cur()).visible, false, 'Escape hides the cursor');
+    await page.screenshot({ path: path.join(SHOTS, `e2e-keyboard-${Date.now()}.png`) });
+
     // 3) run with Space, watch some animation, then skip to the result
     await page.keyboard.press('Space');
     await page.waitForFunction(() => window.__jd.mode() === 'running');

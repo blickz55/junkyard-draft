@@ -1,4 +1,14 @@
-# Status — 2026-10-25 (end of session 1; restored on the user's PC the same day)
+# Status — 2026-10-25 (session 2 on the user's PC: rules v2 + keyboard placement)
+
+## Session 2 increments — 2026-10-25 (Windows PC)
+**Keyboard-only placement** (ROADMAP M2): arrow keys reveal/move a blue grid cursor (first press lands on the selected machine, else top-left); Enter places the next bin part, or picks up / drops the machine under the cursor (occupied cells refuse with the red flash); Tab cycles bin parts into the hand; R rotates; Delete / Backspace return to the bin; Esc drops → deselects → hides. Same rule-checked actions as the mouse; `window.__jd.cursor()` exposes it to tests.
+**Plate Press** (ROADMAP M2, `RULES_VERSION` 1 → 2): two shards → one $8 plate, 2-tick hold, input from behind, other materials pass through; the first shard is absorbed (new `absorb` event, `RunResult.absorbed`, so in-transit diagnostics stay honest). Draft weight 10 (conveyor 34 → 30). Saves, replays and the verifier reject v1 files by design.
+Verified (actual results):
+- `npm run typecheck` clean · `npm test` 22/22 in 10 s (2 new sim tests; e2e gained a keyboard step: reveal, move, place, rotate, pick up, refused drop, move, Delete, Esc)
+- Browser (desktop app pane, seed `forge`): round 2 offers the Plate Press with its card art; hopper → crusher → press → dock shipped 18 plates = $144 with "clean run" diagnostics and "19 made" on the press badge; keyboard cursor visible and moving; no console errors
+- Autoplayer v2 (20 seeds × 120): min 1210 / median 1697 / max 2088 vs starter 228, no suspicious scores; press picked 4/120 (it is the fallback it was designed to be — see Next task)
+- An e2e timing flake was found and fixed in the test (two arrow presses back-to-back under CPU load): keyboard steps are now paced at 150 ms
+
 
 ## Local restore — 2026-10-25 (session 2, Windows PC)
 Repo restored from the delivered bundle into `C:devjunkyard draft` (9 commits intact). Verified on this machine, actual results:
@@ -31,10 +41,10 @@ Local PC: `npm install` then `npx playwright install chromium` once. `npm run de
 
 ## Known issues / gaps
 - Electron shell launches locally (Electron 45); no installer/packaging, no icon, not smoke-tested beyond opening the window.
-- No keyboard-only placement; no colour-blind alternative shapes yet (materials already differ in shape).
+- No colour-blind alternative shapes yet (materials already differ in shape). A shard left in a press at round end is simply lost and not yet shown on its badge.
 - Hook `SessionStart` model field only arrives for sessions started after the hooks existed, so this session shows model "unavailable".
 - Scheduled cloud runs: not configured (needs a persistent repo location + the user's chosen cadence; see CONTINUE.md). Cloud visibility in the dashboard is "unavailable" by design.
 - The repo lives on the user's PC with no remote yet; push to GitHub before setting up any scheduled cloud continuation.
 
 ## Next task
-Keyboard-only placement (arrow keys move a cursor, Enter places/picks up, R rotates, Delete removes) with a visible cursor, verified by an e2e step; then a 7th machine with a real decision (Press: 2 shards → 1 plate $8) behind a RULES_VERSION bump.
+Balance pass driven by the autoplayer (last open M2 item): compare per-seed score distributions with and without the press (e.g. 50 seeds × 120 tries), decide whether the press needs a nudge (1-tick hold, $9 plate, or a higher draft weight) or is correctly a fallback; then show the stored-shard count on the press badge at round end. Still needed from a human: playtest notes from one full manual run (M1).

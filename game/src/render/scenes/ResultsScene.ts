@@ -40,7 +40,7 @@ export class ResultsScene extends Phaser.Scene {
     panel(this, 540, 240, 490, 250, 0.95);
     label(this, 556, 252, 'WHAT SHIPPED', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
     let y = 282;
-    for (const m of ['ingot', 'shards', 'scrap', 'slag'] as const) if (shipped[m]) { this.add.image(566, y + 9, `i-${m}`); label(this, 586, y, `${shipped[m]} × ${m} ($${RULES.value[m]} each) = $${shipped[m] * RULES.value[m]}`, 14); y += 28; }
+    for (const m of ['ingot', 'plate', 'shards', 'scrap', 'slag'] as const) if (shipped[m]) { this.add.image(566, y + 9, `i-${m}`); label(this, 586, y, `${shipped[m]} × ${m} ($${RULES.value[m]} each) = $${shipped[m] * RULES.value[m]}`, 14); y += 28; }
     if (run.sold) { label(this, 586, y, `Sold unused parts = $${run.sold}`, 14); y += 28; }
     label(this, 556, y + 8, `Drafted: ${run.picks.map((p) => p.replace(/^./, (c) => c.toUpperCase())).join(', ')}`, 13, CSS.dim).setWordWrapWidth(250);
     label(this, 556, y + 56, 'Scores are local and unverified until a verifier re-simulates the replay.', 12, CSS.dim).setWordWrapWidth(250);

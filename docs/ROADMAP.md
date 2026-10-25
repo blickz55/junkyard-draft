@@ -29,14 +29,14 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 
 ## M2 — Readability, controls, depth
 - [x] Per-machine stats after a round are shown as on-grid badges (tooltips not needed)
-- [ ] Keyboard-only placement (arrow keys + Enter) for accessibility
+- [x] Keyboard-only placement (arrow keys + Enter, Tab, R, Delete, Esc) for accessibility — verified by an e2e step
 - [x] Sell a drafted part from the bin for $10 so useless offers still matter
-- [ ] One new machine with a real decision (e.g. Press: 2 shards → 1 plate $8, or a Sorter)
+- [x] One new machine with a real decision: Plate Press (2 shards → 1 plate $8) behind RULES_VERSION 2
 - [x] Round-end badges on every machine (out/blocked, made/waited, $/shipped) with diagnostics in the side panel
 - [ ] Balance pass driven by autoplayer score distributions per seed
 
 ## M3 — Desktop packaging
-- [~] Electron shell scaffolded (`desktop/main.cjs`, `npm run desktop`); not launchable in the sandbox — needs `npm i -D electron` on a normal machine, then pin the version
+- [x] Electron shell launches (`npm run desktop`, Electron 45 pinned as a devDependency; window verified on Windows 2026-10-25)
 - [ ] Packaged build launched and screenshotted on at least one platform
 
 ## M4 — Verification server & leaderboard

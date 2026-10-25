@@ -1,96 +1,97 @@
 {
  "seeds": 20,
  "triesPerRound": 120,
- "ms": 82060,
+ "ms": 18540,
  "starterOnlyScore": 228,
- "min": 1371,
- "p25": 1488,
- "median": 1617,
- "p75": 1748,
- "max": 2008,
+ "min": 1210,
+ "p25": 1594,
+ "median": 1697,
+ "p75": 1788,
+ "max": 2088,
  "deadEndSeeds": [
-  "auto-3",
   "auto-7",
-  "auto-16",
-  "auto-19"
+  "auto-10"
  ],
- "flatRoundsTotal": 39,
- "noIngotSeeds": [],
+ "flatRoundsTotal": 33,
+ "noIngotSeeds": [
+  "auto-6"
+ ],
  "pickFrequency": {
-  "crusher": 43,
+  "crusher": 38,
   "furnace": 28,
-  "hopper": 21,
+  "dock": 6,
+  "hopper": 28,
   "conveyor": 9,
-  "splitter": 12,
-  "dock": 7
+  "splitter": 7,
+  "press": 4
  },
  "suspicious": [],
  "top": [
   {
-   "seed": "auto-0",
-   "score": 2008,
+   "seed": "auto-12",
+   "score": 2088,
+   "rounds": [
+    117,
+    300,
+    340,
+    417,
+    457,
+    457
+   ],
+   "picks": [
+    "crusher",
+    "furnace",
+    "hopper",
+    "crusher",
+    "hopper",
+    "conveyor"
+   ],
+   "deadEnd": false,
+   "flatRounds": 1,
+   "ingots": 125,
+   "peakRound": 5
+  },
+  {
+   "seed": "auto-1",
+   "score": 2054,
+   "rounds": [
+    117,
+    300,
+    340,
+    380,
+    420,
+    497
+   ],
+   "picks": [
+    "crusher",
+    "furnace",
+    "hopper",
+    "hopper",
+    "hopper",
+    "crusher"
+   ],
+   "deadEnd": false,
+   "flatRounds": 0,
+   "ingots": 125,
+   "peakRound": 6
+  },
+  {
+   "seed": "auto-17",
+   "score": 2048,
    "rounds": [
     117,
     300,
     340,
     417,
     417,
-    417
-   ],
-   "picks": [
-    "crusher",
-    "furnace",
-    "hopper",
-    "crusher",
-    "conveyor",
-    "furnace"
-   ],
-   "deadEnd": false,
-   "flatRounds": 2,
-   "ingots": 125,
-   "peakRound": 4
-  },
-  {
-   "seed": "auto-14",
-   "score": 2005,
-   "rounds": [
-    114,
-    300,
-    340,
-    417,
-    417,
-    417
-   ],
-   "picks": [
-    "crusher",
-    "furnace",
-    "hopper",
-    "crusher",
-    "crusher",
-    "furnace"
-   ],
-   "deadEnd": false,
-   "flatRounds": 2,
-   "ingots": 125,
-   "peakRound": 4
-  },
-  {
-   "seed": "auto-4",
-   "score": 1928,
-   "rounds": [
-    114,
-    300,
-    300,
-    340,
-    417,
     457
    ],
    "picks": [
     "crusher",
     "furnace",
-    "splitter",
     "hopper",
     "crusher",
+    "furnace",
     "hopper"
    ],
    "deadEnd": false,
@@ -101,77 +102,76 @@
  ],
  "bottom": [
   {
-   "seed": "auto-13",
-   "score": 1371,
+   "seed": "auto-6",
+   "score": 1210,
    "rounds": [
     117,
-    117,
     157,
-    300,
-    340,
-    340
+    234,
+    234,
+    234,
+    234
    ],
    "picks": [
     "crusher",
-    "dock",
     "hopper",
-    "furnace",
+    "crusher",
     "conveyor",
-    "furnace"
+    "splitter",
+    "crusher"
    ],
    "deadEnd": false,
-   "flatRounds": 2,
-   "ingots": 75,
-   "peakRound": 5
+   "flatRounds": 3,
+   "ingots": 0,
+   "peakRound": 3
   },
   {
-   "seed": "auto-6",
+   "seed": "auto-3",
    "score": 1422,
    "rounds": [
     117,
     157,
     234,
-    274,
+    234,
     300,
-    340
+    380
    ],
    "picks": [
     "crusher",
     "hopper",
     "crusher",
-    "hopper",
+    "conveyor",
     "furnace",
-    "splitter"
+    "hopper"
    ],
    "deadEnd": false,
-   "flatRounds": 0,
+   "flatRounds": 1,
    "ingots": 50,
    "peakRound": 6
   },
   {
-   "seed": "auto-7",
-   "score": 1434,
+   "seed": "auto-8",
+   "score": 1422,
    "rounds": [
     117,
     117,
-    300,
+    288,
     300,
     300,
     300
    ],
    "picks": [
     "crusher",
-    "crusher",
-    "furnace",
-    "conveyor",
     "dock",
+    "furnace",
+    "furnace",
+    "splitter",
     "crusher"
    ],
-   "deadEnd": true,
-   "flatRounds": 4,
-   "ingots": 100,
-   "peakRound": 3
+   "deadEnd": false,
+   "flatRounds": 3,
+   "ingots": 99,
+   "peakRound": 4
   }
- ],
- "note": "Greedy local-search autoplayer; diagnostic only. Dead-end flags = rounds where no offer improved the line (search-limited, not seed-limited)."
+ ]
 }

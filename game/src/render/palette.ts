@@ -19,6 +19,7 @@ export const P = {
   gold: 0xf5c542,
   scrap: 0x8a6d4e,
   shards: 0xc9d3dc,
+  plate: 0x9fb4c7,
   ingot: 0xf5c542,
   slag: 0x6b3a3a,
   ok: 0x6fcf8a,

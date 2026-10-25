@@ -23,6 +23,12 @@ export function generateTextures(scene: Phaser.Scene) {
   make('tile-ok', C, C, (g) => { g.fillStyle(P.green, 0.28); g.fillRect(0, 0, C, C); g.lineStyle(2, P.green, 0.9); g.strokeRect(1, 1, C - 2, C - 2); });
   make('tile-bad', C, C, (g) => { g.fillStyle(P.red, 0.28); g.fillRect(0, 0, C, C); g.lineStyle(2, P.red, 0.9); g.strokeRect(1, 1, C - 2, C - 2); });
   make('tile-sel', C, C, (g) => { g.lineStyle(3, P.amber, 1); g.strokeRect(2, 2, C - 4, C - 4); });
+  // keyboard cursor: blue frame with corner ticks (distinct from the amber selection)
+  make('tile-cursor', C, C, (g) => {
+    g.lineStyle(2, P.blue, 0.95); g.strokeRect(3, 3, C - 6, C - 6);
+    g.fillStyle(P.blue, 1);
+    for (const [x, y] of [[3, 3], [C - 3, 3], [3, C - 3], [C - 3, C - 3]] as const) { g.fillRect(Math.min(x, x - 10 + (x < H ? 10 : 0)), y - 2, 10, 4); g.fillRect(x - 2, Math.min(y, y - 10 + (y < H ? 10 : 0)), 4, 10); }
+  });
 
   const body = (g: Phaser.GameObjects.Graphics, color: number, inset = 8, radius = 8) => {
     g.fillStyle(0x000000, 0.35); g.fillRoundedRect(inset + 2, inset + 3, C - inset * 2, C - inset * 2, radius);
@@ -80,6 +86,17 @@ export function generateTextures(scene: Phaser.Scene) {
     arrow(g, C - 12, H, 9, P.amber);
     bolt(g, 12, C - 12); bolt(g, C - 12, C - 12);
   });
+  // press: steel frame, ram pressing a plate, output east
+  make('m-press', C, C, (g) => {
+    body(g, 0x4f6b8a, 7, 6);
+    g.fillStyle(0x263340, 1); g.fillRoundedRect(14, 14, C - 28, C - 28, 5);
+    g.fillStyle(P.steel, 1); g.fillRect(22, 12, C - 44, 14); // ram head
+    g.fillStyle(P.steelDark, 1); g.fillRect(H - 5, 26, 10, 10); // piston rod
+    g.fillStyle(P.plate, 1); g.fillRoundedRect(20, 38, C - 40, 8, 2); // plate being pressed
+    g.fillStyle(0x3a4a5a, 1); g.fillRect(16, 48, C - 32, 8); // anvil
+    arrow(g, C - 12, H, 9, P.amber);
+    bolt(g, 12, 12); bolt(g, C - 12, 12); bolt(g, 12, C - 12); bolt(g, C - 12, C - 12);
+  });
   // splitter: Y plate, input west, outputs north+south
   make('m-splitter', C, C, (g) => {
     body(g, 0x5c6a52, 7, 8);
@@ -104,6 +121,7 @@ export function generateTextures(scene: Phaser.Scene) {
   const S = 24;
   make('i-scrap', S, S, (g) => { g.fillStyle(0x000000, 0.35); g.fillCircle(13, 14, 9); g.fillStyle(P.scrap, 1); g.fillCircle(12, 12, 9); g.fillStyle(0x5c4631, 1); g.fillCircle(9, 10, 3); g.fillCircle(15, 14, 2.5); g.fillStyle(0xffffff, 0.2); g.fillCircle(9, 8, 2); });
   make('i-shards', S, S, (g) => { g.fillStyle(0x000000, 0.35); g.fillTriangle(5, 21, 21, 21, 13, 5); g.fillStyle(P.shards, 1); g.fillTriangle(4, 19, 20, 19, 12, 3); g.fillTriangle(6, 21, 14, 21, 9, 13); g.fillStyle(0xffffff, 0.5); g.fillTriangle(9, 15, 12, 15, 11, 8); });
+  make('i-plate', S, S, (g) => { g.fillStyle(0x000000, 0.35); g.fillRoundedRect(3, 10, 19, 9, 2); g.fillStyle(P.plate, 1); g.fillRoundedRect(2, 8, 19, 9, 2); g.fillStyle(0xffffff, 0.35); g.fillRect(4, 10, 15, 2); g.fillStyle(0x3a4a5a, 1); g.fillCircle(6, 13, 1.3); g.fillCircle(17, 13, 1.3); });
   make('i-ingot', S, S, (g) => { g.fillStyle(0x000000, 0.35); g.fillRoundedRect(3, 9, 19, 12, 3); g.fillStyle(P.ingot, 1); g.fillRoundedRect(2, 7, 19, 12, 3); g.fillStyle(0xfff2b0, 1); g.fillRect(5, 9, 10, 3); g.lineStyle(1.5, 0x9a7a1a, 1); g.strokeRoundedRect(2, 7, 19, 12, 3); });
   make('i-slag', S, S, (g) => { g.fillStyle(0x000000, 0.35); g.fillCircle(13, 14, 8); g.fillStyle(P.slag, 1); g.fillCircle(12, 12, 8); g.fillStyle(0x3a1e1e, 1); g.fillCircle(9, 11, 3); g.fillStyle(0xd34a2a, 0.7); g.fillCircle(15, 14, 2); });
 

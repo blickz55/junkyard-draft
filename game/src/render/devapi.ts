@@ -17,6 +17,8 @@ export interface DevApi {
   next: () => void;
   pick: (i: number) => void;
   hint: () => string;
+  /** keyboard cursor: grid cell, visibility, and the id of the machine held in hand (null when empty) */
+  cursor: () => { visible: boolean; x: number; y: number; held: number | null };
 }
 
 export const devEnabled = () => import.meta.env.DEV || new URLSearchParams(location.search).get('dev') === '1';
@@ -34,6 +36,7 @@ export function installDevApi(scene: GameScene) {
     next: () => scene.nextRound(),
     pick: (i) => scene.pick(i),
     hint: () => scene['hint']?.text ?? '',
+    cursor: () => scene.cursorInfo(),
   };
   (window as unknown as { __jd: DevApi }).__jd = api;
 }

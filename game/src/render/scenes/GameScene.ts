@@ -40,6 +40,10 @@ export class GameScene extends Phaser.Scene {
   private dragging: MachineView | null = null;
   private dragFrom: { x: number; y: number } | null = null;
   private runBtn: Button | null = null;
+  /** keyboard placement: grid cursor (null = hidden) and the machine currently held "in hand" */
+  private cursor: { x: number; y: number } | null = null;
+  private cursorImg!: Phaser.GameObjects.Image;
+  private heldId: number | null = null;
 
   constructor() { super('Game'); }
 
@@ -53,6 +57,7 @@ export class GameScene extends Phaser.Scene {
     this.sim = null;
     this.views.clear(); this.itemSprites.clear(); this.jamMarks.clear();
     this.selectedId = null; this.overlay = null; this.dragging = null;
+    this.cursor = null; this.heldId = null;
   }
 
   create() {
@@ -62,6 +67,7 @@ export class GameScene extends Phaser.Scene {
     this.buildHud();
     this.hover = this.add.image(0, 0, 'tile-ok').setOrigin(0).setVisible(false).setDepth(5);
     this.selection = this.add.image(0, 0, 'tile-sel').setOrigin(0).setVisible(false).setDepth(6);
+    this.cursorImg = this.add.image(0, 0, 'tile-cursor').setOrigin(0).setVisible(false).setDepth(6);
     this.side = this.add.container(SIDE_X, GRID_Y);
     this.syncMachines();
     this.renderSide();
@@ -80,7 +86,7 @@ export class GameScene extends Phaser.Scene {
     for (let y = 0; y < RULES.gridHeight; y++) for (let x = 0; x < RULES.gridWidth; x++) this.add.image(GRID_X + x * CELL, GRID_Y + y * CELL, 'tile').setOrigin(0);
     this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H).setOrigin(0).setStrokeStyle(2, P.panelLine);
     panel(this, GRID_X, BIN_Y, GRID_W, 110, 0.9);
-    label(this, GRID_X + 10, BIN_Y + 6, 'PARTS BIN  — drag parts onto the grid', 12, CSS.amber, { fontStyle: 'bold', letterSpacing: 1 });
+    label(this, GRID_X + 10, BIN_Y + 6, 'PARTS BIN  — drag parts onto the grid, or arrow keys + Enter', 12, CSS.amber, { fontStyle: 'bold', letterSpacing: 1 });
     panel(this, SIDE_X, GRID_Y, SIDE_W, H - GRID_Y - 24, 0.95);
   }
   private buildHud() {
@@ -124,14 +130,19 @@ export class GameScene extends Phaser.Scene {
       let v = this.views.get(m.id);
       if (!v) { v = this.makeView(m); this.views.set(m.id, v); v.c.setPosition(px, py); }
       v.m = m; v.inBin = inBin; alive.add(m.id);
+      const held = this.heldId === m.id && this.cursor ? this.cellXY(this.cursor.x, this.cursor.y) : null;
+      if (held) { px = held.px; py = held.py; }
       if (!this.dragging || this.dragging.m.id !== m.id) this.tweens.add({ targets: v.c, x: px, y: py, duration: 120, ease: 'Quad.out' });
       v.img.setAngle(m.dir * 90); v.belt?.setAngle(m.dir * 90);
-      v.c.setAlpha(inBin ? 0.95 : 1);
+      v.c.setDepth(held ? 10 : 2);
+      v.c.setAlpha(held ? 0.85 : inBin ? 0.95 : 1);
     };
     this.run.layout.machines.forEach((m) => { const { px, py } = this.cellXY(m.x, m.y); place(m, false, px, py); });
     this.run.bin.forEach((m, i) => { const { px, py } = this.binSlot(i); place(m, true, px, py); });
     for (const [id, v] of this.views) if (!alive.has(id)) { v.c.destroy(); this.views.delete(id); }
+    if (this.heldId != null && !alive.has(this.heldId)) this.heldId = null;
     this.updateSelection();
+    this.updateCursor();
   }
   private updateSelection() {
     const v = this.selectedId != null ? this.views.get(this.selectedId) : undefined;
@@ -148,6 +159,7 @@ export class GameScene extends Phaser.Scene {
     this.input.on('dragstart', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image) => {
       if (this.mode !== 'build' || this.replayQueue) return;
       const v = obj.getData('view') as MachineView; if (!v) return;
+      this.heldId = null; this.updateCursor();
       this.dragging = v; this.dragFrom = { x: v.c.x, y: v.c.y }; v.c.setDepth(10); this.selectedId = v.m.id; this.updateSelection(); this.renderSide();
     });
     this.input.on('drag', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image, dx: number, dy: number) => {
@@ -178,11 +190,21 @@ export class GameScene extends Phaser.Scene {
       if (p.rightButtonDown()) this.rotateSelected();
     });
     const kb = this.input.keyboard;
+    const KC = Phaser.Input.Keyboard.KeyCodes;
+    kb?.addCapture([KC.UP, KC.DOWN, KC.LEFT, KC.RIGHT, KC.ENTER, KC.TAB, KC.SPACE]);
     kb?.on('keydown-R', () => this.rotateSelected());
     kb?.on('keydown-SPACE', () => { if (this.mode === 'build' && this.run.phase === 'build') this.startRun(); else if (this.mode === 'summary') this.nextRound(); });
-    kb?.on('keydown-ESC', () => { if (this.mode === 'running') this.setPaused(true); else if (this.mode === 'paused') this.setPaused(false); else { this.selectedId = null; this.updateSelection(); this.renderSide(); } });
+    kb?.on('keydown-ESC', () => { if (this.mode === 'running') this.setPaused(true); else if (this.mode === 'paused') this.setPaused(false); else this.keyEscape(); });
     kb?.on('keydown-M', () => audio.setMuted(!audio.muted));
-    kb?.on('keydown-DELETE', () => { if (this.selectedId != null) { this.act({ t: 'unplace', id: this.selectedId }); this.syncMachines(); } });
+    kb?.on('keydown-DELETE', () => this.keyDelete());
+    kb?.on('keydown-BACKSPACE', () => this.keyDelete());
+    // keyboard-only placement: arrows move the cursor, Enter places / picks up, Tab cycles bin parts
+    kb?.on('keydown-UP', () => this.moveCursor(0, -1));
+    kb?.on('keydown-DOWN', () => this.moveCursor(0, 1));
+    kb?.on('keydown-LEFT', () => this.moveCursor(-1, 0));
+    kb?.on('keydown-RIGHT', () => this.moveCursor(1, 0));
+    kb?.on('keydown-ENTER', () => this.keyEnter());
+    kb?.on('keydown-TAB', () => this.keyTab());
     for (const n of [1, 2, 3]) kb?.on(`keydown-${['ONE', 'TWO', 'THREE'][n - 1]}`, () => { if (this.run.phase === 'draft' && !this.replayQueue) this.pick(n - 1); });
     this.game.events.on(Phaser.Core.Events.BLUR, () => { if (this.mode === 'running') this.setPaused(true); });
   }
@@ -194,6 +216,79 @@ export class GameScene extends Phaser.Scene {
   rotateSelected() {
     if (this.mode !== 'build' || this.selectedId == null || this.replayQueue) return;
     if (this.act({ t: 'rotate', id: this.selectedId })) { audio.rotate(); this.syncMachines(); }
+  }
+
+  // ---------- keyboard placement ----------
+  cursorInfo() { return { visible: this.cursor != null && this.mode === 'build', x: this.cursor?.x ?? -1, y: this.cursor?.y ?? -1, held: this.heldId }; }
+  private machineById(id: number | null): Machine | undefined {
+    if (id == null) return undefined;
+    return this.run.layout.machines.find((m) => m.id === id) ?? this.run.bin.find((m) => m.id === id);
+  }
+  private occupantAt(x: number, y: number) { return this.run.layout.machines.find((m) => m.x === x && m.y === y); }
+  /** First arrow press reveals the cursor (on the selected machine, else top-left) without moving it. */
+  private moveCursor(dx: number, dy: number) {
+    if (this.mode !== 'build' || this.replayQueue) return;
+    if (!this.cursor) {
+      const sel = this.machineById(this.selectedId);
+      this.cursor = sel && sel.x >= 0 ? { x: sel.x, y: sel.y } : { x: 0, y: 0 };
+    } else {
+      this.cursor = { x: Phaser.Math.Clamp(this.cursor.x + dx, 0, RULES.gridWidth - 1), y: Phaser.Math.Clamp(this.cursor.y + dy, 0, RULES.gridHeight - 1) };
+    }
+    if (this.heldId != null) this.syncMachines(); else this.updateCursor();
+  }
+  private updateCursor() {
+    if (!this.cursor || this.mode !== 'build') { this.cursorImg.setVisible(false); if (!this.dragging) this.hover.setVisible(false); return; }
+    const { px, py } = this.cellXY(this.cursor.x, this.cursor.y);
+    this.cursorImg.setPosition(px, py).setVisible(true);
+    if (this.heldId != null) {
+      const occ = this.occupantAt(this.cursor.x, this.cursor.y);
+      this.hover.setTexture(occ && occ.id !== this.heldId ? 'tile-bad' : 'tile-ok').setPosition(px, py).setVisible(true);
+    } else if (!this.dragging) this.hover.setVisible(false);
+  }
+  /** Enter: drop the held machine here; else pick up the machine here; else place the first bin part here. */
+  private keyEnter() {
+    if (this.mode !== 'build' || this.replayQueue) return;
+    if (!this.cursor) { this.moveCursor(0, 0); return; }
+    const { x, y } = this.cursor;
+    const occupant = this.occupantAt(x, y);
+    const held = this.machineById(this.heldId);
+    if (held) {
+      if (held.x === x && held.y === y) { this.heldId = null; }
+      else if (occupant) { audio.invalid(); this.flashBad(x, y); return; }
+      else if (this.act({ t: 'place', id: held.id, x, y, dir: held.dir })) { audio.place(); this.heldId = null; this.selectedId = held.id; }
+      else { audio.invalid(); this.flashBad(x, y); return; }
+    } else if (occupant) {
+      this.heldId = occupant.id; this.selectedId = occupant.id; audio.click();
+    } else if (this.run.bin.length) {
+      const part = this.run.bin[0];
+      if (this.act({ t: 'place', id: part.id, x, y, dir: part.dir })) { audio.place(); this.selectedId = part.id; }
+      else { audio.invalid(); this.flashBad(x, y); return; }
+    } else { audio.invalid(); return; }
+    this.syncMachines(); this.renderSide();
+  }
+  /** Tab: take the next bin part in hand (cycling); Enter then places it at the cursor. */
+  private keyTab() {
+    if (this.mode !== 'build' || this.replayQueue || !this.run.bin.length) return;
+    const i = this.run.bin.findIndex((m) => m.id === this.heldId);
+    const next = this.run.bin[(i + 1) % this.run.bin.length];
+    this.heldId = next.id; this.selectedId = next.id;
+    if (!this.cursor) this.cursor = { x: 0, y: 0 };
+    audio.click(); this.syncMachines(); this.renderSide();
+  }
+  /** Delete: send the held machine, else the machine under the cursor, else the selected machine back to the bin. */
+  private keyDelete() {
+    if (this.mode !== 'build' || this.replayQueue) return;
+    const target = this.machineById(this.heldId) ?? (this.cursor ? this.occupantAt(this.cursor.x, this.cursor.y) : undefined) ?? this.machineById(this.selectedId);
+    if (!target) return;
+    this.heldId = null;
+    if (target.x >= 0 && this.act({ t: 'unplace', id: target.id })) audio.place();
+    this.syncMachines(); this.renderSide();
+  }
+  /** Esc (build): drop what is in hand, else clear the selection, else hide the cursor. */
+  private keyEscape() {
+    if (this.heldId != null) { this.heldId = null; this.syncMachines(); this.renderSide(); return; }
+    if (this.selectedId != null) { this.selectedId = null; this.updateSelection(); this.renderSide(); return; }
+    this.cursor = null; this.updateCursor();
   }
 
   /** Apply an action to the run; returns false (and keeps state) if the rules reject it. */
@@ -258,7 +353,7 @@ export class GameScene extends Phaser.Scene {
         if (sel.x >= 0) add(new Button(this, 190, 128, 'To bin (Del)', () => { this.act({ t: 'unplace', id: sel.id }); this.syncMachines(); }, { w: 110, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'tobin' }));
         else add(new Button(this, 200, 128, `Sell for $${RULES.sellValue}`, () => { if (this.act({ t: 'sell', id: sel.id })) { audio.ship(RULES.sellValue); this.selectedId = null; this.syncMachines(); this.renderSide(); } }, { w: 120, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'sell' }));
       } else {
-        t(16, 44, 'Drag a part from the bin onto the grid. Click a placed machine to select it; R or right-click rotates it. Drop a machine on the bin to remove it.', 14, CSS.dim);
+        t(16, 44, 'Drag a part from the bin onto the grid. Click a placed machine to select it; R or right-click rotates it. Drop a machine on the bin to remove it.\n\nKeyboard: arrow keys move the cursor · Enter places the next bin part, or picks up / drops a machine · Tab cycles bin parts · R rotates · Delete sends it to the bin.', 14, CSS.dim);
       }
       const placedCount = r.layout.machines.length;
       t(16, 176, `${placedCount} machines placed · ${r.bin.length} in bin`, 12, CSS.dim);
@@ -271,14 +366,14 @@ export class GameScene extends Phaser.Scene {
   private legend(x: number, y: number) {
     const c = this.add.container(x, y);
     c.add(this.add.text(0, 0, 'VALUES', { fontFamily: FONT, fontSize: '12px', color: CSS.amber, fontStyle: 'bold' }));
-    const mats: Material[] = ['scrap', 'shards', 'ingot', 'slag'];
-    const notes: Record<Material, string> = { scrap: 'raw, from the hopper', shards: 'scrap through a crusher', ingot: 'shards through a furnace', slag: 'raw scrap in a furnace' };
+    const mats: Material[] = ['scrap', 'shards', 'plate', 'ingot', 'slag'];
+    const notes: Record<Material, string> = { scrap: 'raw, from the hopper', shards: 'scrap through a crusher', plate: `${RULES.pressShards} shards through a press`, ingot: 'shards through a furnace', slag: 'raw scrap in a furnace' };
     mats.forEach((m, i) => {
       c.add(this.add.image(12, 28 + i * 26, itemTexture(m)).setScale(0.9));
       c.add(this.add.text(30, 19 + i * 26, `${m.charAt(0).toUpperCase() + m.slice(1)}  $${RULES.value[m]}`, { fontFamily: FONT, fontSize: '13px', color: CSS.text }));
       c.add(this.add.text(140, 20 + i * 26, notes[m], { fontFamily: FONT, fontSize: '12px', color: CSS.dim }));
     });
-    c.add(this.add.text(0, 136, `Hopper: 1 scrap / ${RULES.hopperPeriod} ticks · Crusher ${RULES.process.crusher} ticks · Furnace ${RULES.process.furnace} ticks · Round ${RULES.ticksPerRound} ticks`, { fontFamily: FONT, fontSize: '11px', color: CSS.dim, wordWrap: { width: SIDE_W - 40 } }));
+    c.add(this.add.text(0, 162, `Hopper: 1 scrap / ${RULES.hopperPeriod} ticks · Crusher ${RULES.process.crusher} · Press ${RULES.process.press} · Furnace ${RULES.process.furnace} ticks · Round ${RULES.ticksPerRound} ticks`, { fontFamily: FONT, fontSize: '11px', color: CSS.dim, wordWrap: { width: SIDE_W - 40 } }));
     return c;
   }
 
@@ -296,7 +391,7 @@ export class GameScene extends Phaser.Scene {
       if (r.round >= 3) { this.tutorial = false; setOnboarded(); }
     }
     if (!text) {
-      const tips = ['Scrap $1 → crusher → shards $3 → furnace → ingot $12.', 'Conveyors accept from behind or the side; crushers, furnaces and splitters only from behind.', 'A splitter alternates left and right. Two furnaces beat one.', 'Docks take items from any side. A second hopper doubles raw supply.', 'Right-click or R rotates. Drop a machine on the bin to remove it.'];
+      const tips = ['Scrap $1 → crusher → shards $3 → furnace → ingot $12.', 'Conveyors accept from behind or the side; crushers, furnaces and splitters only from behind.', 'A splitter alternates left and right. Two furnaces beat one.', 'Docks take items from any side. A second hopper doubles raw supply.', 'Right-click or R rotates. Drop a machine on the bin to remove it.', `A press squeezes ${RULES.pressShards} shards into one ${RULES.value.plate} plate: less than a furnace, but it never backs a line up.`, 'Keyboard: arrows move the cursor, Enter places or picks up, Tab cycles bin parts.'];
       text = tips[(r.round + r.layout.machines.length) % tips.length];
     }
     this.hint.setText(text).setWordWrapWidth(GRID_W - 24);
@@ -308,7 +403,7 @@ export class GameScene extends Phaser.Scene {
   // ---------- simulation playback ----------
   startRun() {
     if (this.mode !== 'build' || this.run.phase !== 'build') return;
-    this.selectedId = null; this.updateSelection(); this.hover.setVisible(false);
+    this.selectedId = null; this.heldId = null; this.cursor = null; this.updateSelection(); this.updateCursor(); this.hover.setVisible(false);
     const layout = { width: this.run.layout.width, height: this.run.layout.height, machines: this.run.layout.machines.map((m) => ({ ...m })) };
     this.sim = createSim(layout);
     this.acc = 0; this.mode = 'running';
@@ -372,6 +467,7 @@ export class GameScene extends Phaser.Scene {
       const held = this.sim.itemAt[cell];
       if (v.m.kind === 'crusher') { v.img.setScale(held && held.hold > 0 ? 1 + 0.06 * Math.abs(Math.sin(_time / 45)) : 1); v.img.setAngle(v.m.dir * 90 + (held && held.hold > 0 ? Math.sin(_time / 30) * 2 : 0)); }
       else if (v.m.kind === 'furnace') { v.img.setTint(held && held.hold > 0 ? 0xffd9a0 : 0xffffff); v.img.setScale(held && held.hold > 0 ? 1 + 0.04 * Math.abs(Math.sin(_time / 90)) : 1); }
+      else if (v.m.kind === 'press') { const busy = held && held.hold > 0; v.img.setScale(1, busy ? 0.9 + 0.08 * Math.abs(Math.sin(_time / 40)) : 1); v.img.setTint(!busy && (this.sim.pressStore[cell] ?? 0) > 0 ? 0xcfe3ff : 0xffffff); }
       else if (v.m.kind === 'hopper') { v.img.setScale(this.sim.tick % RULES.hopperPeriod === 0 && phase < 0.3 ? 1.05 : 1); }
       else if (v.m.kind === 'splitter') { v.img.setAngle(v.m.dir * 90 + ((this.sim.splitterToggle[cell] ?? 0) === 0 ? -4 : 4)); }
     }
@@ -409,9 +505,14 @@ export class GameScene extends Phaser.Scene {
         if (dockView) this.tweens.add({ targets: dockView.img, scale: 1.08, duration: 60, yoyo: true });
       } else if (e.kind === 'transform') {
         const c = this.centerOfCell(e.cell);
-        const flash = this.add.circle(c.x, c.y, 16, e.to === 'ingot' ? P.gold : e.to === 'slag' ? P.red : P.shards, 0.6).setDepth(3);
+        const flash = this.add.circle(c.x, c.y, 16, e.to === 'ingot' ? P.gold : e.to === 'slag' ? P.red : e.to === 'plate' ? P.plate : P.shards, 0.6).setDepth(3);
         this.tweens.add({ targets: flash, scale: 2, alpha: 0, duration: 300, onComplete: () => flash.destroy() });
         audio.transform();
+      } else if (e.kind === 'absorb') {
+        // a press swallowed a shard: shrink a shard marker into the machine
+        const c = this.centerOfCell(e.cell);
+        const spark = this.add.image(c.x, c.y, itemTexture('shards')).setDepth(4).setAlpha(0.9);
+        this.tweens.add({ targets: spark, scale: 0.2, alpha: 0, duration: 220, onComplete: () => spark.destroy() });
       } else if (e.kind === 'jam') {
         jammedNow.add(e.cell);
         if (!this.jamMarks.has(e.cell)) {
@@ -442,7 +543,7 @@ export class GameScene extends Phaser.Scene {
       let line1 = ''; let line2 = ''; let color = CSS.text; let warn = true;
       if (m.kind === 'hopper') { line1 = st ? `${st.spawned} out` : 'idle'; if (st && st.blockedTicks > 5) { line2 = `blocked ${st.blockedTicks}`; notes.push(`Hopper ${m.x + 1},${m.y + 1} blocked ${st.blockedTicks} ticks: line ahead full or facing wrong.`); } if (!st) { color = CSS.dim; notes.push(`Hopper ${m.x + 1},${m.y + 1} never emitted: nothing accepts items ahead of it.`); } }
       else if (m.kind === 'dock') { if (st && st.shipped) { line1 = `$${st.earned}`; line2 = `${st.shipped} shipped`; color = CSS.green; warn = false; } else { line1 = 'no items'; color = CSS.dim; } }
-      else if (m.kind === 'crusher' || m.kind === 'furnace') { line1 = st && st.passed ? `${st.processed} made` : 'unused'; if (!st || !st.processed) color = CSS.dim; if (st && st.jammedTicks > 8) { line2 = `waited ${st.jammedTicks}`; notes.push(`${MACHINE_INFO[m.kind].name} ${m.x + 1},${m.y + 1}: output blocked ${st.jammedTicks} ticks.`); } }
+      else if (m.kind === 'crusher' || m.kind === 'furnace' || m.kind === 'press') { line1 = st && st.passed ? `${st.processed} made` : 'unused'; if (!st || !st.processed) color = CSS.dim; if (st && st.jammedTicks > 8) { line2 = `waited ${st.jammedTicks}`; notes.push(`${MACHINE_INFO[m.kind].name} ${m.x + 1},${m.y + 1}: output blocked ${st.jammedTicks} ticks.`); } }
       else { if (st && st.jammedTicks > 8) line2 = `waited ${st.jammedTicks}`; else if (!st || !st.passed) { line1 = 'unused'; color = CSS.dim; } }
       if (!line1 && !line2) continue;
       const lines = [line1, line2].filter(Boolean);
@@ -451,9 +552,9 @@ export class GameScene extends Phaser.Scene {
       if (line1) c.add(this.add.text(px + CELL / 2, py + CELL - 4 - (line2 ? 11 : 0), line1, { fontFamily: FONT, fontSize: '10px', color, fontStyle: 'bold' }).setOrigin(0.5, 1));
       if (line2) c.add(this.add.text(px + CELL / 2, py + CELL - 4, line2, { fontFamily: FONT, fontSize: '10px', color: warn ? CSS.red : CSS.dim, fontStyle: 'bold' }).setOrigin(0.5, 1));
     }
-    const inTransit = res.spawned - Object.values(res.shipped).reduce((a, b) => a + b, 0);
+    const inTransit = res.spawned - res.absorbed - Object.values(res.shipped).reduce((a, b) => a + b, 0);
     if (inTransit > 6) notes.push(`${inTransit} items were still in transit or stuck when time ran out.`);
-    if (!Object.values(res.shipped).some(Boolean)) notes.unshift('Nothing reached a dock. Items only enter crushers, furnaces and splitters from behind.');
+    if (!Object.values(res.shipped).some(Boolean)) notes.unshift('Nothing reached a dock. Items only enter crushers, furnaces, presses and splitters from behind.');
     // banner across the top of the grid
     const last = this.run.round >= RULES.rounds;
     c.add(this.add.rectangle(GRID_X, GRID_Y, GRID_W, 64, P.panel, 0.97).setOrigin(0).setStrokeStyle(2, P.amber));
@@ -473,7 +574,7 @@ export class GameScene extends Phaser.Scene {
     const t = (x: number, y: number, s: string, size = 14, color = CSS.text, style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) => { const o = this.add.text(x, y, s, { fontFamily: FONT, fontSize: `${size}px`, color, wordWrap: { width: SIDE_W - 32 }, ...style }); this.side.add(o); return o; };
     t(16, 12, 'WHAT SHIPPED', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
     let y = 36;
-    const mats: Material[] = ['ingot', 'shards', 'scrap', 'slag'];
+    const mats: Material[] = ['ingot', 'plate', 'shards', 'scrap', 'slag'];
     for (const m of mats) if (res.shipped[m]) { const img = this.add.image(26, y + 9, itemTexture(m)); this.side.add(img); t(44, y, `${res.shipped[m]} × ${m} @ $${RULES.value[m]} = $${res.shipped[m] * RULES.value[m]}`, 14); y += 24; }
     if (!Object.values(res.shipped).some(Boolean)) { t(16, y, 'nothing', 14, CSS.dim); y += 24; }
     y += 10;
@@ -492,7 +593,7 @@ export class GameScene extends Phaser.Scene {
     const last = this.run.round >= RULES.rounds;
     this.act({ t: 'next' });
     if (last || this.run.phase === 'finished') { this.scene.start('Results', { run: this.run, replayed: this.replayQueue != null }); return; }
-    this.mode = 'build';
+    this.mode = 'build'; this.heldId = null;
     this.syncMachines(); this.renderSide(); this.updateHint();
     if (this.replayQueue) this.time.delayedCall(400, () => this.advanceReplay());
   }

@@ -147,3 +147,43 @@ test('selling a bin part adds the sell bonus to the score and is replay-verified
   for (let r = 1; r <= RULES.rounds; r++) { if (r > 1) apply(s, { t: 'pick', i: 0 }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); }
   assert.equal(verifyReplay(exportReplay(s)).ok, true);
 });
+
+test('press: two shards become one $8 plate, scrap passes through, absorbed shards are accounted, only from behind', () => {
+  const line = runLayout(lay(m('hopper', 0, 0), m('crusher', 1, 0), m('press', 2, 0), m('dock', 3, 0)), 80);
+  assert.ok(line.shipped.plate > 0, 'plates shipped');
+  assert.equal(line.shipped.shards, 0, 'no loose shards leave a fed press');
+  assert.equal(line.earned, line.shipped.plate * RULES.value.plate);
+  // every plate consumed one extra shard; at most one more sits in the press store at the end
+  assert.ok(line.absorbed === line.shipped.plate || line.absorbed === line.shipped.plate + 1 || line.absorbed === line.shipped.plate + 2, `absorbed ${line.absorbed} vs plates ${line.shipped.plate}`);
+  const inTransit = line.spawned - line.absorbed - Object.values(line.shipped).reduce((a, b) => a + b, 0);
+  assert.ok(inTransit >= 0 && inTransit <= 4, `in transit ${inTransit}`);
+  assert.ok(line.events.some((e) => e.kind === 'absorb') && line.events.some((e) => e.kind === 'transform' && e.to === 'plate'));
+  const raw = runLayout(lay(m('hopper', 0, 0), m('press', 1, 0), m('dock', 2, 0)), 40);
+  assert.ok(raw.shipped.scrap > 0 && raw.absorbed === 0 && raw.shipped.plate === 0, 'raw scrap passes through a press unchanged');
+  const wrong = runLayout(lay(m('hopper', 0, 0), m('press', 1, 0, 1), m('dock', 2, 0)), 20);
+  assert.equal(wrong.spawned, 0, 'press only accepts from behind');
+  // the decision: a furnace earns more on a single crusher line, but the press backs the crusher up less
+  const furnaceLine = runLayout(lay(m('hopper', 0, 0), m('crusher', 1, 0), m('furnace', 2, 0), m('dock', 3, 0)), 80);
+  assert.ok(furnaceLine.earned > line.earned, `furnace ${furnaceLine.earned} should beat press ${line.earned}`);
+  assert.ok(line.earned > 2 * 3 * line.shipped.plate, 'a plate is worth more than the two shards it took');
+  assert.ok(line.cellStats[1].jammedTicks < furnaceLine.cellStats[1].jammedTicks, 'crusher waits less behind a press than behind a furnace');
+});
+
+test('rules version 2: new runs carry it, replays from other versions are rejected, press picks replay-verify', () => {
+  const s = newRun('press-seed');
+  assert.equal(s.rulesVersion, 2);
+  // play a run that places a press whenever one is offered
+  for (let r = 1; r <= RULES.rounds; r++) {
+    const pi = s.offers.indexOf('press'); apply(s, { t: 'pick', i: pi >= 0 ? pi : 0 });
+    const part = s.bin[s.bin.length - 1];
+    if (part.kind === 'press') { const conv = s.layout.machines.find((x) => x.x === 3 && x.y === 2); if (conv) apply(s, { t: 'unplace', id: conv.id }); apply(s, { t: 'place', id: part.id, x: 3, y: 2, dir: 0 }); }
+    apply(s, { t: 'run' }); apply(s, { t: 'next' });
+  }
+  const file = exportReplay(s);
+  assert.equal(verifyReplay(file).ok, true);
+  const old = verifyReplay({ ...file, rulesVersion: 1 });
+  assert.equal(old.ok, false); assert.match(old.error ?? '', /rules version/);
+  // a press is offered somewhere in the first rounds across a handful of seeds (weight 10 of 106)
+  const seen = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].some((seed) => [1, 2, 3, 4, 5, 6].some((r) => draftOffers(seed, r).includes('press')));
+  assert.ok(seen, 'press appears in draft offers');
+});

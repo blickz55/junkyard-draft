@@ -1,9 +1,10 @@
 // Deterministic simulation types. No DOM, no Phaser.
 
-export const RULES_VERSION = 1;
+/** v2 (2026-10-25): Plate Press machine + plate material; conveyor draft weight 34 → 30. */
+export const RULES_VERSION = 2;
 
-export type MachineKind = 'hopper' | 'conveyor' | 'splitter' | 'crusher' | 'furnace' | 'dock';
-export type Material = 'scrap' | 'shards' | 'ingot' | 'slag';
+export type MachineKind = 'hopper' | 'conveyor' | 'splitter' | 'crusher' | 'furnace' | 'press' | 'dock';
+export type Material = 'scrap' | 'shards' | 'plate' | 'ingot' | 'slag';
 /** Facing: 0=east, 1=south, 2=west, 3=north (clockwise). */
 export type Dir = 0 | 1 | 2 | 3;
 
@@ -34,7 +35,8 @@ export interface Layout {
   machines: Machine[];
 }
 
-export type EventKind = 'spawn' | 'move' | 'transform' | 'ship' | 'jam';
+/** `absorb`: a press took a shard into its store (the item ceases to exist; the next shard becomes a plate). */
+export type EventKind = 'spawn' | 'move' | 'transform' | 'absorb' | 'ship' | 'jam';
 export interface SimEvent {
   tick: number;
   kind: EventKind;
@@ -60,6 +62,8 @@ export interface RunResult {
   earned: number;
   shipped: Record<Material, number>;
   spawned: number;
+  /** items consumed by presses (not shipped, not in transit) */
+  absorbed: number;
   ticks: number;
   cellStats: Record<number, CellStats>;
   events: SimEvent[];
