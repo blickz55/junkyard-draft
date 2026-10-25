@@ -1,0 +1,5 @@
+# Keep LF everywhere (Windows checkouts included) so scripts, tests and diffs match the sandbox history.
+* text=auto eol=lf
+*.png binary
+*.wav binary
+*.bundle binary

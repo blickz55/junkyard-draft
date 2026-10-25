@@ -17,10 +17,12 @@ let commit = 'unknown';
 try { commit = execSync('git rev-parse --short HEAD', { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch {}
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 await build({ ...buildOptions({ root: ROOT, outdir: DIST, dev: false, commit, version: pkg.version }), minify: true, sourcemap: false, metafile: true }).then((r) => {
-  fs.writeFileSync(path.join(ROOT, '.control-room', 'reports', 'build-meta.json'), JSON.stringify(r.metafile, null, 1));
+  const reports = path.join(ROOT, '.control-room', 'reports');
+  fs.mkdirSync(reports, { recursive: true });
+  fs.writeFileSync(path.join(reports, 'build-meta.json'), JSON.stringify(r.metafile, null, 1));
 });
 fs.copyFileSync(path.join(ROOT, 'game', 'index.html'), path.join(DIST, 'index.html'));
-fs.cpSync(path.join(ROOT, 'game', 'public'), DIST, { recursive: true });
+if (fs.existsSync(path.join(ROOT, 'game', 'public'))) fs.cpSync(path.join(ROOT, 'game', 'public'), DIST, { recursive: true });
 const html = fs.readFileSync(path.join(DIST, 'index.html'), 'utf8').replace('/src/main.ts', './main.js').replace('__BUILD__', `${pkg.version}+${commit}`);
 fs.writeFileSync(path.join(DIST, 'index.html'), html);
 fs.writeFileSync(path.join(DIST, 'build.json'), JSON.stringify({ version: pkg.version, commit, builtAt: new Date().toISOString(), dev: false }, null, 2));

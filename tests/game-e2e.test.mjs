@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-process.env.PLAYWRIGHT_BROWSERS_PATH ||= '/opt/pw-browsers';
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync('/opt/pw-browsers')) process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/pw-browsers'; // sandbox only; elsewhere Playwright's default cache is used
 const { chromium } = await import('playwright');
 const PORT = 5199;
 const URL = `http://127.0.0.1:${PORT}`;
@@ -22,13 +22,14 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
   const VPORT = 4499;
   const boardFile = path.join(fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-')), 'board.json');
   const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), BOARD_FILE: boardFile }, stdio: 'ignore' });
-  const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 1120, height: 700 } });
+  let browser, page;
   const errors = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   const api = (fn, ...args) => page.evaluate(({ fn, args }) => window.__jd[fn](...args), { fn, args });
   try {
+    browser = await chromium.launch();
+    page = await browser.newPage({ viewport: { width: 1120, height: 700 } });
+    page.on('pageerror', (e) => errors.push(String(e)));
+    page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
     await waitServer();
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
@@ -127,7 +128,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.equal(board.entries[0].score, finalScore, 'board score equals the displayed final score');
     assert.deepEqual(errors, [], 'no page errors');
   } finally {
-    await browser.close();
+    if (browser) await browser.close().catch(() => {}); // guard: a failed launch must still stop the servers below
     server.kill('SIGTERM');
     verifier.kill('SIGTERM');
     fs.rmSync(path.dirname(boardFile), { recursive: true, force: true });

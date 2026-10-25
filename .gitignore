@@ -29,3 +29,7 @@ playwright-report/
 *.tsbuildinfo
 tools/scratch/
 server/data/
+
+# local dev build output (esbuild watch) and the cloud-session delivery folder
+.dev-build/
+_delivery/

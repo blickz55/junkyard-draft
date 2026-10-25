@@ -15,8 +15,9 @@ Read `docs/STATUS.md` (what works, next task) and `docs/ROADMAP.md` (acceptance 
 - `node control-room/emit.mjs objective|task|check|screenshot|build|checkpoint|note|selftest …` — structured status updates
 
 ## Environment notes
-- The npm registry is unreachable from the cloud sandbox. `node_modules/` is symlinked to preinstalled tools (esbuild 0.28, tsc 6.0, tsx, playwright 1.63 with Chromium at `/opt/pw-browsers`) and `vendor/phaser/` carries Phaser 3.90.0 (sparse clone of the v3.90.0 tag) with a default-export shim. On a normal machine `npm install` works from the pinned package.json and the vendor copy is unused (tsconfig `paths` and node resolution prefer `node_modules/phaser`).
-- Vite is not installable here; `scripts/dev.mjs` and `scripts/build.mjs` use esbuild directly. Keep both scripts working; do not add a second build path.
+- **Primary home (since 2026-10-25): the user's Windows 11 PC, `C:devjunkyard draft`** (Node 24, npm 11, git with autocrlf; `.gitattributes` forces LF). `npm install` works; Playwright's Chromium comes from `npx playwright install chromium` (default cache, no env var needed); Electron 45 is a devDependency and `npm run desktop` opens the built `dist/` (run `npm run build` first). `.claude/launch.json` has a `game` config (`npm run dev:all`, port 5173) and a `control-room` attach config (4310) for the desktop app's browser pane.
+- Cloud sandbox (where the first session ran): the npm registry is unreachable, `node_modules/` is symlinked to preinstalled tools (esbuild 0.28, tsc 6.0, tsx, playwright 1.63 with Chromium at `/opt/pw-browsers`) and `vendor/phaser/` carries Phaser 3.90.0 with a default-export shim. On a normal machine the vendor copy is unused (tsconfig `paths` and node resolution prefer `node_modules/phaser`). The browser tests only set `PLAYWRIGHT_BROWSERS_PATH` when `/opt/pw-browsers` exists.
+- `scripts/dev.mjs` and `scripts/build.mjs` use esbuild directly (Vite was not installable in the sandbox). Keep both scripts working; do not add a second build path. `.dev-build/` and `dist/` are build output and stay out of Git.
 
 ## Rules of the road
 - Simulation (`game/src/sim/`) is pure, deterministic and browser-free. Rendering never influences outcomes. Bump `RULES_VERSION` when any rule or tuning value changes and keep replay verification tests green.
