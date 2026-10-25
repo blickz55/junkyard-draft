@@ -25,7 +25,7 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] Reproducible production build (`npm run build` → `dist/`)
 - [x] Browser e2e test: real drag, rotate, run, pause, save/continue, six rounds, results, no page errors
 - [x] Autoplayer explores seeds (20 seeds: all reach ingots, no exploit; weak offers noted for M2)
-- [ ] Human-readable playtest notes from at least one full manual run (needs the user's machine)
+- [ ] Human-readable playtest notes from at least one full manual run (needs a human; nothing here substitutes for it)
 
 ## M2 — Readability, controls, depth
 - [x] Per-machine stats after a round are shown as on-grid badges (tooltips not needed)
@@ -36,12 +36,12 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [ ] Balance pass driven by autoplayer score distributions per seed
 
 ## M3 — Desktop packaging
-- [ ] Electron shell with pinned version, `npm run desktop`, offline-only, no telemetry
+- [~] Electron shell scaffolded (`desktop/main.cjs`, `npm run desktop`); not launchable in the sandbox — needs `npm i -D electron` on a normal machine, then pin the version
 - [ ] Packaged build launched and screenshotted on at least one platform
 
 ## M4 — Verification server & leaderboard
-- [ ] Local Node verifier service: accepts replay JSON, re-simulates, returns verified score
-- [ ] Leaderboard stores only verified scores; UI labels unverified local scores distinctly
+- [x] Local Node verifier service: accepts replay JSON, re-simulates, returns verified score (`npm run verifier`)
+- [~] Leaderboard stores only verified scores (server side done; game UI does not submit yet)
 - [ ] Daily seed board with identical offers/rules for everyone
 
 ## M5 — Release readiness

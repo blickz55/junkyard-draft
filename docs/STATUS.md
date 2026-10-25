@@ -1,31 +1,31 @@
-# Status — 2026-10-25
+# Status — 2026-10-25 (end of session 1)
 
 ## Playable now
-Full loop in the browser: title → draft → build (drag/rotate/rearrange) → animated run → round summary → six rounds → results with local bests, replay export/import, save/continue, volume/mute, pause (Esc / window blur), onboarding hints.
+Complete loop in the browser: title (daily / random / custom seed, continue, import replay) → draft → build (drag, rotate, remove, sell) → animated run (pause, speed, skip) → on-grid result badges → six rounds → results (local bests, replay copy/download). Save/continue, volume/mute, pause on blur, first-run hints.
 
 ## Launch
 ```
-npm run dev:all            # game http://127.0.0.1:5173  ·  Control Room http://127.0.0.1:4310
-npm run build              # dist/  (also served at http://127.0.0.1:4310/verified/)
+npm run dev:all        # game http://127.0.0.1:5173  ·  Control Room http://127.0.0.1:4310
+npm run build          # dist/ (served at http://127.0.0.1:4310/verified/)
+npm run verifier       # replay verifier + verified-only board on http://127.0.0.1:4400
 ```
-Sandbox note: `node_modules/` is symlinked to preinstalled tools because the npm registry is blocked here; on a normal machine run `npm install` first (see CLAUDE.md).
+Sandbox: `node_modules/` is symlinked to preinstalled tools (npm registry blocked). Normal machine: `npm install` first. Browser tests need `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` in the sandbox.
 
-## Verified commands (this session)
-- `npm run typecheck` — clean (tsc 6.0.3)
-- `node --import tsx --test tests/sim.test.ts` — 9/9 pass
-- `node --test tests/control-room-state.test.mjs tests/control-room-live.test.mjs` — 5/5 pass (live SSE, reload, disconnect, collector restart)
-- `node --test tests/game-e2e.test.mjs` — 1/1 pass (Chromium: real drag + keyboard, six rounds, results, no page errors)
-- `npm run build` — dist/main.js ≈ 1.2 MiB; title renders from `/verified/` with no page errors
-- `npm run selftest:instrumentation` — fail→pass pair recorded and visible in the dashboard
-- Hooks verified live: real PreToolUse/PostToolUse/SessionStart events from this Claude Code session appear in the dashboard without any restart.
+## Verified in this session (actual results)
+- `npm test` — 20/20: sim 12 (transforms, jams, splitter throughput, orientation, determinism, draft seeding, replay verify, long chains, malformed actions, sell), verifier 2, control-room reducer 4 + live browser 1, gameplay e2e 1 (real drag/rotate/run/pause/save-continue/sell/6 rounds/results, no page errors)
+- `npm run typecheck` — clean
+- `npm run build` — dist/main.js ≈ 1.2 MiB; production page renders from `/verified/` with no page errors
+- Autoplayer (`node --import tsx tools/autoplay.ts --seeds 20 --tries 120`): scores min 1371 / median 1617 / max 2008 vs starter-only 228; every seed reaches ingots; no score above the sanity bound. 39/120 drafts gave the searcher no improvement → added sell-from-bin.
+- Control Room: real hook events from this session appear live; subagent lifecycle (Explore review agent) shown with parent, task, result; self-test fail→pass recorded; live/reload/disconnect verified by test; screenshots of dashboard, title, draft, build, running, summary, results on file.
+- Subagent review of the sim (read-only) → fixed: 8-pass movement cap, strict action schema, replay size limits; noted: seed must be server-fixed for ranked play.
 
 ## Known issues / gaps
-- Autoplayer / seed exploration not written yet (M1 open item).
-- Subagent lifecycle not yet observed through hooks (in progress).
-- Round summary panel has unused space; no per-machine tooltips yet.
-- `tile-ok/bad` hover tint only during drags; no keyboard placement.
-- Cloud-run visibility in the Control Room is "unavailable" by design: a localhost collector cannot receive events from an isolated scheduled cloud session.
-- This workspace is ephemeral: the repo must be pushed or copied to the user's machine to persist (see CONTINUE.md).
+- Electron shell scaffolded but never launched (no electron in the sandbox).
+- Game UI does not submit replays to the verifier yet (service exists; wire a "Submit to local board" button next).
+- No keyboard-only placement; no colour-blind alternative shapes yet (materials already differ in shape).
+- Hook `SessionStart` model field only arrives for sessions started after the hooks existed, so this session shows model "unavailable".
+- Scheduled cloud runs: not configured (needs a persistent repo location + the user's chosen cadence; see CONTINUE.md). Cloud visibility in the dashboard is "unavailable" by design.
+- Workspace is ephemeral: the repo lives in the delivered `junkyard-draft.bundle` until the user clones it somewhere persistent.
 
 ## Next task
-Write `tools/autoplay.ts`: greedy/random automated player over N seeds, reporting score distribution, dead-end seeds (no offer improves the line), and any layout whose score exceeds a sanity bound; emit results as a Control Room check; then tooltips + summary mini-map (M2).
+Wire the Results screen to POST the replay to the local verifier (`/verify`) and show the verified-only board for that seed, clearly separated from local bests. Then keyboard placement (arrows + Enter + R) for accessibility.
