@@ -7,6 +7,7 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1120, height: 700, minWidth: 900, minHeight: 560,
     backgroundColor: '#1a1612', autoHideMenuBar: true, title: 'Junkyard Draft',
+    icon: path.join(__dirname, 'build', 'icon.png'), // used by dev runs; packaged builds embed it in the executable
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: path.join(__dirname, 'preload.cjs') },
   });
   win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));

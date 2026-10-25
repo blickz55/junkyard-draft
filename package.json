@@ -17,17 +17,51 @@
     "selftest:instrumentation": "node control-room/selftest.mjs",
     "verifier": "node --import tsx server/verify.ts",
     "test:quick": "node --import tsx --test tests/sim.test.ts tests/verifier.test.ts tests/control-room-state.test.mjs",
-    "desktop": "electron desktop/main.cjs"
+    "desktop": "electron desktop/main.cjs",
+    "desktop:icon": "node tools/make-icon.mjs",
+    "desktop:pack": "npm run build && electron-builder --dir"
   },
   "devDependencies": {
     "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
     "esbuild": "0.28.2",
     "playwright": "1.63.0",
     "tsx": "4.23.12",
-    "typescript": "6.0.3"
-  },
-  "dependencies": {
+    "typescript": "6.0.3",
     "phaser": "3.90.0"
   },
-  "main": "desktop/main.cjs"
+  "main": "desktop/main.cjs",
+  "build": {
+    "appId": "dev.junkyarddraft.app",
+    "productName": "Junkyard Draft",
+    "copyright": "Copyright © 2026",
+    "directories": {
+      "buildResources": "desktop/build",
+      "output": "release"
+    },
+    "files": [
+      "desktop/main.cjs",
+      "desktop/preload.cjs",
+      "dist/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "icon": "desktop/build/icon.png",
+      "target": [
+        {
+          "target": "dir"
+        }
+      ]
+    },
+    "mac": {
+      "icon": "desktop/build/icon.png",
+      "category": "public.app-category.games"
+    },
+    "linux": {
+      "icon": "desktop/build/icon.png",
+      "category": "Game"
+    }
+  },
+  "author": "Jon"
 }

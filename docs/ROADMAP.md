@@ -37,7 +37,8 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 
 ## M3 — Desktop packaging
 - [x] Electron shell launches (`npm run desktop`, Electron 45 pinned as a devDependency; window verified on Windows 2026-10-25)
-- [ ] Packaged build launched and screenshotted on at least one platform
+- [x] Packaged build launched and screenshotted on at least one platform (Windows: `npm run desktop:pack` → `release/win-unpacked/Junkyard Draft.exe`, 2026-10-25)
+- [ ] Installer target (NSIS) and code signing; macOS / Linux builds
 
 ## M4 — Verification server & leaderboard
 - [x] Local Node verifier service: accepts replay JSON, re-simulates, returns verified score (`npm run verifier`)
