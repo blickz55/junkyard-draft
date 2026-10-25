@@ -47,6 +47,7 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [ ] Hosted verifier (same code, public URL) so boards are shared between devices
 
 ## M5 — Release readiness
-- [ ] Accessibility: colour-blind safe material shapes, scalable UI, reduced motion
+- [x] Accessibility: reduced motion (belts static, no flashes / pops / travel, items snap; follows the OS preference by default) and text size 100 / 115 / 130 % through the UI helpers — title-screen controls, persisted, e2e-covered
+- [ ] Accessibility audit: colour-blind check of material shapes (already distinct) and contrast; a scalable layout would need the fixed 1120×700 grid revisited
 - [ ] Performance budget on a low-end laptop (60 fps during runs)
 - [ ] Steam build pipeline (requires the user's Steamworks credentials — not a prerequisite earlier)

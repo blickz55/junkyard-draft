@@ -7,6 +7,7 @@ import { audio } from '../audio';
 import { clearSave, dailySeed, loadBests, randomSeed, recordBest } from '../storage';
 import { W } from '../layout';
 import { RULES } from '../../sim/rules';
+import { prefs } from '../prefs';
 
 export class ResultsScene extends Phaser.Scene {
   constructor() { super('Results'); }
@@ -20,8 +21,8 @@ export class ResultsScene extends Phaser.Scene {
     audio.roundEnd(true);
 
     label(this, W / 2, 60, 'RUN COMPLETE', 16, CSS.amber, { fontStyle: 'bold', letterSpacing: 4 }).setOrigin(0.5);
-    const score = label(this, W / 2, 125, `$${run.score}`, 72, CSS.gold, { fontStyle: 'bold' }).setOrigin(0.5).setScale(0.5);
-    this.tweens.add({ targets: score, scale: 1, duration: 500, ease: 'Back.out' });
+    const score = label(this, W / 2, 125, `$${run.score}`, 72, CSS.gold, { fontStyle: 'bold' }).setOrigin(0.5).setScale(prefs.reducedMotion ? 1 : 0.5);
+    if (!prefs.reducedMotion) this.tweens.add({ targets: score, scale: 1, duration: 500, ease: 'Back.out' });
     mono(this, W / 2, 180, `seed ${run.seed} · rules v${run.rulesVersion}${data.replayed ? ' · replay playback (not recorded as a best)' : ''}`, 13).setOrigin(0.5);
     if (rec.newOverall) label(this, W / 2, 210, 'NEW LOCAL PERSONAL BEST', 18, CSS.green, { fontStyle: 'bold', letterSpacing: 2 }).setOrigin(0.5);
     else if (rec.newSeed) label(this, W / 2, 210, 'New local best for this seed', 16, CSS.green).setOrigin(0.5);

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CSS, FONT, MONO, P } from './palette';
 import { audio } from './audio';
+import { prefs, px } from './prefs';
 
 export interface ButtonOpts { w?: number; h?: number; color?: number; textColor?: string; size?: number; disabled?: boolean; name?: string }
 
@@ -14,14 +15,14 @@ export class Button extends Phaser.GameObjects.Container {
     const w = o.w ?? 160, h = o.h ?? 40;
     this.color = o.color ?? P.amber;
     this.bg = scene.add.rectangle(0, 0, w, h, this.color, 1).setStrokeStyle(2, 0x000000, 0.35);
-    this.label = scene.add.text(0, 0, text, { fontFamily: FONT, fontSize: `${o.size ?? 16}px`, color: o.textColor ?? '#1a1612', fontStyle: 'bold' }).setOrigin(0.5);
+    this.label = scene.add.text(0, 0, text, { fontFamily: FONT, fontSize: px(o.size ?? 16), color: o.textColor ?? '#1a1612', fontStyle: 'bold' }).setOrigin(0.5);
     this.add([this.bg, this.label]);
     this.setSize(w, h);
     this.setInteractive({ useHandCursor: true });
     this.name = o.name ?? text;
     this.on('pointerover', () => { if (this.enabled) this.bg.setFillStyle(Phaser.Display.Color.IntegerToColor(this.color).brighten(12).color); });
     this.on('pointerout', () => this.bg.setFillStyle(this.color));
-    this.on('pointerdown', () => { if (!this.enabled) return; audio.unlock(); audio.click(); this.scene.tweens.add({ targets: this, scale: 0.95, duration: 50, yoyo: true }); onClick(); });
+    this.on('pointerdown', () => { if (!this.enabled) return; audio.unlock(); audio.click(); if (!prefs.reducedMotion) this.scene.tweens.add({ targets: this, scale: 0.95, duration: 50, yoyo: true }); onClick(); });
     if (o.disabled) this.setEnabled(false);
     scene.add.existing(this);
   }
@@ -35,10 +36,10 @@ export function panel(scene: Phaser.Scene, x: number, y: number, w: number, h: n
 }
 
 export function label(scene: Phaser.Scene, x: number, y: number, text: string, size = 14, color = CSS.text, style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) {
-  return scene.add.text(x, y, text, { fontFamily: FONT, fontSize: `${size}px`, color, ...style });
+  return scene.add.text(x, y, text, { fontFamily: FONT, fontSize: px(size), color, ...style });
 }
 export function mono(scene: Phaser.Scene, x: number, y: number, text: string, size = 13, color = CSS.dim) {
-  return scene.add.text(x, y, text, { fontFamily: MONO, fontSize: `${size}px`, color });
+  return scene.add.text(x, y, text, { fontFamily: MONO, fontSize: px(size), color });
 }
 
 /** Simple horizontal slider 0..1 */

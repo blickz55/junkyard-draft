@@ -10,6 +10,7 @@ import { audio } from '../audio';
 import { isOnboarded, loadBests, setOnboarded, writeSave } from '../storage';
 import { BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y, H, SIDE_W, SIDE_X, W } from '../layout';
 import { installDevApi } from '../devapi';
+import { prefs, px as fpx } from '../prefs';
 
 type Mode = 'build' | 'running' | 'paused' | 'summary';
 interface MachineView { c: Phaser.GameObjects.Container; img: Phaser.GameObjects.Image; belt?: Phaser.GameObjects.Image; m: Machine; inBin: boolean }
@@ -73,7 +74,7 @@ export class GameScene extends Phaser.Scene {
     this.renderSide();
     this.setupInput();
     this.hintBg = this.add.rectangle(GRID_X, H - 62, GRID_W, 50, P.panel, 0.95).setOrigin(0).setStrokeStyle(1, P.panelLine);
-    this.hint = label(this, GRID_X + 12, H - 56, '', 13, CSS.text);
+    this.hint = label(this, GRID_X + 12, H - 56, '', 13, CSS.text, { wordWrap: { width: GRID_W - 24 } });
     this.updateHint();
     installDevApi(this);
     this.events.on('shutdown', () => { this.views.clear(); this.itemSprites.clear(); });
@@ -85,17 +86,20 @@ export class GameScene extends Phaser.Scene {
   private buildStatic() {
     for (let y = 0; y < RULES.gridHeight; y++) for (let x = 0; x < RULES.gridWidth; x++) this.add.image(GRID_X + x * CELL, GRID_Y + y * CELL, 'tile').setOrigin(0);
     this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H).setOrigin(0).setStrokeStyle(2, P.panelLine);
-    panel(this, GRID_X, BIN_Y, GRID_W, 110, 0.9);
+    panel(this, GRID_X, BIN_Y, GRID_W, 100, 0.9);
     label(this, GRID_X + 10, BIN_Y + 6, 'PARTS BIN  — drag parts onto the grid, or arrow keys + Enter', 12, CSS.amber, { fontStyle: 'bold', letterSpacing: 1 });
     panel(this, SIDE_X, GRID_Y, SIDE_W, H - GRID_Y - 24, 0.95);
   }
   private buildHud() {
     this.add.rectangle(0, 0, W, 56, P.panel).setOrigin(0).setStrokeStyle(1, P.panelLine);
-    label(this, 24, 14, 'JUNKYARD DRAFT', 20, CSS.amber, { fontStyle: 'bold', letterSpacing: 3 });
-    this.hud.seed = mono(this, 300, 20, `seed ${this.run.seed}`, 12);
-    this.hud.round = label(this, 470, 10, '', 16, CSS.text, { fontStyle: 'bold' });
-    this.hud.score = label(this, 640, 10, '', 16, CSS.gold, { fontStyle: 'bold' });
-    this.hud.best = mono(this, 640, 34, '', 11, CSS.dim);
+    const title = label(this, 24, 14, 'JUNKYARD DRAFT', 20, CSS.amber, { fontStyle: 'bold', letterSpacing: 3 });
+    // positions follow measured widths so larger text sizes and long seeds never overlap
+    this.hud.seed = mono(this, title.x + title.width + 18, 20, `seed ${this.run.seed}`, 12);
+    const roundX = Math.max(470, this.hud.seed.x + this.hud.seed.width + 28);
+    this.hud.round = label(this, roundX, 10, `Round ${RULES.rounds} / ${RULES.rounds}`, 16, CSS.text, { fontStyle: 'bold' });
+    const scoreX = Math.max(640, this.hud.round.x + this.hud.round.width + 40);
+    this.hud.score = label(this, scoreX, 10, '', 16, CSS.gold, { fontStyle: 'bold' });
+    this.hud.best = mono(this, scoreX, 34, '', 11, CSS.dim);
     const mute = new Button(this, W - 60, 28, audio.muted ? 'Unmute' : 'Mute', () => { audio.setMuted(!audio.muted); mute.setText(audio.muted ? 'Unmute' : 'Mute'); }, { w: 80, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'mute' });
     new Button(this, W - 160, 28, 'Title', () => this.scene.start('Title'), { w: 70, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'title' });
     this.updateHud();
@@ -132,7 +136,7 @@ export class GameScene extends Phaser.Scene {
       v.m = m; v.inBin = inBin; alive.add(m.id);
       const held = this.heldId === m.id && this.cursor ? this.cellXY(this.cursor.x, this.cursor.y) : null;
       if (held) { px = held.px; py = held.py; }
-      if (!this.dragging || this.dragging.m.id !== m.id) this.tweens.add({ targets: v.c, x: px, y: py, duration: 120, ease: 'Quad.out' });
+      if (!this.dragging || this.dragging.m.id !== m.id) { if (prefs.reducedMotion) v.c.setPosition(px, py); else this.tweens.add({ targets: v.c, x: px, y: py, duration: 120, ease: 'Quad.out' }); }
       v.img.setAngle(m.dir * 90); v.belt?.setAngle(m.dir * 90);
       v.c.setDepth(held ? 10 : 2);
       v.c.setAlpha(held ? 0.85 : inBin ? 0.95 : 1);
@@ -310,7 +314,7 @@ export class GameScene extends Phaser.Scene {
     this.side.removeAll(true);
     this.runBtn = null;
     const add = (o: Phaser.GameObjects.GameObject) => { this.side.add(o); return o; };
-    const t = (x: number, y: number, s: string, size = 14, color = CSS.text, style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) => add(this.add.text(x, y, s, { fontFamily: FONT, fontSize: `${size}px`, color, wordWrap: { width: SIDE_W - 32 }, ...style })) as Phaser.GameObjects.Text;
+    const t = (x: number, y: number, s: string, size = 14, color = CSS.text, style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) => add(this.add.text(x, y, s, { fontFamily: FONT, fontSize: fpx(size), color, wordWrap: { width: SIDE_W - 32 }, ...style })) as Phaser.GameObjects.Text;
     const r = this.run;
     if (this.mode === 'running' || this.mode === 'paused') {
       t(16, 12, this.mode === 'paused' ? 'PAUSED' : 'RUNNING', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
@@ -336,7 +340,7 @@ export class GameScene extends Phaser.Scene {
         add(this.add.image(16 + 50, y + 50, machineTexture(kind)).setScale(1.05));
         t(112, y + 10, MACHINE_INFO[kind].name, 17, CSS.text, { fontStyle: 'bold' });
         const b = t(112, y + 34, MACHINE_INFO[kind].blurb, 13, CSS.dim); b.setWordWrapWidth(SIDE_W - 150);
-        add(this.add.text(SIDE_W - 60, y + 76, `[${i + 1}]`, { fontFamily: FONT, fontSize: '12px', color: CSS.dim }));
+        add(this.add.text(SIDE_W - 60, y + 76, `[${i + 1}]`, { fontFamily: FONT, fontSize: fpx(12), color: CSS.dim }));
       });
       this.side.add(this.legend(16, 390));
       return;
@@ -358,22 +362,23 @@ export class GameScene extends Phaser.Scene {
       const placedCount = r.layout.machines.length;
       t(16, 176, `${placedCount} machines placed · ${r.bin.length} in bin`, 12, CSS.dim);
       this.runBtn = add(new Button(this, SIDE_W / 2, 230, `RUN ROUND ${r.round}  (Space)`, () => this.startRun(), { w: SIDE_W - 48, h: 52, size: 18, name: 'run' })) as Button;
-      if (r.bin.length > 0) t(16, 262, `Parts left in the bin do nothing this round. Select one to sell it for $${RULES.sellValue}.`, 12, CSS.dim);
-      this.side.add(this.legend(16, 300));
+      let legendY = 300;
+      if (r.bin.length > 0) { const note = t(16, 262, `Parts left in the bin do nothing this round. Select one to sell it for $${RULES.sellValue}.`, 12, CSS.dim); legendY = Math.max(300, note.y + note.height + 14); }
+      this.side.add(this.legend(16, legendY));
       return;
     }
   }
   private legend(x: number, y: number) {
     const c = this.add.container(x, y);
-    c.add(this.add.text(0, 0, 'VALUES', { fontFamily: FONT, fontSize: '12px', color: CSS.amber, fontStyle: 'bold' }));
+    c.add(this.add.text(0, 0, 'VALUES', { fontFamily: FONT, fontSize: fpx(12), color: CSS.amber, fontStyle: 'bold' }));
     const mats: Material[] = ['scrap', 'shards', 'plate', 'ingot', 'slag'];
     const notes: Record<Material, string> = { scrap: 'raw, from the hopper', shards: 'scrap through a crusher', plate: `${RULES.pressShards} shards through a press`, ingot: 'shards through a furnace', slag: 'raw scrap in a furnace' };
     mats.forEach((m, i) => {
       c.add(this.add.image(12, 28 + i * 26, itemTexture(m)).setScale(0.9));
-      c.add(this.add.text(30, 19 + i * 26, `${m.charAt(0).toUpperCase() + m.slice(1)}  $${RULES.value[m]}`, { fontFamily: FONT, fontSize: '13px', color: CSS.text }));
-      c.add(this.add.text(140, 20 + i * 26, notes[m], { fontFamily: FONT, fontSize: '12px', color: CSS.dim }));
+      c.add(this.add.text(30, 19 + i * 26, `${m.charAt(0).toUpperCase() + m.slice(1)}  $${RULES.value[m]}`, { fontFamily: FONT, fontSize: fpx(13), color: CSS.text }));
+      c.add(this.add.text(140, 20 + i * 26, notes[m], { fontFamily: FONT, fontSize: fpx(12), color: CSS.dim }));
     });
-    c.add(this.add.text(0, 162, `Hopper: 1 scrap / ${RULES.hopperPeriod} ticks · Crusher ${RULES.process.crusher} · Press ${RULES.process.press} · Furnace ${RULES.process.furnace} ticks · Round ${RULES.ticksPerRound} ticks`, { fontFamily: FONT, fontSize: '11px', color: CSS.dim, wordWrap: { width: SIDE_W - 40 } }));
+    c.add(this.add.text(0, 162, `Hopper: 1 scrap / ${RULES.hopperPeriod} ticks · Crusher ${RULES.process.crusher} · Press ${RULES.process.press} · Furnace ${RULES.process.furnace} ticks · Round ${RULES.ticksPerRound} ticks`, { fontFamily: FONT, fontSize: fpx(11), color: CSS.dim, wordWrap: { width: SIDE_W - 40 } }));
     return c;
   }
 
@@ -394,7 +399,14 @@ export class GameScene extends Phaser.Scene {
       const tips = ['Scrap $1 → crusher → shards $3 → furnace → ingot $12.', 'Conveyors accept from behind or the side; crushers, furnaces and splitters only from behind.', 'A splitter alternates left and right. Two furnaces beat one.', 'Docks take items from any side. A second hopper doubles raw supply.', 'Right-click or R rotates. Drop a machine on the bin to remove it.', `A press squeezes ${RULES.pressShards} shards into one $${RULES.value.plate} plate: less than a furnace, but it never backs a line up.`, 'Keyboard: arrows move the cursor, Enter places or picks up, Tab cycles bin parts.'];
       text = tips[(r.round + r.layout.machines.length) % tips.length];
     }
+    this.setHint(text);
+  }
+  /** Hint box grows with wrapped text (larger text sizes) and stays anchored to the bottom edge. */
+  private setHint(text: string) {
     this.hint.setText(text).setWordWrapWidth(GRID_W - 24);
+    const h = Math.max(50, this.hint.height + 14);
+    this.hintBg.setSize(GRID_W, h).setPosition(GRID_X, H - 12 - h);
+    this.hint.setPosition(GRID_X + 12, H - 12 - h + 7);
   }
   private chainHasCrusher() {
     return this.run.layout.machines.some((m) => m.kind === 'crusher');
@@ -409,7 +421,7 @@ export class GameScene extends Phaser.Scene {
     this.acc = 0; this.mode = 'running';
     audio.run();
     this.renderSide();
-    this.hint.setText('Running… Jams glow red: an item waits for a free cell or a slow machine.');
+    this.setHint('Running… Jams glow red: an item waits for a free cell or a slow machine.');
   }
   setPaused(p: boolean) {
     if (p && this.mode === 'running') { this.mode = 'paused'; audio.suspend(); this.renderSide(); this.showPauseOverlay(); }
@@ -419,7 +431,7 @@ export class GameScene extends Phaser.Scene {
     this.overlay?.destroy();
     const c = this.add.container(0, 0).setDepth(20);
     c.add(this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H, 0x000000, 0.55).setOrigin(0));
-    c.add(this.add.text(GRID_X + GRID_W / 2, GRID_Y + GRID_H / 2, 'PAUSED\nEsc to resume', { fontFamily: FONT, fontSize: '28px', color: CSS.text, align: 'center', fontStyle: 'bold' }).setOrigin(0.5));
+    c.add(this.add.text(GRID_X + GRID_W / 2, GRID_Y + GRID_H / 2, 'PAUSED\nEsc to resume', { fontFamily: FONT, fontSize: fpx(28), color: CSS.text, align: 'center', fontStyle: 'bold' }).setOrigin(0.5));
     this.overlay = c;
   }
   /** Complete the round instantly (authoritative result comes from the run orchestrator). */
@@ -462,6 +474,7 @@ export class GameScene extends Phaser.Scene {
     const bf = `belt-${Math.floor(this.beltFrame)}`;
     for (const v of this.views.values()) {
       if (v.inBin) continue;
+      if (prefs.reducedMotion) continue; // belts stay on frame 0, machines do not wobble
       if (v.belt) v.belt.setTexture(bf);
       const cell = cellIndex(v.m.x, v.m.y, RULES.gridWidth);
       const held = this.sim.itemAt[cell];
@@ -479,14 +492,14 @@ export class GameScene extends Phaser.Scene {
       if (!s) { s = this.add.image(0, 0, itemTexture(it.mat)).setDepth(4); this.itemSprites.set(it.id, s); }
       if (s.texture.key !== itemTexture(it.mat)) s.setTexture(itemTexture(it.mat));
       const to = this.centerOfCell(it.cell);
-      if (it.movedAt === this.sim.tick && it.from >= 0) {
+      if (!prefs.reducedMotion && it.movedAt === this.sim.tick && it.from >= 0) {
         const from = this.centerOfCell(it.from);
         const e = Phaser.Math.Easing.Quadratic.InOut(phase);
         s.setPosition(from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e);
       } else s.setPosition(to.x, to.y);
-      if (it.hold > 0) { s.setScale(0.8 + 0.1 * Math.sin(_time / 60)); } else s.setScale(1);
+      if (it.hold > 0) { s.setScale(prefs.reducedMotion ? 0.85 : 0.8 + 0.1 * Math.sin(_time / 60)); } else s.setScale(1);
     }
-    for (const [id, s] of this.itemSprites) if (!alive.has(id)) { this.itemSprites.delete(id); this.tweens.add({ targets: s, scale: 1.6, alpha: 0, duration: 200, onComplete: () => s.destroy() }); }
+    for (const [id, s] of this.itemSprites) if (!alive.has(id)) { this.itemSprites.delete(id); if (prefs.reducedMotion) s.destroy(); else this.tweens.add({ targets: s, scale: 1.6, alpha: 0, duration: 200, onComplete: () => s.destroy() }); }
     const fill = this.side.getByName('progress') as Phaser.GameObjects.Rectangle | null;
     if (fill) fill.width = (SIDE_W - 32) * (this.sim.tick / RULES.ticksPerRound);
     const earned = this.side.getByName('earned') as Phaser.GameObjects.Text | null;
@@ -498,17 +511,20 @@ export class GameScene extends Phaser.Scene {
     for (const e of evs) {
       if (e.kind === 'ship' && e.value != null) {
         const c = this.centerOfCell(e.cell);
-        const txt = this.add.text(c.x, c.y - 10, `+$${e.value}`, { fontFamily: FONT, fontSize: e.value >= 12 ? '20px' : '15px', color: e.value >= 12 ? CSS.gold : e.value >= 3 ? CSS.green : CSS.text, fontStyle: 'bold' }).setOrigin(0.5).setDepth(8);
-        this.tweens.add({ targets: txt, y: c.y - 48, alpha: 0, duration: 700, onComplete: () => txt.destroy() });
+        const txt = this.add.text(c.x, c.y - 10, `+$${e.value}`, { fontFamily: FONT, fontSize: fpx(e.value >= 12 ? 20 : 15), color: e.value >= 12 ? CSS.gold : e.value >= 3 ? CSS.green : CSS.text, fontStyle: 'bold' }).setOrigin(0.5).setDepth(8);
+        if (prefs.reducedMotion) this.tweens.add({ targets: txt, alpha: 0, duration: 900, delay: 300, onComplete: () => txt.destroy() }); // fade in place, no travel
+        else this.tweens.add({ targets: txt, y: c.y - 48, alpha: 0, duration: 700, onComplete: () => txt.destroy() });
         audio.ship(e.value);
         const dockView = [...this.views.values()].find((v) => !v.inBin && cellIndex(v.m.x, v.m.y, RULES.gridWidth) === e.cell);
-        if (dockView) this.tweens.add({ targets: dockView.img, scale: 1.08, duration: 60, yoyo: true });
+        if (dockView && !prefs.reducedMotion) this.tweens.add({ targets: dockView.img, scale: 1.08, duration: 60, yoyo: true });
       } else if (e.kind === 'transform') {
+        audio.transform();
+        if (prefs.reducedMotion) continue; // the item sprite itself changes texture; no flash
         const c = this.centerOfCell(e.cell);
         const flash = this.add.circle(c.x, c.y, 16, e.to === 'ingot' ? P.gold : e.to === 'slag' ? P.red : e.to === 'plate' ? P.plate : P.shards, 0.6).setDepth(3);
         this.tweens.add({ targets: flash, scale: 2, alpha: 0, duration: 300, onComplete: () => flash.destroy() });
-        audio.transform();
       } else if (e.kind === 'absorb') {
+        if (prefs.reducedMotion) continue;
         // a press swallowed a shard: shrink a shard marker into the machine
         const c = this.centerOfCell(e.cell);
         const spark = this.add.image(c.x, c.y, itemTexture('shards')).setDepth(4).setAlpha(0.9);
@@ -553,8 +569,8 @@ export class GameScene extends Phaser.Scene {
       const lines = [line1, line2].filter(Boolean);
       const bg = this.add.rectangle(px + CELL / 2, py + CELL - 2, CELL - 6, 12 * lines.length + 4, 0x000000, 0.8).setOrigin(0.5, 1);
       c.add(bg);
-      if (line1) c.add(this.add.text(px + CELL / 2, py + CELL - 4 - (line2 ? 11 : 0), line1, { fontFamily: FONT, fontSize: '10px', color, fontStyle: 'bold' }).setOrigin(0.5, 1));
-      if (line2) c.add(this.add.text(px + CELL / 2, py + CELL - 4, line2, { fontFamily: FONT, fontSize: '10px', color: warn ? CSS.red : CSS.dim, fontStyle: 'bold' }).setOrigin(0.5, 1));
+      if (line1) c.add(this.add.text(px + CELL / 2, py + CELL - 4 - (line2 ? 11 : 0), line1, { fontFamily: FONT, fontSize: fpx(10), color, fontStyle: 'bold' }).setOrigin(0.5, 1));
+      if (line2) c.add(this.add.text(px + CELL / 2, py + CELL - 4, line2, { fontFamily: FONT, fontSize: fpx(10), color: warn ? CSS.red : CSS.dim, fontStyle: 'bold' }).setOrigin(0.5, 1));
     }
     const inTransit = res.spawned - res.absorbed - Object.values(res.shipped).reduce((a, b) => a + b, 0);
     if (inTransit > 6) notes.push(`${inTransit} items were still in transit or stuck when time ran out.`);
@@ -562,20 +578,20 @@ export class GameScene extends Phaser.Scene {
     // banner across the top of the grid
     const last = this.run.round >= RULES.rounds;
     c.add(this.add.rectangle(GRID_X, GRID_Y, GRID_W, 64, P.panel, 0.97).setOrigin(0).setStrokeStyle(2, P.amber));
-    c.add(this.add.text(GRID_X + 16, GRID_Y + 8, `ROUND ${rec.round} RESULT`, { fontFamily: FONT, fontSize: '12px', color: CSS.amber, fontStyle: 'bold', letterSpacing: 2 }));
-    c.add(this.add.text(GRID_X + 16, GRID_Y + 24, `$${rec.earned}`, { fontFamily: FONT, fontSize: '30px', color: CSS.gold, fontStyle: 'bold' }));
-    c.add(this.add.text(GRID_X + 120, GRID_Y + 36, `this round · total $${this.run.score}`, { fontFamily: FONT, fontSize: '13px', color: CSS.dim }));
+    c.add(this.add.text(GRID_X + 16, GRID_Y + 8, `ROUND ${rec.round} RESULT`, { fontFamily: FONT, fontSize: fpx(12), color: CSS.amber, fontStyle: 'bold', letterSpacing: 2 }));
+    c.add(this.add.text(GRID_X + 16, GRID_Y + 24, `$${rec.earned}`, { fontFamily: FONT, fontSize: fpx(30), color: CSS.gold, fontStyle: 'bold' }));
+    c.add(this.add.text(GRID_X + 120, GRID_Y + 36, `this round · total $${this.run.score}`, { fontFamily: FONT, fontSize: fpx(13), color: CSS.dim }));
     c.add(new Button(this, GRID_X + GRID_W - 130, GRID_Y + 32, last ? 'Final score (Space)' : 'Next round (Space)', () => this.nextRound(), { w: 230, h: 40, size: 15, name: 'next' }));
     this.overlay = c;
     if (this.replayQueue) this.time.delayedCall(1200, () => this.advanceReplay());
     this.renderSideSummary(notes);
-    this.hint.setText(last ? 'Final round complete. Badges show what each machine did.' : 'Badges show what each machine did. Study the waits, then draft and rearrange.');
+    this.setHint(last ? 'Final round complete. Badges show what each machine did.' : 'Badges show what each machine did. Study the waits, then draft and rearrange.');
   }
   private renderSideSummary(notes: string[]) {
     this.side.removeAll(true);
     const r = this.run;
     const rec = r.rounds[r.rounds.length - 1]; const res = rec.result;
-    const t = (x: number, y: number, s: string, size = 14, color = CSS.text, style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) => { const o = this.add.text(x, y, s, { fontFamily: FONT, fontSize: `${size}px`, color, wordWrap: { width: SIDE_W - 32 }, ...style }); this.side.add(o); return o; };
+    const t = (x: number, y: number, s: string, size = 14, color = CSS.text, style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) => { const o = this.add.text(x, y, s, { fontFamily: FONT, fontSize: fpx(size), color, wordWrap: { width: SIDE_W - 32 }, ...style }); this.side.add(o); return o; };
     t(16, 12, 'WHAT SHIPPED', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
     let y = 36;
     const mats: Material[] = ['ingot', 'plate', 'shards', 'scrap', 'slag'];

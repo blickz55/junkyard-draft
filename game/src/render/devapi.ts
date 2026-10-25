@@ -5,6 +5,7 @@
  */
 import type { Action } from '../sim/run';
 import type { GameScene } from './scenes/GameScene';
+import { prefs } from './prefs';
 
 export interface DevApi {
   scene: () => string;
@@ -19,6 +20,7 @@ export interface DevApi {
   hint: () => string;
   /** keyboard cursor: grid cell, visibility, and the id of the machine held in hand (null when empty) */
   cursor: () => { visible: boolean; x: number; y: number; held: number | null };
+  prefs: () => { reducedMotion: boolean; textScale: number };
 }
 
 export const devEnabled = () => import.meta.env.DEV || new URLSearchParams(location.search).get('dev') === '1';
@@ -37,6 +39,7 @@ export function installDevApi(scene: GameScene) {
     pick: (i) => scene.pick(i),
     hint: () => scene['hint']?.text ?? '',
     cursor: () => scene.cursorInfo(),
+    prefs: () => ({ reducedMotion: prefs.reducedMotion, textScale: prefs.textScale }),
   };
   (window as unknown as { __jd: DevApi }).__jd = api;
 }

@@ -6,7 +6,9 @@ export { dailySeed };
 
 const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v1', onboarded: 'jd.onboarded.v1' };
 
-export interface Settings { volume: number; muted: boolean }
+export interface Settings { volume: number; muted: boolean; reducedMotion: boolean; textScale: number }
+/** Default for reduced motion follows the OS preference until the player chooses. */
+const systemReducedMotion = () => { try { return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 export interface SaveGame { rulesVersion: number; seed: string; actions: Action[]; savedAt: string }
 export interface Bests { overall: { score: number; seed: string; at: string } | null; bySeed: Record<string, { score: number; at: string }>; runs: number }
 
@@ -15,8 +17,10 @@ function read<T>(key: string, fallback: T): T {
 }
 function write(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable */ } }
 
-export const loadSettings = (): Settings => read(K.settings, { volume: 0.7, muted: false });
+export const loadSettings = (): Settings => read(K.settings, { volume: 0.7, muted: false, reducedMotion: systemReducedMotion(), textScale: 1 });
 export const saveSettings = (s: Settings) => write(K.settings, s);
+/** Read-modify-write so audio and accessibility settings never clobber each other. */
+export const updateSettings = (p: Partial<Settings>): Settings => { const s = { ...loadSettings(), ...p }; saveSettings(s); return s; };
 
 export const loadSave = (): SaveGame | null => { const s = read<SaveGame | null>(K.save, null); return s && s.rulesVersion === RULES_VERSION ? s : null; };
 export const writeSave = (seed: string, actions: Action[]) => write(K.save, { rulesVersion: RULES_VERSION, seed, actions, savedAt: new Date().toISOString() } satisfies SaveGame);

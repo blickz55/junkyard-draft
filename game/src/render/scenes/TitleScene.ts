@@ -5,6 +5,7 @@ import { audio } from '../audio';
 import { clearSave, dailySeed, loadBests, loadSave, randomSeed } from '../storage';
 import { decodeReplay, verifyReplay } from '../../sim/replay';
 import { W, H } from '../layout';
+import { prefs } from '../prefs';
 
 export class TitleScene extends Phaser.Scene {
   constructor() { super('Title'); }
@@ -15,7 +16,7 @@ export class TitleScene extends Phaser.Scene {
     for (let i = 0; i < 16; i++) this.add.image(i * 72 + 36, H - 36, 'm-conveyor').setAlpha(0.25);
     const scrapBelt = this.add.group();
     for (let i = 0; i < 6; i++) scrapBelt.add(this.add.image(-40 + i * 200, H - 36, ['i-scrap', 'i-shards', 'i-ingot'][i % 3]).setScale(1.4).setAlpha(0.6));
-    this.time.addEvent({ delay: 16, loop: true, callback: () => scrapBelt.getChildren().forEach((c) => { const img = c as Phaser.GameObjects.Image; img.x += 1.2; if (img.x > W + 40) img.x = -40; }) });
+    if (!prefs.reducedMotion) this.time.addEvent({ delay: 16, loop: true, callback: () => scrapBelt.getChildren().forEach((c) => { const img = c as Phaser.GameObjects.Image; img.x += 1.2; if (img.x > W + 40) img.x = -40; }) });
 
     label(this, W / 2, 110, 'JUNKYARD DRAFT', 56, CSS.amber, { fontStyle: 'bold', letterSpacing: 6 }).setOrigin(0.5);
     label(this, W / 2, 160, 'Draft salvaged machines. Build a production line. Beat your best.', 18, CSS.dim).setOrigin(0.5);
@@ -36,16 +37,19 @@ export class TitleScene extends Phaser.Scene {
     y += 70;
 
     // how to play
-    panel(this, 60, y, 560, 180, 0.9);
+    const howto = panel(this, 60, y, 560, 180, 0.9);
     label(this, 76, y + 12, 'HOW TO PLAY', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
     const lines = [
       '1. Each round, pick one of three salvaged machines.',
-      '2. Drag machines onto the grid. R or right-click rotates them.',
-      '3. Press RUN: scrap flows, machines transform it, the dock sells it.',
+      '2. Drag parts onto the grid; R or right-click rotates.',
+      '3. RUN: machines transform scrap; the dock sells it.',
       '4. Scrap $1 → Crusher → Shards $3 → Furnace → Ingot $12.',
-      '5. Six rounds. Your score is the total money shipped. Then try again.',
+      '5. Six rounds. Score = total money shipped. Try again.',
     ];
-    lines.forEach((l, i) => label(this, 76, y + 40 + i * 24, l, 15, CSS.text));
+    let ly = y + 40; // lines wrap at larger text sizes; stack them by measured height and grow the panel
+    lines.forEach((l, i) => { const t = label(this, 76, ly, l, 15, CSS.text, { wordWrap: { width: 528 } }).setName(`howto-${i + 1}`); ly += t.height + 6; });
+    howto.setSize(560, Math.max(180, ly + 6 - y));
+    mono(this, W - 24, 12, `build ${import.meta.env.BUILD}`, 11, '#6f6758').setOrigin(1, 0);
 
     // bests + settings
     panel(this, 640, y, 420, 180, 0.9);
@@ -57,7 +61,11 @@ export class TitleScene extends Phaser.Scene {
     label(this, 656, y + 112, 'Volume', 13, CSS.dim);
     slider(this, 720, y + 120, 200, audio.volume, (v) => audio.setVolume(v));
     const mute = new Button(this, 990, y + 120, audio.muted ? 'Unmute' : 'Mute', () => { audio.setMuted(!audio.muted); mute.setText(audio.muted ? 'Unmute' : 'Mute'); }, { w: 100, h: 30, color: P.steelDark, textColor: CSS.text, size: 13, name: 'mute' });
-    mono(this, 656, y + 150, `build ${import.meta.env.BUILD}`, 11, '#6f6758');
+    // accessibility: reduced motion (belts, flashes, floats off) and text size (100 / 115 / 130 %)
+    label(this, 656, y + 148, 'Motion', 13, CSS.dim);
+    const motion = new Button(this, 760, y + 156, prefs.reducedMotion ? 'Reduced' : 'Full', () => { prefs.setReducedMotion(!prefs.reducedMotion); motion.setText(prefs.reducedMotion ? 'Reduced' : 'Full'); this.scene.restart(); }, { w: 100, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'motion' });
+    label(this, 830, y + 148, 'Text size', 13, CSS.dim);
+    new Button(this, 955, y + 156, prefs.textScaleLabel(), () => { prefs.setTextScale(prefs.nextTextScale()); this.scene.restart(); }, { w: 80, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'textscale' });
 
     if (save) mono(this, W / 2, y + 186, 'Starting a new run discards the saved one.', 12, CSS.dim).setOrigin(0.5, 0);
     this.dailyBoard(H - 72); // fixed strip above the bottom edge, same place with or without a saved run
@@ -68,15 +76,15 @@ export class TitleScene extends Phaser.Scene {
   private dailyBoard(y: number) {
     const url = new URLSearchParams(location.search).get('verifier') || 'http://127.0.0.1:4400';
     panel(this, 60, y, 1000, 58, 0.96);
-    label(this, 76, y + 9, "TODAY'S VERIFIED BOARD", 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
-    mono(this, 300, y + 10, `seed ${dailySeed()}`, 12, CSS.dim);
+    const head = label(this, 76, y + 9, "TODAY'S VERIFIED BOARD", 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
+    mono(this, head.x + head.width + 18, y + 10, `seed ${dailySeed()}`, 12, CSS.dim);
     const line = mono(this, 76, y + 32, 'Checking the local verifier…', 12, CSS.dim).setName('daily-board');
     fetch(`${url}/daily?limit=5`).then((r) => r.json()).then((d: { seed: string; rulesVersion: number; entries: { player: string; score: number }[] }) => {
-      if (!this.sys.isActive()) return;
+      if (!line.active || !line.scene) return; // the scene may have restarted (settings change) while the request was in flight
       if (d.seed !== dailySeed()) { line.setText(`Verifier day differs (${d.seed}); board hidden.`); return; }
       line.setText(d.entries.length ? d.entries.map((e, i) => `${i + 1}. $${e.score} ${e.player}`).join('   ·   ') + `   ·   re-simulated by the verifier (rules v${d.rulesVersion})` : 'No verified scores yet today. Finish a run and submit the replay from the results screen.');
       line.setColor(d.entries.length ? CSS.text : CSS.dim);
-    }).catch(() => { if (this.sys.isActive()) line.setText('Verifier offline (optional: npm run verifier). Daily board unavailable; local bests above are unverified.'); });
+    }).catch(() => { if (line.active && line.scene) line.setText('Verifier offline (optional: npm run verifier). Daily board unavailable; local bests above are unverified.'); });
   }
 
   private start(seed: string, fresh: boolean) {

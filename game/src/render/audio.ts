@@ -1,5 +1,5 @@
 /** Tiny WebAudio synth. Everything is generated; no asset files. */
-import { loadSettings, saveSettings } from './storage';
+import { loadSettings, updateSettings } from './storage';
 
 class Synth {
   private ctx: AudioContext | null = null;
@@ -24,8 +24,8 @@ class Synth {
   }
   /** Call from a user gesture so the context can start. */
   unlock() { const c = this.ensure(); if (c && c.state === 'suspended') void c.resume(); }
-  setVolume(v: number) { this.volume = Math.max(0, Math.min(1, v)); if (this.master) this.master.gain.value = this.muted ? 0 : this.volume; saveSettings({ volume: this.volume, muted: this.muted }); }
-  setMuted(m: boolean) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : this.volume; saveSettings({ volume: this.volume, muted: this.muted }); }
+  setVolume(v: number) { this.volume = Math.max(0, Math.min(1, v)); if (this.master) this.master.gain.value = this.muted ? 0 : this.volume; updateSettings({ volume: this.volume, muted: this.muted }); }
+  setMuted(m: boolean) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : this.volume; updateSettings({ volume: this.volume, muted: this.muted }); }
   suspend() { void this.ctx?.suspend(); }
   resume() { void this.ctx?.resume(); }
 

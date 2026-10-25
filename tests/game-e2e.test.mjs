@@ -129,6 +129,21 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.ok(hasSave, 'run saved to localStorage');
     // today's verified board on the title screen (verifier spawned by this test; no entries for today yet)
     await page.waitForFunction(() => { const t = window.__jdGame.scene.getScene('Title').children.getByName('daily-board'); return !!t && /No verified scores yet today/.test(t.text); }, null, { timeout: 15000 });
+    // accessibility settings: reduced motion and text size persist, re-render the title, and apply in-game
+    const titleBtn = (name) => page.evaluate((n) => { window.__jdGame.scene.getScene('Title').children.getByName(n).emit('pointerdown'); }, name);
+    const settings = () => page.evaluate(() => JSON.parse(localStorage.getItem('jd.settings.v1') || '{}'));
+    const titleReady = (pred) => page.waitForFunction(pred, null, { timeout: 8000 });
+    await titleBtn('motion');
+    await titleReady(() => window.__jdGame.scene.isActive('Title') && window.__jdGame.scene.getScene('Title').children.getByName('motion')?.label.text === 'Reduced');
+    assert.equal((await settings()).reducedMotion, true, 'reduced motion persisted');
+    await titleBtn('textscale');
+    await titleReady(() => window.__jdGame.scene.isActive('Title') && window.__jdGame.scene.getScene('Title').children.getByName('textscale')?.label.text === '115%');
+    assert.equal((await settings()).textScale, 1.15, 'text size persisted');
+    assert.equal((await settings()).reducedMotion, true, 'text size change kept the motion setting');
+    assert.equal(await page.evaluate(() => window.__jdGame.scene.getScene('Title').children.getByName('howto-1').style.fontSize), '17px', 'labels scale with text size (15px × 1.15)');
+    await titleBtn('textscale'); await titleReady(() => window.__jdGame.scene.getScene('Title').children.getByName('textscale')?.label.text === '130%');
+    await titleBtn('textscale'); await titleReady(() => window.__jdGame.scene.getScene('Title').children.getByName('textscale')?.label.text === '100%');
+    assert.equal((await settings()).textScale, 1);
     await page.keyboard.press('Enter'); // continue
     await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'result', null, { timeout: 15000 });
     st = await api('state'); assert.equal(st.rounds.length, 1); assert.ok(st.score > 38, 'score restored');
@@ -145,6 +160,13 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
         assert.equal((await api('state')).score, before + 10, 'sell bonus added');
       }
       await api('run');
+      if (r === 2) {
+        // reduced motion (set on the title screen above) keeps conveyor belts on frame 0 while running
+        await wait(700);
+        assert.equal((await api('prefs')).reducedMotion, true);
+        const belts = await page.evaluate(() => window.__jdGame.scene.getScene('Game').children.list.flatMap((o) => (o.list ? o.list : [o])).filter((o) => o.texture && /^belt-/.test(o.texture.key)).map((o) => o.texture.key));
+        assert.ok(belts.length > 0 && belts.every((k) => k === 'belt-0'), `belts static under reduced motion: ${belts.join(',')}`);
+      }
       await api('finishRun');
       await page.waitForFunction(() => window.__jd.mode() === 'summary');
       await api('next');
