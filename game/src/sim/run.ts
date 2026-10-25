@@ -11,6 +11,7 @@ export type Action =
   | { t: 'place'; id: number; x: number; y: number; dir: Dir }
   | { t: 'rotate'; id: number }
   | { t: 'unplace'; id: number }
+  | { t: 'sell'; id: number }
   | { t: 'run' }
   | { t: 'next' };
 
@@ -27,6 +28,8 @@ export interface RunState {
   picks: MachineKind[];
   rounds: RoundRecord[];
   score: number;
+  /** money from selling drafted parts (part of score) */
+  sold: number;
   nextId: number;
   actions: Action[];
 }
@@ -54,7 +57,7 @@ export function starterLayout(): { layout: Layout; nextId: number } {
 
 export function newRun(seed: string): RunState {
   const { layout, nextId } = starterLayout();
-  return { rulesVersion: RULES_VERSION, seed, round: 1, phase: 'draft', layout, bin: [], offers: draftOffers(seed, 1), picks: [], rounds: [], score: 0, nextId, actions: [] };
+  return { rulesVersion: RULES_VERSION, seed, round: 1, phase: 'draft', layout, bin: [], offers: draftOffers(seed, 1), picks: [], rounds: [], score: 0, sold: 0, nextId, actions: [] };
 }
 
 export class RunError extends Error {}
@@ -68,7 +71,7 @@ function findMachine(s: RunState, id: number): { m: Machine; where: 'grid' | 'bi
 }
 
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
-const ACTION_TYPES = new Set(['pick', 'place', 'rotate', 'unplace', 'run', 'next']);
+const ACTION_TYPES = new Set(['pick', 'place', 'rotate', 'unplace', 'sell', 'run', 'next']);
 
 /** Structural validation of an action object (replays come from untrusted files). */
 export function validateAction(a: unknown): a is Action {
@@ -78,7 +81,7 @@ export function validateAction(a: unknown): a is Action {
   switch (o.t) {
     case 'pick': return isInt(o.i) && o.i >= 0 && o.i < 3 && Object.keys(o).length === 2;
     case 'place': return isInt(o.id) && isInt(o.x) && isInt(o.y) && isInt(o.dir) && o.dir >= 0 && o.dir <= 3 && Object.keys(o).length === 5;
-    case 'rotate': case 'unplace': return isInt(o.id) && Object.keys(o).length === 2;
+    case 'rotate': case 'unplace': case 'sell': return isInt(o.id) && Object.keys(o).length === 2;
     case 'run': case 'next': return Object.keys(o).length === 1;
   }
   return false;
@@ -117,6 +120,14 @@ export function apply(s: RunState, a: Action): RunState {
       if (s.phase !== 'build') throw new RunError('not building');
       const { m, where } = findMachine(s, a.id);
       if (where === 'grid') { s.layout.machines.splice(s.layout.machines.indexOf(m), 1); m.x = -1; m.y = -1; s.bin.push(m); }
+      break;
+    }
+    case 'sell': {
+      if (s.phase !== 'build') throw new RunError('not building');
+      const { m, where } = findMachine(s, a.id);
+      if (where !== 'bin') throw new RunError('only bin parts can be sold');
+      s.bin.splice(s.bin.indexOf(m), 1);
+      s.sold += RULES.sellValue; s.score += RULES.sellValue;
       break;
     }
     case 'run': {

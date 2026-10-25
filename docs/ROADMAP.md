@@ -28,11 +28,11 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [ ] Human-readable playtest notes from at least one full manual run (needs the user's machine)
 
 ## M2 — Readability, controls, depth
-- [ ] Hover tooltips on machines showing per-run stats after a round (processed / jammed / shipped)
+- [x] Per-machine stats after a round are shown as on-grid badges (tooltips not needed)
 - [ ] Keyboard-only placement (arrow keys + Enter) for accessibility
-- [ ] Sell/scrap a drafted part for a small bonus so useless offers still matter
+- [x] Sell a drafted part from the bin for $10 so useless offers still matter
 - [ ] One new machine with a real decision (e.g. Press: 2 shards → 1 plate $8, or a Sorter)
-- [ ] Round-end layout snapshot in the summary (mini-map) instead of empty space
+- [x] Round-end badges on every machine (out/blocked, made/waited, $/shipped) with diagnostics in the side panel
 - [ ] Balance pass driven by autoplayer score distributions per seed
 
 ## M3 — Desktop packaging

@@ -92,11 +92,17 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'result', null, { timeout: 15000 });
     st = await api('state'); assert.equal(st.rounds.length, 1); assert.ok(st.score > 38, 'score restored');
 
-    // 5) remaining rounds through the dev API (pick first offer, run, next)
+    // 5) remaining rounds through the dev API (pick first offer, run, next); round 2 sells the part instead
     await api('next');
     for (let r = 2; r <= 6; r++) {
       await page.waitForFunction((rr) => window.__jd.phase() === 'draft' && window.__jd.state().round === rr, r);
       await api('pick', 0);
+      if (r === 2) {
+        const before = (await api('state')).score;
+        const binPart = (await api('state')).bin.find((m) => m.x < 0);
+        assert.ok(await api('act', { t: 'sell', id: binPart.id }), 'sell accepted');
+        assert.equal((await api('state')).score, before + 10, 'sell bonus added');
+      }
       await api('run');
       await api('finishRun');
       await page.waitForFunction(() => window.__jd.mode() === 'summary');

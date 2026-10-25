@@ -10,7 +10,9 @@ export const RULES = {
   hopperPeriod: 2,
   /** processing time in ticks (item is held, then released when output is free) */
   process: { crusher: 2, furnace: 3 } as Record<string, number>,
-  value: { scrap: 1, shards: 3, ingot: 12, slag: 2 } as Record<Material, number>,
+  value: { scrap: 1, shards: 3, ingot: 12, slag: 1 } as Record<Material, number>,
+  /** money for selling an unwanted drafted part from the bin (never a placed machine) */
+  sellValue: 10,
   /** Draft offer weights (relative). */
   draftWeights: { conveyor: 34, crusher: 18, furnace: 15, splitter: 15, hopper: 10, dock: 8 } as Record<MachineKind, number>,
   /** Starter layout machine kinds. */
@@ -28,7 +30,7 @@ export const MACHINE_INFO: Record<MachineKind, { name: string; blurb: string }> 
   conveyor: { name: 'Conveyor', blurb: 'Carries items forward. Accepts from behind or either side.' },
   splitter: { name: 'Splitter', blurb: 'Takes from behind, alternates output left and right. Doubles a line.' },
   crusher: { name: 'Crusher', blurb: 'Scrap → Shards ($3). Takes 2 ticks. Other materials pass through.' },
-  furnace: { name: 'Furnace', blurb: 'Shards → Ingot ($12). Raw scrap melts to Slag ($2). Takes 3 ticks.' },
+  furnace: { name: 'Furnace', blurb: 'Shards → Ingot ($12). Raw scrap melts to Slag ($1). Takes 3 ticks.' },
   dock: { name: 'Shipping Dock', blurb: 'Accepts items from any side and sells them for their value.' },
 };
 

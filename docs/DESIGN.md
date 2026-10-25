@@ -26,7 +26,9 @@ Hopper → Conveyor ×3 → Dock in row 3. Ships raw scrap for $1 each (38 per r
 Orientation is the core puzzle: processors and splitters only take items from behind. Conveyors side-load so lines can merge.
 
 ## Materials
-Scrap $1 · Shards $3 · Ingot $12 · Slag $2 (the "wrong order" product — visible, not punishing).
+Scrap $1 · Shards $3 · Ingot $12 · Slag $1 (the "wrong order" product — visible, cheaper than selling raw scrap).
+
+An unwanted drafted part can be **sold from the bin for $10** (action `sell`, replay-verified). Placed machines cannot be sold, so the bonus never competes with building.
 
 ## Throughput facts (why layouts matter)
 - One hopper supplies 40 items per round. A crusher (2 ticks) keeps up; a furnace (3 ticks) handles ~26 → the hopper backs up.
@@ -50,4 +52,6 @@ Identical seeds give identical offers; nothing in progression changes scoring. L
 ## Decisions log
 - 2026-10-25 Grid 8×6, 80-tick rounds, 6 rounds: fits a laptop at 1120×700 and keeps a run under 10 minutes.
 - 2026-10-25 Furnace melts raw scrap into slag instead of refusing it: flow stays visible and the lesson is cheap.
-- 2026-10-25 Chain movement resolved by repeated passes (max 8) rather than two-phase planning: simpler, deterministic, sufficient for 48 cells.
+- 2026-10-25 Sell-from-bin ($10) added after the autoplayer showed ~1/3 of drafts cannot improve a line; slag lowered to $1 so raw scrap in a furnace costs something.
+- 2026-10-25 Round summary moved onto the grid: per-machine badges (out/blocked, made/waited, $/shipped) replace an opaque overlay.
+- 2026-10-25 Chain movement resolved by repeated passes (bounded by item count) rather than two-phase planning: simpler, deterministic; the earlier fixed 8-pass cap falsely stalled long chains and was removed.

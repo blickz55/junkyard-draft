@@ -23,6 +23,8 @@ test('crusher turns scrap into shards worth $3; throughput limited by processing
   assert.equal(r.shipped.shards > 0, true);
   assert.equal(r.shipped.scrap, 0);
   assert.equal(r.earned, r.shipped.shards * 3);
+  const raw2 = runLayout(lay(m('hopper', 0, 0), m('furnace', 1, 0), m('dock', 2, 0)), 80);
+  assert.equal(raw2.earned, raw2.shipped.slag * RULES.value.slag, 'slag is worth less than raw scrap sold directly');
   // crusher holds each item for 2 ticks, hopper emits every 2 ticks: no loss
   assert.ok(r.shipped.shards >= 18, `shipped ${r.shipped.shards}`);
 });
@@ -132,4 +134,16 @@ test('malformed actions are rejected by apply and by decodeReplay', () => {
     assert.throws(() => apply(s, bad as never), RunError, JSON.stringify(bad));
   assert.throws(() => decodeReplay(JSON.stringify({ format: 1, rulesVersion: 1, seed: 'x', claimedScore: 0, actions: [{ t: 'pick', i: 'a' }] })), /malformed action/);
   assert.throws(() => decodeReplay(JSON.stringify({ format: 1, rulesVersion: 1, seed: 'x', claimedScore: 0, actions: new Array(5000).fill({ t: 'rotate', id: 1 }) })), /too long/);
+});
+
+test('selling a bin part adds the sell bonus to the score and is replay-verified; placed machines cannot be sold', () => {
+  const s = newRun('sell-seed');
+  apply(s, { t: 'pick', i: 0 });
+  const id = s.bin[0].id;
+  assert.throws(() => apply(s, { t: 'sell', id: 1 }), /only bin parts/);
+  apply(s, { t: 'sell', id });
+  assert.equal(s.bin.length, 0); assert.equal(s.score, RULES.sellValue); assert.equal(s.sold, RULES.sellValue);
+  assert.throws(() => apply(s, { t: 'sell', id }), RunError);
+  for (let r = 1; r <= RULES.rounds; r++) { if (r > 1) apply(s, { t: 'pick', i: 0 }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); }
+  assert.equal(verifyReplay(exportReplay(s)).ok, true);
 });

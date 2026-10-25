@@ -254,14 +254,15 @@ export class GameScene extends Phaser.Scene {
         t(104, 48, MACHINE_INFO[sel.kind].name, 17, CSS.text, { fontStyle: 'bold' });
         t(104, 72, MACHINE_INFO[sel.kind].blurb, 12.5, CSS.dim).setWordWrapWidth(SIDE_W - 130);
         add(new Button(this, 70, 128, 'Rotate (R)', () => this.rotateSelected(), { w: 100, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'rotate' }));
-        if (!sel.id || sel.x >= 0) add(new Button(this, 190, 128, 'To bin (Del)', () => { this.act({ t: 'unplace', id: sel.id }); this.syncMachines(); }, { w: 110, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'tobin' }));
+        if (sel.x >= 0) add(new Button(this, 190, 128, 'To bin (Del)', () => { this.act({ t: 'unplace', id: sel.id }); this.syncMachines(); }, { w: 110, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'tobin' }));
+        else add(new Button(this, 200, 128, `Sell for $${RULES.sellValue}`, () => { if (this.act({ t: 'sell', id: sel.id })) { audio.ship(RULES.sellValue); this.selectedId = null; this.syncMachines(); this.renderSide(); } }, { w: 120, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'sell' }));
       } else {
         t(16, 44, 'Drag a part from the bin onto the grid. Click a placed machine to select it; R or right-click rotates it. Drop a machine on the bin to remove it.', 14, CSS.dim);
       }
       const placedCount = r.layout.machines.length;
       t(16, 176, `${placedCount} machines placed · ${r.bin.length} in bin`, 12, CSS.dim);
       this.runBtn = add(new Button(this, SIDE_W / 2, 230, `RUN ROUND ${r.round}  (Space)`, () => this.startRun(), { w: SIDE_W - 48, h: 52, size: 18, name: 'run' })) as Button;
-      if (r.bin.length > 0) t(16, 262, 'Tip: parts left in the bin do nothing this round.', 12, CSS.dim);
+      if (r.bin.length > 0) t(16, 262, `Parts left in the bin do nothing this round. Select one to sell it for $${RULES.sellValue}.`, 12, CSS.dim);
       this.side.add(this.legend(16, 300));
       return;
     }
@@ -416,41 +417,59 @@ export class GameScene extends Phaser.Scene {
     audio.roundEnd(rec.earned > 38);
     this.overlay?.destroy();
     const c = this.add.container(0, 0).setDepth(20);
-    c.add(this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H, 0x000000, 0.72).setOrigin(0));
-    const bx = GRID_X + 40, by = GRID_Y + 30;
-    c.add(this.add.rectangle(bx, by, GRID_W - 80, GRID_H - 60, P.panel, 0.98).setOrigin(0).setStrokeStyle(2, P.amber));
-    c.add(this.add.text(bx + 20, by + 16, `ROUND ${rec.round} RESULT`, { fontFamily: FONT, fontSize: '14px', color: CSS.amber, fontStyle: 'bold', letterSpacing: 2 }));
-    c.add(this.add.text(bx + 20, by + 40, `$${rec.earned}`, { fontFamily: FONT, fontSize: '40px', color: CSS.gold, fontStyle: 'bold' }));
-    c.add(this.add.text(bx + 150, by + 56, `earned this round · total $${this.run.score}`, { fontFamily: FONT, fontSize: '14px', color: CSS.dim }));
-    const mats: Material[] = ['ingot', 'shards', 'scrap', 'slag'];
-    let y = by + 100;
-    mats.forEach((m) => { if (res.shipped[m]) { c.add(this.add.image(bx + 30, y + 8, itemTexture(m))); c.add(this.add.text(bx + 50, y, `${res.shipped[m]} × ${m} @ $${RULES.value[m]} = $${res.shipped[m] * RULES.value[m]}`, { fontFamily: FONT, fontSize: '15px', color: CSS.text })); y += 24; } });
-    if (!Object.values(res.shipped).some(Boolean)) { c.add(this.add.text(bx + 20, y, 'Nothing reached a dock. Check arrows: items only enter crushers, furnaces and splitters from behind.', { fontFamily: FONT, fontSize: '14px', color: CSS.red, wordWrap: { width: GRID_W - 130 } })); y += 44; }
-    // diagnostics
-    const notes: string[] = [];
+    c.add(this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H, 0x000000, 0.25).setOrigin(0));
+    // per-machine badges on the grid: what each machine actually did
     const g = this.run.layout;
+    const notes: string[] = [];
     for (const m of g.machines) {
       const st = res.cellStats[cellIndex(m.x, m.y, g.width)];
-      if (!st) continue;
-      if (m.kind === 'hopper' && st.blockedTicks > 5) notes.push(`Hopper at ${m.x + 1},${m.y + 1} was blocked ${st.blockedTicks} ticks (${st.spawned} spawned): the line ahead is full or facing wrong.`);
-      if (st.jammedTicks > 8 && m.kind !== 'hopper') notes.push(`${MACHINE_INFO[m.kind].name} at ${m.x + 1},${m.y + 1}: items waited ${st.jammedTicks} ticks.`);
+      const { px, py } = this.cellXY(m.x, m.y);
+      let line1 = ''; let line2 = ''; let color = CSS.text;
+      if (m.kind === 'hopper') { line1 = st ? `${st.spawned} out` : 'idle'; if (st && st.blockedTicks > 5) { line2 = `blocked ${st.blockedTicks}`; notes.push(`Hopper ${m.x + 1},${m.y + 1} blocked ${st.blockedTicks} ticks: line ahead full or facing wrong.`); } if (!st) { color = CSS.dim; notes.push(`Hopper ${m.x + 1},${m.y + 1} never emitted: nothing accepts items ahead of it.`); } }
+      else if (m.kind === 'dock') { if (st && st.shipped) { line1 = `$${st.earned}`; line2 = `${st.shipped} shipped`; color = CSS.green; } else { line1 = 'no items'; color = CSS.dim; } }
+      else if (m.kind === 'crusher' || m.kind === 'furnace') { line1 = st ? `${st.processed} made` : 'unused'; if (!st || !st.processed) color = CSS.dim; if (st && st.jammedTicks > 8) { line2 = `waited ${st.jammedTicks}`; notes.push(`${MACHINE_INFO[m.kind].name} ${m.x + 1},${m.y + 1}: output blocked ${st.jammedTicks} ticks.`); } }
+      else { if (st && st.jammedTicks > 8) line2 = `waited ${st.jammedTicks}`; else if (!st) { line1 = 'unused'; color = CSS.dim; } }
+      if (!line1 && !line2) continue;
+      const lines = [line1, line2].filter(Boolean);
+      const bg = this.add.rectangle(px + CELL / 2, py + CELL - 2, CELL - 6, 12 * lines.length + 4, 0x000000, 0.8).setOrigin(0.5, 1);
+      c.add(bg);
+      if (line1) c.add(this.add.text(px + CELL / 2, py + CELL - 4 - (line2 ? 11 : 0), line1, { fontFamily: FONT, fontSize: '10px', color, fontStyle: 'bold' }).setOrigin(0.5, 1));
+      if (line2) c.add(this.add.text(px + CELL / 2, py + CELL - 4, line2, { fontFamily: FONT, fontSize: '10px', color: CSS.red, fontStyle: 'bold' }).setOrigin(0.5, 1));
     }
-    if (res.spawned - Object.values(res.shipped).reduce((a, b) => a + b, 0) > 6) notes.push(`${res.spawned - Object.values(res.shipped).reduce((a, b) => a + b, 0)} items were still in transit or stuck when time ran out.`);
-    c.add(this.add.text(bx + 20, y + 8, notes.slice(0, 4).join('\n') || 'Clean run: nothing jammed.', { fontFamily: FONT, fontSize: '13px', color: notes.length ? CSS.red : CSS.green, wordWrap: { width: GRID_W - 130 }, lineSpacing: 4 }));
+    const inTransit = res.spawned - Object.values(res.shipped).reduce((a, b) => a + b, 0);
+    if (inTransit > 6) notes.push(`${inTransit} items were still in transit or stuck when time ran out.`);
+    if (!Object.values(res.shipped).some(Boolean)) notes.unshift('Nothing reached a dock. Items only enter crushers, furnaces and splitters from behind.');
+    // banner across the top of the grid
     const last = this.run.round >= RULES.rounds;
-    c.add(new Button(this, GRID_X + GRID_W / 2, by + GRID_H - 100, last ? 'See final score  (Space)' : 'Next round  (Space)', () => this.nextRound(), { w: 300, h: 46, size: 17, name: 'next' }));
+    c.add(this.add.rectangle(GRID_X, GRID_Y, GRID_W, 64, P.panel, 0.97).setOrigin(0).setStrokeStyle(2, P.amber));
+    c.add(this.add.text(GRID_X + 16, GRID_Y + 8, `ROUND ${rec.round} RESULT`, { fontFamily: FONT, fontSize: '12px', color: CSS.amber, fontStyle: 'bold', letterSpacing: 2 }));
+    c.add(this.add.text(GRID_X + 16, GRID_Y + 24, `$${rec.earned}`, { fontFamily: FONT, fontSize: '30px', color: CSS.gold, fontStyle: 'bold' }));
+    c.add(this.add.text(GRID_X + 120, GRID_Y + 36, `this round · total $${this.run.score}`, { fontFamily: FONT, fontSize: '13px', color: CSS.dim }));
+    c.add(new Button(this, GRID_X + GRID_W - 130, GRID_Y + 32, last ? 'Final score (Space)' : 'Next round (Space)', () => this.nextRound(), { w: 230, h: 40, size: 15, name: 'next' }));
     this.overlay = c;
     if (this.replayQueue) this.time.delayedCall(1200, () => this.advanceReplay());
-    this.renderSideSummary();
-    this.hint.setText(last ? 'Final round complete.' : 'Study the jams, then draft and rearrange for the next round.');
+    this.renderSideSummary(notes);
+    this.hint.setText(last ? 'Final round complete. Badges show what each machine did.' : 'Badges show what each machine did. Study the waits, then draft and rearrange.');
   }
-  private renderSideSummary() {
+  private renderSideSummary(notes: string[]) {
     this.side.removeAll(true);
     const r = this.run;
+    const rec = r.rounds[r.rounds.length - 1]; const res = rec.result;
     const t = (x: number, y: number, s: string, size = 14, color = CSS.text, style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) => { const o = this.add.text(x, y, s, { fontFamily: FONT, fontSize: `${size}px`, color, wordWrap: { width: SIDE_W - 32 }, ...style }); this.side.add(o); return o; };
-    t(16, 12, 'ROUND HISTORY', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
-    r.rounds.forEach((rr, i) => t(16, 40 + i * 24, `Round ${rr.round}: $${rr.earned}`, 15, i === r.rounds.length - 1 ? CSS.gold : CSS.text));
-    this.side.add(this.legend(16, 300));
+    t(16, 12, 'WHAT SHIPPED', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
+    let y = 36;
+    const mats: Material[] = ['ingot', 'shards', 'scrap', 'slag'];
+    for (const m of mats) if (res.shipped[m]) { const img = this.add.image(26, y + 9, itemTexture(m)); this.side.add(img); t(44, y, `${res.shipped[m]} × ${m} @ $${RULES.value[m]} = $${res.shipped[m] * RULES.value[m]}`, 14); y += 24; }
+    if (!Object.values(res.shipped).some(Boolean)) { t(16, y, 'nothing', 14, CSS.dim); y += 24; }
+    y += 10;
+    t(16, y, 'DIAGNOSTICS', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 }); y += 24;
+    const diag = t(16, y, notes.slice(0, 5).join('\n') || 'Clean run: nothing waited, every hopper kept flowing.', 13, notes.length ? CSS.red : CSS.green, { lineSpacing: 4 });
+    y += diag.height + 16;
+    t(16, y, 'ROUND HISTORY', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 }); y += 24;
+    r.rounds.forEach((rr, i) => { t(16 + (i % 3) * 140, y + Math.floor(i / 3) * 22, `R${rr.round}: $${rr.earned}`, 14, i === r.rounds.length - 1 ? CSS.gold : CSS.text); });
+    y += Math.ceil(r.rounds.length / 3) * 22 + 8;
+    if (r.sold) t(16, y, `Sold parts: $${r.sold}`, 13, CSS.dim);
+    this.side.add(this.legend(16, Math.max(y + 24, 330)));
   }
   nextRound() {
     if (this.mode !== 'summary') return;
