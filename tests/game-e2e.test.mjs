@@ -33,6 +33,8 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await waitServer();
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+    // player name for the verified board (set here so the results screen does not prompt)
+    await page.evaluate(() => localStorage.setItem('jd.player', 'e2e player'));
     // Title → Game via a real click on "Today's challenge" button (Phaser object; click by canvas coords)
     await page.goto(`${URL}/?dev=1&scene=game&seed=e2e-seed&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
@@ -180,11 +182,34 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     // 6) submit the replay to the spawned verifier via the Results button (Phaser button: click its canvas position)
     for (let i = 0; i < 20; i++) { try { if ((await fetch(`http://127.0.0.1:${VPORT}/health`)).ok) break; } catch {} await wait(300); }
     await page.mouse.click(200, 650); // "Submit to local verifier"
-    await page.waitForFunction(() => /Verified by re-simulation/.test(document.body.innerText) || Array.from(window.__jdGame.scene.getScene('Results').children.list).some((o) => o.text && /Verified by re-simulation/.test(o.text)), null, { timeout: 15000 });
+    await page.waitForFunction(() => Array.from(window.__jdGame.scene.getScene('Results').children.list).some((o) => o.text && /Verified by re-simulation: \$\d+ — #1 of 1 on the local verified board as e2e player/.test(o.text)), null, { timeout: 15000 });
     const board = await (await fetch(`http://127.0.0.1:${VPORT}/board?seed=e2e-seed`)).json();
     assert.equal(board.entries.length, 1, 'one verified entry');
+    assert.equal(board.entries[0].player, 'e2e player', 'the stored player name is sent with the submission');
+    // share text: copied to the clipboard with seed, score and verified rank
+    await page.evaluate(() => window.__jdGame.scene.getScene('Results').children.getByName('share').emit('pointerdown'));
+    await page.waitForFunction(() => !!window.__jdGame.scene.getScene('Results').lastShareText, null, { timeout: 5000 }); // clipboard availability varies in headless runs; the text itself is what matters
+    const shared = await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText); // headless clipboard contents are not reliably readable
+    assert.match(shared, /^Junkyard Draft — seed e2e-seed: \$\d+\n/);
+    assert.match(shared, /#1 of 1 on the verified board as e2e player \(replay re-simulated, rules v2\)/);
+    const subs = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.submissions.v1')));
+    assert.equal(subs['e2e-seed'].replayHash, board.entries[0].replayHash, 'submission recorded locally by replay hash');
     const finalScore = await page.evaluate(() => Number(Array.from(window.__jdGame.scene.getScene('Results').children.list).find((o) => o.text && /^\$\d+$/.test(o.text)).text.slice(1)));
     assert.equal(board.entries[0].score, finalScore, 'board score equals the displayed final score');
+    // title screen shows this device's verified rank for today's seed: submit a daily replay to the test verifier,
+    // record it locally the way the results screen does, then reload the title
+    const { newRun, apply } = await import('../game/src/sim/run.ts');
+    const { exportReplay } = await import('../game/src/sim/replay.ts');
+    const { dailySeed } = await import('../game/src/sim/daily.ts');
+    const { RULES } = await import('../game/src/sim/rules.ts');
+    const daily = newRun(dailySeed());
+    for (let r = 1; r <= RULES.rounds; r++) { const ci = daily.offers.indexOf('crusher'); apply(daily, { t: 'pick', i: ci >= 0 ? ci : 0 }); if (r === 1) { const cv = daily.layout.machines.find((m) => m.x === 2 && m.y === 2); apply(daily, { t: 'unplace', id: cv.id }); apply(daily, { t: 'place', id: daily.bin[0].id, x: 2, y: 2, dir: 0 }); } apply(daily, { t: 'run' }); apply(daily, { t: 'next' }); }
+    const sub = await (await fetch(`http://127.0.0.1:${VPORT}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(daily), player: 'e2e player' }) })).json();
+    assert.equal(sub.ok, true, 'daily replay verified');
+    await page.evaluate(({ seed, s }) => localStorage.setItem('jd.submissions.v1', JSON.stringify({ [seed]: s })), { seed: dailySeed(), s: { score: sub.score, replayHash: sub.entry.replayHash, verifiedAt: sub.entry.verifiedAt, player: 'e2e player' } });
+    await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
+    await page.waitForFunction(() => { const t = window.__jdGame.scene.getScene('Title')?.children.getByName('daily-board'); return !!t && /^You: #1 of 1 \(\$\d+\)/.test(t.text) && /1\. \$\d+ e2e player/.test(t.text); }, null, { timeout: 15000 });
+    assert.equal(await page.evaluate(() => window.__jdGame.scene.getScene('Title').children.getByName('player').label.text), 'Player: e2e player');
     assert.deepEqual(errors, [], 'no page errors');
   } finally {
     if (browser) await browser.close().catch(() => {}); // guard: a failed launch must still stop the servers below

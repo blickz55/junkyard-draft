@@ -4,12 +4,17 @@ import { encodeReplay, exportReplay } from '../../sim/replay';
 import { Button, label, mono, panel } from '../ui';
 import { CSS, P } from '../palette';
 import { audio } from '../audio';
-import { clearSave, dailySeed, loadBests, randomSeed, recordBest } from '../storage';
+import { clearSave, dailySeed, loadBests, loadPlayer, randomSeed, recordBest, recordSubmission, savePlayer } from '../storage';
+import { shareText, type Rank } from '../share';
 import { W } from '../layout';
 import { RULES } from '../../sim/rules';
 import { prefs } from '../prefs';
 
 export class ResultsScene extends Phaser.Scene {
+  private lastRank: Rank | null = null;
+  private lastPlayer = '';
+  /** last share text produced (read by the e2e; the clipboard itself is not observable in headless runs) */
+  lastShareText = '';
   constructor() { super('Results'); }
 
   create(data: { run: RunState; replayed?: boolean }) {
@@ -55,18 +60,42 @@ export class ResultsScene extends Phaser.Scene {
     // Local verifier (optional service): verified scores are shown separately from local bests.
     const verifierUrl = new URLSearchParams(location.search).get('verifier') || import.meta.env.VERIFIER_URL;
     const status = mono(this, 90, 672, '', 12, CSS.dim);
+    this.lastRank = null; this.lastPlayer = '';
     const submit = new Button(this, 200, 650, 'Submit to local verifier', () => this.submitToVerifier(run, verifierUrl, submit, status), { w: 210, h: 32, color: P.steelDark, textColor: CSS.text, size: 13, name: 'submit', disabled: !!data.replayed });
+    const share = new Button(this, W - 130, 650, 'Copy share text', () => this.copyShare(run, share), { w: 200, h: 32, color: P.steelDark, textColor: CSS.text, size: 13, name: 'share' });
     void this.loadBoard(run.seed, verifierUrl, status);
     this.input.keyboard?.on('keydown-ENTER', () => this.scene.start('Game', { seed: run.seed, fresh: true }));
   }
 
+  /** Name shown on verified boards: asked once, kept in jd.player, editable on the title screen. */
+  private ensurePlayer(): string {
+    let player = loadPlayer();
+    if (!player) {
+      const typed = window.prompt('Name for the verified board (shown publicly, max 32 characters):', 'player');
+      player = (typed ?? '').trim() ? typed!.trim().slice(0, 32) : 'anonymous';
+      if (player !== 'anonymous') savePlayer(player);
+    }
+    return player;
+  }
+  /** Rank of a verified entry among the top 100 for its seed (server orders by score, then time). */
+  private async rankOf(seed: string, url: string, replayHash: string): Promise<Rank> {
+    const res = await fetch(`${url}/board?seed=${encodeURIComponent(seed)}&limit=100`);
+    const body = await res.json() as { entries: { replayHash: string }[] };
+    const i = body.entries.findIndex((e) => e.replayHash === replayHash);
+    return { n: i >= 0 ? i + 1 : null, of: body.entries.length };
+  }
   private async submitToVerifier(run: RunState, url: string, btn: Button, status: Phaser.GameObjects.Text) {
     btn.setEnabled(false); status.setText('Submitting replay to the local verifier…');
     try {
-      const player = (() => { try { return localStorage.getItem('jd.player') || 'local player'; } catch { return 'local player'; } })();
+      const player = this.ensurePlayer();
       const res = await fetch(`${url}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(run, import.meta.env.BUILD), player }) });
-      const body = await res.json() as { ok: boolean; score?: number; error?: string };
-      status.setText(body.ok ? `Verified by re-simulation: $${body.score} — recorded on the local verified board.` : `Verifier response: ${body.error || 'rejected'}`);
+      const body = await res.json() as { ok: boolean; score?: number; error?: string; entry?: { replayHash: string; verifiedAt: string } };
+      if (body.ok && body.entry) {
+        recordSubmission(run.seed, { score: body.score ?? run.score, replayHash: body.entry.replayHash, verifiedAt: body.entry.verifiedAt, player });
+        this.lastRank = await this.rankOf(run.seed, url, body.entry.replayHash); this.lastPlayer = player;
+        const r = this.lastRank;
+        status.setText(`Verified by re-simulation: $${body.score} — ${r.n != null ? `#${r.n} of ${r.of}` : `beyond the top ${r.of}`} on the local verified board as ${player}.`);
+      } else status.setText(`Verifier response: ${body.error || 'rejected'}`);
       status.setColor(body.ok ? CSS.green : CSS.red);
       await this.loadBoard(run.seed, url, status, true);
     } catch { status.setText(`Verifier unreachable at ${url} (start it with: npm run verifier). Score stays local/unverified.`); status.setColor(CSS.dim); btn.setEnabled(true); }
@@ -85,11 +114,25 @@ export class ResultsScene extends Phaser.Scene {
     } catch { if (!keepStatus) status.setText('No local verifier running (optional: npm run verifier). Local bests are unverified.'); }
   }
 
+  /** Clipboard blocked: offer the text in a prompt; where prompt() itself is unavailable (embedded webviews), say so on the button. */
+  private showTextFallback(title: string, text: string, btn: Button, label: string) {
+    try { window.prompt(title, text); }
+    catch { btn.setText('Clipboard blocked'); this.time.delayedCall(2000, () => btn.setText(label)); }
+  }
+  private copyShare(run: RunState, btn: Button) {
+    const text = shareText({ seed: run.seed, score: run.score, rulesVersion: run.rulesVersion, rounds: run.rounds.map((r) => r.earned), player: this.lastPlayer || undefined, rank: this.lastRank });
+    this.lastShareText = text;
+    const done = () => { btn.setText('Copied!'); this.time.delayedCall(1500, () => btn.setText('Copy share text')); };
+    const fallback = () => this.showTextFallback('Share text:', text, btn, 'Copy share text');
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+    else fallback();
+  }
   private copyReplay(run: RunState, btn: Button) {
     const text = encodeReplay(exportReplay(run, import.meta.env.BUILD));
     const done = () => { btn.setText('Copied!'); this.time.delayedCall(1500, () => btn.setText('Copy replay JSON')); };
-    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, () => window.prompt('Copy replay JSON:', text));
-    else window.prompt('Copy replay JSON:', text);
+    const fallback = () => this.showTextFallback('Copy replay JSON:', text, btn, 'Copy replay JSON');
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+    else fallback();
   }
   private downloadReplay(run: RunState) {
     const text = encodeReplay(exportReplay(run, import.meta.env.BUILD));

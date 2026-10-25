@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { Button, label, mono, panel, slider } from '../ui';
 import { CSS, P } from '../palette';
 import { audio } from '../audio';
-import { clearSave, dailySeed, loadBests, loadSave, randomSeed } from '../storage';
+import { clearSave, dailySeed, loadBests, loadPlayer, loadSave, loadSubmissions, randomSeed, savePlayer } from '../storage';
 import { decodeReplay, verifyReplay } from '../../sim/replay';
 import { W, H } from '../layout';
 import { prefs } from '../prefs';
@@ -50,6 +50,12 @@ export class TitleScene extends Phaser.Scene {
     lines.forEach((l, i) => { const t = label(this, 76, ly, l, 15, CSS.text, { wordWrap: { width: 528 } }).setName(`howto-${i + 1}`); ly += t.height + 6; });
     howto.setSize(560, Math.max(180, ly + 6 - y));
     mono(this, W - 24, 12, `build ${import.meta.env.BUILD}`, 11, '#948a79').setOrigin(1, 0);
+    // player name for verified boards (public); asked on first submission if still empty
+    const playerLabel = () => (loadPlayer() ? `Player: ${loadPlayer()}` : 'Set player name…');
+    const playerBtn = new Button(this, W - 120, 48, playerLabel(), () => {
+      const typed = window.prompt('Name shown on verified boards (max 32 characters, leave empty to clear):', loadPlayer() || 'player');
+      if (typed !== null) { savePlayer(typed); playerBtn.setText(playerLabel()); }
+    }, { w: 200, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'player' });
 
     // bests + settings
     panel(this, 640, y, 420, 180, 0.9);
@@ -82,8 +88,16 @@ export class TitleScene extends Phaser.Scene {
     fetch(`${url}/daily?limit=5`).then((r) => r.json()).then((d: { seed: string; rulesVersion: number; entries: { player: string; score: number }[] }) => {
       if (!line.active || !line.scene) return; // the scene may have restarted (settings change) while the request was in flight
       if (d.seed !== dailySeed()) { line.setText(`Verifier day differs (${d.seed}); board hidden.`); return; }
-      line.setText(d.entries.length ? d.entries.map((e, i) => `${i + 1}. $${e.score} ${e.player}`).join('   ·   ') + `   ·   re-simulated by the verifier (rules v${d.rulesVersion})` : 'No verified scores yet today. Finish a run and submit the replay from the results screen.');
-      line.setColor(d.entries.length ? CSS.text : CSS.dim);
+      const top = d.entries.length ? d.entries.map((e, i) => `${i + 1}. $${e.score} ${e.player}`).join('   ·   ') + `   ·   re-simulated by the verifier (rules v${d.rulesVersion})` : 'No verified scores yet today. Finish a run and submit the replay from the results screen.';
+      line.setText(top); line.setColor(d.entries.length ? CSS.text : CSS.dim);
+      // own rank: this device's recorded submission for today, located on the board by replay hash (not by name)
+      const mine = loadSubmissions()[dailySeed()];
+      if (!mine) return;
+      fetch(`${url}/board?seed=${encodeURIComponent(dailySeed())}&limit=100`).then((r) => r.json()).then((b: { entries: { replayHash: string }[] }) => {
+        if (!line.active || !line.scene) return;
+        const i = b.entries.findIndex((e) => e.replayHash === mine.replayHash);
+        line.setText(`You: ${i >= 0 ? `#${i + 1} of ${b.entries.length}` : `beyond the top ${b.entries.length}`} ($${mine.score})   ·   ${top}`); line.setColor(CSS.text);
+      }).catch(() => { /* board unavailable: keep the top list */ });
     }).catch(() => { if (line.active && line.scene) line.setText('Verifier offline (optional: npm run verifier). Daily board unavailable; local bests above are unverified.'); });
   }
 

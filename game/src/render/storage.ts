@@ -1,10 +1,11 @@
 import type { Action } from '../sim/run';
 import { RULES_VERSION } from '../sim/types';
 import { dailySeed } from '../sim/daily';
+import { cleanPlayer } from './share';
 
 export { dailySeed };
 
-const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v1', onboarded: 'jd.onboarded.v1' };
+const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v1' };
 
 export interface Settings { volume: number; muted: boolean; reducedMotion: boolean; textScale: number }
 /** Default for reduced motion follows the OS preference until the player chooses. */
@@ -39,6 +40,15 @@ export function recordBest(seed: string, score: number): { newOverall: boolean; 
   write(K.bests, b);
   return { newOverall, newSeed };
 }
+
+/** Display name sent with verified submissions (shown publicly on boards). Empty until the player chooses one. */
+export const loadPlayer = (): string => { try { return cleanPlayer(localStorage.getItem(K.player)); } catch { return ''; } };
+export const savePlayer = (name: string) => { try { const n = cleanPlayer(name); if (n) localStorage.setItem(K.player, n); else localStorage.removeItem(K.player); } catch { /* ignore */ } };
+
+/** Verified submissions this device made, by seed: lets the title screen look up its own rank without trusting names. */
+export interface Submission { score: number; replayHash: string; verifiedAt: string; player: string }
+export const loadSubmissions = (): Record<string, Submission> => read(K.submissions, {} as Record<string, Submission>);
+export const recordSubmission = (seed: string, s: Submission) => { const all = loadSubmissions(); if (!all[seed] || s.score >= all[seed].score) { all[seed] = s; write(K.submissions, all); } };
 
 export const isOnboarded = () => { try { return localStorage.getItem(K.onboarded) === '1'; } catch { return true; } };
 export const setOnboarded = () => { try { localStorage.setItem(K.onboarded, '1'); } catch { /* ignore */ } };
