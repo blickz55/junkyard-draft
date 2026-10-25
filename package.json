@@ -2,7 +2,7 @@
   "name": "junkyard-draft",
   "version": "0.1.0",
   "private": true,
-  "description": "Junkyard Draft — a 2D factory score-attack game (Phaser + TypeScript) with the Workshop Control Room development dashboard.",
+  "description": "Junkyard Draft \u2014 a 2D factory score-attack game (Phaser + TypeScript) with the Workshop Control Room development dashboard.",
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev.mjs",
@@ -10,11 +10,13 @@
     "control-room": "node control-room/server.mjs",
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts tests/*.test.mjs",
+    "test": "node --import tsx --test tests/sim.test.ts tests/verifier.test.ts tests/control-room-state.test.mjs tests/control-room-live.test.mjs tests/game-e2e.test.mjs",
     "sim": "node --import tsx tools/sim-cli.ts",
     "autoplay": "node --import tsx tools/autoplay.ts",
     "shots": "node tools/playwright-shots.mjs",
-    "selftest:instrumentation": "node control-room/selftest.mjs"
+    "selftest:instrumentation": "node control-room/selftest.mjs",
+    "verifier": "node --import tsx server/verify.ts",
+    "test:quick": "node --import tsx --test tests/sim.test.ts tests/verifier.test.ts tests/control-room-state.test.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2",
