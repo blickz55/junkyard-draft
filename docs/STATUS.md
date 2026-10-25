@@ -17,6 +17,16 @@ Verified (actual results):
 
 **Accessibility settings** (ROADMAP M5): `game/src/render/prefs.ts` holds `reducedMotion` (default: OS `prefers-reduced-motion`) and `textScale` (1 / 1.15 / 1.3), persisted in `jd.settings.v1` through a read-modify-write `updateSettings` so audio and accessibility never clobber each other. Reduced motion: belts stay on frame 0, no machine wobble, items snap between cells, no transform/absorb flashes, dock pops or despawn pops, `+$n` fades in place, title belt static, results score does not pop, button press tween off. Text size goes through `px()` in the UI helpers and every direct text in GameScene. Title controls "Motion" and "Text size" next to Volume (scene restarts to re-render). e2e: toggles both, checks persistence and a 15 px label at 17 px, cycles back, and verifies belts are static during a reduced-motion run.
 
+**Performance budget** (ROADMAP M5): `tools/perf.ts` plays the autoplayer's $2088 run for seed `auto-12` (10 machines, two hoppers) through the dev API to round 6, runs it at 4× and samples rAF deltas plus CDP `Performance` TaskDuration/ScriptDuration. Packaged app launched through Playwright's Electron support with `JD_DEV_API=1` (new opt-in in `desktop/main.cjs` that adds `?dev=1`). Results (2026-10-25, this PC, 240 Hz monitor):
+
+| environment | frames | p50 ms | p95 ms | max ms | dropped (>25 ms) | CPU ms/frame | script ms/frame |
+|---|---|---|---|---|---|---|---|
+| chromium @4× | 202 | 16.7 | 16.7 | 16.8 | 0 | 10.02 | 0.71 |
+| chromium cpu×4 @4× | 202 | 16.7 | 16.7 | 16.8 | 0 | 15.84 | 3.75 |
+| electron packaged @4× | 811 | 4.2 | 4.3 | 4.4 | 0 | 0.34 | 0.25 |
+
+Reading: every environment is vsync-bound (16.7 ms at headless Chromium's 60 Hz, 4.2 ms at the desktop's 240 Hz) with zero dropped frames. The game's own work is the script column: 0.25–0.7 ms per frame on hardware, 3.75 ms even with 4× CPU throttling. Headless Chromium's 10 ms CPU/frame is its software rasterizer (SwiftShader), not the game, and still fits the budget with 4× throttling on top. **Decision: nothing to fix.** Caveat: the busiest legal layout the autoplayer builds keeps only ~4 items in flight (short lines); a 48-cell conveyor snake would add item sprites but no per-frame text work, so it is not expected to change the picture. Evidence in `docs/perf-2026-10-25.json`.
+
 
 ## Local restore — 2026-10-25 (session 2, Windows PC)
 Repo restored from the delivered bundle into `C:devjunkyard draft` (9 commits intact). Verified on this machine, actual results:
@@ -55,4 +65,4 @@ Local PC: `npm install` then `npx playwright install chromium` once. `npm run de
 - The repo lives on the user's PC with no remote yet; push to GitHub before setting up any scheduled cloud continuation.
 
 ## Next task
-M5 performance budget: measure frame time during a 4× run (busy layout: two hoppers, splitter, two furnaces, press) in the packaged build and in Chromium with CPU throttling 4× (Playwright CDP `Emulation.setCPUThrottlingRate`), record p50/p95 frame times in STATUS, and fix anything above 16.7 ms p95 (likely suspects: per-frame text updates, item sprite churn). Then M3: NSIS installer target (unsigned for now) and a smoke test that launches the packaged app with Playwright's Electron support. Still needed from a human: playtest notes from one full manual run (M1), and a GitHub remote before any scheduled cloud continuation.
+M3 finish: NSIS installer target (`win.target: [dir, nsis]`, unsigned for now, `oneClick: false`, per-user install) and a packaged smoke test `tests/desktop-smoke.test.mjs` that launches `release/win-unpacked/Junkyard Draft.exe` with Playwright's Electron support and `JD_DEV_API=1`, plays one round through the dev API and asserts no page errors (skips when the build is absent). Then a colour-blind / contrast audit of materials and badges (M5 open item). Still needed from a human: playtest notes from one full manual run (M1), and a GitHub remote before any scheduled cloud continuation.
