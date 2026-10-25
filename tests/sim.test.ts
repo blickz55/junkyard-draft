@@ -116,3 +116,20 @@ test('run: pick → place → run → next, invalid actions rejected, replay rep
   assert.equal(verifyReplay(bad).ok, false);
   assert.equal(replay('test-seed', s.actions).score, s.score);
 });
+
+test('long east-moving chains advance as a unit (no false jams from a pass cap)', () => {
+  const machines: Machine[] = [m('hopper', 0, 0)];
+  for (let x = 1; x < 15; x++) machines.push(m('conveyor', x, 0));
+  machines.push(m('dock', 15, 0));
+  const r = runLayout({ width: 16, height: 1, machines }, 60);
+  assert.equal(r.shipped.scrap, 23, 'hopper emits 30 items; 15 cells of latency ⇒ 23 arrive by tick 60');
+  assert.equal(r.events.filter((e) => e.kind === 'jam').length, 0);
+});
+
+test('malformed actions are rejected by apply and by decodeReplay', () => {
+  const s = newRun('v');
+  for (const bad of [{ t: 'pick', i: 0.5 }, { t: 'pick', i: -1 }, { t: 'place', id: 1, x: null, y: 2, dir: 0 }, { t: 'place', id: 1, x: 1, y: 1, dir: 4 }, { t: 'foo' }, { t: 'run', extra: 1 }, null, 'run'])
+    assert.throws(() => apply(s, bad as never), RunError, JSON.stringify(bad));
+  assert.throws(() => decodeReplay(JSON.stringify({ format: 1, rulesVersion: 1, seed: 'x', claimedScore: 0, actions: [{ t: 'pick', i: 'a' }] })), /malformed action/);
+  assert.throws(() => decodeReplay(JSON.stringify({ format: 1, rulesVersion: 1, seed: 'x', claimedScore: 0, actions: new Array(5000).fill({ t: 'rotate', id: 1 }) })), /too long/);
+});

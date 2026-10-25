@@ -67,8 +67,26 @@ function findMachine(s: RunState, id: number): { m: Machine; where: 'grid' | 'bi
   throw new RunError(`no machine ${id}`);
 }
 
+const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
+const ACTION_TYPES = new Set(['pick', 'place', 'rotate', 'unplace', 'run', 'next']);
+
+/** Structural validation of an action object (replays come from untrusted files). */
+export function validateAction(a: unknown): a is Action {
+  if (!a || typeof a !== 'object') return false;
+  const o = a as Record<string, unknown>;
+  if (typeof o.t !== 'string' || !ACTION_TYPES.has(o.t)) return false;
+  switch (o.t) {
+    case 'pick': return isInt(o.i) && o.i >= 0 && o.i < 3 && Object.keys(o).length === 2;
+    case 'place': return isInt(o.id) && isInt(o.x) && isInt(o.y) && isInt(o.dir) && o.dir >= 0 && o.dir <= 3 && Object.keys(o).length === 5;
+    case 'rotate': case 'unplace': return isInt(o.id) && Object.keys(o).length === 2;
+    case 'run': case 'next': return Object.keys(o).length === 1;
+  }
+  return false;
+}
+
 /** Apply an action (mutates and returns state). Throws RunError for invalid actions. */
 export function apply(s: RunState, a: Action): RunState {
+  if (!validateAction(a)) throw new RunError('malformed action');
   switch (a.t) {
     case 'pick': {
       if (s.phase !== 'draft') throw new RunError('not drafting');
@@ -120,14 +138,19 @@ export function apply(s: RunState, a: Action): RunState {
       s.phase = 'draft';
       break;
     }
+    default: throw new RunError('unknown action');
   }
   s.actions.push(a);
   return s;
 }
 
 /** Full replay: rebuild a run from seed + actions. Throws on any invalid action. */
+export const MAX_REPLAY_ACTIONS = 4000;
+export const MAX_SEED_LENGTH = 64;
 export function replay(seed: string, actions: Action[], rulesVersion = RULES_VERSION): RunState {
   if (rulesVersion !== RULES_VERSION) throw new RunError(`rules version ${rulesVersion} unsupported (have ${RULES_VERSION})`);
+  if (typeof seed !== 'string' || !seed.length || seed.length > MAX_SEED_LENGTH) throw new RunError('bad seed');
+  if (!Array.isArray(actions) || actions.length > MAX_REPLAY_ACTIONS) throw new RunError('too many actions');
   const s = newRun(seed);
   for (const a of actions) apply(s, a);
   return s;

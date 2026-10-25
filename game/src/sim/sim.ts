@@ -114,9 +114,11 @@ export function step(s: SimState): SimEvent[] {
   s.tickEvents = [];
   // 1. processing timers
   for (const it of s.items) if (it.hold > 0) it.hold--;
-  // 2. movement passes (chains move as a unit, head first)
+  // 2. movement passes (chains move as a unit, head first). Each pass moves at least one item
+  //    or stops, so the bound is the item count; cell order is fixed for determinism.
   const moved = new Set<number>();
-  for (let pass = 0; pass < 8; pass++) {
+  const maxPasses = s.items.length + 1;
+  for (let pass = 0; pass < maxPasses; pass++) {
     let any = false;
     for (let c = 0; c < s.itemAt.length; c++) {
       const it = s.itemAt[c];

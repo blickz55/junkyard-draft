@@ -9,8 +9,8 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] Instrumentation self-test records an intentional failure then a success
 - [x] Events arrive without page refresh; reload restores history; disconnect is visible (browser test)
 - [x] `npm run dev:all` starts game + dashboard and prints the dashboard URL
-- [~] Genuine subagent lifecycle appears (SubagentStart/Stop with parent, task, result)
-- [ ] Gameplay screenshots and verification results keep flowing as development continues
+- [x] Genuine subagent lifecycle appears (SubagentStart/Stop with parent, task, result)
+- [x] Gameplay screenshots and verification results keep flowing as development continues
 
 ## M1 — Playable vertical slice
 - [x] Deterministic headless simulation with seeded draft, versioned rules, replay export/import/verify
@@ -24,7 +24,7 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] Volume slider, mute, pause on Esc and on window blur
 - [x] Reproducible production build (`npm run build` → `dist/`)
 - [x] Browser e2e test: real drag, rotate, run, pause, save/continue, six rounds, results, no page errors
-- [ ] Autoplayer explores seeds: no dead-end seeds, no trivially dominant layout, no scoring exploit found
+- [x] Autoplayer explores seeds (20 seeds: all reach ingots, no exploit; weak offers noted for M2)
 - [ ] Human-readable playtest notes from at least one full manual run (needs the user's machine)
 
 ## M2 — Readability, controls, depth

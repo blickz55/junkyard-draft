@@ -1,4 +1,4 @@
-import { replay, type Action, type RunState } from './run';
+import { MAX_REPLAY_ACTIONS, replay, validateAction, type Action, type RunState } from './run';
 import { RULES_VERSION } from './types';
 
 export const REPLAY_FORMAT = 1;
@@ -23,7 +23,9 @@ export function encodeReplay(r: ReplayFile): string { return JSON.stringify(r); 
 export function decodeReplay(text: string): ReplayFile {
   const r = JSON.parse(text) as ReplayFile;
   if (r.format !== REPLAY_FORMAT) throw new Error(`unsupported replay format ${r.format}`);
-  if (typeof r.seed !== 'string' || !Array.isArray(r.actions)) throw new Error('malformed replay');
+  if (typeof r.seed !== 'string' || !Array.isArray(r.actions) || !Number.isInteger(r.rulesVersion) || typeof r.claimedScore !== 'number') throw new Error('malformed replay');
+  if (r.actions.length > MAX_REPLAY_ACTIONS) throw new Error('replay too long');
+  if (!r.actions.every(validateAction)) throw new Error('replay contains a malformed action');
   return r;
 }
 
