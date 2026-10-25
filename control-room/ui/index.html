@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Workshop Control Room — Junkyard Draft</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <div>
+      <div class="brand-title">Workshop Control Room</div>
+      <div class="brand-sub">Junkyard Draft · live development view</div>
+    </div>
+  </div>
+  <nav class="jump">
+    <a href="#work">Work</a><a href="#pipeline">Pipeline</a><a href="#agents">Agents</a><a href="#feed">Feed</a><a href="#game">Game</a><a href="#milestones">Milestones</a>
+  </nav>
+  <div class="status-cluster">
+    <div class="pill" id="pill-sse" title="Browser ↔ collector stream"><span class="dot"></span><span class="lbl">stream: connecting</span></div>
+    <div class="pill" id="pill-hook" title="Age of the newest runtime hook event"><span class="dot"></span><span class="lbl">last hook: —</span></div>
+    <div class="pill muted" id="pill-counts">0 events</div>
+  </div>
+</header>
+
+<main>
+  <section id="work" class="card hero">
+    <div class="card-head"><h2>Current work</h2><span class="tag reported">agent-reported objective</span></div>
+    <div class="hero-grid">
+      <div class="hero-main">
+        <div class="k">Objective</div>
+        <div class="v big" id="obj-title">No objective reported yet</div>
+        <div class="k">Acceptance criterion</div>
+        <div class="v" id="obj-criterion">—</div>
+        <div class="row2">
+          <div><div class="k">Stage</div><div class="v" id="obj-stage">—</div></div>
+          <div><div class="k">Assigned agent</div><div class="v" id="obj-agent">—</div></div>
+          <div><div class="k">Task</div><div class="v mono" id="obj-task">—</div></div>
+        </div>
+        <div class="k">Next planned action</div>
+        <div class="v" id="obj-next">—</div>
+        <div id="obj-blocker-wrap" class="blocker hidden"><span class="k">Blocker</span><span id="obj-blocker"></span></div>
+      </div>
+      <div class="hero-side">
+        <div class="card-head"><h3>Last observed operation</h3><span class="tag observed">runtime-observed</span></div>
+        <div class="v" id="last-op">—</div>
+        <div class="mono small" id="last-op-ref"></div>
+        <div class="kv"><span class="k">Elapsed</span><span id="last-op-age" class="mono">—</span></div>
+        <div class="kv"><span class="k">Last hook event</span><span id="last-hook-ts" class="mono">—</span></div>
+        <div class="kv"><span class="k">Last reported update</span><span id="last-rep-ts" class="mono">—</span></div>
+        <div class="kv"><span class="k">Collector</span><span id="collector-info" class="mono small">—</span></div>
+        <p class="note">Silence only means no new event arrived. It does not establish that Claude is idle, thinking, or stopped.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="pipeline" class="card">
+    <div class="card-head"><h2>Visual pipeline</h2><span class="legend"><i class="sw done"></i>done <i class="sw active"></i>active <i class="sw queued"></i>queued <i class="sw blocked"></i>blocked <i class="sw failed"></i>failed</span></div>
+    <div class="pipe-wrap"><svg id="pipe-svg" role="img" aria-label="Task pipeline"></svg></div>
+    <p class="note">Tasks and stages are reported by the developing agent. A failed check returns its task to Implement; click any task for its activity and evidence.</p>
+  </section>
+
+  <section id="agents" class="card">
+    <div class="card-head"><h2>Agent activity</h2><span class="tag observed">runtime-observed</span></div>
+    <div id="agent-list" class="agent-grid"></div>
+  </section>
+
+  <section id="feed" class="card">
+    <div class="card-head"><h2>Live activity feed</h2>
+      <div class="filters">
+        <select id="f-agent"><option value="">all agents</option></select>
+        <select id="f-task"><option value="">all tasks</option></select>
+        <select id="f-type">
+          <option value="">all types</option>
+          <option value="tool">tool calls</option>
+          <option value="edit">edits</option>
+          <option value="command">commands</option>
+          <option value="failure">failures</option>
+          <option value="agent">agents</option>
+          <option value="reported">reported updates</option>
+          <option value="checkpoint">checkpoints</option>
+        </select>
+        <input id="f-text" placeholder="filter text…" />
+      </div>
+    </div>
+    <ol id="feed-list" class="feed"></ol>
+  </section>
+
+  <section id="game" class="card">
+    <div class="card-head"><h2>Game &amp; verification</h2></div>
+    <div class="game-grid">
+      <div>
+        <div class="subhead"><h3>Development build</h3><span id="dev-build-meta" class="small mono">status unavailable</span></div>
+        <div class="build-bar"><a id="dev-link" target="_blank" rel="noopener">open dev build ↗</a><button id="dev-embed" class="btn">embed here</button></div>
+        <div id="dev-frame-wrap" class="frame hidden"><iframe id="dev-frame" title="Junkyard Draft development build"></iframe></div>
+        <div class="subhead"><h3>Latest verified build</h3><span id="ver-build-meta" class="small mono">none recorded</span></div>
+        <div class="build-bar"><a id="ver-link" href="/verified/" target="_blank" rel="noopener">open verified build ↗</a></div>
+        <div class="subhead"><h3>Recent commits</h3><span id="git-meta" class="small mono"></span></div>
+        <ul id="commits" class="plain mono small"></ul>
+      </div>
+      <div>
+        <div class="subhead"><h3>Checks &amp; builds</h3><span class="tag reported">reported from actual results</span></div>
+        <table class="checks"><thead><tr><th>when</th><th>check</th><th>result</th><th>task</th><th>evidence</th></tr></thead><tbody id="check-rows"></tbody></table>
+        <div class="subhead"><h3>Instrumentation self-test</h3></div>
+        <ul id="selftest" class="plain small"></ul>
+        <div class="subhead"><h3>Gameplay screenshots</h3></div>
+        <div id="shots" class="shots"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="milestones" class="card">
+    <div class="card-head"><h2>Milestone progress</h2><span class="small mono" id="ms-meta">from docs/ROADMAP.md</span></div>
+    <div id="ms-list" class="ms-grid"></div>
+    <div class="subhead"><h3>Usage &amp; telemetry</h3></div>
+    <div class="kv"><span class="k">Subscription allowance remaining</span><span class="mono">unavailable (no reliable telemetry exposed to project hooks)</span></div>
+    <div class="kv"><span class="k">Scheduled cloud-run visibility</span><span class="mono" id="cloud-vis">unavailable</span></div>
+  </section>
+</main>
+
+<aside id="drawer" class="drawer hidden" aria-live="polite">
+  <div class="drawer-head"><h3 id="drawer-title">Task</h3><button id="drawer-close" class="btn" aria-label="Close">✕</button></div>
+  <div id="drawer-body"></div>
+</aside>
+
+<script src="app.js"></script>
+</body>
+</html>

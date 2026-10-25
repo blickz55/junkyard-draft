@@ -1,0 +1,29 @@
+# environment dotfiles that live in this home-directory workspace
+.cache/
+.config/
+.local/
+.npm/
+.npm-global/
+.ssh/
+.gitconfig
+.wget-hsts
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+phaserjs/
+
+# build + deps
+node_modules/
+dist/
+release/
+
+# control room raw telemetry (summaries live in docs/STATUS.md)
+.control-room/events.jsonl
+.control-room/screenshots/
+.control-room/reports/
+.control-room/*.log
+
+# test artefacts
+test-results/
+playwright-report/
+*.tsbuildinfo
