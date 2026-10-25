@@ -194,6 +194,19 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.match(shared, /#1 of 1 on the verified board as e2e player \(replay re-simulated, rules v2\)/);
     const subs = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.submissions.v1')));
     assert.equal(subs['e2e-seed'].replayHash, board.entries[0].replayHash, 'submission recorded locally by replay hash');
+    // 7) watch the verified replay from the board: fetched by hash, re-verified locally, played back labelled, never recorded as a best
+    const bestsBefore = await page.evaluate(() => localStorage.getItem('jd.bests.v1'));
+    await page.waitForFunction(() => !!window.__jdGame.scene.getScene('Results').children.getByName('board-entry-0'), null, { timeout: 10000 });
+    await page.evaluate(() => window.__jdGame.scene.getScene('Results').children.getByName('board-entry-0').emit('pointerdown'));
+    await page.waitForFunction(() => window.__jdGame.scene.isActive('Game') && !!window.__jd && /verified replay by e2e player/.test(window.__jdGame.scene.getScene('Game').children.getByName('hud-seed')?.text || ''), null, { timeout: 15000 });
+    for (let r = 1; r <= 6; r++) {
+      await page.waitForFunction(() => window.__jd.mode() === 'running', null, { timeout: 15000 });
+      await api('finishRun'); // playback uses the real run loop; skip the animation of each round
+      await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 15000 });
+    }
+    await page.waitForFunction(() => window.__jdGame.scene.isActive('Results') && /verified replay by e2e player/.test(window.__jdGame.scene.getScene('Results').children.getByName('results-subtitle')?.text || ''), null, { timeout: 15000 });
+    assert.equal(await page.evaluate(() => localStorage.getItem('jd.bests.v1')), bestsBefore, 'watching a replay does not change local bests');
+    assert.equal(await page.evaluate(() => Number(Array.from(window.__jdGame.scene.getScene('Results').children.list).find((o) => o.text && /^\$\d+$/.test(o.text)).text.slice(1))), board.entries[0].score, 'playback reproduces the verified score');
     const finalScore = await page.evaluate(() => Number(Array.from(window.__jdGame.scene.getScene('Results').children.list).find((o) => o.text && /^\$\d+$/.test(o.text)).text.slice(1)));
     assert.equal(board.entries[0].score, finalScore, 'board score equals the displayed final score');
     // title screen shows this device's verified rank for today's seed: submit a daily replay to the test verifier,

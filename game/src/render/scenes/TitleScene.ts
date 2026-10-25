@@ -6,6 +6,7 @@ import { clearSave, dailySeed, loadBests, loadPlayer, loadSave, loadSubmissions,
 import { decodeReplay, verifyReplay } from '../../sim/replay';
 import { W, H } from '../layout';
 import { prefs } from '../prefs';
+import { fetchVerifiedReplay, playVerifiedReplay } from '../verified';
 
 export class TitleScene extends Phaser.Scene {
   constructor() { super('Title'); }
@@ -85,11 +86,18 @@ export class TitleScene extends Phaser.Scene {
     const head = label(this, 76, y + 9, "TODAY'S VERIFIED BOARD", 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
     mono(this, head.x + head.width + 18, y + 10, `seed ${dailySeed()}`, 12, CSS.dim);
     const line = mono(this, 76, y + 32, 'Checking the local verifier…', 12, CSS.dim).setName('daily-board');
-    fetch(`${url}/daily?limit=5`).then((r) => r.json()).then((d: { seed: string; rulesVersion: number; entries: { player: string; score: number }[] }) => {
+    fetch(`${url}/daily?limit=5`).then((r) => r.json()).then((d: { seed: string; rulesVersion: number; entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[] }) => {
       if (!line.active || !line.scene) return; // the scene may have restarted (settings change) while the request was in flight
       if (d.seed !== dailySeed()) { line.setText(`Verifier day differs (${d.seed}); board hidden.`); return; }
       const top = d.entries.length ? d.entries.map((e, i) => `${i + 1}. $${e.score} ${e.player}`).join('   ·   ') + `   ·   re-simulated by the verifier (rules v${d.rulesVersion})` : 'No verified scores yet today. Finish a run and submit the replay from the results screen.';
       line.setText(top); line.setColor(d.entries.length ? CSS.text : CSS.dim);
+      // best entry that has a stored replay (boards from before replay storage have entries without one)
+      const bestIdx = d.entries.findIndex((e) => e.replayAvailable);
+      const best = bestIdx >= 0 ? d.entries[bestIdx] : undefined;
+      if (best) {
+        const watch = new Button(this, 60 + 1000 - 70, y + 29, `Watch #${bestIdx + 1}`, () => { watch.setEnabled(false); fetchVerifiedReplay(url, best.replayHash).then((r) => playVerifiedReplay(this, r)).catch((err: Error) => { line.setText(err.message); line.setColor(CSS.red); watch.setEnabled(true); }); }, { w: 110, h: 26, color: P.steelDark, textColor: CSS.text, size: 12, name: 'daily-watch' });
+        line.setWordWrapWidth(1000 - 160);
+      }
       // own rank: this device's recorded submission for today, located on the board by replay hash (not by name)
       const mine = loadSubmissions()[dailySeed()];
       if (!mine) return;

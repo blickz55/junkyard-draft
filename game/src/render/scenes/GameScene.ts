@@ -36,6 +36,7 @@ export class GameScene extends Phaser.Scene {
   private overlay: Phaser.GameObjects.Container | null = null;
   private jamMarks = new Map<number, Phaser.GameObjects.Image>();
   private replayQueue: Action[] | null = null;
+  private replayLabel: string | null = null;
   private tutorial = false;
   private tutorialStep = 0;
   private dragging: MachineView | null = null;
@@ -48,7 +49,8 @@ export class GameScene extends Phaser.Scene {
 
   constructor() { super('Game'); }
 
-  init(data: { seed: string; fresh: boolean; replay?: Action[]; actions?: Action[] }) {
+  init(data: { seed: string; fresh: boolean; replay?: Action[]; actions?: Action[]; replayLabel?: string }) {
+    this.replayLabel = data.replay ? data.replayLabel ?? 'replay playback' : null;
     this.run = newRun(data.seed);
     if (!data.fresh && data.actions) { try { this.run = replayRun(data.seed, data.actions); } catch { this.run = newRun(data.seed); } }
     this.replayQueue = data.replay ? data.replay.slice() : null;
@@ -94,7 +96,7 @@ export class GameScene extends Phaser.Scene {
     this.add.rectangle(0, 0, W, 56, P.panel).setOrigin(0).setStrokeStyle(1, P.panelLine);
     const title = label(this, 24, 14, 'JUNKYARD DRAFT', 20, CSS.amber, { fontStyle: 'bold', letterSpacing: 3 });
     // positions follow measured widths so larger text sizes and long seeds never overlap
-    this.hud.seed = mono(this, title.x + title.width + 18, 20, `seed ${this.run.seed}`, 12);
+    this.hud.seed = mono(this, title.x + title.width + 18, 20, `seed ${this.run.seed}${this.replayLabel ? ` · ${this.replayLabel}` : ''}`, 12, this.replayLabel ? CSS.blue : CSS.dim).setName('hud-seed');
     const roundX = Math.max(470, this.hud.seed.x + this.hud.seed.width + 28);
     this.hud.round = label(this, roundX, 10, `Round ${RULES.rounds} / ${RULES.rounds}`, 16, CSS.text, { fontStyle: 'bold' });
     const scoreX = Math.max(640, this.hud.round.x + this.hud.round.width + 40);
@@ -612,7 +614,7 @@ export class GameScene extends Phaser.Scene {
     this.overlay?.destroy(); this.overlay = null;
     const last = this.run.round >= RULES.rounds;
     this.act({ t: 'next' });
-    if (last || this.run.phase === 'finished') { this.scene.start('Results', { run: this.run, replayed: this.replayQueue != null }); return; }
+    if (last || this.run.phase === 'finished') { this.scene.start('Results', { run: this.run, replayed: this.replayLabel != null, replayLabel: this.replayLabel ?? undefined }); return; }
     this.mode = 'build'; this.heldId = null;
     this.syncMachines(); this.renderSide(); this.updateHint();
     if (this.replayQueue) this.time.delayedCall(400, () => this.advanceReplay());

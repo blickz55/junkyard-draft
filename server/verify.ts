@@ -3,6 +3,7 @@
  * - POST /verify   { replay: ReplayFile, player?: string } → re-simulates; stores ONLY verified scores.
  * - GET  /board?seed=<seed>&limit=20 → verified scores for a seed (never client-claimed scores).
  * - GET  /daily?limit=10 → today's UTC daily seed (same rule as the client) with its verified board.
+ * - GET  /replay?hash=<replayHash> → the stored actions of a VERIFIED entry (for playback); 404 otherwise.
  * - GET  /health → { ok, rulesVersion, entries, uptimeSec }
  *
  * Deployable: binds to HOST:PORT (default 127.0.0.1:4400), keeps its JSON board in DATA_DIR/board.json
@@ -22,8 +23,10 @@ import { decodeReplay, verifyReplay, type ReplayFile } from '../game/src/sim/rep
 import { RULES_VERSION } from '../game/src/sim/types';
 import { dailySeedFor } from '../game/src/sim/daily';
 
-export interface BoardEntry { seed: string; score: number; player: string; verifiedAt: string; rulesVersion: number; actions: number; replayHash: string }
-export interface Board { entries: BoardEntry[] }
+export interface BoardEntry { seed: string; score: number; player: string; verifiedAt: string; rulesVersion: number; actions: number; replayHash: string; replayAvailable?: boolean }
+/** Actions of a verified replay, kept so anyone can watch it; bounded by the replay limits enforced at verification. */
+export interface StoredReplay { seed: string; rulesVersion: number; actions: ReplayFile['actions']; score: number; player: string; verifiedAt: string }
+export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay> }
 
 const MAX_BODY = 512 * 1024;
 
@@ -52,11 +55,17 @@ export class Verifier {
     if (this.data.entries.some((e) => e.replayHash === replayHash)) return { ok: false, error: 'rejected: duplicate replay' };
     const entry: BoardEntry = { seed: replay.seed, score: v.score, player: String(player).slice(0, 32) || 'anonymous', verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash };
     this.data.entries.push(entry);
+    (this.data.replays ||= {})[replayHash] = { seed: replay.seed, rulesVersion: replay.rulesVersion, actions: replay.actions, score: v.score, player: entry.player, verifiedAt: entry.verifiedAt };
     this.save();
     return { ok: true, score: v.score, entry };
   }
   board(seed: string, limit = 20): BoardEntry[] {
-    return this.data.entries.filter((e) => e.seed === seed).sort((a, b) => b.score - a.score || a.verifiedAt.localeCompare(b.verifiedAt)).slice(0, limit);
+    return this.data.entries.filter((e) => e.seed === seed).sort((a, b) => b.score - a.score || a.verifiedAt.localeCompare(b.verifiedAt)).slice(0, limit).map((e) => ({ ...e, replayAvailable: !!this.data.replays?.[e.replayHash] }));
+  }
+  /** Stored replay of a verified entry (boards written before replay storage existed have none). */
+  replay(hash: string): (StoredReplay & { hash: string }) | null {
+    const r = this.data.replays?.[hash];
+    return r ? { hash, ...r } : null;
   }
   /** Today's challenge: the seed every client derives for this UTC date, plus its verified board. */
   daily(limit = 10, now = new Date()): { seed: string; date: string; rulesVersion: number; verified: true; entries: BoardEntry[] } {
@@ -114,6 +123,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     };
     if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
     if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, rulesVersion: RULES_VERSION, entries: verifier.size, uptimeSec: Math.round((Date.now() - started) / 1000) });
+    if (req.method === 'GET' && url.pathname === '/replay') { const r = verifier.replay(url.searchParams.get('hash') || ''); return r ? json(200, { ok: true, ...r }) : json(404, { ok: false, error: 'no verified replay with that hash' }); }
     if (req.method === 'GET' && url.pathname === '/daily') return json(200, verifier.daily(Math.min(50, Number(url.searchParams.get('limit') || 10))));
     if (req.method === 'GET' && url.pathname === '/board') { const seed = url.searchParams.get('seed') || ''; return json(200, { seed, verified: true, entries: verifier.board(seed, Math.min(100, Number(url.searchParams.get('limit') || 20))) }); }
     if (req.method === 'POST' && url.pathname === '/verify') {

@@ -6,6 +6,7 @@ import { CSS, P } from '../palette';
 import { audio } from '../audio';
 import { clearSave, dailySeed, loadBests, loadPlayer, randomSeed, recordBest, recordSubmission, savePlayer } from '../storage';
 import { shareText, type Rank } from '../share';
+import { fetchVerifiedReplay, playVerifiedReplay } from '../verified';
 import { W } from '../layout';
 import { RULES } from '../../sim/rules';
 import { prefs } from '../prefs';
@@ -17,7 +18,7 @@ export class ResultsScene extends Phaser.Scene {
   lastShareText = '';
   constructor() { super('Results'); }
 
-  create(data: { run: RunState; replayed?: boolean }) {
+  create(data: { run: RunState; replayed?: boolean; replayLabel?: string }) {
     const run = data.run;
     this.cameras.main.setBackgroundColor(P.bg);
     clearSave();
@@ -28,7 +29,7 @@ export class ResultsScene extends Phaser.Scene {
     label(this, W / 2, 60, 'RUN COMPLETE', 16, CSS.amber, { fontStyle: 'bold', letterSpacing: 4 }).setOrigin(0.5);
     const score = label(this, W / 2, 125, `$${run.score}`, 72, CSS.gold, { fontStyle: 'bold' }).setOrigin(0.5).setScale(prefs.reducedMotion ? 1 : 0.5);
     if (!prefs.reducedMotion) this.tweens.add({ targets: score, scale: 1, duration: 500, ease: 'Back.out' });
-    mono(this, W / 2, 180, `seed ${run.seed} · rules v${run.rulesVersion}${data.replayed ? ' · replay playback (not recorded as a best)' : ''}`, 13).setOrigin(0.5);
+    mono(this, W / 2, 180, `seed ${run.seed} · rules v${run.rulesVersion}${data.replayed ? ` · ${data.replayLabel ?? 'replay playback'} (not recorded as a best)` : ''}`, 13, data.replayed ? CSS.blue : CSS.dim).setOrigin(0.5).setName('results-subtitle');
     if (rec.newOverall) label(this, W / 2, 210, 'NEW LOCAL PERSONAL BEST', 18, CSS.green, { fontStyle: 'bold', letterSpacing: 2 }).setOrigin(0.5);
     else if (rec.newSeed) label(this, W / 2, 210, 'New local best for this seed', 16, CSS.green).setOrigin(0.5);
     else label(this, W / 2, 210, bests.overall ? `Local best: $${bests.overall.score} (${bests.overall.seed})` : '', 14, CSS.dim).setOrigin(0.5);
@@ -105,11 +106,20 @@ export class ResultsScene extends Phaser.Scene {
     for (const t of this.boardTexts) t.destroy(); this.boardTexts = [];
     try {
       const res = await fetch(`${url}/board?seed=${encodeURIComponent(seed)}&limit=5`);
-      const body = await res.json() as { entries: { player: string; score: number; verifiedAt: string }[] };
+      const body = await res.json() as { entries: { player: string; score: number; verifiedAt: string; replayHash: string; replayAvailable?: boolean }[] };
       const x = 830, y0 = 300;
       this.boardTexts.push(label(this, x, y0, 'LOCAL VERIFIED BOARD · this seed', 11, CSS.amber, { fontStyle: 'bold', letterSpacing: 1 }));
       if (!body.entries.length) this.boardTexts.push(mono(this, x, y0 + 18, 'no verified scores yet', 12, CSS.dim));
-      body.entries.forEach((e, i) => this.boardTexts.push(mono(this, x, y0 + 18 + i * 16, `${i + 1}. $${e.score}  ${e.player}`, 12, CSS.text)));
+      body.entries.forEach((e, i) => {
+        const t = mono(this, x, y0 + 18 + i * 16, `${i + 1}. $${e.score}  ${e.player}${e.replayAvailable ? '  ▶' : ''}`, 12, CSS.text).setName(`board-entry-${i}`);
+        if (e.replayAvailable) {
+          t.setInteractive({ useHandCursor: true });
+          t.on('pointerover', () => t.setColor(CSS.blue)); t.on('pointerout', () => t.setColor(CSS.text));
+          t.on('pointerdown', () => { status.setText(`Fetching and re-verifying ${e.player}'s replay…`); status.setColor(CSS.dim); fetchVerifiedReplay(url, e.replayHash).then((r) => playVerifiedReplay(this, r)).catch((err: Error) => { status.setText(err.message); status.setColor(CSS.red); }); });
+        }
+        this.boardTexts.push(t);
+      });
+      if (body.entries.some((e) => e.replayAvailable)) this.boardTexts.push(mono(this, x, y0 + 18 + body.entries.length * 16 + 4, 'click an entry to watch its verified replay', 11, CSS.dim));
       if (!keepStatus) status.setText(`Local verifier online at ${url}. Scores on this board were re-simulated, not trusted from the client.`);
     } catch { if (!keepStatus) status.setText('No local verifier running (optional: npm run verifier). Local bests are unverified.'); }
   }

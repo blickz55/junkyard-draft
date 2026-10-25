@@ -32,7 +32,11 @@ test('verifier accepts a legal finished replay, rejects tampering, duplicates, u
   assert.equal(v.submit('{"format":1', 'bob').ok, false, 'garbage rejected');
   assert.match(v.submit(encodeReplay({ ...replay, rulesVersion: 99 }), 'bob').error!, /rules version/);
   const board = v.board('board-seed');
-  assert.equal(board.length, 1); assert.equal(board[0].player, 'alice');
+  assert.equal(board.length, 1); assert.equal(board[0].player, 'alice'); assert.equal(board[0].replayAvailable, true);
+  // stored replay of a verified entry: same actions, player and score; unknown hash → null
+  const stored = v.replay(board[0].replayHash)!;
+  assert.deepEqual(stored.actions, replay.actions); assert.equal(stored.player, 'alice'); assert.equal(stored.score, run.score); assert.equal(stored.seed, 'board-seed');
+  assert.equal(v.replay('deadbeef'), null);
   // persisted
   assert.equal(new Verifier(file).board('board-seed').length, 1);
   // daily: today's UTC seed, only entries for that seed
@@ -64,6 +68,12 @@ test('http: POST /verify and GET /board return verified data only', async () => 
     assert.equal(daily.seed, dailySeedFor(new Date())); assert.equal(daily.verified, true); assert.deepEqual(daily.entries, []);
     const health = await (await fetch(`${base}/health`)).json() as { entries: number; uptimeSec: number };
     assert.equal(health.entries, 1, 'health reports the number of verified entries');
+    const hash = (board.entries[0] as unknown as { replayHash: string }).replayHash;
+    const rep = await fetch(`${base}/replay?hash=${hash}`);
+    assert.equal(rep.status, 200);
+    const repBody = await rep.json() as { ok: boolean; hash: string; seed: string; actions: unknown[]; player: string; score: number };
+    assert.equal(repBody.ok, true); assert.equal(repBody.seed, 'http-seed'); assert.equal(repBody.player, 'carol'); assert.equal(repBody.score, run.score); assert.deepEqual(repBody.actions, exportReplay(run).actions);
+    assert.equal((await fetch(`${base}/replay?hash=nope`)).status, 404);
   } finally { server.closeAllConnections(); server.close(); }
 });
 
