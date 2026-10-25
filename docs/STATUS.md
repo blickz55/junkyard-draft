@@ -12,7 +12,7 @@ npm run verifier       # replay verifier + verified-only board on http://127.0.0
 Sandbox: `node_modules/` is symlinked to preinstalled tools (npm registry blocked). Normal machine: `npm install` first. Browser tests need `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` in the sandbox.
 
 ## Verified in this session (actual results)
-- `npm test` — 20/20: sim 12 (transforms, jams, splitter throughput, orientation, determinism, draft seeding, replay verify, long chains, malformed actions, sell), verifier 2, control-room reducer 4 + live browser 1, gameplay e2e 1 (real drag/rotate/run/pause/save-continue/sell/6 rounds/results, no page errors)
+- `npm test` — 20/20: sim 12 (transforms, jams, splitter throughput, orientation, determinism, draft seeding, replay verify, long chains, malformed actions, sell), verifier 2, control-room reducer 4 + live browser 1, gameplay e2e 1 (real drag/rotate/run/pause/save-continue/sell/6 rounds/results/verifier submit, no page errors)
 - `npm run typecheck` — clean
 - `npm run build` — dist/main.js ≈ 1.2 MiB; production page renders from `/verified/` with no page errors
 - Autoplayer (`node --import tsx tools/autoplay.ts --seeds 20 --tries 120`): scores min 1371 / median 1617 / max 2008 vs starter-only 228; every seed reaches ingots; no score above the sanity bound. 39/120 drafts gave the searcher no improvement → added sell-from-bin.
@@ -21,11 +21,10 @@ Sandbox: `node_modules/` is symlinked to preinstalled tools (npm registry blocke
 
 ## Known issues / gaps
 - Electron shell scaffolded but never launched (no electron in the sandbox).
-- Game UI does not submit replays to the verifier yet (service exists; wire a "Submit to local board" button next).
 - No keyboard-only placement; no colour-blind alternative shapes yet (materials already differ in shape).
 - Hook `SessionStart` model field only arrives for sessions started after the hooks existed, so this session shows model "unavailable".
 - Scheduled cloud runs: not configured (needs a persistent repo location + the user's chosen cadence; see CONTINUE.md). Cloud visibility in the dashboard is "unavailable" by design.
 - Workspace is ephemeral: the repo lives in the delivered `junkyard-draft.bundle` until the user clones it somewhere persistent.
 
 ## Next task
-Wire the Results screen to POST the replay to the local verifier (`/verify`) and show the verified-only board for that seed, clearly separated from local bests. Then keyboard placement (arrows + Enter + R) for accessibility.
+Keyboard-only placement (arrow keys move a cursor, Enter places/picks up, R rotates, Delete removes) with a visible cursor, verified by an e2e step; then a 7th machine with a real decision (Press: 2 shards → 1 plate $8) behind a RULES_VERSION bump.

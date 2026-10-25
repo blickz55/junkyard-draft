@@ -19,6 +19,9 @@ async function waitServer() { for (let i = 0; i < 60; i++) { try { const r = awa
 
 test('junkyard draft: full run in the browser', { timeout: 180000 }, async () => {
   const server = spawn(process.execPath, [path.join(ROOT, 'scripts/dev.mjs')], { env: { ...process.env, GAME_PORT: String(PORT) }, stdio: 'ignore' });
+  const VPORT = 4499;
+  const boardFile = path.join(fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-')), 'board.json');
+  const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), BOARD_FILE: boardFile }, stdio: 'ignore' });
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1120, height: 700 } });
   const errors = [];
@@ -27,10 +30,10 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
   const api = (fn, ...args) => page.evaluate(({ fn, args }) => window.__jd[fn](...args), { fn, args });
   try {
     await waitServer();
-    await page.goto(`${URL}/?dev=1`);
+    await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
     // Title → Game via a real click on "Today's challenge" button (Phaser object; click by canvas coords)
-    await page.goto(`${URL}/?dev=1&scene=game&seed=e2e-seed`);
+    await page.goto(`${URL}/?dev=1&scene=game&seed=e2e-seed&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
     const st0 = await api('state');
     assert.equal(st0.round, 1);
@@ -84,7 +87,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.screenshot({ path: path.join(SHOTS, `e2e-summary-${Date.now()}.png`) });
 
     // 4) save/continue: reload mid-run and continue from the title
-    await page.goto(`${URL}/?dev=1`);
+    await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
     const hasSave = await page.evaluate(() => !!localStorage.getItem('jd.save.v1'));
     assert.ok(hasSave, 'run saved to localStorage');
@@ -114,9 +117,19 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     const bests = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.bests.v1')));
     assert.ok(bests.overall && bests.overall.score === st.score + 0 || bests.overall.score > 0, 'personal best recorded');
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), null, 'save cleared after finishing');
+    // 6) submit the replay to the spawned verifier via the Results button (Phaser button: click its canvas position)
+    for (let i = 0; i < 20; i++) { try { if ((await fetch(`http://127.0.0.1:${VPORT}/health`)).ok) break; } catch {} await wait(300); }
+    await page.mouse.click(200, 650); // "Submit to local verifier"
+    await page.waitForFunction(() => /Verified by re-simulation/.test(document.body.innerText) || Array.from(window.__jdGame.scene.getScene('Results').children.list).some((o) => o.text && /Verified by re-simulation/.test(o.text)), null, { timeout: 15000 });
+    const board = await (await fetch(`http://127.0.0.1:${VPORT}/board?seed=e2e-seed`)).json();
+    assert.equal(board.entries.length, 1, 'one verified entry');
+    const finalScore = await page.evaluate(() => Number(Array.from(window.__jdGame.scene.getScene('Results').children.list).find((o) => o.text && /^\$\d+$/.test(o.text)).text.slice(1)));
+    assert.equal(board.entries[0].score, finalScore, 'board score equals the displayed final score');
     assert.deepEqual(errors, [], 'no page errors');
   } finally {
     await browser.close();
     server.kill('SIGTERM');
+    verifier.kill('SIGTERM');
+    fs.rmSync(path.dirname(boardFile), { recursive: true, force: true });
   }
 });

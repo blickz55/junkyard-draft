@@ -53,7 +53,9 @@ export class Verifier {
 export function createServer(verifier: Verifier) {
   return http.createServer((req, res) => {
     const url = new URL(req.url || '/', 'http://localhost');
-    const json = (code: number, body: unknown) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
+    const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' };
+    const json = (code: number, body: unknown) => { res.writeHead(code, { 'Content-Type': 'application/json', ...cors }); res.end(JSON.stringify(body)); };
+    if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
     if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, rulesVersion: RULES_VERSION });
     if (req.method === 'GET' && url.pathname === '/board') { const seed = url.searchParams.get('seed') || ''; return json(200, { seed, verified: true, entries: verifier.board(seed, Number(url.searchParams.get('limit') || 20)) }); }
     if (req.method === 'POST' && url.pathname === '/verify') {
