@@ -36,12 +36,28 @@ function hash(text: string): string {
   return (h >>> 0).toString(16).padStart(8, '0');
 }
 
+export interface VerifierOptions {
+  /** stored replays are kept only for each seed's top N entries (by the board order); default 100 = the /board cap */
+  replaysPerSeed?: number;
+}
+
 export class Verifier {
   private data: Board;
-  constructor(private file: string) {
+  readonly replaysPerSeed: number;
+  constructor(private file: string, opts: VerifierOptions = {}) {
+    this.replaysPerSeed = opts.replaysPerSeed ?? 100;
     this.data = fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, 'utf8')) as Board) : { entries: [] };
   }
-  private save() { fs.mkdirSync(path.dirname(this.file), { recursive: true }); fs.writeFileSync(this.file, JSON.stringify(this.data, null, 1)); }
+  /** Retention: drop stored actions of entries that fell out of their seed's top N (entries themselves stay). */
+  private prune() {
+    if (!this.data.replays) return;
+    const keep = new Set<string>();
+    const seeds = new Set(this.data.entries.map((e) => e.seed));
+    for (const seed of seeds) for (const e of this.rank(seed).slice(0, this.replaysPerSeed)) keep.add(e.replayHash);
+    for (const h of Object.keys(this.data.replays)) if (!keep.has(h)) delete this.data.replays[h];
+  }
+  private save() { this.prune(); fs.mkdirSync(path.dirname(this.file), { recursive: true }); fs.writeFileSync(this.file, JSON.stringify(this.data, null, 1)); }
+  private rank(seed: string): BoardEntry[] { return this.data.entries.filter((e) => e.seed === seed).sort((a, b) => b.score - a.score || a.verifiedAt.localeCompare(b.verifiedAt)); }
   get size() { return this.data.entries.length; }
 
   /** Verify a replay; on success record it. Returns the verdict (never trusts claimedScore). */
@@ -60,7 +76,7 @@ export class Verifier {
     return { ok: true, score: v.score, entry };
   }
   board(seed: string, limit = 20): BoardEntry[] {
-    return this.data.entries.filter((e) => e.seed === seed).sort((a, b) => b.score - a.score || a.verifiedAt.localeCompare(b.verifiedAt)).slice(0, limit).map((e) => ({ ...e, replayAvailable: !!this.data.replays?.[e.replayHash] }));
+    return this.rank(seed).slice(0, limit).map((e) => ({ ...e, replayAvailable: !!this.data.replays?.[e.replayHash] }));
   }
   /** Stored replay of a verified entry (boards written before replay storage existed have none). */
   replay(hash: string): (StoredReplay & { hash: string }) | null {

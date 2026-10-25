@@ -36,5 +36,6 @@ The image was written without Docker available on the dev machine and has **not 
 ## Operational notes
 - Rate limiting is a fixed window per process; behind several replicas use the proxy's limiter instead.
 - The board file is rewritten on every accepted submission and now also holds each verified replay's actions (≤ 4000 actions, bounded at verification); keep it on a persistent volume. Boards written before replay storage simply have no replays (`replayAvailable: false`).
+- Retention: stored replay actions are kept only for each seed's top 100 entries (the `/board` cap); lower entries keep their score but lose their replay (`replayAvailable: false`). Pruning happens on every write.
 - Rules version mismatches are rejected, so deploy the verifier from the same commit as the game.
 - Nothing authenticates players: `player` is a display name only. Abuse controls = rate limit + duplicate replay hash.

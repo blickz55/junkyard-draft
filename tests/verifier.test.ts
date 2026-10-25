@@ -123,3 +123,31 @@ test('verifier bundles to a single file that exports the server pieces (what the
   assert.equal(typeof mod.createServer, 'function'); assert.equal(typeof mod.Verifier, 'function'); assert.equal(typeof mod.RateLimiter, 'function');
   assert.ok(fs.statSync(out).size < 200_000, 'bundle stays small (sim + server only)');
 });
+
+test('retention: stored replays are kept only for each seed\'s top N entries; scores stay on the board', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-board-')), 'board.json');
+  const v = new Verifier(file, { replaysPerSeed: 2 });
+  // three legal runs with distinct scores for one seed: crusher placed (best), crusher sold (+$10), crusher left in the bin (starter only)
+  const variant = (mode: 'place' | 'sell' | 'bin') => {
+    const s = newRun('prune-seed');
+    for (let r = 1; r <= RULES.rounds; r++) {
+      apply(s, { t: 'pick', i: r === 1 ? s.offers.indexOf('crusher') : 0 });
+      if (r === 1 && mode === 'place') { const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!; apply(s, { t: 'unplace', id: conv.id }); apply(s, { t: 'place', id: s.bin[0].id, x: 2, y: 2, dir: 0 }); }
+      if (r === 1 && mode === 'sell') apply(s, { t: 'sell', id: s.bin[0].id });
+      apply(s, { t: 'run' }); apply(s, { t: 'next' });
+    }
+    return s;
+  };
+  const best = v.submit(encodeReplay(exportReplay(variant('place'))), 'a'); const mid = v.submit(encodeReplay(exportReplay(variant('sell'))), 'b'); const low = v.submit(encodeReplay(exportReplay(variant('bin'))), 'c');
+  assert.ok(best.ok && mid.ok && low.ok);
+  assert.ok(best.score! > mid.score! && mid.score! > low.score!, `distinct scores ${best.score} > ${mid.score} > ${low.score}`);
+  const board = v.board('prune-seed');
+  assert.equal(board.length, 3, 'all three scores stay on the board');
+  assert.deepEqual(board.map((e) => e.replayAvailable), [true, true, false], 'only the top 2 keep a stored replay');
+  assert.equal(v.replay(low.entry!.replayHash), null);
+  assert.ok(v.replay(best.entry!.replayHash) && v.replay(mid.entry!.replayHash));
+  // persisted: a fresh instance reads the pruned file
+  const again = new Verifier(file, { replaysPerSeed: 2 });
+  assert.equal(again.replay(low.entry!.replayHash), null); assert.ok(again.replay(best.entry!.replayHash));
+  assert.equal(new Verifier(path.join(path.dirname(file), 'x.json')).replaysPerSeed, 100, 'default matches the /board cap');
+});

@@ -199,6 +199,12 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.waitForFunction(() => !!window.__jdGame.scene.getScene('Results').children.getByName('board-entry-0'), null, { timeout: 10000 });
     await page.evaluate(() => window.__jdGame.scene.getScene('Results').children.getByName('board-entry-0').emit('pointerdown'));
     await page.waitForFunction(() => window.__jdGame.scene.isActive('Game') && !!window.__jd && /verified replay by e2e player/.test(window.__jdGame.scene.getScene('Game').children.getByName('hud-seed')?.text || ''), null, { timeout: 15000 });
+    // playback controls: REPLAY marker, the original run's earnings next to the live total, a Stop button
+    assert.ok(await page.evaluate(() => !!window.__jdGame.scene.getScene('Game').children.getByName('replay-banner')), 'REPLAY marker shown while watching');
+    await page.waitForFunction(() => window.__jd.mode() === 'running', null, { timeout: 15000 });
+    const sideTexts = await page.evaluate(() => ({ orig: window.__jdGame.scene.getScene('Game').side.getByName('replay-original')?.text, stop: window.__jdGame.scene.getScene('Game').side.getByName('stop')?.label.text }));
+    assert.match(sideTexts.orig || '', /^Original run: \$\d+ this round · \$\d+ after round 1 · \$\d+ final$/);
+    assert.equal(sideTexts.stop, 'Stop watching (Esc)');
     for (let r = 1; r <= 6; r++) {
       await page.waitForFunction(() => window.__jd.mode() === 'running', null, { timeout: 15000 });
       await api('finishRun'); // playback uses the real run loop; skip the animation of each round
@@ -209,6 +215,13 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.equal(await page.evaluate(() => Number(Array.from(window.__jdGame.scene.getScene('Results').children.list).find((o) => o.text && /^\$\d+$/.test(o.text)).text.slice(1))), board.entries[0].score, 'playback reproduces the verified score');
     const finalScore = await page.evaluate(() => Number(Array.from(window.__jdGame.scene.getScene('Results').children.list).find((o) => o.text && /^\$\d+$/.test(o.text)).text.slice(1)));
     assert.equal(board.entries[0].score, finalScore, 'board score equals the displayed final score');
+    // Esc stops a watched replay mid-run and returns to the title (instead of pausing)
+    await page.waitForFunction(() => !!window.__jdGame.scene.getScene('Results').children.getByName('board-entry-0'), null, { timeout: 10000 });
+    await page.evaluate(() => window.__jdGame.scene.getScene('Results').children.getByName('board-entry-0').emit('pointerdown'));
+    await page.waitForFunction(() => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.mode() === 'running', null, { timeout: 15000 });
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => window.__jdGame.scene.isActive('Title'), null, { timeout: 10000 });
+    assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), null, 'stopping a replay leaves no saved run behind');
     // title screen shows this device's verified rank for today's seed: submit a daily replay to the test verifier,
     // record it locally the way the results screen does, then reload the title
     const { newRun, apply } = await import('../game/src/sim/run.ts');

@@ -37,6 +37,8 @@ export class GameScene extends Phaser.Scene {
   private jamMarks = new Map<number, Phaser.GameObjects.Image>();
   private replayQueue: Action[] | null = null;
   private replayLabel: string | null = null;
+  /** per-round earnings of the watched run (re-simulated at init), shown next to the live total */
+  private replayRounds: number[] | null = null;
   private tutorial = false;
   private tutorialStep = 0;
   private dragging: MachineView | null = null;
@@ -51,6 +53,8 @@ export class GameScene extends Phaser.Scene {
 
   init(data: { seed: string; fresh: boolean; replay?: Action[]; actions?: Action[]; replayLabel?: string }) {
     this.replayLabel = data.replay ? data.replayLabel ?? 'replay playback' : null;
+    this.replayRounds = null;
+    if (data.replay) { try { this.replayRounds = replayRun(data.seed, data.replay).rounds.map((r) => r.earned); } catch { this.replayRounds = null; } }
     this.run = newRun(data.seed);
     if (!data.fresh && data.actions) { try { this.run = replayRun(data.seed, data.actions); } catch { this.run = newRun(data.seed); } }
     this.replayQueue = data.replay ? data.replay.slice() : null;
@@ -78,6 +82,7 @@ export class GameScene extends Phaser.Scene {
     this.hintBg = this.add.rectangle(GRID_X, H - 62, GRID_W, 50, P.panel, 0.95).setOrigin(0).setStrokeStyle(1, P.panelLine);
     this.hint = label(this, GRID_X + 12, H - 56, '', 13, CSS.text, { wordWrap: { width: GRID_W - 24 } });
     this.updateHint();
+    if (this.replayLabel) this.buildReplayBanner();
     installDevApi(this);
     this.events.on('shutdown', () => { this.views.clear(); this.itemSprites.clear(); });
     if (this.replayQueue) this.time.delayedCall(600, () => this.advanceReplay());
@@ -105,6 +110,20 @@ export class GameScene extends Phaser.Scene {
     const mute = new Button(this, W - 60, 28, audio.muted ? 'Unmute' : 'Mute', () => { audio.setMuted(!audio.muted); mute.setText(audio.muted ? 'Unmute' : 'Mute'); }, { w: 80, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'mute' });
     new Button(this, W - 160, 28, 'Title', () => this.scene.start('Title'), { w: 70, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'title' });
     this.updateHud();
+  }
+  /** Watching a verified replay: a marker in the HUD; Esc stops (see setupInput), speed/skip/stop live in the running panel. */
+  private buildReplayBanner() {
+    // right end of the side panel's header row: that area is free in every phase (headers are left-aligned)
+    const c = this.add.container(SIDE_X + SIDE_W - 92, GRID_Y + 21).setDepth(9).setName('replay-banner');
+    c.add(this.add.rectangle(0, 0, 150, 26, P.blue, 0.18).setStrokeStyle(1, P.blue, 0.9));
+    c.add(this.add.circle(-60, 0, 4, P.blue));
+    c.add(this.add.text(-50, 0, 'REPLAY · Esc stops', { fontFamily: FONT, fontSize: fpx(11), color: CSS.blue, fontStyle: 'bold', letterSpacing: 1 }).setOrigin(0, 0.5));
+  }
+  /** Leave a watched replay at any point: nothing was recorded, nothing to save. */
+  stopReplay() {
+    if (!this.replayLabel) return;
+    this.replayQueue = null; this.sim = null; audio.resume();
+    this.scene.start('Title');
   }
   private updateHud() {
     this.hud.round.setText(`Round ${this.run.round} / ${RULES.rounds}`);
@@ -200,7 +219,7 @@ export class GameScene extends Phaser.Scene {
     kb?.addCapture([KC.UP, KC.DOWN, KC.LEFT, KC.RIGHT, KC.ENTER, KC.TAB, KC.SPACE]);
     kb?.on('keydown-R', () => this.rotateSelected());
     kb?.on('keydown-SPACE', () => { if (this.mode === 'build' && this.run.phase === 'build') this.startRun(); else if (this.mode === 'summary') this.nextRound(); });
-    kb?.on('keydown-ESC', () => { if (this.mode === 'running') this.setPaused(true); else if (this.mode === 'paused') this.setPaused(false); else this.keyEscape(); });
+    kb?.on('keydown-ESC', () => { if (this.replayLabel) this.stopReplay(); else if (this.mode === 'running') this.setPaused(true); else if (this.mode === 'paused') this.setPaused(false); else this.keyEscape(); });
     kb?.on('keydown-M', () => audio.setMuted(!audio.muted));
     kb?.on('keydown-DELETE', () => this.keyDelete());
     kb?.on('keydown-BACKSPACE', () => this.keyDelete());
@@ -300,7 +319,7 @@ export class GameScene extends Phaser.Scene {
   /** Apply an action to the run; returns false (and keeps state) if the rules reject it. */
   act(a: Action): boolean {
     try { apply(this.run, a); } catch (e) { if (e instanceof RunError) return false; throw e; }
-    writeSave(this.run.seed, this.run.actions);
+    if (!this.replayLabel) writeSave(this.run.seed, this.run.actions); // playback is never saved: it is someone else's run
     this.updateHud();
     if (a.t === 'place' || a.t === 'pick' || a.t === 'rotate') this.updateHint();
     if (a.t !== 'rotate') this.renderSide();
@@ -324,11 +343,19 @@ export class GameScene extends Phaser.Scene {
       const prog = add(this.add.rectangle(16, 84, SIDE_W - 32, 10, P.panelLine).setOrigin(0)) as Phaser.GameObjects.Rectangle; void prog;
       const fill = add(this.add.rectangle(16, 84, 1, 10, P.amber).setOrigin(0)) as Phaser.GameObjects.Rectangle; fill.setName('progress');
       const earned = t(16, 104, 'Earned this round: $0', 18, CSS.gold, { fontStyle: 'bold' }); earned.setName('earned');
+      if (this.replayRounds) {
+        const idx = r.round - 1; const orig = this.replayRounds[idx] ?? 0; const total = this.replayRounds.slice(0, idx + 1).reduce((a, b) => a + b, 0);
+        t(16, 126, `Original run: $${orig} this round · $${total} after round ${r.round} · $${this.replayRounds.reduce((a, b) => a + b, 0)} final`, 11, CSS.blue).setName('replay-original');
+      }
       t(16, 140, 'Speed', 12, CSS.dim);
       [1, 2, 4].forEach((s, i) => add(new Button(this, 90 + i * 70, 148, `${s}×`, () => { this.speed = s; this.renderSide(); }, { w: 60, h: 28, color: this.speed === s ? P.amber : P.steelDark, textColor: this.speed === s ? '#1a1612' : CSS.text, size: 13, name: `speed-${s}` })));
-      add(new Button(this, SIDE_W / 2, 200, this.mode === 'paused' ? 'Resume (Esc)' : 'Pause (Esc)', () => this.setPaused(this.mode !== 'paused'), { w: 200, h: 36, color: P.steelDark, textColor: CSS.text, size: 14, name: 'pause' }));
+      add(new Button(this, SIDE_W / 2, 200, this.mode === 'paused' ? 'Resume' : this.replayLabel ? 'Pause' : 'Pause (Esc)', () => this.setPaused(this.mode !== 'paused'), { w: 200, h: 36, color: P.steelDark, textColor: CSS.text, size: 14, name: 'pause' }));
       add(new Button(this, SIDE_W / 2, 246, 'Skip to result', () => this.finishRun(), { w: 200, h: 32, color: P.steelDark, textColor: CSS.text, size: 13, name: 'skip' }));
-      this.side.add(this.legend(16, 300));
+      if (this.replayLabel) {
+        add(new Button(this, SIDE_W / 2, 290, 'Stop watching (Esc)', () => this.stopReplay(), { w: 200, h: 32, color: P.steelDark, textColor: CSS.text, size: 13, name: 'stop' }));
+        t(16, 316, this.replayLabel, 12, CSS.blue).setWordWrapWidth(SIDE_W - 32);
+      }
+      this.side.add(this.legend(16, this.replayLabel ? 350 : 300));
       return;
     }
     if (r.phase === 'draft') {
@@ -423,7 +450,7 @@ export class GameScene extends Phaser.Scene {
     this.acc = 0; this.mode = 'running';
     audio.run();
     this.renderSide();
-    this.setHint('Running… Jams glow red: an item waits for a free cell or a slow machine.');
+    this.setHint(this.replayLabel ? 'Watching a verified replay: 1/2/4× change the speed, Skip jumps to the round result, Esc stops and returns to the title.' : 'Running… Jams glow red: an item waits for a free cell or a slow machine.');
   }
   setPaused(p: boolean) {
     if (p && this.mode === 'running') { this.mode = 'paused'; audio.suspend(); this.renderSide(); this.showPauseOverlay(); }
