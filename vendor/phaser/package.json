@@ -2,8 +2,8 @@
   "name": "phaser",
   "version": "3.90.0",
   "description": "Vendored Phaser 3.90.0 ESM build (from the phaserjs/phaser v3.90.0 tag) used when the npm registry is unreachable.",
-  "main": "phaser.esm.js",
-  "module": "phaser.esm.js",
+  "main": "index.js",
+  "module": "index.js",
   "types": "types/phaser.d.ts",
   "license": "MIT"
 }

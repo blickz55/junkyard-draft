@@ -1,0 +1,477 @@
+import Phaser from 'phaser';
+import { apply, newRun, replay as replayRun, RunError, type Action, type RunState } from '../../sim/run';
+import { createSim, step, cellIndex, type SimState } from '../../sim/sim';
+import { MACHINE_INFO, RULES } from '../../sim/rules';
+import type { Machine, Material, SimEvent } from '../../sim/types';
+import { CELL, itemTexture, machineTexture } from '../textures';
+import { Button, label, mono, panel } from '../ui';
+import { CSS, FONT, P } from '../palette';
+import { audio } from '../audio';
+import { isOnboarded, loadBests, setOnboarded, writeSave } from '../storage';
+import { BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y, H, SIDE_W, SIDE_X, W } from '../layout';
+import { installDevApi } from '../devapi';
+
+type Mode = 'build' | 'running' | 'paused' | 'summary';
+interface MachineView { c: Phaser.GameObjects.Container; img: Phaser.GameObjects.Image; belt?: Phaser.GameObjects.Image; m: Machine; inBin: boolean }
+
+export class GameScene extends Phaser.Scene {
+  run!: RunState;
+  mode: Mode = 'build';
+  sim: SimState | null = null;
+  private acc = 0;
+  private tickMs = 170;
+  private speed = 1;
+  private beltFrame = 0;
+  private views = new Map<number, MachineView>();
+  private itemSprites = new Map<number, Phaser.GameObjects.Image>();
+  private hover!: Phaser.GameObjects.Image;
+  private selection!: Phaser.GameObjects.Image;
+  private selectedId: number | null = null;
+  private side!: Phaser.GameObjects.Container;
+  private hud: Record<string, Phaser.GameObjects.Text> = {};
+  private hint!: Phaser.GameObjects.Text;
+  private hintBg!: Phaser.GameObjects.Rectangle;
+  private overlay: Phaser.GameObjects.Container | null = null;
+  private jamMarks = new Map<number, Phaser.GameObjects.Image>();
+  private replayQueue: Action[] | null = null;
+  private tutorial = false;
+  private tutorialStep = 0;
+  private dragging: MachineView | null = null;
+  private dragFrom: { x: number; y: number } | null = null;
+  private runBtn: Button | null = null;
+
+  constructor() { super('Game'); }
+
+  init(data: { seed: string; fresh: boolean; replay?: Action[]; actions?: Action[] }) {
+    this.run = newRun(data.seed);
+    if (!data.fresh && data.actions) { try { this.run = replayRun(data.seed, data.actions); } catch { this.run = newRun(data.seed); } }
+    this.replayQueue = data.replay ? data.replay.slice() : null;
+    this.tutorial = !isOnboarded() && !this.replayQueue;
+    this.tutorialStep = 0;
+    this.mode = 'build';
+    this.sim = null;
+    this.views.clear(); this.itemSprites.clear(); this.jamMarks.clear();
+    this.selectedId = null; this.overlay = null; this.dragging = null;
+  }
+
+  create() {
+    this.cameras.main.setBackgroundColor(P.bg);
+    this.input.mouse?.disableContextMenu();
+    this.buildStatic();
+    this.buildHud();
+    this.hover = this.add.image(0, 0, 'tile-ok').setOrigin(0).setVisible(false).setDepth(5);
+    this.selection = this.add.image(0, 0, 'tile-sel').setOrigin(0).setVisible(false).setDepth(6);
+    this.side = this.add.container(SIDE_X, GRID_Y);
+    this.syncMachines();
+    this.renderSide();
+    this.setupInput();
+    this.hintBg = this.add.rectangle(GRID_X, H - 62, GRID_W, 50, P.panel, 0.95).setOrigin(0).setStrokeStyle(1, P.panelLine);
+    this.hint = label(this, GRID_X + 12, H - 56, '', 13, CSS.text);
+    this.updateHint();
+    installDevApi(this);
+    this.events.on('shutdown', () => { this.views.clear(); this.itemSprites.clear(); });
+    if (this.replayQueue) this.time.delayedCall(600, () => this.advanceReplay());
+    if (this.run.phase === 'result') this.showSummary();
+  }
+
+  // ---------- static scenery ----------
+  private buildStatic() {
+    for (let y = 0; y < RULES.gridHeight; y++) for (let x = 0; x < RULES.gridWidth; x++) this.add.image(GRID_X + x * CELL, GRID_Y + y * CELL, 'tile').setOrigin(0);
+    this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H).setOrigin(0).setStrokeStyle(2, P.panelLine);
+    panel(this, GRID_X, BIN_Y, GRID_W, 110, 0.9);
+    label(this, GRID_X + 10, BIN_Y + 6, 'PARTS BIN  — drag parts onto the grid', 12, CSS.amber, { fontStyle: 'bold', letterSpacing: 1 });
+    panel(this, SIDE_X, GRID_Y, SIDE_W, H - GRID_Y - 24, 0.95);
+  }
+  private buildHud() {
+    this.add.rectangle(0, 0, W, 56, P.panel).setOrigin(0).setStrokeStyle(1, P.panelLine);
+    label(this, 24, 14, 'JUNKYARD DRAFT', 20, CSS.amber, { fontStyle: 'bold', letterSpacing: 3 });
+    this.hud.seed = mono(this, 300, 20, `seed ${this.run.seed}`, 12);
+    this.hud.round = label(this, 470, 10, '', 16, CSS.text, { fontStyle: 'bold' });
+    this.hud.score = label(this, 640, 10, '', 16, CSS.gold, { fontStyle: 'bold' });
+    this.hud.best = mono(this, 640, 34, '', 11, CSS.dim);
+    const mute = new Button(this, W - 60, 28, audio.muted ? 'Unmute' : 'Mute', () => { audio.setMuted(!audio.muted); mute.setText(audio.muted ? 'Unmute' : 'Mute'); }, { w: 80, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'mute' });
+    new Button(this, W - 160, 28, 'Title', () => this.scene.start('Title'), { w: 70, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'title' });
+    this.updateHud();
+  }
+  private updateHud() {
+    this.hud.round.setText(`Round ${this.run.round} / ${RULES.rounds}`);
+    this.hud.score.setText(`$${this.run.score}`);
+    const b = loadBests().bySeed[this.run.seed];
+    this.hud.best.setText(b ? `local best for this seed: $${b.score}` : 'no local best for this seed yet');
+  }
+
+  // ---------- machine views ----------
+  private cellXY(x: number, y: number) { return { px: GRID_X + x * CELL, py: GRID_Y + y * CELL }; }
+  private binSlot(i: number) { return { px: GRID_X + 12 + i * (CELL + 8), py: BIN_Y + 28 }; }
+
+  private makeView(m: Machine): MachineView {
+    const c = this.add.container(0, 0).setDepth(2);
+    const img = this.add.image(CELL / 2, CELL / 2, machineTexture(m.kind));
+    c.add(img);
+    let belt: Phaser.GameObjects.Image | undefined;
+    if (m.kind === 'conveyor') { belt = this.add.image(CELL / 2, CELL / 2, 'belt-0'); c.add(belt); }
+    c.setSize(CELL, CELL);
+    img.setInteractive({ useHandCursor: true, draggable: true });
+    this.input.setDraggable(img);
+    const v: MachineView = { c, img, belt, m, inBin: false };
+    img.setData('view', v);
+    return v;
+  }
+  syncMachines() {
+    const alive = new Set<number>();
+    const place = (m: Machine, inBin: boolean, px: number, py: number) => {
+      let v = this.views.get(m.id);
+      if (!v) { v = this.makeView(m); this.views.set(m.id, v); v.c.setPosition(px, py); }
+      v.m = m; v.inBin = inBin; alive.add(m.id);
+      if (!this.dragging || this.dragging.m.id !== m.id) this.tweens.add({ targets: v.c, x: px, y: py, duration: 120, ease: 'Quad.out' });
+      v.img.setAngle(m.dir * 90); v.belt?.setAngle(m.dir * 90);
+      v.c.setAlpha(inBin ? 0.95 : 1);
+    };
+    this.run.layout.machines.forEach((m) => { const { px, py } = this.cellXY(m.x, m.y); place(m, false, px, py); });
+    this.run.bin.forEach((m, i) => { const { px, py } = this.binSlot(i); place(m, true, px, py); });
+    for (const [id, v] of this.views) if (!alive.has(id)) { v.c.destroy(); this.views.delete(id); }
+    this.updateSelection();
+  }
+  private updateSelection() {
+    const v = this.selectedId != null ? this.views.get(this.selectedId) : undefined;
+    if (!v || v.inBin) { this.selection.setVisible(false); return; }
+    const { px, py } = this.cellXY(v.m.x, v.m.y); this.selection.setPosition(px, py).setVisible(true);
+  }
+
+  // ---------- input ----------
+  private setupInput() {
+    const toCell = (p: Phaser.Input.Pointer) => {
+      const x = Math.floor((p.x - GRID_X) / CELL), y = Math.floor((p.y - GRID_Y) / CELL);
+      return x >= 0 && y >= 0 && x < RULES.gridWidth && y < RULES.gridHeight ? { x, y } : null;
+    };
+    this.input.on('dragstart', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image) => {
+      if (this.mode !== 'build' || this.replayQueue) return;
+      const v = obj.getData('view') as MachineView; if (!v) return;
+      this.dragging = v; this.dragFrom = { x: v.c.x, y: v.c.y }; v.c.setDepth(10); this.selectedId = v.m.id; this.updateSelection(); this.renderSide();
+    });
+    this.input.on('drag', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image, dx: number, dy: number) => {
+      const v = this.dragging; if (!v || obj !== v.img) return;
+      v.c.setPosition(dx - CELL / 2, dy - CELL / 2);
+      const cell = toCell(p);
+      if (cell) {
+        const occ = this.run.layout.machines.find((m) => m.x === cell.x && m.y === cell.y && m.id !== v.m.id);
+        const { px, py } = this.cellXY(cell.x, cell.y);
+        this.hover.setTexture(occ ? 'tile-bad' : 'tile-ok').setPosition(px, py).setVisible(true);
+      } else this.hover.setVisible(false);
+    });
+    this.input.on('dragend', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image) => {
+      const v = this.dragging; if (!v || obj !== v.img) return;
+      this.dragging = null; this.hover.setVisible(false); v.c.setDepth(2);
+      const cell = toCell(p);
+      const inBinArea = p.y >= BIN_Y && p.y <= BIN_Y + 110 && p.x >= GRID_X && p.x <= GRID_X + GRID_W;
+      if (cell) {
+        const ok = this.act({ t: 'place', id: v.m.id, x: cell.x, y: cell.y, dir: v.m.dir });
+        if (ok) audio.place(); else { audio.invalid(); this.flashBad(cell.x, cell.y); }
+      } else if (inBinArea && !v.inBin) { this.act({ t: 'unplace', id: v.m.id }); audio.place(); }
+      this.syncMachines();
+    });
+    this.input.on('gameobjectdown', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
+      const v = (obj as Phaser.GameObjects.Image).getData?.('view') as MachineView | undefined;
+      if (!v || this.mode !== 'build') return;
+      this.selectedId = v.m.id; this.updateSelection(); this.renderSide();
+      if (p.rightButtonDown()) this.rotateSelected();
+    });
+    const kb = this.input.keyboard;
+    kb?.on('keydown-R', () => this.rotateSelected());
+    kb?.on('keydown-SPACE', () => { if (this.mode === 'build' && this.run.phase === 'build') this.startRun(); else if (this.mode === 'summary') this.nextRound(); });
+    kb?.on('keydown-ESC', () => { if (this.mode === 'running') this.setPaused(true); else if (this.mode === 'paused') this.setPaused(false); else { this.selectedId = null; this.updateSelection(); this.renderSide(); } });
+    kb?.on('keydown-M', () => audio.setMuted(!audio.muted));
+    kb?.on('keydown-DELETE', () => { if (this.selectedId != null) { this.act({ t: 'unplace', id: this.selectedId }); this.syncMachines(); } });
+    for (const n of [1, 2, 3]) kb?.on(`keydown-${['ONE', 'TWO', 'THREE'][n - 1]}`, () => { if (this.run.phase === 'draft' && !this.replayQueue) this.pick(n - 1); });
+    this.game.events.on(Phaser.Core.Events.BLUR, () => { if (this.mode === 'running') this.setPaused(true); });
+  }
+  private flashBad(x: number, y: number) {
+    const { px, py } = this.cellXY(x, y);
+    const f = this.add.image(px, py, 'tile-bad').setOrigin(0).setDepth(7);
+    this.tweens.add({ targets: f, alpha: 0, duration: 350, onComplete: () => f.destroy() });
+  }
+  rotateSelected() {
+    if (this.mode !== 'build' || this.selectedId == null || this.replayQueue) return;
+    if (this.act({ t: 'rotate', id: this.selectedId })) { audio.rotate(); this.syncMachines(); }
+  }
+
+  /** Apply an action to the run; returns false (and keeps state) if the rules reject it. */
+  act(a: Action): boolean {
+    try { apply(this.run, a); } catch (e) { if (e instanceof RunError) return false; throw e; }
+    writeSave(this.run.seed, this.run.actions);
+    this.updateHud();
+    if (a.t === 'place' || a.t === 'pick' || a.t === 'rotate') this.updateHint();
+    if (a.t !== 'rotate') this.renderSide();
+    return true;
+  }
+  pick(i: number) {
+    if (this.run.phase !== 'draft') return;
+    if (this.act({ t: 'pick', i })) { audio.place(); this.selectedId = this.run.bin[this.run.bin.length - 1]?.id ?? null; this.syncMachines(); this.renderSide(); }
+  }
+
+  // ---------- side panel ----------
+  renderSide() {
+    this.side.removeAll(true);
+    this.runBtn = null;
+    const add = (o: Phaser.GameObjects.GameObject) => { this.side.add(o); return o; };
+    const t = (x: number, y: number, s: string, size = 14, color = CSS.text, style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) => add(this.add.text(x, y, s, { fontFamily: FONT, fontSize: `${size}px`, color, wordWrap: { width: SIDE_W - 32 }, ...style })) as Phaser.GameObjects.Text;
+    const r = this.run;
+    if (this.mode === 'running' || this.mode === 'paused') {
+      t(16, 12, this.mode === 'paused' ? 'PAUSED' : 'RUNNING', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
+      t(16, 36, `Round ${r.round}: watch the line. Items flow every tick; jams glow red.`, 14, CSS.dim);
+      const prog = add(this.add.rectangle(16, 84, SIDE_W - 32, 10, P.panelLine).setOrigin(0)) as Phaser.GameObjects.Rectangle; void prog;
+      const fill = add(this.add.rectangle(16, 84, 1, 10, P.amber).setOrigin(0)) as Phaser.GameObjects.Rectangle; fill.setName('progress');
+      const earned = t(16, 104, 'Earned this round: $0', 18, CSS.gold, { fontStyle: 'bold' }); earned.setName('earned');
+      t(16, 140, 'Speed', 12, CSS.dim);
+      [1, 2, 4].forEach((s, i) => add(new Button(this, 90 + i * 70, 148, `${s}×`, () => { this.speed = s; this.renderSide(); }, { w: 60, h: 28, color: this.speed === s ? P.amber : P.steelDark, textColor: this.speed === s ? '#1a1612' : CSS.text, size: 13, name: `speed-${s}` })));
+      add(new Button(this, SIDE_W / 2, 200, this.mode === 'paused' ? 'Resume (Esc)' : 'Pause (Esc)', () => this.setPaused(this.mode !== 'paused'), { w: 200, h: 36, color: P.steelDark, textColor: CSS.text, size: 14, name: 'pause' }));
+      add(new Button(this, SIDE_W / 2, 246, 'Skip to result', () => this.finishRun(), { w: 200, h: 32, color: P.steelDark, textColor: CSS.text, size: 13, name: 'skip' }));
+      this.side.add(this.legend(16, 300));
+      return;
+    }
+    if (r.phase === 'draft') {
+      t(16, 12, `ROUND ${r.round} DRAFT — pick one part`, 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
+      r.offers.forEach((kind, i) => {
+        const y = 44 + i * 112;
+        const card = add(this.add.rectangle(16, y, SIDE_W - 32, 100, P.floor).setOrigin(0).setStrokeStyle(2, P.panelLine).setInteractive({ useHandCursor: true })) as Phaser.GameObjects.Rectangle;
+        card.setName(`offer-${i}`);
+        card.on('pointerover', () => card.setStrokeStyle(2, P.amber)); card.on('pointerout', () => card.setStrokeStyle(2, P.panelLine));
+        card.on('pointerdown', () => { if (!this.replayQueue) this.pick(i); });
+        add(this.add.image(16 + 50, y + 50, machineTexture(kind)).setScale(1.05));
+        t(112, y + 10, MACHINE_INFO[kind].name, 17, CSS.text, { fontStyle: 'bold' });
+        const b = t(112, y + 34, MACHINE_INFO[kind].blurb, 13, CSS.dim); b.setWordWrapWidth(SIDE_W - 150);
+        add(this.add.text(SIDE_W - 60, y + 76, `[${i + 1}]`, { fontFamily: FONT, fontSize: '12px', color: CSS.dim }));
+      });
+      this.side.add(this.legend(16, 390));
+      return;
+    }
+    if (r.phase === 'build') {
+      t(16, 12, `ROUND ${r.round} — ARRANGE THE WORKSHOP`, 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
+      const sel = this.selectedId != null ? this.run.layout.machines.find((m) => m.id === this.selectedId) || this.run.bin.find((m) => m.id === this.selectedId) : undefined;
+      if (sel) {
+        add(this.add.rectangle(16, 40, SIDE_W - 32, 118, P.floor).setOrigin(0).setStrokeStyle(1, P.panelLine));
+        add(this.add.image(16 + 44, 40 + 44, machineTexture(sel.kind)).setAngle(sel.dir * 90).setScale(0.9));
+        t(104, 48, MACHINE_INFO[sel.kind].name, 17, CSS.text, { fontStyle: 'bold' });
+        t(104, 72, MACHINE_INFO[sel.kind].blurb, 12.5, CSS.dim).setWordWrapWidth(SIDE_W - 130);
+        add(new Button(this, 70, 128, 'Rotate (R)', () => this.rotateSelected(), { w: 100, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'rotate' }));
+        if (!sel.id || sel.x >= 0) add(new Button(this, 190, 128, 'To bin (Del)', () => { this.act({ t: 'unplace', id: sel.id }); this.syncMachines(); }, { w: 110, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'tobin' }));
+      } else {
+        t(16, 44, 'Drag a part from the bin onto the grid. Click a placed machine to select it; R or right-click rotates it. Drop a machine on the bin to remove it.', 14, CSS.dim);
+      }
+      const placedCount = r.layout.machines.length;
+      t(16, 176, `${placedCount} machines placed · ${r.bin.length} in bin`, 12, CSS.dim);
+      this.runBtn = add(new Button(this, SIDE_W / 2, 230, `RUN ROUND ${r.round}  (Space)`, () => this.startRun(), { w: SIDE_W - 48, h: 52, size: 18, name: 'run' })) as Button;
+      if (r.bin.length > 0) t(16, 262, 'Tip: parts left in the bin do nothing this round.', 12, CSS.dim);
+      this.side.add(this.legend(16, 300));
+      return;
+    }
+  }
+  private legend(x: number, y: number) {
+    const c = this.add.container(x, y);
+    c.add(this.add.text(0, 0, 'VALUES', { fontFamily: FONT, fontSize: '12px', color: CSS.amber, fontStyle: 'bold' }));
+    const mats: Material[] = ['scrap', 'shards', 'ingot', 'slag'];
+    const notes: Record<Material, string> = { scrap: 'raw, from the hopper', shards: 'scrap through a crusher', ingot: 'shards through a furnace', slag: 'raw scrap in a furnace' };
+    mats.forEach((m, i) => {
+      c.add(this.add.image(12, 28 + i * 26, itemTexture(m)).setScale(0.9));
+      c.add(this.add.text(30, 19 + i * 26, `${m.charAt(0).toUpperCase() + m.slice(1)}  $${RULES.value[m]}`, { fontFamily: FONT, fontSize: '13px', color: CSS.text }));
+      c.add(this.add.text(140, 20 + i * 26, notes[m], { fontFamily: FONT, fontSize: '12px', color: CSS.dim }));
+    });
+    c.add(this.add.text(0, 136, `Hopper: 1 scrap / ${RULES.hopperPeriod} ticks · Crusher ${RULES.process.crusher} ticks · Furnace ${RULES.process.furnace} ticks · Round ${RULES.ticksPerRound} ticks`, { fontFamily: FONT, fontSize: '11px', color: CSS.dim, wordWrap: { width: SIDE_W - 40 } }));
+    return c;
+  }
+
+  // ---------- onboarding hints ----------
+  updateHint() {
+    const r = this.run;
+    let text = '';
+    if (this.tutorial) {
+      if (r.round === 1 && r.phase === 'draft') text = 'Welcome! The hopper drops $1 scrap onto a belt that reaches the dock. Pick the CRUSHER (click it or press its number): it turns scrap into $3 shards.';
+      else if (r.round === 1 && r.phase === 'build' && r.bin.length) text = 'Drag the crusher from the bin onto the belt, e.g. replace the conveyor right after the hopper. Its arrow must point along the line (R rotates).';
+      else if (r.round === 1 && r.phase === 'build') text = this.chainHasCrusher() ? 'Good: scrap now reaches the crusher from behind. Press RUN and watch the shards sell for $3 each.' : 'The crusher only takes items from behind: line it up so the hopper feeds its back and its arrow points on toward the dock.';
+      else if (r.round === 2 && r.phase === 'draft') text = 'Next upgrade: a FURNACE turns shards into $12 ingots (raw scrap only melts into $2 slag). Splitters and extra hoppers raise throughput.';
+      else if (r.round === 2) text = 'Machines are slow: a furnace handles one item every 3 ticks. Use a splitter to feed two furnaces, or add a second line.';
+      else text = '';
+      if (r.round >= 3) { this.tutorial = false; setOnboarded(); }
+    }
+    if (!text) {
+      const tips = ['Scrap $1 → crusher → shards $3 → furnace → ingot $12.', 'Conveyors accept from behind or the side; crushers, furnaces and splitters only from behind.', 'A splitter alternates left and right. Two furnaces beat one.', 'Docks take items from any side. A second hopper doubles raw supply.', 'Right-click or R rotates. Drop a machine on the bin to remove it.'];
+      text = tips[(r.round + r.layout.machines.length) % tips.length];
+    }
+    this.hint.setText(text).setWordWrapWidth(GRID_W - 24);
+  }
+  private chainHasCrusher() {
+    return this.run.layout.machines.some((m) => m.kind === 'crusher');
+  }
+
+  // ---------- simulation playback ----------
+  startRun() {
+    if (this.mode !== 'build' || this.run.phase !== 'build') return;
+    this.selectedId = null; this.updateSelection(); this.hover.setVisible(false);
+    const layout = { width: this.run.layout.width, height: this.run.layout.height, machines: this.run.layout.machines.map((m) => ({ ...m })) };
+    this.sim = createSim(layout);
+    this.acc = 0; this.mode = 'running';
+    audio.run();
+    this.renderSide();
+    this.hint.setText('Running… Jams glow red: an item waits for a free cell or a slow machine.');
+  }
+  setPaused(p: boolean) {
+    if (p && this.mode === 'running') { this.mode = 'paused'; audio.suspend(); this.renderSide(); this.showPauseOverlay(); }
+    else if (!p && this.mode === 'paused') { this.mode = 'running'; audio.resume(); this.overlay?.destroy(); this.overlay = null; this.renderSide(); }
+  }
+  private showPauseOverlay() {
+    this.overlay?.destroy();
+    const c = this.add.container(0, 0).setDepth(20);
+    c.add(this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H, 0x000000, 0.55).setOrigin(0));
+    c.add(this.add.text(GRID_X + GRID_W / 2, GRID_Y + GRID_H / 2, 'PAUSED\nEsc to resume', { fontFamily: FONT, fontSize: '28px', color: CSS.text, align: 'center', fontStyle: 'bold' }).setOrigin(0.5));
+    this.overlay = c;
+  }
+  /** Complete the round instantly (authoritative result comes from the run orchestrator). */
+  finishRun() {
+    if (this.mode !== 'running' && this.mode !== 'paused') return;
+    audio.resume();
+    while (this.sim && this.sim.tick < RULES.ticksPerRound) step(this.sim);
+    this.endRun();
+  }
+  private endRun() {
+    const visual = this.sim?.earned ?? 0;
+    this.act({ t: 'run' });
+    const rec = this.run.rounds[this.run.rounds.length - 1];
+    if (import.meta.env.DEV && rec.earned !== visual) console.error(`DETERMINISM MISMATCH: visual ${visual} vs authoritative ${rec.earned}`);
+    for (const s of this.itemSprites.values()) s.destroy();
+    this.itemSprites.clear();
+    for (const j of this.jamMarks.values()) j.destroy();
+    this.jamMarks.clear();
+    this.sim = null;
+    this.showSummary();
+  }
+
+  override update(_time: number, delta: number) {
+    if (this.mode !== 'running' || !this.sim) return;
+    this.acc += delta * this.speed;
+    let guard = 0;
+    while (this.acc >= this.tickMs && guard++ < 10) {
+      this.acc -= this.tickMs;
+      const evs = step(this.sim);
+      this.onTickEvents(evs);
+      if (this.sim.tick >= RULES.ticksPerRound) { this.endRun(); return; }
+    }
+    const phase = Math.min(1, this.acc / this.tickMs);
+    this.beltFrame = (this.beltFrame + delta * this.speed * 0.012) % 3;
+    const bf = `belt-${Math.floor(this.beltFrame)}`;
+    for (const v of this.views.values()) if (v.belt && !v.inBin) v.belt.setTexture(bf);
+    // item positions
+    const alive = new Set<number>();
+    for (const it of this.sim.items) {
+      alive.add(it.id);
+      let s = this.itemSprites.get(it.id);
+      if (!s) { s = this.add.image(0, 0, itemTexture(it.mat)).setDepth(4); this.itemSprites.set(it.id, s); }
+      if (s.texture.key !== itemTexture(it.mat)) s.setTexture(itemTexture(it.mat));
+      const to = this.centerOfCell(it.cell);
+      if (it.movedAt === this.sim.tick && it.from >= 0) {
+        const from = this.centerOfCell(it.from);
+        const e = Phaser.Math.Easing.Quadratic.InOut(phase);
+        s.setPosition(from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e);
+      } else s.setPosition(to.x, to.y);
+      if (it.hold > 0) { s.setScale(0.8 + 0.1 * Math.sin(_time / 60)); } else s.setScale(1);
+    }
+    for (const [id, s] of this.itemSprites) if (!alive.has(id)) { this.itemSprites.delete(id); this.tweens.add({ targets: s, scale: 1.6, alpha: 0, duration: 200, onComplete: () => s.destroy() }); }
+    const fill = this.side.getByName('progress') as Phaser.GameObjects.Rectangle | null;
+    if (fill) fill.width = (SIDE_W - 32) * (this.sim.tick / RULES.ticksPerRound);
+    const earned = this.side.getByName('earned') as Phaser.GameObjects.Text | null;
+    if (earned) earned.setText(`Earned this round: $${this.sim.earned}`);
+  }
+  private centerOfCell(cell: number) { const x = cell % RULES.gridWidth, y = Math.floor(cell / RULES.gridWidth); return { x: GRID_X + x * CELL + CELL / 2, y: GRID_Y + y * CELL + CELL / 2 }; }
+  private onTickEvents(evs: SimEvent[]) {
+    const jammedNow = new Set<number>();
+    for (const e of evs) {
+      if (e.kind === 'ship' && e.value != null) {
+        const c = this.centerOfCell(e.cell);
+        const txt = this.add.text(c.x, c.y - 10, `+$${e.value}`, { fontFamily: FONT, fontSize: e.value >= 12 ? '20px' : '15px', color: e.value >= 12 ? CSS.gold : e.value >= 3 ? CSS.green : CSS.text, fontStyle: 'bold' }).setOrigin(0.5).setDepth(8);
+        this.tweens.add({ targets: txt, y: c.y - 48, alpha: 0, duration: 700, onComplete: () => txt.destroy() });
+        audio.ship(e.value);
+        const dockView = [...this.views.values()].find((v) => !v.inBin && cellIndex(v.m.x, v.m.y, RULES.gridWidth) === e.cell);
+        if (dockView) this.tweens.add({ targets: dockView.img, scale: 1.08, duration: 60, yoyo: true });
+      } else if (e.kind === 'transform') {
+        const c = this.centerOfCell(e.cell);
+        const flash = this.add.circle(c.x, c.y, 16, e.to === 'ingot' ? P.gold : e.to === 'slag' ? P.red : P.shards, 0.6).setDepth(3);
+        this.tweens.add({ targets: flash, scale: 2, alpha: 0, duration: 300, onComplete: () => flash.destroy() });
+        audio.transform();
+      } else if (e.kind === 'jam') {
+        jammedNow.add(e.cell);
+        if (!this.jamMarks.has(e.cell)) {
+          const { x, y } = this.centerOfCell(e.cell);
+          const mk = this.add.image(x - CELL / 2, y - CELL / 2, 'tile-bad').setOrigin(0).setDepth(3).setAlpha(0.7);
+          this.jamMarks.set(e.cell, mk); audio.jam();
+        }
+      }
+    }
+    for (const [cell, mk] of this.jamMarks) if (!jammedNow.has(cell)) { mk.destroy(); this.jamMarks.delete(cell); }
+  }
+
+  // ---------- round summary / results ----------
+  private showSummary() {
+    this.mode = 'summary';
+    const rec = this.run.rounds[this.run.rounds.length - 1];
+    const res = rec.result;
+    audio.roundEnd(rec.earned > 38);
+    this.overlay?.destroy();
+    const c = this.add.container(0, 0).setDepth(20);
+    c.add(this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H, 0x000000, 0.72).setOrigin(0));
+    const bx = GRID_X + 40, by = GRID_Y + 30;
+    c.add(this.add.rectangle(bx, by, GRID_W - 80, GRID_H - 60, P.panel, 0.98).setOrigin(0).setStrokeStyle(2, P.amber));
+    c.add(this.add.text(bx + 20, by + 16, `ROUND ${rec.round} RESULT`, { fontFamily: FONT, fontSize: '14px', color: CSS.amber, fontStyle: 'bold', letterSpacing: 2 }));
+    c.add(this.add.text(bx + 20, by + 40, `$${rec.earned}`, { fontFamily: FONT, fontSize: '40px', color: CSS.gold, fontStyle: 'bold' }));
+    c.add(this.add.text(bx + 150, by + 56, `earned this round · total $${this.run.score}`, { fontFamily: FONT, fontSize: '14px', color: CSS.dim }));
+    const mats: Material[] = ['ingot', 'shards', 'scrap', 'slag'];
+    let y = by + 100;
+    mats.forEach((m) => { if (res.shipped[m]) { c.add(this.add.image(bx + 30, y + 8, itemTexture(m))); c.add(this.add.text(bx + 50, y, `${res.shipped[m]} × ${m} @ $${RULES.value[m]} = $${res.shipped[m] * RULES.value[m]}`, { fontFamily: FONT, fontSize: '15px', color: CSS.text })); y += 24; } });
+    if (!Object.values(res.shipped).some(Boolean)) { c.add(this.add.text(bx + 20, y, 'Nothing reached a dock. Check arrows: items only enter crushers, furnaces and splitters from behind.', { fontFamily: FONT, fontSize: '14px', color: CSS.red, wordWrap: { width: GRID_W - 130 } })); y += 44; }
+    // diagnostics
+    const notes: string[] = [];
+    const g = this.run.layout;
+    for (const m of g.machines) {
+      const st = res.cellStats[cellIndex(m.x, m.y, g.width)];
+      if (!st) continue;
+      if (m.kind === 'hopper' && st.blockedTicks > 5) notes.push(`Hopper at ${m.x + 1},${m.y + 1} was blocked ${st.blockedTicks} ticks (${st.spawned} spawned): the line ahead is full or facing wrong.`);
+      if (st.jammedTicks > 8 && m.kind !== 'hopper') notes.push(`${MACHINE_INFO[m.kind].name} at ${m.x + 1},${m.y + 1}: items waited ${st.jammedTicks} ticks.`);
+    }
+    if (res.spawned - Object.values(res.shipped).reduce((a, b) => a + b, 0) > 6) notes.push(`${res.spawned - Object.values(res.shipped).reduce((a, b) => a + b, 0)} items were still in transit or stuck when time ran out.`);
+    c.add(this.add.text(bx + 20, y + 8, notes.slice(0, 4).join('\n') || 'Clean run: nothing jammed.', { fontFamily: FONT, fontSize: '13px', color: notes.length ? CSS.red : CSS.green, wordWrap: { width: GRID_W - 130 }, lineSpacing: 4 }));
+    const last = this.run.round >= RULES.rounds;
+    c.add(new Button(this, GRID_X + GRID_W / 2, by + GRID_H - 100, last ? 'See final score  (Space)' : 'Next round  (Space)', () => this.nextRound(), { w: 300, h: 46, size: 17, name: 'next' }));
+    this.overlay = c;
+    if (this.replayQueue) this.time.delayedCall(1200, () => this.advanceReplay());
+    this.renderSideSummary();
+    this.hint.setText(last ? 'Final round complete.' : 'Study the jams, then draft and rearrange for the next round.');
+  }
+  private renderSideSummary() {
+    this.side.removeAll(true);
+    const r = this.run;
+    const t = (x: number, y: number, s: string, size = 14, color = CSS.text, style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) => { const o = this.add.text(x, y, s, { fontFamily: FONT, fontSize: `${size}px`, color, wordWrap: { width: SIDE_W - 32 }, ...style }); this.side.add(o); return o; };
+    t(16, 12, 'ROUND HISTORY', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
+    r.rounds.forEach((rr, i) => t(16, 40 + i * 24, `Round ${rr.round}: $${rr.earned}`, 15, i === r.rounds.length - 1 ? CSS.gold : CSS.text));
+    this.side.add(this.legend(16, 300));
+  }
+  nextRound() {
+    if (this.mode !== 'summary') return;
+    this.overlay?.destroy(); this.overlay = null;
+    const last = this.run.round >= RULES.rounds;
+    this.act({ t: 'next' });
+    if (last || this.run.phase === 'finished') { this.scene.start('Results', { run: this.run, replayed: this.replayQueue != null }); return; }
+    this.mode = 'build';
+    this.syncMachines(); this.renderSide(); this.updateHint();
+    if (this.replayQueue) this.time.delayedCall(400, () => this.advanceReplay());
+  }
+
+  // ---------- replay playback ----------
+  private advanceReplay() {
+    const q = this.replayQueue; if (!q) return;
+    while (q.length) {
+      const a = q[0];
+      if (a.t === 'run') { q.shift(); this.startRun(); this.time.delayedCall(200, () => { this.speed = 4; this.renderSide(); }); return; }
+      if (a.t === 'next') { q.shift(); if (this.mode === 'summary') this.nextRound(); else this.time.delayedCall(300, () => this.advanceReplay()); return; }
+      q.shift(); this.act(a);
+    }
+    this.replayQueue = null; this.syncMachines(); this.renderSide();
+  }
+}
