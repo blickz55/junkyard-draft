@@ -41,7 +41,7 @@ export function createSim(layout: Layout): SimState {
 }
 
 function stats(s: SimState, cell: number): CellStats {
-  return (s.cellStats[cell] ||= { processed: 0, shipped: 0, earned: 0, jammedTicks: 0, spawned: 0, blockedTicks: 0 });
+  return (s.cellStats[cell] ||= { processed: 0, shipped: 0, earned: 0, jammedTicks: 0, spawned: 0, blockedTicks: 0, passed: 0 });
 }
 
 function neighbor(s: SimState, cell: number, dir: Dir): number {
@@ -96,6 +96,7 @@ function tryAdvance(s: SimState, item: Item): boolean {
     s.itemAt[cell] = undefined;
     s.itemAt[target] = item;
     item.from = cell; item.cell = target; item.movedAt = s.tick;
+    stats(s, target).passed++;
     s.tickEvents.push({ tick: s.tick, kind: 'move', cell: target, itemId: item.id });
     if (tm.kind === 'crusher' || tm.kind === 'furnace') {
       const to = transform(tm.kind, item.mat);
@@ -146,7 +147,7 @@ export function step(s: SimState): SimEvent[] {
           if (to !== 'scrap') { s.tickEvents.push({ tick: s.tick, kind: 'transform', cell: target, itemId: item.id, from: 'scrap', to }); stats(s, target).processed++; }
           item.mat = to;
         }
-        s.items.push(item); s.itemAt[target] = item; s.spawned++; stats(s, c).spawned++;
+        s.items.push(item); s.itemAt[target] = item; s.spawned++; stats(s, c).spawned++; stats(s, target).passed++;
         s.tickEvents.push({ tick: s.tick, kind: 'spawn', cell: target, itemId: item.id });
       } else if (target >= 0 && s.grid[target]?.kind === 'dock' && accepts(s, target, m.dir)) {
         // hopper feeding straight into a dock: sells raw scrap immediately

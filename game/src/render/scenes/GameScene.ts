@@ -19,6 +19,7 @@ export class GameScene extends Phaser.Scene {
   mode: Mode = 'build';
   sim: SimState | null = null;
   private acc = 0;
+  private lastFrame = 0;
   private tickMs = 170;
   private speed = 1;
   private beltFrame = 0;
@@ -343,11 +344,16 @@ export class GameScene extends Phaser.Scene {
     for (const j of this.jamMarks.values()) j.destroy();
     this.jamMarks.clear();
     this.sim = null;
+    for (const v of this.views.values()) { v.img.setScale(1).setTint(0xffffff).setAngle(v.m.dir * 90); }
     this.showSummary();
   }
 
-  override update(_time: number, delta: number) {
-    if (this.mode !== 'running' || !this.sim) return;
+  override update(_time: number, _delta: number) {
+    if (this.mode !== 'running' || !this.sim) { this.lastFrame = 0; return; }
+    // Wall-clock pacing (Phaser's smoothed delta under-reports when the browser throttles frames).
+    const now = performance.now();
+    const delta = this.lastFrame ? Math.min(250, now - this.lastFrame) : 16;
+    this.lastFrame = now;
     this.acc += delta * this.speed;
     let guard = 0;
     while (this.acc >= this.tickMs && guard++ < 10) {
@@ -359,7 +365,16 @@ export class GameScene extends Phaser.Scene {
     const phase = Math.min(1, this.acc / this.tickMs);
     this.beltFrame = (this.beltFrame + delta * this.speed * 0.012) % 3;
     const bf = `belt-${Math.floor(this.beltFrame)}`;
-    for (const v of this.views.values()) if (v.belt && !v.inBin) v.belt.setTexture(bf);
+    for (const v of this.views.values()) {
+      if (v.inBin) continue;
+      if (v.belt) v.belt.setTexture(bf);
+      const cell = cellIndex(v.m.x, v.m.y, RULES.gridWidth);
+      const held = this.sim.itemAt[cell];
+      if (v.m.kind === 'crusher') { v.img.setScale(held && held.hold > 0 ? 1 + 0.06 * Math.abs(Math.sin(_time / 45)) : 1); v.img.setAngle(v.m.dir * 90 + (held && held.hold > 0 ? Math.sin(_time / 30) * 2 : 0)); }
+      else if (v.m.kind === 'furnace') { v.img.setTint(held && held.hold > 0 ? 0xffd9a0 : 0xffffff); v.img.setScale(held && held.hold > 0 ? 1 + 0.04 * Math.abs(Math.sin(_time / 90)) : 1); }
+      else if (v.m.kind === 'hopper') { v.img.setScale(this.sim.tick % RULES.hopperPeriod === 0 && phase < 0.3 ? 1.05 : 1); }
+      else if (v.m.kind === 'splitter') { v.img.setAngle(v.m.dir * 90 + ((this.sim.splitterToggle[cell] ?? 0) === 0 ? -4 : 4)); }
+    }
     // item positions
     const alive = new Set<number>();
     for (const it of this.sim.items) {
@@ -424,17 +439,17 @@ export class GameScene extends Phaser.Scene {
     for (const m of g.machines) {
       const st = res.cellStats[cellIndex(m.x, m.y, g.width)];
       const { px, py } = this.cellXY(m.x, m.y);
-      let line1 = ''; let line2 = ''; let color = CSS.text;
+      let line1 = ''; let line2 = ''; let color = CSS.text; let warn = true;
       if (m.kind === 'hopper') { line1 = st ? `${st.spawned} out` : 'idle'; if (st && st.blockedTicks > 5) { line2 = `blocked ${st.blockedTicks}`; notes.push(`Hopper ${m.x + 1},${m.y + 1} blocked ${st.blockedTicks} ticks: line ahead full or facing wrong.`); } if (!st) { color = CSS.dim; notes.push(`Hopper ${m.x + 1},${m.y + 1} never emitted: nothing accepts items ahead of it.`); } }
-      else if (m.kind === 'dock') { if (st && st.shipped) { line1 = `$${st.earned}`; line2 = `${st.shipped} shipped`; color = CSS.green; } else { line1 = 'no items'; color = CSS.dim; } }
-      else if (m.kind === 'crusher' || m.kind === 'furnace') { line1 = st ? `${st.processed} made` : 'unused'; if (!st || !st.processed) color = CSS.dim; if (st && st.jammedTicks > 8) { line2 = `waited ${st.jammedTicks}`; notes.push(`${MACHINE_INFO[m.kind].name} ${m.x + 1},${m.y + 1}: output blocked ${st.jammedTicks} ticks.`); } }
-      else { if (st && st.jammedTicks > 8) line2 = `waited ${st.jammedTicks}`; else if (!st) { line1 = 'unused'; color = CSS.dim; } }
+      else if (m.kind === 'dock') { if (st && st.shipped) { line1 = `$${st.earned}`; line2 = `${st.shipped} shipped`; color = CSS.green; warn = false; } else { line1 = 'no items'; color = CSS.dim; } }
+      else if (m.kind === 'crusher' || m.kind === 'furnace') { line1 = st && st.passed ? `${st.processed} made` : 'unused'; if (!st || !st.processed) color = CSS.dim; if (st && st.jammedTicks > 8) { line2 = `waited ${st.jammedTicks}`; notes.push(`${MACHINE_INFO[m.kind].name} ${m.x + 1},${m.y + 1}: output blocked ${st.jammedTicks} ticks.`); } }
+      else { if (st && st.jammedTicks > 8) line2 = `waited ${st.jammedTicks}`; else if (!st || !st.passed) { line1 = 'unused'; color = CSS.dim; } }
       if (!line1 && !line2) continue;
       const lines = [line1, line2].filter(Boolean);
       const bg = this.add.rectangle(px + CELL / 2, py + CELL - 2, CELL - 6, 12 * lines.length + 4, 0x000000, 0.8).setOrigin(0.5, 1);
       c.add(bg);
       if (line1) c.add(this.add.text(px + CELL / 2, py + CELL - 4 - (line2 ? 11 : 0), line1, { fontFamily: FONT, fontSize: '10px', color, fontStyle: 'bold' }).setOrigin(0.5, 1));
-      if (line2) c.add(this.add.text(px + CELL / 2, py + CELL - 4, line2, { fontFamily: FONT, fontSize: '10px', color: CSS.red, fontStyle: 'bold' }).setOrigin(0.5, 1));
+      if (line2) c.add(this.add.text(px + CELL / 2, py + CELL - 4, line2, { fontFamily: FONT, fontSize: '10px', color: warn ? CSS.red : CSS.dim, fontStyle: 'bold' }).setOrigin(0.5, 1));
     }
     const inTransit = res.spawned - Object.values(res.shipped).reduce((a, b) => a + b, 0);
     if (inTransit > 6) notes.push(`${inTransit} items were still in transit or stuck when time ran out.`);

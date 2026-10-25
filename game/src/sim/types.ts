@@ -52,6 +52,8 @@ export interface CellStats {
   jammedTicks: number;
   spawned: number;
   blockedTicks: number;
+  /** items that entered this cell */
+  passed: number;
 }
 
 export interface RunResult {
