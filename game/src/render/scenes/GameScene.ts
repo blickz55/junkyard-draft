@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
+import { explainRunError, inputTravelDirs, outputDirs, placementWarning } from '../../sim/advice';
 import { apply, newRun, replay as replayRun, RunError, type Action, type RunState } from '../../sim/run';
 import { createSim, step, cellIndex, type SimState } from '../../sim/sim';
-import { MACHINE_INFO, RULES } from '../../sim/rules';
+import { DIR_DX, DIR_DY, MACHINE_INFO, RULES } from '../../sim/rules';
 import type { Machine, Material, SimEvent } from '../../sim/types';
 import { CELL, itemTexture, machineTexture } from '../textures';
 import { Button, label, mono, panel } from '../ui';
@@ -28,6 +29,9 @@ export class GameScene extends Phaser.Scene {
   private views = new Map<number, MachineView>();
   private itemSprites = new Map<number, Phaser.GameObjects.Image>();
   private hover!: Phaser.GameObjects.Image;
+  private ghostGfx!: Phaser.GameObjects.Graphics;
+  private rejectTimer: Phaser.Time.TimerEvent | null = null;
+  private lastReject = '';
   private selection!: Phaser.GameObjects.Image;
   private selectedId: number | null = null;
   private side!: Phaser.GameObjects.Container;
@@ -87,6 +91,7 @@ export class GameScene extends Phaser.Scene {
     this.buildStatic();
     this.buildHud();
     this.hover = this.add.image(0, 0, 'tile-ok').setOrigin(0).setVisible(false).setDepth(5);
+    this.ghostGfx = this.add.graphics().setDepth(6);
     this.selection = this.add.image(0, 0, 'tile-sel').setOrigin(0).setVisible(false).setDepth(6);
     this.cursorImg = this.add.image(0, 0, 'tile-cursor').setOrigin(0).setVisible(false).setDepth(6);
     this.side = this.add.container(SIDE_X, GRID_Y);
@@ -222,12 +227,13 @@ export class GameScene extends Phaser.Scene {
         const occ = this.run.layout.machines.find((m) => m.x === cell.x && m.y === cell.y && m.id !== v.m.id);
         const { px, py } = this.cellXY(cell.x, cell.y);
         this.hover.setTexture(occ ? 'tile-bad' : 'tile-ok').setPosition(px, py).setVisible(true);
-      } else this.hover.setVisible(false);
+        if (occ) { this.hideGhost(); } else this.showGhost(v.m, cell.x, cell.y);
+      } else { this.hover.setVisible(false); this.hideGhost(); }
     });
     this.input.on('dragend', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image) => {
       const v = this.dragging; if (!v || obj !== v.img) return;
       if (this.mode !== 'build') { this.cancelDrag(); return; } // drop after the round started: no edit, snap back
-      this.dragging = null; this.hover.setVisible(false); v.c.setDepth(2);
+      this.dragging = null; this.hover.setVisible(false); this.hideGhost(); v.c.setDepth(2);
       const cell = toCell(p);
       const inBinArea = p.y >= BIN_Y && p.y <= BIN_Y + 110 && p.x >= GRID_X && p.x <= GRID_X + GRID_W;
       if (cell) {
@@ -264,11 +270,40 @@ export class GameScene extends Phaser.Scene {
   /** Abandon an in-progress pointer drag without applying anything: the view snaps back to its logical cell or bin slot. */
   private cancelDrag() {
     const v = this.dragging; if (!v) return;
-    this.dragging = null; this.dragFrom = null; this.hover.setVisible(false); v.c.setDepth(2);
+    this.dragging = null; this.dragFrom = null; this.hover.setVisible(false); this.hideGhost(); v.c.setDepth(2);
     this.syncMachines();
   }
   /** Layout edits are only legal while building; once a round starts the authoritative layout is frozen. */
   private static readonly LAYOUT_EDITS = new Set(['place', 'unplace', 'rotate', 'sell', 'pick']);
+  /** Refusal reason in the hint strip for ~2 s; it pre-empts every other hint (tips never interrupt it). */
+  private showReject(text: string) {
+    this.lastReject = text;
+    this.setHint(text);
+    this.rejectTimer?.remove(false);
+    const t = this.time.delayedCall(2200, () => { if (this.rejectTimer === t) { this.rejectTimer = null; if (this.heldId != null || this.dragging) this.updateCursor(); else this.updateHint(); } });
+    this.rejectTimer = t;
+  }
+  /** Last refusal text shown (dev API / tests). */
+  lastRejectText(): string { return this.lastReject; }
+  /** Ghost of the machine in hand at a cell: input (blue) and output (amber) arrows on the cell edges, plus a warning if it would not be fed. */
+  private showGhost(m: Machine, cx: number, cy: number) {
+    const g = this.ghostGfx; g.clear();
+    const { px, py } = this.cellXY(cx, cy);
+    const mx = px + CELL / 2, my = py + CELL / 2, r = 9;
+    const arrow = (d: number, outward: boolean, color: number) => {
+      const dx = DIR_DX[d], dy = DIR_DY[d];
+      const ex = mx + (outward ? dx : -dx) * (CELL / 2 - 4), ey = my + (outward ? dy : -dy) * (CELL / 2 - 4);
+      const tipX = ex + dx * r, tipY = ey + dy * r, bx = ex - dx * r * 0.2, by = ey - dy * r * 0.2;
+      g.fillStyle(color, 0.95).lineStyle(1, 0x0b0b0b, 0.9);
+      g.fillTriangle(tipX, tipY, bx - dy * r * 0.8, by + dx * r * 0.8, bx + dy * r * 0.8, by - dx * r * 0.8);
+    };
+    for (const t of inputTravelDirs(m.kind, m.dir)) arrow(t, false, 0x6fb4ff);
+    for (const o of outputDirs(m.kind, m.dir)) arrow(o, true, 0xffb347);
+    if (this.rejectTimer) return;
+    const warn = cx >= 0 ? placementWarning(this.run.layout, m.kind, cx, cy, m.dir, m.id) : null;
+    if (warn) this.setHint(`Heads up: ${warn}`); else this.updateHint();
+  }
+  private hideGhost() { this.ghostGfx.clear(); }
   private flashBad(x: number, y: number) {
     const { px, py } = this.cellXY(x, y);
     const f = this.add.image(px, py, 'tile-bad').setOrigin(0).setDepth(7);
@@ -298,13 +333,15 @@ export class GameScene extends Phaser.Scene {
     if (this.heldId != null) this.syncMachines(); else this.updateCursor();
   }
   private updateCursor() {
-    if (!this.cursor || this.mode !== 'build') { this.cursorImg.setVisible(false); if (!this.dragging) this.hover.setVisible(false); return; }
+    if (!this.cursor || this.mode !== 'build') { this.cursorImg.setVisible(false); if (!this.dragging) { this.hover.setVisible(false); this.hideGhost(); } return; }
     const { px, py } = this.cellXY(this.cursor.x, this.cursor.y);
     this.cursorImg.setPosition(px, py).setVisible(true);
     if (this.heldId != null) {
       const occ = this.occupantAt(this.cursor.x, this.cursor.y);
       this.hover.setTexture(occ && occ.id !== this.heldId ? 'tile-bad' : 'tile-ok').setPosition(px, py).setVisible(true);
-    } else if (!this.dragging) this.hover.setVisible(false);
+      const held = this.machineById(this.heldId);
+      if (held && !(occ && occ.id !== held.id)) this.showGhost(held, this.cursor.x, this.cursor.y); else this.hideGhost();
+    } else if (!this.dragging) { this.hover.setVisible(false); this.hideGhost(); }
   }
   /** Enter: drop the held machine here; else pick up the machine here; else place the first bin part here. */
   private keyEnter() {
@@ -315,7 +352,7 @@ export class GameScene extends Phaser.Scene {
     const held = this.machineById(this.heldId);
     if (held) {
       if (held.x === x && held.y === y) { this.heldId = null; }
-      else if (occupant) { audio.invalid(); this.flashBad(x, y); return; }
+      else if (occupant) { audio.invalid(); this.flashBad(x, y); this.showReject(explainRunError('cell occupied')); return; }
       else if (this.act({ t: 'place', id: held.id, x, y, dir: held.dir })) { audio.place(); this.heldId = null; this.selectedId = held.id; }
       else { audio.invalid(); this.flashBad(x, y); return; }
     } else if (occupant) {
@@ -355,7 +392,7 @@ export class GameScene extends Phaser.Scene {
   /** Apply an action to the run; returns false (and keeps state) if the rules reject it. */
   act(a: Action): boolean {
     if (GameScene.LAYOUT_EDITS.has(a.t) && this.mode !== 'build') return false; // frozen: a drop, key or dev-API call during a run changes nothing
-    try { apply(this.run, a); } catch (e) { if (e instanceof RunError) return false; throw e; }
+    try { apply(this.run, a); } catch (e) { if (e instanceof RunError) { if (a.t === 'place') this.showReject(explainRunError(e.message)); return false; } throw e; }
     if (!this.replayLabel) writeSave(this.run.seed, this.run.actions); // playback is never saved: it is someone else's run
     this.updateHud();
     if (a.t === 'place' || a.t === 'pick' || a.t === 'rotate') this.updateHint();
@@ -450,6 +487,7 @@ export class GameScene extends Phaser.Scene {
 
   // ---------- onboarding hints ----------
   updateHint() {
+    if (this.rejectTimer) return;
     const r = this.run;
     let text = '';
     if (this.tutorial) {
