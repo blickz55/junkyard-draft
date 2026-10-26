@@ -33,7 +33,18 @@ The image was written without Docker available on the dev machine and has **not 
 `VERIFIER_URL=https://verifier.your.site npm run build` bakes the URL into `dist/` (default
 `http://127.0.0.1:4400`). A `?verifier=` query parameter still overrides it at runtime (used by tests).
 
+## Guarantees (each pinned by a test in `tests/verifier.test.ts`)
+- A malformed request never kills the process: unparsable URLs get 400, handler errors 500, socket-level garbage 400 via `clientError`.
+- Nothing is recorded until it is on disk: the candidate board is written to a temp file in the same directory and renamed over
+  `board.json`; a failed write leaves memory and disk unchanged and the client gets **503 + Retry-After** (the retry is not a duplicate).
+- Boards are partitioned by rules version: rows persisted under another `RULES_VERSION` stay in the file but never rank, count or replay.
+- Replay identity is SHA-256 over `{ rulesVersion, seed, actions }`; legacy 8-hex ids from earlier boards still resolve for playback.
+- Bounded resources: body ≤ 512 KB, query limits are finite integers clamped to [1, 100] (`/board`) and [1, 50] (`/daily`), rate-limiter
+  cardinality ≤ 10,000 keys, replays kept for each seed's top 100, entries ≤ 1,000 per seed, ≤ 5,000 seeds (least recently active dropped).
+- A damaged `board.json` loads as an empty board with bad rows dropped, rather than preventing startup.
+
 ## Operational notes
+- The default data directory is `<cwd>/server/data` for both the source run and the bundled run; set `DATA_DIR` (or `--data-dir`) in production.
 - Rate limiting is a fixed window per process; behind several replicas use the proxy's limiter instead.
 - The board file is rewritten on every accepted submission and now also holds each verified replay's actions (≤ 4000 actions, bounded at verification); keep it on a persistent volume. Boards written before replay storage simply have no replays (`replayAvailable: false`).
 - Retention: stored replay actions are kept only for each seed's top 100 entries (the `/board` cap); lower entries keep their score but lose their replay (`replayAvailable: false`). Pruning happens on every write.

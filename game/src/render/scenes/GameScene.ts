@@ -7,7 +7,8 @@ import { CELL, itemTexture, machineTexture } from '../textures';
 import { Button, label, mono, panel } from '../ui';
 import { CSS, FONT, P } from '../palette';
 import { audio } from '../audio';
-import { isOnboarded, loadBests, setOnboarded, writeSave } from '../storage';
+import { clearSave, isOnboarded, loadBests, setOnboarded, writeSave } from '../storage';
+import { RULES_VERSION } from '../../sim/types';
 import { BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y, H, SIDE_W, SIDE_X, W } from '../layout';
 import { installDevApi } from '../devapi';
 import { prefs, px as fpx } from '../prefs';
@@ -48,15 +49,28 @@ export class GameScene extends Phaser.Scene {
   private cursor: { x: number; y: number } | null = null;
   private cursorImg!: Phaser.GameObjects.Image;
   private heldId: number | null = null;
+  /** shown once in the hint strip when a save could not be resumed */
+  private resumeNotice: string | null = null;
+  /** reused per frame / per tick to avoid allocating sets in the hot path */
+  private readonly aliveIds = new Set<number>();
+  private readonly jammedNow = new Set<number>();
 
   constructor() { super('Game'); }
 
   init(data: { seed: string; fresh: boolean; replay?: Action[]; actions?: Action[]; replayLabel?: string }) {
     this.replayLabel = data.replay ? data.replayLabel ?? 'replay playback' : null;
     this.replayRounds = null;
-    if (data.replay) { try { this.replayRounds = replayRun(data.seed, data.replay).rounds.map((r) => r.earned); } catch { this.replayRounds = null; } }
+    if (data.replay) { try { this.replayRounds = replayRun(data.seed, data.replay, RULES_VERSION).rounds.map((r) => r.earned); } catch { this.replayRounds = null; } }
     this.run = newRun(data.seed);
-    if (!data.fresh && data.actions) { try { this.run = replayRun(data.seed, data.actions); } catch { this.run = newRun(data.seed); } }
+    this.resumeNotice = null;
+    if (!data.fresh && data.actions) {
+      try { this.run = replayRun(data.seed, data.actions, RULES_VERSION); }
+      catch (e) {
+        // a damaged save must not silently start over: say so, and drop it so the title stops offering it
+        this.run = newRun(data.seed); clearSave();
+        this.resumeNotice = `Saved run could not be resumed (${(e as Error).message}); starting this seed fresh.`;
+      }
+    }
     this.replayQueue = data.replay ? data.replay.slice() : null;
     this.tutorial = !isOnboarded() && !this.replayQueue;
     this.tutorialStep = 0;
@@ -101,10 +115,22 @@ export class GameScene extends Phaser.Scene {
     this.add.rectangle(0, 0, W, 56, P.panel).setOrigin(0).setStrokeStyle(1, P.panelLine);
     const title = label(this, 24, 14, 'JUNKYARD DRAFT', 20, CSS.amber, { fontStyle: 'bold', letterSpacing: 3 });
     // positions follow measured widths so larger text sizes and long seeds never overlap
-    this.hud.seed = mono(this, title.x + title.width + 18, 20, `seed ${this.run.seed}${this.replayLabel ? ` · ${this.replayLabel}` : ''}`, 12, this.replayLabel ? CSS.blue : CSS.dim).setName('hud-seed');
-    const roundX = Math.max(470, this.hud.seed.x + this.hud.seed.width + 28);
+    // the seed label is the flexible element: long seeds are shortened with an ellipsis (the full seed is on the title and
+    // results screens) so round, score and local-best never leave the canvas at any text size
+    const suffix = this.replayLabel ? ` · ${this.replayLabel}` : '';
+    let seedText = this.run.seed;
+    this.hud.seed = mono(this, title.x + title.width + 18, 20, `seed ${seedText}${suffix}`, 12, this.replayLabel ? CSS.blue : CSS.dim).setName('hud-seed');
+    const fitSeed = (maxW: number) => { while (this.hud.seed.width > maxW && seedText.length > 6) { seedText = seedText.slice(0, Math.max(4, seedText.length - 3)) + '…'; this.hud.seed.setText(`seed ${seedText}${suffix}`); } };
+    fitSeed(Math.max(80, 470 - 28 - this.hud.seed.x + (this.replayLabel ? 190 : 0)));
+    let roundX = Math.max(470, this.hud.seed.x + this.hud.seed.width + 28);
     this.hud.round = label(this, roundX, 10, `Round ${RULES.rounds} / ${RULES.rounds}`, 16, CSS.text, { fontStyle: 'bold' });
-    const scoreX = Math.max(640, this.hud.round.x + this.hud.round.width + 40);
+    let scoreX = Math.max(640, this.hud.round.x + this.hud.round.width + 40);
+    const scoreRoom = W - 340; // the score block ("$1234" + "local best for this seed: $1234") must end before the Title button
+    if (scoreX > scoreRoom) {
+      fitSeed(Math.max(60, this.hud.seed.width - (scoreX - scoreRoom)));
+      roundX = Math.max(470, this.hud.seed.x + this.hud.seed.width + 28); this.hud.round.setX(roundX);
+      scoreX = Math.min(scoreRoom, Math.max(640, this.hud.round.x + this.hud.round.width + 40));
+    }
     this.hud.score = label(this, scoreX, 10, '', 16, CSS.gold, { fontStyle: 'bold' });
     this.hud.best = mono(this, scoreX, 34, '', 11, CSS.dim);
     const mute = new Button(this, W - 60, 28, audio.muted ? 'Unmute' : 'Mute', () => { audio.setMuted(!audio.muted); mute.setText(audio.muted ? 'Unmute' : 'Mute'); }, { w: 80, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'mute' });
@@ -189,6 +215,7 @@ export class GameScene extends Phaser.Scene {
     });
     this.input.on('drag', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image, dx: number, dy: number) => {
       const v = this.dragging; if (!v || obj !== v.img) return;
+      if (this.mode !== 'build') { this.cancelDrag(); return; } // the round started under the pointer: the layout is frozen
       v.c.setPosition(dx - CELL / 2, dy - CELL / 2);
       const cell = toCell(p);
       if (cell) {
@@ -199,6 +226,7 @@ export class GameScene extends Phaser.Scene {
     });
     this.input.on('dragend', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image) => {
       const v = this.dragging; if (!v || obj !== v.img) return;
+      if (this.mode !== 'build') { this.cancelDrag(); return; } // drop after the round started: no edit, snap back
       this.dragging = null; this.hover.setVisible(false); v.c.setDepth(2);
       const cell = toCell(p);
       const inBinArea = p.y >= BIN_Y && p.y <= BIN_Y + 110 && p.x >= GRID_X && p.x <= GRID_X + GRID_W;
@@ -233,6 +261,14 @@ export class GameScene extends Phaser.Scene {
     for (const n of [1, 2, 3]) kb?.on(`keydown-${['ONE', 'TWO', 'THREE'][n - 1]}`, () => { if (this.run.phase === 'draft' && !this.replayQueue) this.pick(n - 1); });
     this.game.events.on(Phaser.Core.Events.BLUR, () => { if (this.mode === 'running') this.setPaused(true); });
   }
+  /** Abandon an in-progress pointer drag without applying anything: the view snaps back to its logical cell or bin slot. */
+  private cancelDrag() {
+    const v = this.dragging; if (!v) return;
+    this.dragging = null; this.dragFrom = null; this.hover.setVisible(false); v.c.setDepth(2);
+    this.syncMachines();
+  }
+  /** Layout edits are only legal while building; once a round starts the authoritative layout is frozen. */
+  private static readonly LAYOUT_EDITS = new Set(['place', 'unplace', 'rotate', 'sell', 'pick']);
   private flashBad(x: number, y: number) {
     const { px, py } = this.cellXY(x, y);
     const f = this.add.image(px, py, 'tile-bad').setOrigin(0).setDepth(7);
@@ -318,6 +354,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Apply an action to the run; returns false (and keeps state) if the rules reject it. */
   act(a: Action): boolean {
+    if (GameScene.LAYOUT_EDITS.has(a.t) && this.mode !== 'build') return false; // frozen: a drop, key or dev-API call during a run changes nothing
     try { apply(this.run, a); } catch (e) { if (e instanceof RunError) return false; throw e; }
     if (!this.replayLabel) writeSave(this.run.seed, this.run.actions); // playback is never saved: it is someone else's run
     this.updateHud();
@@ -419,17 +456,20 @@ export class GameScene extends Phaser.Scene {
       if (r.round === 1 && r.phase === 'draft') text = 'Welcome! The hopper drops $1 scrap onto a belt that reaches the dock. Pick the CRUSHER (click it or press its number): it turns scrap into $3 shards.';
       else if (r.round === 1 && r.phase === 'build' && r.bin.length) text = 'Drag the crusher from the bin onto the belt, e.g. replace the conveyor right after the hopper. Its arrow must point along the line (R rotates).';
       else if (r.round === 1 && r.phase === 'build') text = this.chainHasCrusher() ? 'Good: scrap now reaches the crusher from behind. Press RUN and watch the shards sell for $3 each.' : 'The crusher only takes items from behind: line it up so the hopper feeds its back and its arrow points on toward the dock.';
-      else if (r.round === 2 && r.phase === 'draft') text = 'Next upgrade: a FURNACE turns shards into $12 ingots (raw scrap only melts into $2 slag). Splitters and extra hoppers raise throughput.';
+      else if (r.round === 2 && r.phase === 'draft') text = `Next upgrade: a FURNACE turns shards into $${RULES.value.ingot} ingots (raw scrap only melts into $${RULES.value.slag} slag). Splitters and extra hoppers raise throughput.`;
       else if (r.round === 2) text = 'Machines are slow: a furnace handles one item every 3 ticks. Use a splitter to feed two furnaces, or add a second line.';
       else text = '';
       if (r.round >= 3) { this.tutorial = false; setOnboarded(); }
     }
+    if (this.resumeNotice) { text = this.resumeNotice; this.resumeNotice = null; }
     if (!text) {
       const tips = ['Scrap $1 → crusher → shards $3 → furnace → ingot $12.', 'Conveyors accept from behind or the side; crushers, furnaces and splitters only from behind.', 'A splitter alternates left and right. Two furnaces beat one.', 'Docks take items from any side. A second hopper doubles raw supply.', 'Right-click or R rotates. Drop a machine on the bin to remove it.', `A press squeezes ${RULES.pressShards} shards into one $${RULES.value.plate} plate: less than a furnace, but it never backs a line up.`, 'Keyboard: arrows move the cursor, Enter places or picks up, Tab cycles bin parts.'];
       text = tips[(r.round + r.layout.machines.length) % tips.length];
     }
     this.setHint(text);
   }
+  /** Current hint text (typed accessor for the dev API and tests instead of private-field access). */
+  hintText(): string { return this.hint?.text ?? ''; }
   /** Hint box grows with wrapped text (larger text sizes) and stays anchored to the bottom edge. */
   private setHint(text: string) {
     this.hint.setText(text).setWordWrapWidth(GRID_W - 24);
@@ -444,6 +484,7 @@ export class GameScene extends Phaser.Scene {
   // ---------- simulation playback ----------
   startRun() {
     if (this.mode !== 'build' || this.run.phase !== 'build') return;
+    this.cancelDrag(); // a machine still under the pointer snaps back; nothing can change the layout from here on
     this.selectedId = null; this.heldId = null; this.cursor = null; this.updateSelection(); this.updateCursor(); this.hover.setVisible(false);
     const layout = { width: this.run.layout.width, height: this.run.layout.height, machines: this.run.layout.machines.map((m) => ({ ...m })) };
     this.sim = createSim(layout);
@@ -514,7 +555,7 @@ export class GameScene extends Phaser.Scene {
       else if (v.m.kind === 'splitter') { v.img.setAngle(v.m.dir * 90 + ((this.sim.splitterToggle[cell] ?? 0) === 0 ? -4 : 4)); }
     }
     // item positions
-    const alive = new Set<number>();
+    const alive = this.aliveIds; alive.clear();
     for (const it of this.sim.items) {
       alive.add(it.id);
       let s = this.itemSprites.get(it.id);
@@ -536,7 +577,7 @@ export class GameScene extends Phaser.Scene {
   }
   private centerOfCell(cell: number) { const x = cell % RULES.gridWidth, y = Math.floor(cell / RULES.gridWidth); return { x: GRID_X + x * CELL + CELL / 2, y: GRID_Y + y * CELL + CELL / 2 }; }
   private onTickEvents(evs: SimEvent[]) {
-    const jammedNow = new Set<number>();
+    const jammedNow = this.jammedNow; jammedNow.clear();
     for (const e of evs) {
       if (e.kind === 'ship' && e.value != null) {
         const c = this.centerOfCell(e.cell);

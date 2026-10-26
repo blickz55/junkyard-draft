@@ -14,7 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { P, CSS } from '../game/src/render/palette';
-import { contrast, deltaE, deltaL, hexToRgb, over, rgbToHex, simulate, type CvdKind, type RGB } from './a11y-lib';
+import { contrast, deltaE, deltaL, hexToRgb, over, rgbToHex, shiftValue, simulate, type CvdKind, type RGB } from './a11y-lib';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -39,6 +39,10 @@ export const TEXT_PAIRS: TextPair[] = [
   { name: 'button label on amber', fg: hexToRgb('#1a1612'), bg: hexToRgb(P.amber), px: 16, bold: true },
   { name: 'button label on steel', fg: hexToRgb('#1a1612'), bg: hexToRgb(P.steel), px: 16, bold: true },
   { name: 'button label on steelDark', fg: hexToRgb(CSS.text), bg: hexToRgb(P.steelDark), px: 12, bold: true },
+  // interaction states (ui.ts hoverColor: dark labels get a brighter button, light labels a darker one)
+  { name: 'button label on amber (hover)', fg: hexToRgb('#1a1612'), bg: shiftValue(hexToRgb(P.amber), 12), px: 16, bold: true },
+  { name: 'button label on steel (hover)', fg: hexToRgb('#1a1612'), bg: shiftValue(hexToRgb(P.steel), 12), px: 16, bold: true },
+  { name: 'button label on steelDark (hover)', fg: hexToRgb(CSS.text), bg: shiftValue(hexToRgb(P.steelDark), -12), px: 12, bold: true },
   { name: 'badge text on badge', fg: hexToRgb(CSS.text), bg: badgeBg, px: 10, bold: true },
   { name: 'badge dim on badge', fg: hexToRgb(CSS.dim), bg: badgeBg, px: 10, bold: true },
   { name: 'badge red on badge', fg: hexToRgb(CSS.red), bg: badgeBg, px: 10, bold: true },

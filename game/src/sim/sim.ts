@@ -1,4 +1,4 @@
-import { DIR_DX, DIR_DY, isProcessor, leftOf, opposite, rightOf, RULES, transform } from './rules';
+import { DIR_DX, DIR_DY, isProcessor, leftOf, opposite, rightOf, RULES, transform, type ProcessorKind } from './rules';
 import type { CellStats, Dir, Item, Layout, Machine, Material, RunResult, SimEvent } from './types';
 
 export interface SimState {
@@ -80,8 +80,8 @@ function outputDirs(s: SimState, m: Machine, cell: number): Dir[] {
 /** An item has just entered processing machine `m` at `cell`: transform it and start its hold timer.
  *  A press stores shards until it has RULES.pressShards; each stored shard is absorbed (the item ends).
  *  Returns false when the item was absorbed. */
-function enterProcessor(s: SimState, m: Machine, cell: number, item: Item): boolean {
-  if (m.kind === 'press' && item.mat === 'shards') {
+function enterProcessor(s: SimState, kind: ProcessorKind, cell: number, item: Item): boolean {
+  if (kind === 'press' && item.mat === 'shards') {
     const have = (s.pressStore[cell] ?? 0) + 1;
     if (have < RULES.pressShards) {
       s.pressStore[cell] = have;
@@ -93,8 +93,8 @@ function enterProcessor(s: SimState, m: Machine, cell: number, item: Item): bool
     }
     s.pressStore[cell] = 0;
   }
-  const to = transform(m.kind, item.mat);
-  item.hold = RULES.process[m.kind];
+  const to = transform(kind, item.mat);
+  item.hold = RULES.process[kind];
   if (to !== item.mat) { s.tickEvents.push({ tick: s.tick, kind: 'transform', cell, itemId: item.id, from: item.mat, to }); stats(s, cell).processed++; }
   item.mat = to;
   return true;
@@ -125,7 +125,7 @@ function tryAdvance(s: SimState, item: Item): boolean {
     item.from = cell; item.cell = target; item.movedAt = s.tick;
     stats(s, target).passed++;
     s.tickEvents.push({ tick: s.tick, kind: 'move', cell: target, itemId: item.id });
-    if (isProcessor(tm.kind)) enterProcessor(s, tm, target, item);
+    if (isProcessor(tm.kind)) enterProcessor(s, tm.kind, target, item);
     if (m.kind === 'splitter') s.splitterToggle[cell] = (s.splitterToggle[cell] ?? 0) === 0 ? 1 : 0;
     return true;
   }
@@ -166,7 +166,7 @@ export function step(s: SimState): SimEvent[] {
         const item: Item = { id: s.nextItemId++, mat: 'scrap', cell: target, hold: 0, movedAt: s.tick, from: c };
         s.items.push(item); s.itemAt[target] = item; s.spawned++; stats(s, c).spawned++; stats(s, target).passed++;
         s.tickEvents.push({ tick: s.tick, kind: 'spawn', cell: target, itemId: item.id });
-        if (isProcessor(tm.kind)) enterProcessor(s, tm, target, item);
+        if (isProcessor(tm.kind)) enterProcessor(s, tm.kind, target, item);
       } else if (target >= 0 && s.grid[target]?.kind === 'dock' && accepts(s, target, m.dir)) {
         // hopper feeding straight into a dock: sells raw scrap immediately
         const value = RULES.value.scrap; s.earned += value; s.shipped.scrap++; s.spawned++;

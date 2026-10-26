@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { Button, label, mono, panel, slider } from '../ui';
 import { CSS, P } from '../palette';
 import { audio } from '../audio';
-import { clearSave, dailySeed, loadBests, loadPlayer, loadSave, loadSubmissions, randomSeed, savePlayer } from '../storage';
+import { clearSave, dailySeed, hasUnusableSave, loadBests, loadPlayer, loadSave, loadSubmissions, randomSeed, savePlayer } from '../storage';
+import { MAX_SEED_LENGTH, sanitizeSeed } from '../../sim/run';
 import { decodeReplay, verifyReplay } from '../../sim/replay';
 import { W, H } from '../layout';
 import { prefs } from '../prefs';
@@ -26,13 +27,20 @@ export class TitleScene extends Phaser.Scene {
     const bests = loadBests();
     let y = 230;
     if (save) {
-      new Button(this, W / 2, y, `Continue run (${save.seed})`, () => { audio.unlock(); this.scene.start('Game', { seed: save.seed, fresh: false, actions: save.actions }); }, { w: 360, h: 48, name: 'continue' });
-      y += 62;
+      const shortSeed = save.seed.length > 22 ? `${save.seed.slice(0, 20)}…` : save.seed;
+      new Button(this, W / 2, y, `Continue run (${shortSeed})`, () => { audio.unlock(); this.scene.start('Game', { seed: save.seed, fresh: false, actions: save.actions }); }, { w: 360, h: 48, name: 'continue' });
+      // the warning lives right under the button it concerns, where there is always room at every text size
+      mono(this, W / 2, y + 27, 'Starting a new run discards the saved one.', 12, CSS.dim).setOrigin(0.5, 0).setName('continue-note');
+      y += 78; // room for the note at 130 % text
+
+    } else if (hasUnusableSave()) {
+      mono(this, W / 2, y - 34, 'A saved run was found but cannot be resumed (damaged or from older rules); it will be replaced by your next run.', 12, CSS.dim).setOrigin(0.5, 0).setName('continue-note');
+      clearSave();
     }
     new Button(this, W / 2 - 130, y, "Today's challenge", () => this.start(dailySeed(), true), { w: 240, h: 48, name: 'daily' });
     new Button(this, W / 2 + 130, y, 'Random seed', () => this.start(randomSeed(), true), { w: 240, h: 48, color: P.steel, name: 'random' });
     y += 62;
-    const seedBtn = new Button(this, W / 2 - 130, y, 'Custom seed…', () => { const s = window.prompt('Seed (same seed = same offers for everyone):', 'junkyard'); if (s && s.trim()) this.start(s.trim(), true); }, { w: 240, h: 40, color: P.steelDark, textColor: CSS.text, size: 14, name: 'custom' });
+    const seedBtn = new Button(this, W / 2 - 130, y, 'Custom seed…', () => { const s = window.prompt(`Seed (same seed = same offers for everyone; up to ${MAX_SEED_LENGTH} characters):`, 'junkyard'); if (s && s.trim()) this.start(sanitizeSeed(s), true); }, { w: 240, h: 40, color: P.steelDark, textColor: CSS.text, size: 14, name: 'custom' });
     void seedBtn;
     new Button(this, W / 2 + 130, y, 'Import replay…', () => this.importReplay(), { w: 240, h: 40, color: P.steelDark, textColor: CSS.text, size: 14, name: 'import' });
     y += 70;
@@ -74,7 +82,6 @@ export class TitleScene extends Phaser.Scene {
     label(this, 830, y + 148, 'Text size', 13, CSS.dim);
     new Button(this, 955, y + 156, prefs.textScaleLabel(), () => { prefs.setTextScale(prefs.nextTextScale()); this.scene.restart(); }, { w: 80, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'textscale' });
 
-    if (save) mono(this, W / 2, y + 186, 'Starting a new run discards the saved one.', 12, CSS.dim).setOrigin(0.5, 0);
     this.dailyBoard(H - 72); // fixed strip above the bottom edge, same place with or without a saved run
     this.input.keyboard?.on('keydown-ENTER', () => { if (save) this.scene.start('Game', { seed: save.seed, fresh: false, actions: save.actions }); else this.start(dailySeed(), true); });
   }

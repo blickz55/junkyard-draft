@@ -37,7 +37,7 @@ export function installDevApi(scene: GameScene) {
     finishRun: () => scene.finishRun(),
     next: () => scene.nextRound(),
     pick: (i) => scene.pick(i),
-    hint: () => scene['hint']?.text ?? '',
+    hint: () => scene.hintText(),
     cursor: () => scene.cursorInfo(),
     prefs: () => ({ reducedMotion: prefs.reducedMotion, textScale: prefs.textScale }),
   };

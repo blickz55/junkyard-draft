@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Verifier, createServer, RateLimiter, clientIp } from '../server/verify';
-import { execFileSync } from 'node:child_process';
+import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, loadBoard, StorageError } from '../server/verify';
+import { build as esbuild } from 'esbuild';
+import net from 'node:net';
+import { RULES_VERSION } from '../game/src/sim/types';
 import { apply, newRun } from '../game/src/sim/run';
 import { encodeReplay, exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
@@ -119,7 +121,8 @@ test('http: POST /verify is rate limited per client IP with Retry-After; GETs ar
 
 test('verifier bundles to a single file that exports the server pieces (what the Docker image runs)', async () => {
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-verifier-')), 'verify.mjs');
-  execFileSync(process.execPath, [path.join('node_modules', 'esbuild', 'bin', 'esbuild'), 'server/verify.ts', '--bundle', '--platform=node', '--format=esm', '--target=node20', `--outfile=${out}`, '--log-level=warning'], { stdio: 'pipe' });
+  // esbuild's JS API: the CLI entry is a native binary on some platforms, which `node bin/esbuild` cannot run
+  await esbuild({ entryPoints: ['server/verify.ts'], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: out, logLevel: 'warning' });
   const mod = await import(`file://${out.replace(/\\\\/g, '/')}`) as { createServer: unknown; Verifier: unknown; RateLimiter: unknown };
   assert.equal(typeof mod.createServer, 'function'); assert.equal(typeof mod.Verifier, 'function'); assert.equal(typeof mod.RateLimiter, 'function');
   assert.ok(fs.statSync(out).size < 200_000, 'bundle stays small (sim + server only)');
@@ -151,4 +154,106 @@ test('retention: stored replays are kept only for each seed\'s top N entries; sc
   const again = new Verifier(file, { replaysPerSeed: 2 });
   assert.equal(again.replay(low.entry!.replayHash), null); assert.ok(again.replay(best.entry!.replayHash));
   assert.equal(new Verifier(path.join(path.dirname(file), 'x.json')).replaysPerSeed, 100, 'default matches the /board cap');
+});
+
+// ---- review findings (2026-10-26): each test below reproduces a reported failure and pins the fix
+
+const listen = async (v: Verifier, opts = {}) => {
+  const server = createServer(v, { log: null, ...opts });
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
+  const port = (server.address() as { port: number }).port;
+  return { server, base: `http://127.0.0.1:${port}`, port, close: () => { server.closeAllConnections(); server.close(); } };
+};
+
+test('malformed_url_does_not_kill_verifier: a request whose URL cannot be parsed gets 400 and the server keeps serving', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-board-')), 'board.json');
+  const { base, port, close } = await listen(new Verifier(file));
+  try {
+    const raw = await new Promise<string>((resolve, reject) => {
+      const sock = net.connect(port, '127.0.0.1', () => sock.write('GET //[ HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n'));
+      let data = ''; sock.on('data', (c) => { data += c; }); sock.on('end', () => resolve(data)); sock.on('error', reject);
+      setTimeout(() => { sock.destroy(); resolve(data); }, 3000);
+    });
+    assert.match(raw, /^HTTP\/1\.1 400/, `expected a 400 for a malformed URL, got: ${raw.slice(0, 60)}`);
+    assert.equal((await fetch(`${base}/health`)).status, 200, 'the process survived and still answers');
+    // garbage at the HTTP level is answered with 400 by the clientError handler, not an unhandled parser error
+    const junk = await new Promise<string>((resolve) => { const s = net.connect(port, '127.0.0.1', () => s.write('\x00\x01 NOT HTTP\r\n\r\n')); let d = ''; s.on('data', (c) => { d += c; }); s.on('close', () => resolve(d)); setTimeout(() => { s.destroy(); resolve(d); }, 3000); });
+    assert.match(junk, /400|^$/);
+    assert.equal((await fetch(`${base}/health`)).status, 200);
+  } finally { close(); }
+});
+
+test('failed_persistence_preserves_previous_board: a write failure records nothing, answers 503, and the retry is not a duplicate', async () => {
+  const blocker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-board-')), 'not-a-dir');
+  fs.writeFileSync(blocker, 'x'); // the board's parent "directory" is a regular file, so mkdir/rename must fail
+  const broken = new Verifier(path.join(blocker, 'board.json'));
+  const run = finishedRun('persist-seed');
+  assert.throws(() => broken.submit(encodeReplay(exportReplay(run)), 'pat'), StorageError);
+  assert.equal(broken.size, 0, 'memory unchanged after the failed write');
+  assert.equal(broken.board('persist-seed').length, 0);
+  assert.throws(() => broken.submit(encodeReplay(exportReplay(run)), 'pat'), StorageError, 'second attempt fails the same way, not as a duplicate');
+  const { base, close } = await listen(broken);
+  try {
+    const res = await fetch(`${base}/verify`, { method: 'POST', body: JSON.stringify({ replay: exportReplay(run), player: 'pat' }) });
+    assert.equal(res.status, 503); assert.ok(res.headers.get('retry-after'));
+    assert.equal(((await res.json()) as { ok: boolean }).ok, false);
+    assert.equal((await fetch(`${base}/health`)).status, 200);
+  } finally { close(); }
+  // a working store accepts the very same replay: nothing leaked into a shared duplicate index
+  const good = new Verifier(path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-board-')), 'board.json'));
+  assert.equal(good.submit(encodeReplay(exportReplay(run)), 'pat').ok, true);
+  // the board file is written atomically: no temp files remain next to it
+  assert.deepEqual(fs.readdirSync(path.dirname(good['file' as keyof Verifier] as unknown as string)).filter((f) => f.endsWith('.tmp')), []);
+});
+
+test('old_rules_board_is_not_current_verified_board: entries persisted under another rules version never rank, count or replay', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-board-')), 'board.json');
+  const run = finishedRun('mixed-seed');
+  const legacyHash = 'deadbeef';
+  fs.writeFileSync(file, JSON.stringify({
+    entries: [{ seed: 'mixed-seed', score: 999999, player: 'old', verifiedAt: '2026-01-01T00:00:00.000Z', rulesVersion: RULES_VERSION - 1, actions: 3, replayHash: legacyHash }],
+    replays: { [legacyHash]: { seed: 'mixed-seed', rulesVersion: RULES_VERSION - 1, actions: [], score: 999999, player: 'old', verifiedAt: '2026-01-01T00:00:00.000Z' } },
+  }));
+  const v = new Verifier(file);
+  assert.equal(v.size, 0, 'old entries are not counted as current');
+  assert.equal(v.sizeAllVersions, 1, 'but they are still in the file');
+  assert.deepEqual(v.board('mixed-seed'), [], 'old entries never enter the current board');
+  assert.equal(v.replay(legacyHash), null, 'old replays are not served for playback');
+  assert.equal(v.submit(encodeReplay(exportReplay(run)), 'new').ok, true);
+  const board = v.board('mixed-seed');
+  assert.equal(board.length, 1); assert.equal(board[0].player, 'new'); assert.equal(board[0].rulesVersion, RULES_VERSION);
+  assert.equal(new Verifier(file).sizeAllVersions, 2, 'old rows survive on disk for a future migration');
+});
+
+test('bounds: query limits are finite integers clamped to [1, max]; limiter cardinality is capped; a damaged board file loads empty', async () => {
+  assert.equal(clampInt('-1', 20, 100), 1); assert.equal(clampInt('0', 20, 100), 1); assert.equal(clampInt('abc', 20, 100), 20);
+  assert.equal(clampInt('1e9', 20, 100), 100); assert.equal(clampInt('7.5', 20, 100), 20); assert.equal(clampInt('Infinity', 20, 100), 20); assert.equal(clampInt(null, 20, 100), 20);
+  const rl = new RateLimiter(60, 60_000, () => 1_000_000, 100);
+  for (let i = 0; i < 20_000; i++) rl.take(`ip-${i}`);
+  assert.ok(rl.keys <= 100, `limiter keys bounded: ${rl.keys}`);
+  assert.deepEqual(loadBoard('{not json'), { entries: [] });
+  assert.deepEqual(loadBoard(JSON.stringify({ entries: [{ seed: 'x' }, null, 5], replays: { a: { nope: true } } })), { entries: [], replays: {} });
+  // HTTP: limit=-1 and absurd limits never exceed the cap
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-board-')), 'board.json');
+  const { base, close } = await listen(new Verifier(file));
+  try {
+    for (const q of ['-1', '1e9', 'abc', '']) { const b = await (await fetch(`${base}/board?seed=x&limit=${q}`)).json() as { entries: unknown[] }; assert.ok(Array.isArray(b.entries) && b.entries.length <= 100); }
+    assert.equal((await fetch(`${base}/daily?limit=-5`)).status, 200);
+  } finally { close(); }
+});
+
+test('replay identity is SHA-256 of the canonical content; legacy 8-hex ids still resolve for playback', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-board-')), 'board.json');
+  const run = finishedRun('id-seed');
+  const r = exportReplay(run);
+  assert.match(replayId(r), /^[0-9a-f]{64}$/);
+  assert.notEqual(replayId(r), replayId({ ...r, actions: r.actions.slice(0, -1) }));
+  assert.equal(replayId(r), replayId({ ...r, claimedScore: 0, createdAt: 'other' } as typeof r), 'identity ignores claimed score and timestamps');
+  const legacy = 'abcd1234';
+  fs.writeFileSync(file, JSON.stringify({ entries: [{ seed: 'legacy-seed', score: 300, player: 'old', verifiedAt: '2026-10-25T00:00:00.000Z', rulesVersion: RULES_VERSION, actions: 20, replayHash: legacy }], replays: { [legacy]: { seed: 'legacy-seed', rulesVersion: RULES_VERSION, actions: r.actions, score: 300, player: 'old', verifiedAt: '2026-10-25T00:00:00.000Z' } } }));
+  const v = new Verifier(file);
+  assert.equal(v.board('legacy-seed')[0]?.replayAvailable, true);
+  assert.equal(v.replay(legacy)?.player, 'old');
+  const e = v.submit(encodeReplay(r), 'new');
+  assert.equal(e.ok, true); assert.match(e.entry!.replayHash, /^[0-9a-f]{64}$/);
 });

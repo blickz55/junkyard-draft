@@ -33,6 +33,13 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await waitServer();
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+    // malformed_storage_shapes_fall_back: valid JSON with the wrong shape must not crash boot or the title
+    await page.evaluate(() => { localStorage.setItem('jd.bests.v1', JSON.stringify({ bySeed: null })); localStorage.setItem('jd.settings.v1', JSON.stringify({ volume: 'loud', textScale: 9, reducedMotion: 'maybe' })); localStorage.setItem('jd.submissions.v1', '"junk"'); });
+    await page.reload();
+    await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+    assert.deepEqual(errors, [], 'damaged storage shapes produced no page errors');
+    assert.equal(await page.evaluate(() => window.__jdGame.scene.getScene('Title').children.getByName('textscale').label.text), '100%', 'an invalid text scale falls back to 100%');
+    await page.evaluate(() => { localStorage.removeItem('jd.bests.v1'); localStorage.removeItem('jd.settings.v1'); localStorage.removeItem('jd.submissions.v1'); });
     // player name for the verified board (set here so the results screen does not prompt)
     await page.evaluate(() => localStorage.setItem('jd.player', 'e2e player'));
     // Title → Game via a real click on "Today's challenge" button (Phaser object; click by canvas coords)
@@ -108,7 +115,20 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.equal((await cur()).visible, false, 'Escape hides the cursor');
     await page.screenshot({ path: path.join(SHOTS, `e2e-keyboard-${Date.now()}.png`) });
 
-    // 3) run with Space, watch some animation, then skip to the result
+    // starting_round_cancels_active_drag: a machine under the pointer when the round starts snaps back; the drop edits nothing
+    const hopperCell = cell(1, 2);
+    const before = JSON.stringify((await api('state')).layout.machines);
+    await page.mouse.move(hopperCell.x, hopperCell.y); await page.mouse.down(); await page.mouse.move(hopperCell.x + 24, hopperCell.y + 24, { steps: 4 });
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => window.__jd.mode() === 'running');
+    await page.mouse.move(GX + 200, BIN_Y + 60, { steps: 8 }); await page.mouse.up(); await wait(250);
+    st = await api('state');
+    assert.equal(JSON.stringify(st.layout.machines), before, 'the authoritative layout is frozen once the round starts');
+    assert.equal(st.bin.length, 1, 'the dropped hopper did not land in the bin');
+    assert.equal(await api('act', { t: 'unplace', id: st.layout.machines[0].id }), false, 'layout edits through the dev API are refused while running too');
+    assert.equal(JSON.stringify((await api('state')).layout.machines), before);
+
+    // 3) the round is already running from the drag check above (Space is ignored while running); watch some animation, then skip
     await page.keyboard.press('Space');
     await page.waitForFunction(() => window.__jd.mode() === 'running');
     await wait(1800);
@@ -144,6 +164,11 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.equal((await settings()).reducedMotion, true, 'text size change kept the motion setting');
     assert.equal(await page.evaluate(() => window.__jdGame.scene.getScene('Title').children.getByName('howto-1').style.fontSize), '17px', 'labels scale with text size (15px × 1.15)');
     await titleBtn('textscale'); await titleReady(() => window.__jdGame.scene.getScene('Title').children.getByName('textscale')?.label.text === '130%');
+    // large_text_layout_fits (title, 130 %, with a saved run present): nothing overlaps or leaves the canvas
+    const titleLayout = await page.evaluate(() => { const sc = window.__jdGame.scene.getScene('Title'); const g = (n) => sc.children.getByName(n); const b = (o) => ({ top: o.y - o.height * o.originY, bottom: o.y + o.height * (1 - o.originY), left: o.x - o.width * o.originX, right: o.x + o.width * (1 - o.originX) }); return { howto5: b(g('howto-5')), note: b(g('continue-note')), daily: b(g('daily')), strip: b(g('daily-board')), width: sc.scale.width, height: sc.scale.height }; });
+    assert.ok(titleLayout.note.bottom <= titleLayout.daily.top, `continue note (${titleLayout.note.bottom}) clears the buttons below (${titleLayout.daily.top})`);
+    assert.ok(titleLayout.howto5.bottom <= titleLayout.strip.top, `how-to panel text (${titleLayout.howto5.bottom}) clears the daily strip (${titleLayout.strip.top})`);
+    assert.ok(titleLayout.howto5.right <= 620, 'how-to lines stay inside their panel');
     await titleBtn('textscale'); await titleReady(() => window.__jdGame.scene.getScene('Title').children.getByName('textscale')?.label.text === '100%');
     assert.equal((await settings()).textScale, 1);
     await page.keyboard.press('Enter'); // continue
@@ -176,8 +201,11 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.waitForFunction(() => window.__jdGame.scene.isActive('Results'), null, { timeout: 10000 });
     await wait(700);
     await page.screenshot({ path: path.join(SHOTS, `e2e-results-${Date.now()}.png`) });
+    const completed = (await api('state')).score; // the Game scene's run object holds the finished run
     const bests = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.bests.v1')));
-    assert.ok(bests.overall && bests.overall.score === st.score + 0 || bests.overall.score > 0, 'personal best recorded');
+    assert.equal(bests.overall?.score, completed, 'personal_best_equals_completed_score (overall)');
+    assert.equal(bests.bySeed['e2e-seed']?.score, completed, 'personal_best_equals_completed_score (seed)');
+    assert.equal(bests.runs, 1);
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), null, 'save cleared after finishing');
     // 6) submit the replay to the spawned verifier via the Results button (Phaser button: click its canvas position)
     for (let i = 0; i < 20; i++) { try { if ((await fetch(`http://127.0.0.1:${VPORT}/health`)).ok) break; } catch {} await wait(300); }
@@ -196,6 +224,9 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.equal(subs['e2e-seed'].replayHash, board.entries[0].replayHash, 'submission recorded locally by replay hash');
     // 7) watch the verified replay from the board: fetched by hash, re-verified locally, played back labelled, never recorded as a best
     const bestsBefore = await page.evaluate(() => localStorage.getItem('jd.bests.v1'));
+    // watched_replay_preserves_existing_save: plant an unrelated unfinished run; it must survive playback byte for byte
+    const plantedSave = JSON.stringify({ rulesVersion: 2, seed: 'other-seed', actions: [{ t: 'pick', i: 0 }], savedAt: '2026-10-26T00:00:00.000Z' });
+    await page.evaluate((s) => localStorage.setItem('jd.save.v1', s), plantedSave);
     await page.waitForFunction(() => !!window.__jdGame.scene.getScene('Results').children.getByName('board-entry-0'), null, { timeout: 10000 });
     await page.evaluate(() => window.__jdGame.scene.getScene('Results').children.getByName('board-entry-0').emit('pointerdown'));
     await page.waitForFunction(() => window.__jdGame.scene.isActive('Game') && !!window.__jd && /verified replay by e2e player/.test(window.__jdGame.scene.getScene('Game').children.getByName('hud-seed')?.text || ''), null, { timeout: 15000 });
@@ -212,6 +243,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     }
     await page.waitForFunction(() => window.__jdGame.scene.isActive('Results') && /verified replay by e2e player/.test(window.__jdGame.scene.getScene('Results').children.getByName('results-subtitle')?.text || ''), null, { timeout: 15000 });
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.bests.v1')), bestsBefore, 'watching a replay does not change local bests');
+    assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), plantedSave, 'finishing a watched replay leaves the unrelated save untouched');
     assert.equal(await page.evaluate(() => Number(Array.from(window.__jdGame.scene.getScene('Results').children.list).find((o) => o.text && /^\$\d+$/.test(o.text)).text.slice(1))), board.entries[0].score, 'playback reproduces the verified score');
     const finalScore = await page.evaluate(() => Number(Array.from(window.__jdGame.scene.getScene('Results').children.list).find((o) => o.text && /^\$\d+$/.test(o.text)).text.slice(1)));
     assert.equal(board.entries[0].score, finalScore, 'board score equals the displayed final score');
@@ -221,7 +253,8 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.waitForFunction(() => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.mode() === 'running', null, { timeout: 15000 });
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => window.__jdGame.scene.isActive('Title'), null, { timeout: 10000 });
-    assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), null, 'stopping a replay leaves no saved run behind');
+    assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), plantedSave, 'stopping a replay leaves the unrelated save untouched too');
+    await page.evaluate(() => localStorage.removeItem('jd.save.v1'));
     // title screen shows this device's verified rank for today's seed: submit a daily replay to the test verifier,
     // record it locally the way the results screen does, then reload the title
     const { newRun, apply } = await import('../game/src/sim/run.ts');
@@ -236,6 +269,15 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => { const t = window.__jdGame.scene.getScene('Title')?.children.getByName('daily-board'); return !!t && /^You: #1 of 1 \(\$\d+\)/.test(t.text) && /1\. \$\d+ e2e player/.test(t.text); }, null, { timeout: 15000 });
     assert.equal(await page.evaluate(() => window.__jdGame.scene.getScene('Title').children.getByName('player').label.text), 'Player: e2e player');
+    // large_text_layout_fits (HUD): a maximum-length seed at 130 % keeps round, score and local-best on the canvas
+    await page.evaluate(() => localStorage.setItem('jd.settings.v1', JSON.stringify({ volume: 0.7, muted: false, reducedMotion: true, textScale: 1.3 })));
+    await page.goto(`${URL}/?dev=1&scene=game&seed=${'m'.repeat(64)}&verifier=http://127.0.0.1:${VPORT}`);
+    await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
+    const hud = await page.evaluate(() => { const g = window.__jdGame.scene.getScene('Game'); const h = g.hud; return { seed: g.children.getByName('hud-seed').text, scoreRight: h.score.x + h.score.width, bestRight: h.best.x + h.best.width, roundRight: h.round.x + h.round.width, width: g.scale.width, state: window.__jd.state().seed.length }; });
+    assert.equal(hud.state, 64, 'the full 64-character seed is the run seed');
+    assert.match(hud.seed, /…/, 'the HUD shortens the seed label');
+    assert.ok(hud.scoreRight <= hud.width - 160 && hud.bestRight <= hud.width - 150 && hud.roundRight < hud.scoreRight, `HUD fits: round→${hud.roundRight} score→${hud.scoreRight} best→${hud.bestRight} of ${hud.width}`);
+    await page.evaluate(() => localStorage.removeItem('jd.settings.v1'));
     assert.deepEqual(errors, [], 'no page errors');
   } finally {
     if (browser) await browser.close().catch(() => {}); // guard: a failed launch must still stop the servers below

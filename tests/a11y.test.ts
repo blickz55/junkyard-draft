@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { auditContrast, auditCvd, MATERIALS } from '../tools/a11y-audit';
-import { contrast, deltaE, hexToRgb, simulate } from '../tools/a11y-lib';
+import { contrast, deltaE, hexToRgb, shiftValue, simulate } from '../tools/a11y-lib';
 
 test('every text/background pair the UI draws meets WCAG AA contrast', () => {
   const results = auditContrast();
@@ -19,6 +19,18 @@ test('materials and semantic colours stay apart under protanopia, deuteranopia a
     const d = deltaE(simulate(MATERIALS.shards, kind), simulate(MATERIALS.plate, kind));
     assert.ok(d >= 20, `shards vs plate under ${kind}: ΔE ${d.toFixed(1)} < 20`);
   }
+});
+
+test('hover_colors_meet_AA: button hover states keep their label contrast (the old brighten-everything hover dropped dark-steel to 3.1:1)', () => {
+  const results = auditContrast();
+  const hovers = results.filter((r) => / \(hover\)$/.test(r.name));
+  assert.equal(hovers.length, 3, 'all three button colours have a hover pair in the audit');
+  for (const h of hovers) assert.ok(h.ok, `${h.name}: ${h.ratio}:1 < ${h.required}:1`);
+  const steelDarkHover = hovers.find((h) => h.name.startsWith('button label on steelDark'))!;
+  assert.ok(steelDarkHover.ratio >= 4.5, `dark-steel hover is ${steelDarkHover.ratio}:1`);
+  // the rejected design, for the record: brightening dark steel under light text fails AA
+  const brightened = contrast(hexToRgb('#f1e8d8'), shiftValue(hexToRgb(0x5a6670), 12));
+  assert.ok(brightened < 4.5, `brightened dark steel would be ${brightened.toFixed(2)}:1`);
 });
 
 test('colour math sanity: black/white contrast is 21:1, identity simulation is a no-op', () => {

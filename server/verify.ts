@@ -4,12 +4,24 @@
  * - GET  /board?seed=<seed>&limit=20 → verified scores for a seed (never client-claimed scores).
  * - GET  /daily?limit=10 → today's UTC daily seed (same rule as the client) with its verified board.
  * - GET  /replay?hash=<replayHash> → the stored actions of a VERIFIED entry (for playback); 404 otherwise.
- * - GET  /health → { ok, rulesVersion, entries, uptimeSec }
+ * - GET  /health → { ok, version, rulesVersion, entries, uptimeSec }
+ *
+ * Guarantees (each covered by tests/verifier.test.ts):
+ * - A malformed request never kills the process (URL parsing and every handler are guarded; 400/500 JSON).
+ * - Nothing is recorded in memory until it is on disk: candidate state is written to a temp file in the
+ *   same directory and renamed over the board; a failed write leaves memory and disk unchanged and the
+ *   client gets 503 so it can retry.
+ * - Boards are partitioned by rules version: entries persisted under another RULES_VERSION never enter
+ *   the current board, rank or replay lookups.
+ * - Replay identity is SHA-256 over the canonical { rulesVersion, seed, actions } (legacy 8-hex FNV ids
+ *   from earlier boards still resolve for playback).
+ * - Bounded resources: stored replays per seed, entries per seed, number of seeds, rate-limiter keys,
+ *   request body size, and every query limit is a finite integer clamped to [1, max].
  *
  * Deployable: binds to HOST:PORT (default 127.0.0.1:4400), keeps its JSON board in DATA_DIR/board.json
- * (default server/data), logs one line per request, rate-limits POST /verify per client IP
- * (default 60/min), and sends CORS headers for CORS_ORIGIN (default *). Behind a reverse proxy set
- * TRUST_PROXY=1 so X-Forwarded-For identifies the client.
+ * (default <cwd>/server/data, the same for source and bundled runs), logs one line per request,
+ * rate-limits POST /verify per client IP (default 60/min), and sends CORS headers for CORS_ORIGIN
+ * (default *). Behind a reverse proxy set TRUST_PROXY=1 so X-Forwarded-For identifies the client.
  *
  * Run (dev):   node --import tsx server/verify.ts
  * Run (prod):  npm run verifier:build && node server/dist/verify.mjs --host 0.0.0.0 --data-dir /data
@@ -18,6 +30,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { decodeReplay, verifyReplay, type ReplayFile } from '../game/src/sim/replay';
 import { RULES_VERSION } from '../game/src/sim/types';
@@ -32,77 +45,150 @@ export interface StoredReplay { seed: string; rulesVersion: number; actions: Rep
 export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay> }
 
 const MAX_BODY = 512 * 1024;
+export const MAX_BOARD_LIMIT = 100;
+export const MAX_DAILY_LIMIT = 50;
 
-function hash(text: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return (h >>> 0).toString(16).padStart(8, '0');
+/** Replay identity: SHA-256 of the canonical verified content. Collision-free in practice, unlike the 32-bit FNV it replaces. */
+export const replayId = (r: Pick<ReplayFile, 'rulesVersion' | 'seed' | 'actions'>): string =>
+  createHash('sha256').update(JSON.stringify({ rulesVersion: r.rulesVersion, seed: r.seed, actions: r.actions })).digest('hex');
+
+/** Parse a query limit: finite integer clamped to [1, max]; anything else is the default. */
+export function clampInt(raw: string | null | undefined, def: number, max: number, min = 1): number {
+  if (raw == null || raw === '') return def;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n)) return def;
+  return Math.min(max, Math.max(min, n));
 }
+
+export class StorageError extends Error {}
 
 export interface VerifierOptions {
   /** stored replays are kept only for each seed's top N entries (by the board order); default 100 = the /board cap */
   replaysPerSeed?: number;
+  /** entries kept per seed (lowest-ranked are dropped on write); default 1000 */
+  maxEntriesPerSeed?: number;
+  /** seeds kept in the file (least recently active seeds are dropped on write); default 5000 */
+  maxSeeds?: number;
 }
+
+const byRank = (a: BoardEntry, b: BoardEntry) => b.score - a.score || a.verifiedAt.localeCompare(b.verifiedAt);
 
 export class Verifier {
   private data: Board;
   readonly replaysPerSeed: number;
+  readonly maxEntriesPerSeed: number;
+  readonly maxSeeds: number;
   constructor(private file: string, opts: VerifierOptions = {}) {
     this.replaysPerSeed = opts.replaysPerSeed ?? 100;
-    this.data = fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, 'utf8')) as Board) : { entries: [] };
+    this.maxEntriesPerSeed = opts.maxEntriesPerSeed ?? 1000;
+    this.maxSeeds = opts.maxSeeds ?? 5000;
+    this.data = fs.existsSync(file) ? loadBoard(fs.readFileSync(file, 'utf8')) : { entries: [] };
   }
-  /** Retention: drop stored actions of entries that fell out of their seed's top N (entries themselves stay). */
-  private prune() {
-    if (!this.data.replays) return;
-    const keep = new Set<string>();
-    const seeds = new Set(this.data.entries.map((e) => e.seed));
-    for (const seed of seeds) for (const e of this.rank(seed).slice(0, this.replaysPerSeed)) keep.add(e.replayHash);
-    for (const h of Object.keys(this.data.replays)) if (!keep.has(h)) delete this.data.replays[h];
-  }
-  private save() { this.prune(); fs.mkdirSync(path.dirname(this.file), { recursive: true }); fs.writeFileSync(this.file, JSON.stringify(this.data, null, 1)); }
-  private rank(seed: string): BoardEntry[] { return this.data.entries.filter((e) => e.seed === seed).sort((a, b) => b.score - a.score || a.verifiedAt.localeCompare(b.verifiedAt)); }
-  get size() { return this.data.entries.length; }
 
-  /** Verify a replay; on success record it. Returns the verdict (never trusts claimedScore). */
+  /** Current-version entries for a seed in board order. Entries persisted under another rules version never rank. */
+  private rank(seed: string, data: Board = this.data): BoardEntry[] {
+    return data.entries.filter((e) => e.seed === seed && e.rulesVersion === RULES_VERSION).sort(byRank);
+  }
+  /** Current-version entries (what /health and the boards count). */
+  get size() { return this.data.entries.reduce((n, e) => n + (e.rulesVersion === RULES_VERSION ? 1 : 0), 0); }
+  get sizeAllVersions() { return this.data.entries.length; }
+
+  /** Retention on a candidate board: cap entries for `seed`, cap the number of seeds, keep replays only for each seed's top N. */
+  private prune(data: Board, seed: string) {
+    const ranked = this.rank(seed, data);
+    if (ranked.length > this.maxEntriesPerSeed) {
+      const drop = new Set(ranked.slice(this.maxEntriesPerSeed).map((e) => e.replayHash));
+      data.entries = data.entries.filter((e) => !drop.has(e.replayHash));
+    }
+    const lastActive = new Map<string, string>();
+    for (const e of data.entries) if ((lastActive.get(e.seed) ?? '') < e.verifiedAt) lastActive.set(e.seed, e.verifiedAt);
+    if (lastActive.size > this.maxSeeds) {
+      const stale = new Set([...lastActive.entries()].sort((a, b) => a[1].localeCompare(b[1])).slice(0, lastActive.size - this.maxSeeds).map(([s]) => s));
+      data.entries = data.entries.filter((e) => !stale.has(e.seed));
+    }
+    if (data.replays) {
+      const keep = new Set<string>();
+      const touched = new Set(data.entries.map((e) => e.seed));
+      for (const s of touched) for (const e of this.rank(s, data).slice(0, this.replaysPerSeed)) keep.add(e.replayHash);
+      for (const h of Object.keys(data.replays)) if (!keep.has(h)) delete data.replays[h];
+    }
+  }
+
+  /** Write a candidate board atomically (temp file + rename in the same directory). Memory changes only after the rename succeeds. */
+  private commit(candidate: Board) {
+    const dir = path.dirname(this.file);
+    const tmp = path.join(dir, `.board-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`);
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(tmp, JSON.stringify(candidate, null, 1));
+      fs.renameSync(tmp, this.file);
+    } catch (e) {
+      try { fs.rmSync(tmp, { force: true }); } catch { /* best effort */ }
+      throw new StorageError(`storage unavailable: ${(e as Error).message}`);
+    }
+    this.data = candidate;
+  }
+
+  /** Verify a replay; on success record it. Returns the verdict (never trusts claimedScore). Throws StorageError if it cannot persist. */
   submit(replayText: string, player = 'anonymous'): { ok: boolean; score?: number; error?: string; entry?: BoardEntry } {
     let replay: ReplayFile;
     try { replay = decodeReplay(replayText); } catch (e) { return { ok: false, error: `rejected: ${(e as Error).message}` }; }
     if (replay.rulesVersion !== RULES_VERSION) return { ok: false, error: `rejected: rules version ${replay.rulesVersion} not accepted (server has ${RULES_VERSION})` };
     const v = verifyReplay(replay);
     if (!v.ok) return { ok: false, error: v.error ? `rejected: ${v.error}` : `rejected: re-simulated score $${v.score} does not match claimed $${v.claimed}${v.finished ? '' : ' (run not finished)'}` };
-    const replayHash = hash(JSON.stringify({ seed: replay.seed, actions: replay.actions }));
+    const replayHash = replayId(replay);
     if (this.data.entries.some((e) => e.replayHash === replayHash)) return { ok: false, error: 'rejected: duplicate replay' };
-    const entry: BoardEntry = { seed: replay.seed, score: v.score, player: String(player).slice(0, 32) || 'anonymous', verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash };
-    this.data.entries.push(entry);
-    (this.data.replays ||= {})[replayHash] = { seed: replay.seed, rulesVersion: replay.rulesVersion, actions: replay.actions, score: v.score, player: entry.player, verifiedAt: entry.verifiedAt };
-    this.save();
+    const entry: BoardEntry = { seed: replay.seed, score: v.score, player: String(player).replace(/\s+/g, ' ').trim().slice(0, 32) || 'anonymous', verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash };
+    const candidate: Board = {
+      entries: [...this.data.entries, entry],
+      replays: { ...(this.data.replays ?? {}), [replayHash]: { seed: replay.seed, rulesVersion: replay.rulesVersion, actions: replay.actions, score: v.score, player: entry.player, verifiedAt: entry.verifiedAt } },
+    };
+    this.prune(candidate, replay.seed);
+    this.commit(candidate); // throws StorageError: nothing recorded, caller answers 503
     return { ok: true, score: v.score, entry };
   }
   board(seed: string, limit = 20): BoardEntry[] {
-    return this.rank(seed).slice(0, limit).map((e) => ({ ...e, replayAvailable: !!this.data.replays?.[e.replayHash] }));
+    const n = Math.min(MAX_BOARD_LIMIT, Math.max(1, Math.floor(limit) || 1));
+    return this.rank(seed).slice(0, n).map((e) => ({ ...e, replayAvailable: !!this.data.replays?.[e.replayHash] }));
   }
-  /** Stored replay of a verified entry (boards written before replay storage existed have none). */
+  /** Stored replay of a verified, current-version entry (boards written before replay storage existed have none). */
   replay(hash: string): (StoredReplay & { hash: string }) | null {
     const r = this.data.replays?.[hash];
-    return r ? { hash, ...r } : null;
+    return r && r.rulesVersion === RULES_VERSION ? { hash, ...r } : null;
   }
   /** Today's challenge: the seed every client derives for this UTC date, plus its verified board. */
   daily(limit = 10, now = new Date()): { seed: string; date: string; rulesVersion: number; verified: true; entries: BoardEntry[] } {
     const seed = dailySeedFor(now);
-    return { seed, date: now.toISOString().slice(0, 10), rulesVersion: RULES_VERSION, verified: true, entries: this.board(seed, limit) };
+    return { seed, date: now.toISOString().slice(0, 10), rulesVersion: RULES_VERSION, verified: true, entries: this.board(seed, Math.min(MAX_DAILY_LIMIT, limit)) };
   }
 }
 
-/** Fixed-window per-key counter (good enough for a small public verifier; one process). */
+/** Parse a board file defensively: a damaged file yields an empty board instead of a crash, and bad rows are dropped. */
+export function loadBoard(text: string): Board {
+  try {
+    const raw = JSON.parse(text) as Partial<Board>;
+    const entries = Array.isArray(raw.entries) ? raw.entries.filter((e): e is BoardEntry => !!e && typeof e.seed === 'string' && typeof e.score === 'number' && typeof e.replayHash === 'string' && typeof e.verifiedAt === 'string' && Number.isInteger(e.rulesVersion)) : [];
+    const replays: Record<string, StoredReplay> = {};
+    if (raw.replays && typeof raw.replays === 'object') for (const [h, r] of Object.entries(raw.replays)) if (r && typeof r.seed === 'string' && Array.isArray(r.actions) && Number.isInteger(r.rulesVersion)) replays[h] = r;
+    return { entries, replays };
+  } catch { return { entries: [] }; }
+}
+
+/** Fixed-window per-key counter with bounded cardinality (good enough for a small public verifier; one process). */
 export class RateLimiter {
   private hits = new Map<string, { count: number; resetAt: number }>();
-  constructor(public limit: number, public windowMs: number, private now: () => number = Date.now) {}
+  constructor(public limit: number, public windowMs: number, private now: () => number = Date.now, public maxKeys = 10_000) {}
+  get keys() { return this.hits.size; }
   /** Returns { ok, retryAfterSec } and counts the hit. */
   take(key: string): { ok: boolean; remaining: number; retryAfterSec: number } {
     const t = this.now();
     let h = this.hits.get(key);
-    if (!h || h.resetAt <= t) { h = { count: 0, resetAt: t + this.windowMs }; this.hits.set(key, h); }
-    if (this.hits.size > 10000) for (const [k, v] of this.hits) if (v.resetAt <= t) this.hits.delete(k); // bounded memory
+    if (!h || h.resetAt <= t) { h = { count: 0, resetAt: t + this.windowMs }; this.hits.delete(key); this.hits.set(key, h); }
+    if (this.hits.size > this.maxKeys) {
+      for (const [k, v] of this.hits) if (v.resetAt <= t) this.hits.delete(k);
+      // still over: evict the oldest windows first (Map keeps insertion order; re-set above keeps fresh keys last)
+      for (const k of this.hits.keys()) { if (this.hits.size <= this.maxKeys) break; if (k !== key) this.hits.delete(k); }
+    }
     h.count++;
     const ok = h.count <= this.limit;
     return { ok, remaining: Math.max(0, this.limit - h.count), retryAfterSec: ok ? 0 : Math.ceil((h.resetAt - t) / 1000) };
@@ -131,46 +217,58 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const corsOrigin = opts.corsOrigin ?? '*';
   const log = opts.log === null ? null : opts.log ?? ((l: string) => console.log(l));
   const started = Date.now();
-  return http.createServer((req, res) => {
+  const cors = { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Vary': 'Origin' };
+  const server = http.createServer((req, res) => {
     const t0 = Date.now();
-    const url = new URL(req.url || '/', 'http://localhost');
     const ip = clientIp(req, !!opts.trustProxy);
-    const cors = { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Vary': 'Origin' };
-    const json = (code: number, body: unknown, extra: Record<string, string> = {}) => {
+    const json = (code: number, body: unknown, extra: Record<string, string> = {}, pathForLog = req.url ?? '') => {
+      if (res.writableEnded) return;
       res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...cors, ...extra }); res.end(JSON.stringify(body));
-      log?.(`${new Date().toISOString()} ${ip} ${req.method} ${url.pathname}${url.search} ${code} ${Date.now() - t0}ms`);
+      log?.(`${new Date().toISOString()} ${ip} ${req.method} ${pathForLog} ${code} ${Date.now() - t0}ms`);
     };
-    if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
-    if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, entries: verifier.size, uptimeSec: Math.round((Date.now() - started) / 1000) });
-    if (req.method === 'GET' && url.pathname === '/replay') { const r = verifier.replay(url.searchParams.get('hash') || ''); return r ? json(200, { ok: true, ...r }) : json(404, { ok: false, error: 'no verified replay with that hash' }); }
-    if (req.method === 'GET' && url.pathname === '/daily') return json(200, verifier.daily(Math.min(50, Number(url.searchParams.get('limit') || 10))));
-    if (req.method === 'GET' && url.pathname === '/board') { const seed = url.searchParams.get('seed') || ''; return json(200, { seed, verified: true, entries: verifier.board(seed, Math.min(100, Number(url.searchParams.get('limit') || 20))) }); }
-    if (req.method === 'POST' && url.pathname === '/verify') {
-      if (rl) { const r = rl.take(ip); if (!r.ok) { req.resume(); return json(429, { ok: false, error: `rate limited: ${rl.limit} submissions per ${rl.windowMs / 1000}s` }, { 'Retry-After': String(r.retryAfterSec) }); } }
-      let body = '';
-      req.on('data', (c) => { body += c; if (body.length > MAX_BODY) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
-      req.on('end', () => {
-        if (res.writableEnded) return;
-        try {
-          const parsed = JSON.parse(body) as { replay: unknown; player?: string };
-          const result = verifier.submit(JSON.stringify(parsed.replay), parsed.player);
-          json(result.ok ? 200 : 422, result);
-        } catch (e) { json(400, { ok: false, error: `bad request: ${(e as Error).message}` }); }
-      });
-      return;
-    }
-    json(404, { ok: false, error: 'not found' });
+    let url: URL;
+    try { url = new URL(req.url || '/', 'http://localhost'); } catch { req.resume(); return json(400, { ok: false, error: 'bad request: malformed URL' }, {}, '(malformed)'); }
+    const route = () => {
+      if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
+      if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, uptimeSec: Math.round((Date.now() - started) / 1000) });
+      if (req.method === 'GET' && url.pathname === '/replay') { const r = verifier.replay(url.searchParams.get('hash') || ''); return r ? json(200, { ok: true, ...r }) : json(404, { ok: false, error: 'no verified replay with that hash' }); }
+      if (req.method === 'GET' && url.pathname === '/daily') return json(200, verifier.daily(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT)));
+      if (req.method === 'GET' && url.pathname === '/board') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { seed, verified: true, entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT)) }); }
+      if (req.method === 'POST' && url.pathname === '/verify') {
+        if (rl) { const r = rl.take(ip); if (!r.ok) { req.resume(); return json(429, { ok: false, error: `rate limited: ${rl.limit} submissions per ${rl.windowMs / 1000}s` }, { 'Retry-After': String(r.retryAfterSec) }); } }
+        let body = '';
+        req.on('data', (c) => { body += c; if (body.length > MAX_BODY) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
+        req.on('end', () => {
+          if (res.writableEnded) return;
+          let parsed: { replay: unknown; player?: string };
+          try { parsed = JSON.parse(body) as { replay: unknown; player?: string }; } catch (e) { return json(400, { ok: false, error: `bad request: ${(e as Error).message}` }); }
+          try {
+            const result = verifier.submit(JSON.stringify(parsed.replay), parsed.player);
+            json(result.ok ? 200 : 422, result);
+          } catch (e) {
+            if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable, nothing was recorded; try again' }, { 'Retry-After': '5' });
+            json(500, { ok: false, error: 'internal error' });
+          }
+        });
+        return;
+      }
+      json(404, { ok: false, error: 'not found' });
+    };
+    try { route(); } catch { json(500, { ok: false, error: 'internal error' }); }
   });
+  // malformed HTTP at the socket level (not a parsable request): answer 400 and close instead of letting the parser error propagate
+  server.on('clientError', (_err, socket) => { if (socket.writable) socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n'); socket.destroy(); });
+  return server;
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
-  const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const args = process.argv.slice(2);
   const flag = (k: string) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i + 1] : undefined; };
   const host = flag('host') || process.env.HOST || '127.0.0.1';
   const port = Number(flag('port') || process.env.PORT || 4400);
-  const dataDir = flag('data-dir') || process.env.DATA_DIR || path.join(ROOT, 'server', 'data');
+  // default relative to the working directory so `npm run verifier` and `node server/dist/verify.mjs` agree on server/data
+  const dataDir = flag('data-dir') || process.env.DATA_DIR || path.join(process.cwd(), 'server', 'data');
   const file = process.env.BOARD_FILE || path.join(dataDir, 'board.json');
   const corsOrigin = flag('cors-origin') || process.env.CORS_ORIGIN || '*';
   const limit = Number(flag('rate-limit') || process.env.RATE_LIMIT || 60);

@@ -2,9 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSim, runLayout, step } from '../game/src/sim/sim';
 import { RULES } from '../game/src/sim/rules';
-import { starterLayout, newRun, apply, replay, draftOffers, RunError } from '../game/src/sim/run';
-import { exportReplay, decodeReplay, encodeReplay, verifyReplay } from '../game/src/sim/replay';
-import type { Layout, Machine, Dir, MachineKind } from '../game/src/sim/types';
+import { starterLayout, newRun, apply, replay, draftOffers, RunError, MAX_REPLAY_ACTIONS, actionBudget, sanitizeSeed } from '../game/src/sim/run';
+import { exportReplay, decodeReplay, encodeReplay, verifyReplay, validateReplayFile } from '../game/src/sim/replay';
+import { RULES_VERSION, type Layout, type Machine, type Dir, type MachineKind } from '../game/src/sim/types';
 
 let nid = 100;
 const m = (kind: MachineKind, x: number, y: number, dir: Dir = 0): Machine => ({ id: nid++, kind, x, y, dir });
@@ -116,7 +116,7 @@ test('run: pick → place → run → next, invalid actions rejected, replay rep
   // tampered action (placing on occupied cell) is rejected
   const bad = { ...roundTrip, actions: [...roundTrip.actions.slice(0, 1), { t: 'place', id: 6, x: 1, y: 2, dir: 0 } as const, ...roundTrip.actions.slice(1)] };
   assert.equal(verifyReplay(bad).ok, false);
-  assert.equal(replay('test-seed', s.actions).score, s.score);
+  assert.equal(replay('test-seed', s.actions, RULES_VERSION).score, s.score);
 });
 
 test('long east-moving chains advance as a unit (no false jams from a pass cap)', () => {
@@ -189,4 +189,48 @@ test('rules version 2: new runs carry it, replays from other versions are reject
   // a press is offered somewhere in the first rounds across a handful of seeds (weight 10 of 106)
   const seen = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].some((seed) => [1, 2, 3, 4, 5, 6].some((r) => draftOffers(seed, r).includes('press')));
   assert.ok(seen, 'press appears in draft offers');
+});
+
+// ---- review findings (2026-10-26): boundaries between live play, saves and replays
+
+test('all_replay_entry_points_require_explicit_version: missing, null or foreign rules versions are rejected everywhere', () => {
+  const s = newRun('ver-seed');
+  for (let r = 1; r <= RULES.rounds; r++) { apply(s, { t: 'pick', i: 0 }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); }
+  const file = exportReplay(s);
+  assert.equal(verifyReplay(file).ok, true);
+  for (const bad of [undefined, null, '2', 2.5, 1, 99]) {
+    const v = verifyReplay({ ...file, rulesVersion: bad as unknown as number });
+    assert.equal(v.ok, false, `rulesVersion ${String(bad)} must not verify`);
+    assert.match(v.error ?? '', /rules version/);
+  }
+  assert.throws(() => decodeReplay(JSON.stringify({ ...file, rulesVersion: undefined })), /rules version/);
+  assert.throws(() => decodeReplay(JSON.stringify({ ...file, rulesVersion: null })), /rules version/);
+  assert.throws(() => validateReplayFile({ ...file, seed: 'x'.repeat(65) }), /seed/);
+  assert.throws(() => validateReplayFile({ ...file, claimedScore: 'big' }), /claimed score/);
+  // replay() itself no longer defaults the version
+  assert.throws(() => replay('ver-seed', s.actions, undefined as unknown as number), /rules version missing/);
+});
+
+test('every_live_save_remains_resumable: seed bounds apply at creation and the action budget always leaves room to finish', () => {
+  assert.throws(() => newRun('x'.repeat(65)), RunError);
+  assert.throws(() => newRun(''), RunError);
+  assert.equal(sanitizeSeed('  spaced   out  seed  '), 'spaced out seed');
+  assert.equal(sanitizeSeed('y'.repeat(100)).length, 64);
+  assert.equal(sanitizeSeed('   '), 'junkyard');
+  assert.equal(newRun('x'.repeat(64)).seed.length, 64, 'the maximum length is playable');
+  // fill the history with legal edits (rotating the dock changes nothing but counts as an action)
+  const s = newRun('budget-seed');
+  apply(s, { t: 'pick', i: 0 });
+  const dock = s.layout.machines.find((m) => m.kind === 'dock')!;
+  let rejected: Error | null = null;
+  for (let i = 0; i < MAX_REPLAY_ACTIONS; i++) { try { apply(s, { t: 'rotate', id: dock.id }); } catch (e) { rejected = e as Error; break; } }
+  assert.ok(rejected instanceof RunError && /action limit/.test(rejected.message), 'edits stop before the replay cap');
+  assert.ok(s.actions.length < MAX_REPLAY_ACTIONS, `${s.actions.length} actions leave headroom`);
+  // the game can still be finished: pick/run/next are always allowed, and the result verifies
+  apply(s, { t: 'run' }); apply(s, { t: 'next' });
+  for (let r = 2; r <= RULES.rounds; r++) { apply(s, { t: 'pick', i: 0 }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); }
+  assert.equal(s.phase, 'finished');
+  assert.ok(s.actions.length <= MAX_REPLAY_ACTIONS);
+  assert.equal(verifyReplay(exportReplay(s)).ok, true, 'a run played to the limit is still replayable');
+  assert.equal(actionBudget(s).essential >= 0, true);
 });

@@ -1,5 +1,8 @@
 import type { Dir, MachineKind, Material } from './types';
 
+/** Machines that hold an item for a fixed number of ticks (the only keys RULES.process may have). */
+export type ProcessorKind = 'crusher' | 'furnace' | 'press';
+
 /** Tuning constants for rules version 2. Changing any value requires bumping RULES_VERSION. */
 export const RULES = {
   gridWidth: 8,
@@ -9,7 +12,7 @@ export const RULES = {
   /** hopper emits one scrap every N ticks */
   hopperPeriod: 2,
   /** processing time in ticks (item is held, then released when output is free) */
-  process: { crusher: 2, furnace: 3, press: 2 } as Record<string, number>,
+  process: { crusher: 2, furnace: 3, press: 2 } satisfies Record<ProcessorKind, number>,
   /** shards a press stores before it outputs one plate */
   pressShards: 2,
   value: { scrap: 1, shards: 3, plate: 8, ingot: 12, slag: 1 } as Record<Material, number>,
@@ -38,7 +41,7 @@ export const MACHINE_INFO: Record<MachineKind, { name: string; blurb: string }> 
 };
 
 /** Processing machines hold an item for RULES.process[kind] ticks. */
-export const isProcessor = (kind: MachineKind): boolean => kind === 'crusher' || kind === 'furnace' || kind === 'press';
+export const isProcessor = (kind: MachineKind): kind is ProcessorKind => kind === 'crusher' || kind === 'furnace' || kind === 'press';
 
 /** Material transformation when an item enters a processing machine (for a press: the shard that completes a plate). */
 export function transform(kind: MachineKind, mat: Material): Material {

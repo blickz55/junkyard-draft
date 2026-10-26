@@ -19,6 +19,14 @@ export const srgb = (c: RGB): RGB => [toSrgb(c[0]), toSrgb(c[1]), toSrgb(c[2])];
 export const luminance = (c: RGB): number => { const [r, g, b] = linear(c); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
 /** WCAG contrast ratio (≥ 1) */
 export const contrast = (a: RGB, b: RGB): number => { const la = luminance(a), lb = luminance(b); const [hi, lo] = la > lb ? [la, lb] : [lb, la]; return (hi + 0.05) / (lo + 0.05); };
+/** Phaser's Color.brighten / darken: HSV value shifted by amount/100 and clamped. Used to audit button hover states. */
+export function shiftValue(c: RGB, amount: number): RGB {
+  const [r, g, b] = c; const max = Math.max(r, g, b), min = Math.min(r, g, b); const d = max - min;
+  let h = 0; if (d) { if (max === r) h = ((g - b) / d) % 6; else if (max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h /= 6; if (h < 0) h += 1; }
+  const s = max ? d / max : 0; const v = Math.max(0, Math.min(1, max + amount / 100));
+  const i = Math.floor(h * 6), f = h * 6 - i, p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  switch (i % 6) { case 0: return [v, t, p]; case 1: return [q, v, p]; case 2: return [p, v, t]; case 3: return [p, q, v]; case 4: return [t, p, v]; default: return [v, p, q]; }
+}
 /** Alpha-composite `fg` over `bg` (sRGB, as the canvas does) */
 export const over = (fg: RGB, alpha: number, bg: RGB): RGB => [fg[0] * alpha + bg[0] * (1 - alpha), fg[1] * alpha + bg[1] * (1 - alpha), fg[2] * alpha + bg[2] * (1 - alpha)];
 

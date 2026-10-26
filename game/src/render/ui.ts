@@ -5,6 +5,16 @@ import { prefs, px } from './prefs';
 
 export interface ButtonOpts { w?: number; h?: number; color?: number; textColor?: string; size?: number; disabled?: boolean; name?: string }
 
+/**
+ * Hover state that keeps label contrast: dark labels sit on a lighter button, so brighten; light labels sit on a dark
+ * button, so darken (brightening dark-steel to #79858f dropped light text to 3.1:1). Audited in tools/a11y-audit.ts.
+ */
+export function hoverColor(color: number, textColor: string): number {
+  const light = /^#?[89a-f]/i.test(textColor.replace('#', '').slice(0, 1)) || textColor === '#f1e8d8';
+  const c = Phaser.Display.Color.IntegerToColor(color);
+  return light ? c.darken(12).color : c.brighten(12).color;
+}
+
 export class Button extends Phaser.GameObjects.Container {
   bg: Phaser.GameObjects.Rectangle;
   label: Phaser.GameObjects.Text;
@@ -20,7 +30,7 @@ export class Button extends Phaser.GameObjects.Container {
     this.setSize(w, h);
     this.setInteractive({ useHandCursor: true });
     this.name = o.name ?? text;
-    this.on('pointerover', () => { if (this.enabled) this.bg.setFillStyle(Phaser.Display.Color.IntegerToColor(this.color).brighten(12).color); });
+    this.on('pointerover', () => { if (this.enabled) this.bg.setFillStyle(hoverColor(this.color, o.textColor ?? '#1a1612')); });
     this.on('pointerout', () => this.bg.setFillStyle(this.color));
     this.on('pointerdown', () => { if (!this.enabled) return; audio.unlock(); audio.click(); if (!prefs.reducedMotion) this.scene.tweens.add({ targets: this, scale: 0.95, duration: 50, yoyo: true }); onClick(); });
     if (o.disabled) this.setEnabled(false);

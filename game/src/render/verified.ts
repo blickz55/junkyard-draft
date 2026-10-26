@@ -2,7 +2,7 @@
 // as a labelled playback. The client never trusts the server's score either: the replay must re-simulate
 // to the stated score here before it plays.
 import Phaser from 'phaser';
-import { REPLAY_FORMAT, verifyReplay } from '../sim/replay';
+import { REPLAY_FORMAT, validateReplayFile, verifyReplay } from '../sim/replay';
 import type { Action } from '../sim/run';
 
 export interface VerifiedReplay { hash: string; seed: string; player: string; score: number; rulesVersion: number; actions: Action[]; verifiedAt: string }
@@ -10,10 +10,13 @@ export interface VerifiedReplay { hash: string; seed: string; player: string; sc
 export async function fetchVerifiedReplay(url: string, hash: string): Promise<VerifiedReplay> {
   const res = await fetch(`${url}/replay?hash=${encodeURIComponent(hash)}`);
   if (!res.ok) throw new Error(`replay ${hash} not available (${res.status})`);
-  const r = await res.json() as VerifiedReplay & { ok: boolean };
-  const v = verifyReplay({ format: REPLAY_FORMAT, rulesVersion: r.rulesVersion, seed: r.seed, actions: r.actions, claimedScore: r.score, createdAt: r.verifiedAt });
-  if (!v.ok) throw new Error(`replay ${hash} failed local re-verification: ${v.error ?? `score ${v.score} ≠ ${r.score}`}`);
-  return r;
+  const raw = await res.json() as Partial<VerifiedReplay> & { ok?: boolean };
+  // the server's JSON goes through the same structural validation as a pasted replay file before anything trusts it
+  const file = validateReplayFile({ format: REPLAY_FORMAT, rulesVersion: raw.rulesVersion, seed: raw.seed, actions: raw.actions, claimedScore: raw.score, createdAt: raw.verifiedAt });
+  const v = verifyReplay(file);
+  if (!v.ok) throw new Error(`replay ${hash} failed local re-verification: ${v.error ?? `score ${v.score} ≠ ${file.claimedScore}`}`);
+  const player = typeof raw.player === 'string' ? raw.player.slice(0, 32) : 'unknown';
+  return { hash, seed: file.seed, player, score: file.claimedScore, rulesVersion: file.rulesVersion, actions: file.actions, verifiedAt: file.createdAt };
 }
 
 export const replayLabel = (r: Pick<VerifiedReplay, 'player' | 'score'>) => `verified replay by ${r.player} ($${r.score})`;

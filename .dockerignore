@@ -1,6 +1,8 @@
 node_modules
 release
 dist
+server/dist
+server/data
 .dev-build
 .control-room
 .git

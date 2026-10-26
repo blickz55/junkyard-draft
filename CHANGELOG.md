@@ -3,6 +3,32 @@
 All notable changes to Junkyard Draft. Dates are UTC. Rules changes bump `RULES_VERSION`, which invalidates
 older replays and saves on purpose.
 
+## Unreleased — 2026-10-26 (external code review response)
+
+Fixes for every finding of an independent review of `f3de10b` / v0.2.0 (findings quoted in docs/STATUS.md).
+
+### Verifier
+- A malformed URL no longer crashes the process (400; handler errors 500; socket-level garbage 400).
+- Writes are atomic (temp file + rename) and memory changes only after the write succeeds; a failed write answers 503 + Retry-After and the retry is not a duplicate.
+- Boards are partitioned by rules version: rows from another `RULES_VERSION` never rank, count or replay.
+- Replay identity is SHA-256 over `{ rulesVersion, seed, actions }` (a 32-bit FNV collision had rejected a legal run as a duplicate); legacy ids still resolve.
+- Bounds: query limits are finite integers clamped to [1, max]; rate-limiter keys capped; entries per seed and total seeds capped; damaged board files load empty.
+- Default data directory is `<cwd>/server/data` for source and bundled runs; Dockerfile excludes host-built `server/dist` and copies the bundle world-readable.
+
+### Game
+- Starting a round cancels an in-progress drag and freezes the layout: no drop, key or dev-API call can edit it once the simulation starts (this could show $38 visually and award $0).
+- Finishing or stopping a watched replay no longer clears the player's own unfinished save.
+- Every replay entry point (pasted file, verifier submission, fetched replay) goes through one structural validator; a missing rules version is rejected everywhere.
+- Seeds obey the same 64-character bound at creation, in saves and in replays; an action budget stops layout edits before a run becomes unreplayable while always leaving room to finish.
+- localStorage shapes are validated field by field (a `{"bySeed":null}` bests entry crashed the title); unusable saves are explained and dropped instead of silently starting over.
+- Submission success and rank lookup are reported separately; 429/503 say nothing was recorded.
+- `window.__jdGame` is gated like `window.__jd`; the tutorial no longer claims slag is $2.
+- Layout: long seeds are shortened in the HUD with an ellipsis (full seed on title/results), the saved-run note sits under its button, the results subtitle wraps; button hover states keep AA contrast (dark labels brighten, light labels darken).
+- Per-frame Set allocations removed from the render loop; `RULES.process` typed by processor kind; dev API no longer reaches into private fields.
+
+### Tests (32 → 44)
+malformed_url_does_not_kill_verifier, failed_persistence_preserves_previous_board, old_rules_board_is_not_current_verified_board, bounds/limiter/loadBoard, SHA-256 identity + legacy ids, bundle test via the esbuild API; all_replay_entry_points_require_explicit_version, every_live_save_remains_resumable; malformed_storage_shapes_fall_back (new storage suite); hover_colors_meet_AA; e2e: starting_round_cancels_active_drag, watched_replay_preserves_existing_save, malformed storage at boot, personal_best_equals_completed_score, large_text_layout_fits (title at 130 % with a save, HUD with a 64-character seed).
+
 ## 0.2.0 — 2026-10-25 (release candidate)
 
 Built on the user's Windows PC after restoring the 0.1.0 bundle. Rules v2.

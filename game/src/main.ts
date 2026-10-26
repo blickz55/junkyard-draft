@@ -5,6 +5,7 @@ import { GameScene } from './render/scenes/GameScene';
 import { ResultsScene } from './render/scenes/ResultsScene';
 import { W, H } from './render/layout';
 import { P } from './render/palette';
+import { devEnabled } from './render/devapi';
 
 declare global {
   interface ImportMeta { env: { DEV: boolean; BUILD: string; VERIFIER_URL: string } }
@@ -23,5 +24,5 @@ const game = new Phaser.Game({
   input: { mouse: { preventDefaultWheel: false } },
 });
 
-// Expose for dev tooling only (scene key lookups); competitive authority never lives here.
-(window as unknown as { __jdGame?: Phaser.Game }).__jdGame = game;
+// Expose for dev tooling only (scene key lookups), behind the same gate as window.__jd; competitive authority never lives here.
+if (devEnabled()) (window as unknown as { __jdGame?: Phaser.Game }).__jdGame = game;

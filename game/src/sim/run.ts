@@ -55,12 +55,35 @@ export function starterLayout(): { layout: Layout; nextId: number } {
   return { layout: { width: RULES.gridWidth, height: RULES.gridHeight, machines }, nextId: id };
 }
 
+export class RunError extends Error {}
+
+/** Seeds obey the same bounds everywhere (live play, saves, replays), so a run that can be played can always be replayed. */
+export const MAX_SEED_LENGTH = 64;
+export const isValidSeed = (seed: unknown): seed is string => typeof seed === 'string' && seed.length > 0 && seed.length <= MAX_SEED_LENGTH;
+/** Normalise user-typed seeds: trim, collapse inner whitespace, cut to the limit, fall back when empty. */
+export function sanitizeSeed(raw: string | null | undefined, fallback = 'junkyard'): string {
+  const s = (raw ?? '').replace(/\s+/g, ' ').trim().slice(0, MAX_SEED_LENGTH);
+  return s || fallback;
+}
+
 export function newRun(seed: string): RunState {
+  if (!isValidSeed(seed)) throw new RunError('bad seed');
   const { layout, nextId } = starterLayout();
   return { rulesVersion: RULES_VERSION, seed, round: 1, phase: 'draft', layout, bin: [], offers: draftOffers(seed, 1), picks: [], rounds: [], score: 0, sold: 0, nextId, actions: [] };
 }
 
-export class RunError extends Error {}
+/**
+ * Action-history budget. Replays are capped at MAX_REPLAY_ACTIONS, so live play must stop *before* a run
+ * becomes unreplayable while always leaving room to finish: pick/run/next (the actions that advance the
+ * game) are allowed up to the cap; layout edits stop earlier so the remaining rounds can still be completed.
+ */
+export const MAX_REPLAY_ACTIONS = 4000;
+const ESSENTIAL = new Set(['pick', 'run', 'next']);
+export function actionBudget(s: RunState): { essential: number; edits: number } {
+  const roundsLeft = RULES.rounds - s.round + 1;
+  const reserve = 3 * roundsLeft + 1; // pick + run + next per remaining round, plus slack
+  return { essential: MAX_REPLAY_ACTIONS - s.actions.length, edits: MAX_REPLAY_ACTIONS - reserve - s.actions.length };
+}
 
 function findMachine(s: RunState, id: number): { m: Machine; where: 'grid' | 'bin' } {
   const g = s.layout.machines.find((m) => m.id === id);
@@ -90,6 +113,8 @@ export function validateAction(a: unknown): a is Action {
 /** Apply an action (mutates and returns state). Throws RunError for invalid actions. */
 export function apply(s: RunState, a: Action): RunState {
   if (!validateAction(a)) throw new RunError('malformed action');
+  const budget = actionBudget(s);
+  if (ESSENTIAL.has(a.t) ? budget.essential <= 0 : budget.edits <= 0) throw new RunError('action limit reached for this run: finish the round (pick, run, next) rather than editing further');
   switch (a.t) {
     case 'pick': {
       if (s.phase !== 'draft') throw new RunError('not drafting');
@@ -155,12 +180,11 @@ export function apply(s: RunState, a: Action): RunState {
   return s;
 }
 
-/** Full replay: rebuild a run from seed + actions. Throws on any invalid action. */
-export const MAX_REPLAY_ACTIONS = 4000;
-export const MAX_SEED_LENGTH = 64;
-export function replay(seed: string, actions: Action[], rulesVersion = RULES_VERSION): RunState {
+/** Full replay: rebuild a run from seed + actions. Throws on any invalid action. The rules version must be explicit and current. */
+export function replay(seed: string, actions: Action[], rulesVersion: number): RunState {
+  if (!Number.isInteger(rulesVersion)) throw new RunError('rules version missing');
   if (rulesVersion !== RULES_VERSION) throw new RunError(`rules version ${rulesVersion} unsupported (have ${RULES_VERSION})`);
-  if (typeof seed !== 'string' || !seed.length || seed.length > MAX_SEED_LENGTH) throw new RunError('bad seed');
+  if (!isValidSeed(seed)) throw new RunError('bad seed');
   if (!Array.isArray(actions) || actions.length > MAX_REPLAY_ACTIONS) throw new RunError('too many actions');
   const s = newRun(seed);
   for (const a of actions) apply(s, a);

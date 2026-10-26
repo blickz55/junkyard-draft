@@ -21,7 +21,7 @@ export class ResultsScene extends Phaser.Scene {
   create(data: { run: RunState; replayed?: boolean; replayLabel?: string }) {
     const run = data.run;
     this.cameras.main.setBackgroundColor(P.bg);
-    clearSave();
+    if (!data.replayed) clearSave(); // a watched replay is someone else's run: the player's own unfinished save stays untouched
     const rec = data.replayed ? { newOverall: false, newSeed: false } : recordBest(run.seed, run.score);
     const bests = loadBests();
     audio.roundEnd(true);
@@ -29,7 +29,8 @@ export class ResultsScene extends Phaser.Scene {
     label(this, W / 2, 60, 'RUN COMPLETE', 16, CSS.amber, { fontStyle: 'bold', letterSpacing: 4 }).setOrigin(0.5);
     const score = label(this, W / 2, 125, `$${run.score}`, 72, CSS.gold, { fontStyle: 'bold' }).setOrigin(0.5).setScale(prefs.reducedMotion ? 1 : 0.5);
     if (!prefs.reducedMotion) this.tweens.add({ targets: score, scale: 1, duration: 500, ease: 'Back.out' });
-    mono(this, W / 2, 180, `seed ${run.seed} · rules v${run.rulesVersion}${data.replayed ? ` · ${data.replayLabel ?? 'replay playback'} (not recorded as a best)` : ''}`, 13, data.replayed ? CSS.blue : CSS.dim).setOrigin(0.5).setName('results-subtitle');
+    const subtitle = mono(this, W / 2, 180, `seed ${run.seed} · rules v${run.rulesVersion}${data.replayed ? ` · ${data.replayLabel ?? 'replay playback'} (not recorded as a best)` : ''}`, 13, data.replayed ? CSS.blue : CSS.dim).setOrigin(0.5, 0).setName('results-subtitle');
+    subtitle.setWordWrapWidth(W - 120).setAlign('center'); // 64-character seeds wrap instead of running off the canvas
     if (rec.newOverall) label(this, W / 2, 210, 'NEW LOCAL PERSONAL BEST', 18, CSS.green, { fontStyle: 'bold', letterSpacing: 2 }).setOrigin(0.5);
     else if (rec.newSeed) label(this, W / 2, 210, 'New local best for this seed', 16, CSS.green).setOrigin(0.5);
     else label(this, W / 2, 210, bests.overall ? `Local best: $${bests.overall.score} (${bests.overall.seed})` : '', 14, CSS.dim).setOrigin(0.5);
@@ -87,19 +88,25 @@ export class ResultsScene extends Phaser.Scene {
   }
   private async submitToVerifier(run: RunState, url: string, btn: Button, status: Phaser.GameObjects.Text) {
     btn.setEnabled(false); status.setText('Submitting replay to the local verifier…');
+    const player = this.ensurePlayer();
+    // 1) the submission itself: only a failure here means the score is still local/unverified
+    let body: { ok: boolean; score?: number; error?: string; entry?: { replayHash: string; verifiedAt: string } };
     try {
-      const player = this.ensurePlayer();
       const res = await fetch(`${url}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(run, import.meta.env.BUILD), player }) });
-      const body = await res.json() as { ok: boolean; score?: number; error?: string; entry?: { replayHash: string; verifiedAt: string } };
-      if (body.ok && body.entry) {
-        recordSubmission(run.seed, { score: body.score ?? run.score, replayHash: body.entry.replayHash, verifiedAt: body.entry.verifiedAt, player });
-        this.lastRank = await this.rankOf(run.seed, url, body.entry.replayHash); this.lastPlayer = player;
-        const r = this.lastRank;
-        status.setText(`Verified by re-simulation: $${body.score} — ${r.n != null ? `#${r.n} of ${r.of}` : `beyond the top ${r.of}`} on the local verified board as ${player}.`);
-      } else status.setText(`Verifier response: ${body.error || 'rejected'}`);
-      status.setColor(body.ok ? CSS.green : CSS.red);
-      await this.loadBoard(run.seed, url, status, true);
-    } catch { status.setText(`Verifier unreachable at ${url} (start it with: npm run verifier). Score stays local/unverified.`); status.setColor(CSS.dim); btn.setEnabled(true); }
+      body = await res.json() as typeof body;
+      if (res.status === 503 || res.status === 429) { status.setText(`Verifier busy (${body.error || res.status}); nothing was recorded. Try again in a moment.`); status.setColor(CSS.dim); btn.setEnabled(true); return; }
+    } catch { status.setText(`Verifier unreachable at ${url} (start it with: npm run verifier). Score stays local/unverified.`); status.setColor(CSS.dim); btn.setEnabled(true); return; }
+    if (!body.ok || !body.entry) { status.setText(`Verifier response: ${body.error || 'rejected'}`); status.setColor(CSS.red); return; }
+    // 2) verified: record it locally first, so a rank lookup failure cannot make a verified score look unverified
+    recordSubmission(run.seed, { score: body.score ?? run.score, replayHash: body.entry.replayHash, verifiedAt: body.entry.verifiedAt, player });
+    this.lastPlayer = player;
+    status.setColor(CSS.green);
+    try {
+      this.lastRank = await this.rankOf(run.seed, url, body.entry.replayHash);
+      const r = this.lastRank;
+      status.setText(`Verified by re-simulation: $${body.score} — ${r.n != null ? `#${r.n} of ${r.of}` : `beyond the top ${r.of}`} on the local verified board as ${player}.`);
+    } catch { status.setText(`Verified by re-simulation: $${body.score} as ${player} — recorded on the local verified board (rank unavailable right now).`); }
+    try { await this.loadBoard(run.seed, url, status, true); } catch { /* the board list is decoration; the status line already says what happened */ }
   }
   private boardTexts: Phaser.GameObjects.Text[] = [];
   private async loadBoard(seed: string, url: string, status: Phaser.GameObjects.Text, keepStatus = false) {
