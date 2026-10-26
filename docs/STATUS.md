@@ -24,7 +24,7 @@ Version bumped to 0.2.0 (`package.json`; title shows `build 0.2.0+<commit>`, ver
 
 Evidence summaries: `docs/baselines/0.2.0/{autoplay,balance,perf,a11y}.json`. Not covered by this pass (needs a human or another machine): a manual playtest, running the installer on a clean machine, building the Docker image.
 
-**Remote (2026-10-25):** `origin` = https://github.com/blickz55/junkyard-draft (public) — `main` and tag `v0.2.0` pushed; `main` tracks `origin/main`. Scheduled cloud continuation is now possible (clone the repo, follow docs/CONTINUE.md).
+**Remote (2026-10-25):** `origin` = https://github.com/blickz55/junkyard-draft (public) — `main` and tag `v0.2.0` pushed; `main` tracks `origin/main`. Scheduled cloud continuation is set up: routine "Junkyard Draft continuation" (weekdays 10:00 UTC, Sonnet 5.5, branch + pull request per run, never pushes to main) — details and the owner's review duty in docs/CONTINUE.md. First run: 2026-10-26 10:00 UTC.
 
 
 ## Session 2 increments — 2026-10-25 (Windows PC)
