@@ -22,7 +22,9 @@ Version bumped to 0.2.0 (`package.json`; title shows `build 0.2.0+<commit>`, ver
 | chromium cpu×4 @4× | 16.7 | 0 | 13.61 | 3.15 |
 | electron packaged @4× | 4.3 | 0 | 0.33 | 0.23 |
 
-Evidence summaries: `docs/baselines/0.2.0/{autoplay,balance,perf,a11y}.json`. Not covered by this pass (needs a human or another machine): a manual playtest, running the installer on a clean machine, building the Docker image, pushing to a remote.
+Evidence summaries: `docs/baselines/0.2.0/{autoplay,balance,perf,a11y}.json`. Not covered by this pass (needs a human or another machine): a manual playtest, running the installer on a clean machine, building the Docker image.
+
+**Remote (2026-10-25):** `origin` = https://github.com/blickz55/junkyard-draft (public) — `main` and tag `v0.2.0` pushed; `main` tracks `origin/main`. Scheduled cloud continuation is now possible (clone the repo, follow docs/CONTINUE.md).
 
 
 ## Session 2 increments — 2026-10-25 (Windows PC)
@@ -116,4 +118,4 @@ Local PC: `npm install` then `npx playwright install chromium` once. `npm run de
 - The repo lives on the user's PC with no remote yet; push to GitHub before setting up any scheduled cloud continuation.
 
 ## Next task
-The remaining items all need a human or another machine before more features make sense: (1) **playtest** one full manual run of 0.2.0 (`npm run dev:all` or the packaged app) and write notes into `docs/PLAYTEST.md` — what confused, what felt flat, which draft offers were dead; (2) **run the installer** `release/Junkyard-Draft-Setup-0.2.0.exe` once on a clean Windows machine and note the SmartScreen prompt and install path; (3) **push to GitHub** (`git remote add origin … && git push -u origin main --tags`) so the 22 commits and tag `v0.2.0` exist somewhere other than this PC and scheduled cloud continuation becomes possible; (4) **build the verifier image** where Docker exists. The next code task after the playtest: act on its notes (likely onboarding copy and a second tutorial seed).
+The remaining items all need a human or another machine before more features make sense: (1) **playtest** one full manual run of 0.2.0 (`npm run dev:all` or the packaged app) and write notes into `docs/PLAYTEST.md` — what confused, what felt flat, which draft offers were dead; (2) **run the installer** `release/Junkyard-Draft-Setup-0.2.0.exe` once on a clean Windows machine and note the SmartScreen prompt and install path; (3) ~~push to GitHub~~ done: https://github.com/blickz55/junkyard-draft; (4) **build the verifier image** where Docker exists. The next code task after the playtest: act on its notes (likely onboarding copy and a second tutorial seed).

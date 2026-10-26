@@ -8,8 +8,8 @@
 6. `git add -A && git commit` (trailer as in history) then `emit.mjs checkpoint --commit <sha> --summary "…" --task <id>`; move the task to `checkpoint/done`.
 7. Update `docs/STATUS.md` (verified commands, known issues, next task) and tick ROADMAP items only when verified.
 
-Persistence: this cloud workspace is ephemeral. Before ending, `git bundle create /tmp/junkyard-draft.bundle --all` and send it to the user, or push to a repo the user has connected. On the user's machine: `git clone junkyard-draft.bundle junkyard-draft && cd junkyard-draft && npm install && npm run dev:all`.
+Persistence: the repo lives at https://github.com/blickz55/junkyard-draft (`origin`; branch `main`, tags `v0.2.0`…). Commit and push at the end of every increment. Fresh machine: `git clone https://github.com/blickz55/junkyard-draft.git && cd junkyard-draft && npm install && npx playwright install chromium && npm run dev:all`.
 
-Scheduling: a recurring cloud continuation was NOT created. It needs (1) the repo in a persistent place the cloud session can clone (connect a GitHub repo in claude.ai or push the bundle to one), (2) the user's cadence. Then create one scheduled task whose prompt is: "clone the repo, read docs/STATUS.md and docs/ROADMAP.md, do the Next task, run npm run typecheck and the relevant tests, commit, update STATUS, push" — one worker at a time on main.
+Scheduling: a recurring cloud continuation is possible now that the repo is on GitHub; it still needs the user's cadence and the GitHub repo connected in claude.ai. Then create one scheduled task whose prompt is: "clone the repo, read docs/STATUS.md and docs/ROADMAP.md, do the Next task, run npm run typecheck and the relevant tests, commit, update STATUS, push" — one worker at a time on main.
 
 Hooks: `.claude/settings.json` registers `.claude/hooks/collect.mjs` for all supported events. Claude Code 2.1.x picks settings changes up automatically; if `/hooks` does not list them, restart the session once.
