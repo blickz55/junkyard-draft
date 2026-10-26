@@ -1,6 +1,6 @@
 # Resume recipe (fresh session)
 
-1. `cat docs/STATUS.md docs/ROADMAP.md` — take the "Next task" unless STATUS lists a blocker.
+1. `cat docs/STATUS.md docs/ROADMAP.md` — take the "Next task" unless STATUS lists a blocker. The versioned plan is `docs/PLAN-v1.md`: when STATUS's next task is done or needs a human, take the next unfinished feature of the current milestone in that file (features are numbered 0.3.1, 0.3.2 …; sizes S/M/L; ⚑ = needs a human, skip it).
 2. Start the tools: `npm run dev:all` (if `node_modules/` is missing on a normal machine, `npm install` first; in the sandbox recreate the symlinks listed in CLAUDE.md). Export `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` in the sandbox.
 3. Tell the Control Room what you are doing: `node control-room/emit.mjs objective --task <id> --title "…" --criterion "…" --stage implement --agent main --next "…"` and `emit.mjs task --id <id> --stage <stage> --status active`.
 4. Work the increment; run `npm run typecheck` and the relevant `node --test …` file; capture `node tools/playwright-shots.mjs <url> <name> --task <id>` and look at the PNG.

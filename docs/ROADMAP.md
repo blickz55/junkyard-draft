@@ -2,6 +2,8 @@
 
 **0.2.0 release candidate cut 2026-10-25** (`CHANGELOG.md`, baseline numbers in `docs/STATUS.md`). Open items below that need a human are marked ⚑.
 
+**From v0.3 on, the plan of record is `docs/PLAN-v1.md`** (eight milestones v0.3 → v1.0 with numbered, sized features and acceptance criteria). The checklists below remain the verified-history record; new work is picked from PLAN-v1 in milestone order.
+
 Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `[~]` in progress, `[ ]` open.
 
 ## M0 — Workshop Control Room v0

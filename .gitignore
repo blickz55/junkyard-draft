@@ -34,3 +34,7 @@ server/dist/
 # local dev build output (esbuild watch) and the cloud-session delivery folder
 .dev-build/
 _delivery/
+
+# deep-research scratch (final reports are copied into docs/research/)
+research_notes/
+reports/
