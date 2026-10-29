@@ -2,12 +2,13 @@
  * Tiny WebAudio synth with three buses (DOSSIER-v1 §3, 0.4.9). Everything is generated; no asset files.
  *   ui      — clicks, place/rotate/invalid, lock-in
  *   factory — ship/transform/jam/stall: one call per tick (ship chord, capped transforms, throttled jam), value priority
- *   music   — run start, round fanfare, settle (the fanfare ducks the factory bus −6 dB for 600 ms)
+ *   music   — run start, round fanfare, settle (the fanfare ducks the factory bus −6 dB for 600 ms) and the throughput hum:
+ *             a drone of two detuned triangles through a low-pass filter that lives from run start to the settle (0.4.10)
  * Per-bus levels live in settings; reduced audio plays at most one sound per simulation tick and never a chord.
  * Counters are kept even while the context is suspended or muted, so tests can observe the allocator.
  */
 import { loadSettings, updateSettings, type Buses } from './storage';
-import { VoiceAllocator, planTick, type TickSounds, type TickPlan } from './mixer';
+import { VoiceAllocator, planTick, humRoot, humTarget, HUM_RESOLVE_HZ, type TickSounds, type TickPlan, type HumInput } from './mixer';
 
 export type BusName = keyof Buses;
 const SHIP_NOTE = (value: number) => (value >= 12 ? 880 : value >= 8 ? 740 : value >= 3 ? 660 : 440);
@@ -21,6 +22,8 @@ class Synth {
   private duckUntil = 0;
   private alloc = new VoiceAllocator();
   private stats = { sounds: 0, chords: 0, maxPerTick: 0, lastTick: 0, ticks: 0 };
+  private hum: { osc: OscillatorNode[]; filter: BiquadFilterNode; gain: GainNode } | null = null;
+  private humState = { on: false, round: 0, root: 0, freq: 0, cutoff: 0, detuned: false, starts: 0 };
   volume = 0.7;
   muted = false;
   buses: Buses;
@@ -51,7 +54,7 @@ class Synth {
   suspend() { void this.ctx?.suspend(); }
   resume() { void this.ctx?.resume(); }
   /** Counters for the dev API / tests: sounds requested, chords played, the most sounds in one tick, ticks seen. */
-  info() { return { ...this.stats, reducedAudio: this.reducedAudio, buses: { ...this.buses }, muted: this.muted, volume: this.volume, duckedNow: performance.now() < this.duckUntil }; }
+  info() { return { ...this.stats, reducedAudio: this.reducedAudio, buses: { ...this.buses }, muted: this.muted, volume: this.volume, duckedNow: performance.now() < this.duckUntil, hum: { ...this.humState } }; }
 
   private out(bus: BusName): AudioNode | null { const c = this.ensure(); if (!c || !this.master) return null; return this.bus[bus] ?? this.master; }
   private tone(bus: BusName, freq: number, dur: number, type: OscillatorType = 'square', gain = 0.15, slide = 0) {
@@ -116,6 +119,41 @@ class Synth {
   run() { this.tone('music', 200, 0.3, 'sawtooth', 0.08, 300); }
   /** round settle: the line comes to rest after the last tick (one soft falling tone) */
   settle() { this.tone('music', 196, 0.25, 'triangle', 0.08, -40); }
+
+  // ---------- throughput hum (music bus, DOSSIER-v1 0.4.10) ----------
+  /** Start the drone for a round: the root climbs a pentatonic scale by round. Silent under reduced audio. */
+  humStart(round: number) {
+    this.humStop(false);
+    if (this.reducedAudio) return;
+    const root = humRoot(round);
+    this.humState = { on: true, round, root, freq: root, cutoff: 300, detuned: false, starts: this.humState.starts + 1 };
+    const c = this.ensure(); const dest = this.out('music'); if (!c || !dest) return;
+    const filter = c.createBiquadFilter(); filter.type = 'lowpass'; filter.Q.value = 0.9; filter.frequency.value = 300;
+    const gain = c.createGain(); gain.gain.setValueAtTime(0.0001, c.currentTime); gain.gain.exponentialRampToValueAtTime(0.06, c.currentTime + 0.4);
+    const osc = [1, 1.006].map((k) => { const o = c.createOscillator(); o.type = 'triangle'; o.frequency.value = root * k; o.connect(filter); o.start(); return o; });
+    filter.connect(gain); gain.connect(dest);
+    this.hum = { osc, filter, gain };
+  }
+  /** Follow the line once per tick: the cutoff tracks items in flight, a jam detunes a quarter tone, the last ten ticks rise an octave. */
+  humUpdate(input: HumInput) {
+    if (!this.humState.on) return;
+    const t = humTarget(this.humState.root, input);
+    this.humState = { ...this.humState, freq: t.freq, cutoff: t.cutoff, detuned: t.detuned };
+    const h = this.hum; const c = this.ctx; if (!h || !c) return;
+    h.filter.frequency.setTargetAtTime(t.cutoff, c.currentTime, 0.08);
+    h.osc[0].frequency.setTargetAtTime(t.freq, c.currentTime, 0.05);
+    h.osc[1].frequency.setTargetAtTime(t.freq * 1.006, c.currentTime, 0.05);
+  }
+  /** Stop the drone. With `resolve` it glides to the fanfare's root (C4) and fades, as the settle; otherwise it just fades. */
+  humStop(resolve = true) {
+    const h = this.hum; const c = this.ctx; this.hum = null;
+    this.humState = { ...this.humState, on: false, detuned: false };
+    if (!h || !c) return;
+    const now = c.currentTime;
+    if (resolve) h.osc.forEach((o, i) => { o.frequency.cancelScheduledValues(now); o.frequency.setValueAtTime(Math.max(20, o.frequency.value), now); o.frequency.exponentialRampToValueAtTime(HUM_RESOLVE_HZ * (i ? 1.006 : 1), now + 0.25); });
+    h.gain.gain.setTargetAtTime(0.0001, now + (resolve ? 0.2 : 0), 0.08);
+    for (const o of h.osc) o.stop(now + (resolve ? 0.6 : 0.3));
+  }
 }
 
 export const audio = new Synth();

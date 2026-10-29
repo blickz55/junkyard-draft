@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased — 2026-10-29 (v0.4: histogram-first results, PLAN-v1 0.4.1)
 
+### Throughput hum (DOSSIER-v1 0.4.10)
+- A drone on the music bus from run start to the settle: two detuned triangle oscillators through a low-pass filter. The cutoff follows items in flight (0 → 300 Hz, 12+ → 2 kHz), a jam detunes it a quarter tone while it lasts, the last ten ticks rise an octave, and the settle glides it to the fanfare's root (C4). The round number picks the root up a major pentatonic scale from C3 (round 6 is the octave). Absent under reduced audio; nothing plays during build or on the title; leaving the scene stops it. The model is pure (`humRoot`, `humCutoff`, `humTarget` in `mixer.ts`) and the dev API reports `hum: { on, cutoff, detuned, freq, root, starts }`.
+
 ### Audio buses, voice caps and reduced audio (DOSSIER-v1 0.4.9)
 - Three buses (ui, factory, music) with per-bus levels in settings (title: "Audio buses" fold-out), master volume and mute as before. The factory bus plays one call per simulation tick: same-tick ships coalesce into one chord (distinct values, highest first, up to 8 voices with value priority), transforms keep the highest 4 tiers, jams are throttled; the fanfare ducks the factory bus −6 dB for 600 ms; a stall has its own low tone. Reduced audio plays at most one sound per tick (ship > transform > jam) and never a chord. The allocator is pure (`game/src/render/mixer.ts`) and unit-tested; the dev API exposes the synth's counters.
 

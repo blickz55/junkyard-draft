@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { VoiceAllocator, coalesceShips, capTransforms, planTick, CAPS } from '../game/src/render/mixer';
+import { VoiceAllocator, coalesceShips, capTransforms, planTick, CAPS, humRoot, humCutoff, humTarget } from '../game/src/render/mixer';
 
 test('voice allocator: caps per group, value priority steals the lowest voice, voices expire with time', () => {
   const a = new VoiceAllocator({ ...CAPS, ship: 3 });
@@ -34,4 +34,25 @@ test('tick plan: normal mode plays one chord plus capped transforms plus a jam; 
   assert.deepEqual(planTick({ ships: [], transforms: [], jams: 2 }, true), { chord: [], transforms: [], jam: true, count: 1 });
   assert.deepEqual(planTick({ ships: [], transforms: [], jams: 0 }, true).count, 0);
   assert.deepEqual(planTick({ ships: [], transforms: [], jams: 0 }, false).count, 0);
+});
+
+test('throughput hum: pentatonic roots by round, cutoff 300 Hz → 2 kHz by items in flight, a jam detunes a quarter tone, the last ten ticks rise an octave', () => {
+  assert.ok(Math.abs(humRoot(1) - 130.81) < 0.01, 'round 1 is C3');
+  assert.ok(Math.abs(humRoot(6) - 261.62) < 0.05, 'round 6 is the octave');
+  const roots = [1, 2, 3, 4, 5, 6].map(humRoot);
+  for (let i = 1; i < roots.length; i++) assert.ok(roots[i] > roots[i - 1], 'roots climb');
+  assert.equal(humCutoff(0), 300);
+  assert.ok(Math.abs(humCutoff(12) - 2000) < 1e-6 && Math.abs(humCutoff(30) - 2000) < 1e-6, '12+ items saturate at 2 kHz');
+  assert.ok(humCutoff(6) > 300 && humCutoff(6) < 2000 && humCutoff(6) > humCutoff(3));
+  const r = humRoot(1);
+  const calm = humTarget(r, { inFlight: 0, jammed: false, tick: 10, ticksPerRound: 80 });
+  assert.deepEqual([calm.freq, calm.cutoff, calm.detuned, calm.rise], [r, 300, false, 0]);
+  const jam = humTarget(r, { inFlight: 3, jammed: true, tick: 10, ticksPerRound: 80 });
+  assert.ok(Math.abs(jam.freq / r - Math.pow(2, 0.5 / 12)) < 1e-9, 'a quarter tone sharp while jammed');
+  assert.equal(jam.detuned, true);
+  assert.equal(humTarget(r, { inFlight: 0, jammed: false, tick: 70, ticksPerRound: 80 }).rise, 0);
+  assert.equal(humTarget(r, { inFlight: 0, jammed: false, tick: 75, ticksPerRound: 80 }).rise, 0.5);
+  const end = humTarget(r, { inFlight: 0, jammed: false, tick: 80, ticksPerRound: 80 });
+  assert.equal(end.rise, 1);
+  assert.ok(Math.abs(end.freq - 2 * r) < 1e-9, 'an octave up at the last tick');
 });

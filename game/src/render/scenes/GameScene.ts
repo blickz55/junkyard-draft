@@ -133,7 +133,7 @@ export class GameScene extends Phaser.Scene {
     this.setupInput();
     this.updateHint();
     installDevApi(this);
-    this.events.on('shutdown', () => { this.views.clear(); this.itemSprites.clear(); this.tips.close(); this.panel.destroy(); });
+    this.events.on('shutdown', () => { audio.humStop(false); this.views.clear(); this.itemSprites.clear(); this.tips.close(); this.panel.destroy(); });
     if (this.replayQueue) this.time.delayedCall(600, () => this.ctl.advanceReplay());
     if (this.mode === 'summary') this.showSummary();
   }
@@ -492,7 +492,7 @@ export class GameScene extends Phaser.Scene {
     this.lastShipTick = 0; this.hudDirty = false; this.lastHudAt = 0; this.clearStall();
     if (DPR > 1 && !this.dprProbe && loadSettings().renderQuality === 'auto') this.dprProbe = [];
     if (!this.replayLabel) telemetry.track('first_run_start');
-    audio.run();
+    audio.run(); audio.humStart(this.run.round);
     this.renderSide();
     this.setHint(this.replayLabel ? 'Watching a verified replay: 1/2/4× change the speed, Skip jumps to the round result, Esc stops and returns to the title.' : 'Running… Jams glow red: an item waits for a free cell or a slow machine.');
   }
@@ -514,6 +514,7 @@ export class GameScene extends Phaser.Scene {
     this.clearStall();
     for (const v of this.views.values()) { v.img.setScale(1).setTint(0xffffff).setAngle(v.m.dir * 90); if (v.img.texture.key !== machineTexture(v.m.kind)) v.img.setTexture(machineTexture(v.m.kind)); }
     if (!prefs.reducedMotion) for (const v of this.views.values()) if (!v.inBin) this.tweens.add({ targets: v.img, scaleX: 0.97, scaleY: 0.97, duration: 120, yoyo: true, delay: v.m.x * 25, ease: 'Quad.out' });
+    audio.humStop(true); // the drone resolves to the fanfare's root under the settle
     audio.settle();
     this.showSummary();
   }
@@ -617,6 +618,7 @@ export class GameScene extends Phaser.Scene {
     }
     ships.clear();
     audio.tickSounds(sounds); // one call per tick: chord, capped transforms, throttled jam; reduced audio keeps one sound
+    const live = this.sim; if (live) audio.humUpdate({ inFlight: live.items.length, jammed: jammedNow.size > 0, tick: live.tick, ticksPerRound: RULES.ticksPerRound });
     this.updateStall(jammedNow);
   }
   /** No item shipped for STALL_TICKS while something is jammed or a hopper is blocked: flag the first blocking cell. */

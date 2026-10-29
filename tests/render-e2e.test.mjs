@@ -243,6 +243,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       const a = await api('audio');
       assert.equal(a.reducedAudio, true); assert.equal(a.buses.factory, 0.4, 'bus levels load from settings');
       assert.ok(a.ticks >= 80 && a.maxPerTick <= 1 && a.chords === 0, `reduced audio: ${JSON.stringify(a)}`);
+      assert.deepEqual([a.hum.on, a.hum.starts], [false, 0], 'reduced audio never starts the hum');
       await context.close();
       const c2 = await browser.newContext({ viewport: { width: 1120, height: 700 } });
       const p2 = await c2.newPage();
@@ -255,6 +256,28 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       assert.equal(saved.buses.music, 0.25); assert.equal(saved.reducedAudio, true);
       assert.equal(await p2.getByTestId('reduced-audio').textContent(), 'Reduced audio: On');
       await c2.close();
+    }
+    // 7c) throughput_hum_follows_the_line (DOSSIER-v1 0.4.10): no music during build; the drone starts at run on the round's
+    //     root, detunes while the head-on belt jams with its cutoff inside 300 Hz – 2 kHz, and stops at the summary
+    {
+      const { context, page, api, errors } = await open('seed=stall-seed');
+      assert.equal((await api('audio')).hum.on, false, 'no music during build');
+      await api('pick', 0);
+      const st = await api('state');
+      const conv = st.layout.machines.find((m) => m.x === 3 && m.y === 2);
+      assert.ok(await api('act', { t: 'rotate', id: conv.id })); assert.ok(await api('act', { t: 'rotate', id: conv.id }));
+      await api('run');
+      const started = await (await page.waitForFunction(() => { const h = window.__jd.audio().hum; return h.on ? h : false; }, null, { timeout: 5000 })).jsonValue();
+      assert.ok(started.root > 130 && started.root < 132, `round 1 root is C3: ${started.root}`);
+      await page.getByTestId('speed-4').click();
+      const jammed = await (await page.waitForFunction(() => { const h = window.__jd.audio().hum; return h.detuned ? h : false; }, null, { timeout: 15000 })).jsonValue();
+      assert.ok(jammed.on && jammed.freq > jammed.root && jammed.cutoff >= 300 && jammed.cutoff <= 2000, `a jam detunes the drone: ${JSON.stringify(jammed)}`);
+      await api('finishRun');
+      await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 15000 });
+      const after = (await api('audio')).hum;
+      assert.deepEqual([after.on, after.starts], [false, 1], 'the hum stops at the summary');
+      assert.deepEqual(errors, [], 'no page errors');
+      await context.close();
     }
     // 8) art_atlas_aliases_every_key (DOSSIER-v1 0.4.8): the SVG set loads, packs into one texture, every scene key is an
     //    alias into it, the texture-key snapshot is unchanged, and a missing file falls back to the procedural generator
