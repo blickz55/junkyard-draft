@@ -9,7 +9,7 @@ import { RULES_VERSION } from '../game/src/sim/types';
 import { EVENTS } from '../game/src/telemetry/events';
 import { NAME_MAX, NAME_BLOCKLIST, TAG_ALPHABET } from '../game/src/identity/identity';
 import { MEDAL_PERCENTILES, MEDAL_MIN_N } from '../game/src/daily/medals';
-import { TIE_BREAK, RENAME_COOLDOWN_MS, MAX_BOARD_LIMIT, MAX_DAILY_LIMIT, MAX_ARCHIVE_LIMIT, DAILY_WINDOW_MS, DEFAULT_RATE_LIMIT, DEFAULT_PLAYER_RATE_LIMIT, IDENTITY_RATE_LIMIT, DEFAULT_EVENTS_RATE_LIMIT, MAX_BODY_BYTES, DEFAULT_REPLAYS_PER_SEED, DEFAULT_MAX_ENTRIES_PER_SEED, DEFAULT_MAX_SEEDS, DEFAULT_EVENTS_RETENTION_DAYS, PROTOCOL } from '../server/verify';
+import { TIE_BREAK, RENAME_COOLDOWN_MS, MAX_BOARD_LIMIT, MAX_DAILY_LIMIT, MAX_ARCHIVE_LIMIT, DAILY_WINDOW_MS, DEFAULT_RATE_LIMIT, DEFAULT_PLAYER_RATE_LIMIT, IDENTITY_RATE_LIMIT, DEFAULT_EVENTS_RATE_LIMIT, MAX_BODY_BYTES, DEFAULT_REPLAYS_PER_SEED, DEFAULT_MAX_ENTRIES_PER_SEED, DEFAULT_MAX_SEEDS, DEFAULT_EVENTS_RETENTION_DAYS, PROTOCOL, HOT_DAYS, COLD_REPLAYS_PER_DAY } from '../server/verify';
 
 export interface PolicySection { title: string; lines: string[] }
 export interface Policy {
@@ -45,7 +45,7 @@ export function buildPolicy(): Policy {
       'The ranked daily seed is minted by the verifier from a server secret for each UTC date and published only once the day has opened. With it comes a commitment (SHA-256) to the next day\'s seed, so tomorrow\'s offers are fixed before anyone can play them and cannot be swapped afterwards.',
       `Each daily accepts submissions for ${hours(DAILY_WINDOW_MS)} from 00:00 UTC of its date, the same deadline for everyone. Then the board is final: a later run is still re-simulated and the player is told its score, but it never joins the board.`,
       'Without a reachable verifier the game offers the practice seed for the date (daily-YYYY-MM-DD): unranked, playable offline, an ordinary seed board.',
-      'Closed days stay in the archive with their final board and can be played as practice.',
+      `Closed days stay in the archive with their final board and can be played as practice. ${HOT_DAYS} days after a day closes it moves to cold storage: every entry and the final board stay, and only its top ${COLD_REPLAYS_PER_DAY} replays remain watchable.`,
       'Other players\' replays on an open daily are revealed to you after you submit a verified run for it, or when the day closes; archive days are always watchable. The verifier enforces this on the replay endpoint.',
     ] },
     { title: 'Medals', lines: [

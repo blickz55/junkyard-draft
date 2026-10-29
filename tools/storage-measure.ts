@@ -9,7 +9,9 @@
  * It then writes the file, loads it through loadBoard (the startup path), constructs a Verifier, and times the real
  * commit path (setPar: stringify + temp file + rename) and a board read. Numbers go to docs/baselines/0.6/storage.json.
  *
- *   node --import tsx tools/storage-measure.ts [--players 100,1000,10000] [--days 30] [--out docs/baselines/0.6/storage.json]
+ *   node --import tsx tools/storage-measure.ts [--players 100,1000,10000] [--days 30] [--out docs/baselines/0.6/storage.json] [--split]
+ * With --split (PLAN-v4 0.7.0) the board is split into hot and cold after the last day: the report then carries the hot file's
+ * size and commit time, the cold directory's size, and a cold board/archive read, i.e. what the verifier actually rewrites.
  * Exit 0; the JSON says whether any scenario crossed the trigger (the README reads it, nothing fails automatically).
  */
 import fs from 'node:fs';
@@ -21,7 +23,7 @@ import { apply, newRun } from '../game/src/sim/run';
 import { exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
 import { RULES_VERSION } from '../game/src/sim/types';
-import { Verifier, loadBoard, mintSeed, commitmentFor, shiftDate, DEFAULT_MAX_ENTRIES_PER_SEED, DEFAULT_REPLAYS_PER_SEED, DEFAULT_MAX_SEEDS, medalThresholds, type Board, type BoardEntry, type StoredReplay, type DailyRecord, type Player } from '../server/verify';
+import { Verifier, loadBoard, mintSeed, commitmentFor, shiftDate, DEFAULT_MAX_ENTRIES_PER_SEED, DEFAULT_REPLAYS_PER_SEED, DEFAULT_MAX_SEEDS, HOT_DAYS, COLD_REPLAYS_PER_DAY, medalThresholds, type Board, type BoardEntry, type StoredReplay, type DailyRecord, type Player } from '../server/verify';
 import { tagFor } from '../game/src/identity/identity';
 
 const args = process.argv.slice(2);
@@ -29,6 +31,7 @@ const opt = (k: string, d: string) => { const i = args.indexOf(`--${k}`); return
 const PLAYERS = opt('players', '100,1000,10000').split(',').map(Number);
 const DAYS = Number(opt('days', '30'));
 const OUT = opt('out', 'docs/baselines/0.6/storage.json');
+const SPLIT = args.includes('--split');
 export const TRIGGER = { bytes: 5 * 1024 * 1024, commitMs: 50 } as const;
 
 /** A few distinct real finished runs on a seed (different machine counts) so replays carry realistic action lists. */
@@ -65,11 +68,11 @@ export function synthesise(players: number, days: number, secret = 'measure-secr
   return { entries, replays, pars, players: playersRec, dailies };
 }
 
-interface Scenario { players: number; days: number; entries: number; replays: number; bytes: number; mb: number; loadMs: number; constructMs: number; commitMs: { median: number; max: number; samples: number[] }; boardReadMs: number; archiveMs: number; overTrigger: boolean }
+interface Scenario { players: number; days: number; entries: number; replays: number; bytes: number; mb: number; loadMs: number; constructMs: number; commitMs: { median: number; max: number; samples: number[] }; boardReadMs: number; archiveMs: number; overTrigger: boolean; split?: { splitMs: number; movedDays: number; hotBytes: number; hotMb: number; coldBytes: number; coldMb: number; hotEntries: number; commitMs: { median: number; max: number }; coldBoardReadMs: number; archiveMs: number; overTrigger: boolean } }
 
 function median(xs: number[]) { const s = xs.slice().sort((a, b) => a - b); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; }
 
-export function measure(players: number, days: number, dir: string): Scenario {
+export function measure(players: number, days: number, dir: string, split = false): Scenario {
   const board = synthesise(players, days);
   const file = path.join(dir, `board-${players}x${days}.json`);
   const text = JSON.stringify(board);
@@ -84,16 +87,28 @@ export function measure(players: number, days: number, dir: string): Scenario {
   t = performance.now(); v.board(firstSeed, 100); const boardReadMs = performance.now() - t;
   t = performance.now(); v.archive({ limit: 30 }, new Date('2027-03-01T00:00:00Z')); const archiveMs = performance.now() - t;
   const commit = { median: Math.round(median(samples) * 100) / 100, max: Math.round(Math.max(...samples) * 100) / 100, samples: samples.map((x) => Math.round(x * 100) / 100) };
+  const out: Scenario = { players, days, entries: board.entries.length, replays: Object.keys(board.replays ?? {}).length, bytes, mb: Math.round((bytes / 1048576) * 100) / 100, loadMs: Math.round(loadMs * 10) / 10, constructMs: Math.round(constructMs * 10) / 10, commitMs: commit, boardReadMs: Math.round(boardReadMs * 100) / 100, archiveMs: Math.round(archiveMs * 100) / 100, overTrigger: bytes > TRIGGER.bytes || commit.median > TRIGGER.commitMs };
+  if (split) { // PLAN-v4 0.7.0: the day after the last synthetic day, everything older than HOT_DAYS goes cold
+    const now = new Date(`${shiftDate('2027-01-01', days)}T12:00:00Z`);
+    t = performance.now(); const { moved } = v.splitCold(now); const splitMs = performance.now() - t;
+    const hotBytes = fs.statSync(file).size; const coldBytes = v.cold.bytes();
+    const s2: number[] = []; for (let i = 0; i < 7; i++) { t = performance.now(); v.setPar(`probe-split-${i}`, 100 + i, 5, 40); s2.push(performance.now() - t); }
+    const coldSeed = board.entries[0].seed; t = performance.now(); v.board(coldSeed, 100); const coldBoardReadMs = performance.now() - t;
+    t = performance.now(); v.archive({ limit: 30 }, now); const archiveMs2 = performance.now() - t;
+    const c2 = { median: Math.round(median(s2) * 100) / 100, max: Math.round(Math.max(...s2) * 100) / 100 };
+    out.split = { splitMs: Math.round(splitMs), movedDays: moved.length, hotBytes, hotMb: Math.round((hotBytes / 1048576) * 100) / 100, coldBytes, coldMb: Math.round((coldBytes / 1048576) * 100) / 100, hotEntries: v.sizeAllVersions, commitMs: c2, coldBoardReadMs: Math.round(coldBoardReadMs * 100) / 100, archiveMs: Math.round(archiveMs2 * 100) / 100, overTrigger: hotBytes > TRIGGER.bytes || c2.median > TRIGGER.commitMs };
+    fs.rmSync(path.join(dir, 'cold'), { recursive: true, force: true });
+  }
   fs.rmSync(file, { force: true });
-  return { players, days, entries: board.entries.length, replays: Object.keys(board.replays ?? {}).length, bytes, mb: Math.round((bytes / 1048576) * 100) / 100, loadMs: Math.round(loadMs * 10) / 10, constructMs: Math.round(constructMs * 10) / 10, commitMs: commit, boardReadMs: Math.round(boardReadMs * 100) / 100, archiveMs: Math.round(archiveMs * 100) / 100, overTrigger: bytes > TRIGGER.bytes || commit.median > TRIGGER.commitMs };
+  return out;
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1').replace(/\//g, path.sep);
 if (isMain || process.argv[1]?.endsWith('storage-measure.ts')) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-storage-'));
   const started = performance.now();
-  const scenarios = PLAYERS.map((p) => { const s = measure(p, DAYS, dir); console.log(`${String(p).padStart(6)} players × ${DAYS} days: ${s.entries} entries, ${s.replays} replays, ${s.mb} MB, load ${s.loadMs} ms, commit median ${s.commitMs.median} ms (max ${s.commitMs.max}), board read ${s.boardReadMs} ms, archive ${s.archiveMs} ms${s.overTrigger ? '  ← OVER TRIGGER' : ''}`); return s; });
-  const report = { at: new Date().toISOString(), node: process.version, platform: `${os.platform()} ${os.release()}`, cpu: os.cpus()[0]?.model ?? 'unknown', trigger: TRIGGER, caps: { entriesPerSeed: DEFAULT_MAX_ENTRIES_PER_SEED, replaysPerSeed: DEFAULT_REPLAYS_PER_SEED, seeds: DEFAULT_MAX_SEEDS }, days: DAYS, scenarios, anyOverTrigger: scenarios.some((s) => s.overTrigger), elapsedSec: Math.round((performance.now() - started) / 100) / 10 };
+  const scenarios = PLAYERS.map((p) => { const s = measure(p, DAYS, dir, SPLIT); console.log(`${String(p).padStart(6)} players × ${DAYS} days: ${s.entries} entries, ${s.replays} replays, ${s.mb} MB, load ${s.loadMs} ms, commit median ${s.commitMs.median} ms (max ${s.commitMs.max}), board read ${s.boardReadMs} ms, archive ${s.archiveMs} ms${s.overTrigger ? '  ← OVER TRIGGER' : ''}`); if (s.split) console.log(`        after split: ${s.split.movedDays} days cold in ${s.split.splitMs} ms · hot ${s.split.hotMb} MB (${s.split.hotEntries} entries), commit median ${s.split.commitMs.median} ms · cold ${s.split.coldMb} MB · cold board read ${s.split.coldBoardReadMs} ms, archive ${s.split.archiveMs} ms${s.split.overTrigger ? '  ← HOT OVER TRIGGER' : '  (within)'}`); return s; });
+  const report = { at: new Date().toISOString(), node: process.version, platform: `${os.platform()} ${os.release()}`, cpu: os.cpus()[0]?.model ?? 'unknown', trigger: TRIGGER, caps: { entriesPerSeed: DEFAULT_MAX_ENTRIES_PER_SEED, replaysPerSeed: DEFAULT_REPLAYS_PER_SEED, seeds: DEFAULT_MAX_SEEDS }, days: DAYS, scenarios, anyOverTrigger: scenarios.some((s) => s.overTrigger), split: SPLIT ? { hotDays: HOT_DAYS, coldReplaysPerDay: COLD_REPLAYS_PER_DAY, anyHotOverTrigger: scenarios.some((s) => s.split?.overTrigger) } : undefined, elapsedSec: Math.round((performance.now() - started) / 100) / 10 };
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, JSON.stringify(report, null, 1) + '\n');
   fs.rmSync(dir, { recursive: true, force: true });

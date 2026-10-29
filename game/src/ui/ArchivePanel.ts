@@ -39,7 +39,7 @@ export function openArchive(scene: Phaser.Scene, verifierUrl: string): void {
         h('span', {}, text, medalText ? h('span', { tid: 'archive-medals', class: 'jd-amber' }, medalText) : null),
         h('span', { class: 'jd-row', style: 'gap:0.4em' },
           btn('Play as practice', 'archive-play', () => play(d.seed), { small: true }),
-          top?.replayAvailable ? btn('Watch #1', 'archive-watch', () => { close(); fetchVerifiedReplay(verifierUrl, top.replayHash).then((r) => playVerifiedReplay(scene, r)).catch(() => { /* the title strip reports verifier trouble */ }); }, { small: true }) : null));
+          top?.replayAvailable ? btn('Watch #1', 'archive-watch', () => { close(); fetchVerifiedReplay(verifierUrl, top.replayHash, d.seed).then((r) => playVerifiedReplay(scene, r)).catch(() => { /* the title strip reports verifier trouble */ }); }, { small: true }) : null));
       row.dataset.date = d.date;
       list.append(row);
     }

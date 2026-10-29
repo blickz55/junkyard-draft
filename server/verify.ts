@@ -7,6 +7,8 @@
  *   Each day closes 48 h after 00:00 UTC (`closesAt`); from then on `final`/`frozenAt` are set and the board never changes;
  *   a later submission is verified and answered `{ ok, score, late: true, recorded: false }` (PLAN-v3 0.6.2).
  * - GET  /archive?from=&to=&limit=30 → closed days newest first with N, bot par, medals and the top five; `nextTo` pages older.
+ * - Cold storage (PLAN-v4 0.7.0): frozen dailies older than HOT_DAYS move to cold/YYYY-MM.json with every entry and only the top
+ *   COLD_REPLAYS_PER_DAY replays; boards, histograms, medals, pars and the archive read them lazily; the commit path writes the hot file only.
  * - Reveal gate (PLAN-v3 0.6.6): GET /replay for a replay on an OPEN minted daily answers 403 unless the bearer's player has a
  *   verified entry on that seed; closed days, ordinary and practice seeds are never gated.
  * - Medals (PLAN-v3 0.6.4): at freeze the day's verified scores set bronze/silver/gold at the 50th/80th/95th nearest-rank
@@ -57,6 +59,8 @@ import { RULES_VERSION } from '../game/src/sim/types';
 import { dailySeedFor, isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
 import { mintSeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS } from './mint';
 import { medalThresholds, type Medals } from '../game/src/daily/medals';
+import { ColdStore, HOT_DAYS, COLD_REPLAYS_PER_DAY, type ColdDay } from './cold';
+export { HOT_DAYS, COLD_REPLAYS_PER_DAY, ColdStore } from './cold';
 export { medalThresholds, medalFor, MEDAL_PERCENTILES, MEDAL_MIN_N, type Medals } from '../game/src/daily/medals';
 export { mintSeed, commitmentFor, shiftDate, utcDate, isUtcDate, DAILY_WINDOW_MS } from './mint';
 import { validateBatch, FUNNEL, type EventBatch, type EventName, type Props } from '../game/src/telemetry/events';
@@ -182,8 +186,11 @@ export class Verifier {
   readonly maxEntriesPerSeed: number;
   readonly maxSeeds: number;
   private readonly dailySecret: string;
+  /** Closed dailies older than HOT_DAYS live here (PLAN-v4 0.7.0): read-only, final, loaded lazily. */
+  readonly cold: ColdStore;
   constructor(private file: string, opts: VerifierOptions = {}) {
     this.dailySecret = opts.dailySecret || randomBytes(32).toString('hex');
+    this.cold = new ColdStore(path.join(path.dirname(file), 'cold'));
     this.replaysPerSeed = opts.replaysPerSeed ?? DEFAULT_REPLAYS_PER_SEED;
     this.maxEntriesPerSeed = opts.maxEntriesPerSeed ?? DEFAULT_MAX_ENTRIES_PER_SEED;
     this.maxSeeds = opts.maxSeeds ?? DEFAULT_MAX_SEEDS;
@@ -206,7 +213,47 @@ export class Verifier {
 
   /** Current-version entries for a seed in board order. Entries persisted under another rules version never rank. */
   private rank(seed: string, data: Board = this.data): BoardEntry[] {
-    return data.entries.filter((e) => e.seed === seed && e.rulesVersion === RULES_VERSION).sort(byRank);
+    const hot = data.entries.filter((e) => e.seed === seed && e.rulesVersion === RULES_VERSION).sort(byRank);
+    if (hot.length || data !== this.data) return hot;
+    return this.coldEntries(seed).filter((e) => e.rulesVersion === RULES_VERSION).sort(byRank);
+  }
+  /** A cold day's entries with labels resolved against the current identities (renames and deletions follow the player without rewriting cold files). */
+  private coldEntries(seed: string): BoardEntry[] {
+    const date = this.cold.dateOfSeed(seed); if (!date) return [];
+    const day = this.cold.day(date); if (!day || day.record.seed !== seed) return [];
+    return day.entries.map((e) => {
+      if (!e.playerId) return e;
+      const p = this.data.players?.[e.playerId];
+      return p ? { ...e, player: labelFor(p.name, p.tag) } : { ...e, player: 'deleted', playerId: undefined };
+    });
+  }
+  /** The issued record for a date from the hot board or cold storage, never minting (PLAN-v4 0.7.0). */
+  private issuedRecord(date: string): DailyRecord | null { return this.data.dailies?.[date] ?? this.cold.day(date)?.record ?? null; }
+  /**
+   * Move frozen dailies older than HOT_DAYS to cold storage: every entry, the record, the par and only the top
+   * COLD_REPLAYS_PER_DAY replays. Idempotent; a day is written cold before it leaves the hot board, so a failed hot
+   * commit leaves a duplicate that the next split overwrites and the archive dedupes by date.
+   */
+  splitCold(now = new Date()): { moved: string[] } {
+    this.observeFreeze(now);
+    const cutoff = shiftDate(utcDate(now), -HOT_DAYS);
+    const due = Object.values(this.data.dailies ?? {}).filter((r) => r.frozenAt && r.date < cutoff).sort((a, b) => a.date.localeCompare(b.date));
+    if (!due.length) return { moved: [] };
+    let entries = this.data.entries; const replays = { ...(this.data.replays ?? {}) }; const pars = { ...(this.data.pars ?? {}) }; const dailies = { ...(this.data.dailies ?? {}) };
+    const moved: string[] = [];
+    for (const rec of due) {
+      const mine = entries.filter((e) => e.seed === rec.seed);
+      const top = mine.filter((e) => e.rulesVersion === RULES_VERSION).sort(byRank).slice(0, COLD_REPLAYS_PER_DAY);
+      const keep: Record<string, StoredReplay> = {}; for (const e of top) { const r = replays[e.replayHash]; if (r) keep[e.replayHash] = r; }
+      const day: ColdDay = { record: rec, entries: mine, replays: keep, par: pars[rec.seed] ?? null };
+      try { this.cold.put(day); } catch { continue; } // cold write failed: the day stays hot and is retried on the next split
+      entries = entries.filter((e) => e.seed !== rec.seed);
+      for (const e of mine) delete replays[e.replayHash];
+      delete pars[rec.seed]; delete dailies[rec.date];
+      moved.push(rec.date);
+    }
+    if (moved.length) { const next = { ...this.data, entries, replays, pars, dailies }; try { this.commit(next); } catch { this.data = next; } }
+    return { moved };
   }
   /** Current-version entries (what /health and the boards count). */
   get size() { return this.data.entries.reduce((n, e) => n + (e.rulesVersion === RULES_VERSION ? 1 : 0), 0); }
@@ -285,13 +332,13 @@ export class Verifier {
     const replayHash = replayId(replay);
     if (this.data.entries.some((e) => e.replayHash === replayHash)) return { ok: false, error: 'rejected: duplicate replay' };
     if (isMintedDailySeed(replay.seed)) { // a minted-looking seed counts only if this server issued it and its window is open (PLAN-v3 0.6.1)
-      const rec = this.data.dailies?.[dailyDateOf(replay.seed) ?? ''];
+      const rec = this.issuedRecord(dailyDateOf(replay.seed) ?? '');
       if (!rec || rec.seed !== replay.seed) return { ok: false, error: 'rejected: not an issued daily seed' };
     }
     const claimed = playerId ? this.data.players?.[playerId] : undefined;
     const label = claimed ? labelFor(claimed.name, claimed.tag) : String(player).replace(/\s+/g, ' ').trim().slice(0, 32) || 'anonymous';
     if (isMintedDailySeed(replay.seed)) { // after the close the run is verified and told so, but the final board never changes (PLAN-v3 0.6.2)
-      const rec = this.data.dailies![dailyDateOf(replay.seed)!];
+      const rec = this.issuedRecord(dailyDateOf(replay.seed)!)!;
       if (now.getTime() >= Date.parse(rec.closesAt)) { this.observeFreeze(now); return { ok: true, score: v.score, late: true, recorded: false, closesAt: rec.closesAt, player: label }; }
     }
     const entry: BoardEntry = { seed: replay.seed, score: v.score, player: label, verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash, finalMachines: finalMachinesOf(replay) ?? undefined, ...(playerId ? { playerId } : {}) };
@@ -314,12 +361,19 @@ export class Verifier {
   }
   board(seed: string, limit = 20): BoardEntry[] {
     const n = Math.min(MAX_BOARD_LIMIT, Math.max(1, Math.floor(limit) || 1));
-    return this.rank(seed).slice(0, n).map((e) => ({ ...e, replayAvailable: !!this.data.replays?.[e.replayHash] }));
+    return this.rank(seed).slice(0, n).map((e) => ({ ...e, replayAvailable: !!this.data.replays?.[e.replayHash] || !!this.cold.dateOfReplay(e.replayHash) }));
   }
   /** Stored replay of a verified, current-version entry (boards written before replay storage existed have none). */
   replay(hash: string): (StoredReplay & { hash: string }) | null {
-    const r = this.data.replays?.[hash];
+    const r = this.data.replays?.[hash] ?? (() => { const d = this.cold.dateOfReplay(hash); return d ? this.cold.day(d)?.replays[hash] : undefined; })();
     return r && r.rulesVersion === RULES_VERSION ? { hash, ...r } : null;
+  }
+  /** Why a replay is not served: 'compacted' when its entry is on a cold day below the kept top (PLAN-v4 0.7.0), else 'unknown'. */
+  replayMissingReason(hash: string, seed?: string | null): 'compacted' | 'unknown' {
+    if (!seed) return 'unknown';
+    const date = this.cold.dateOfSeed(seed); if (!date) return 'unknown';
+    const day = this.cold.day(date);
+    return day && day.entries.some((e) => e.replayHash === hash) ? 'compacted' : 'unknown';
   }
   /**
    * Reveal gate (PLAN-v3 0.6.6): on an open daily, other players' replays are served only to a player with a verified
@@ -335,7 +389,7 @@ export class Verifier {
     return { error: `replays on an open daily are revealed after you submit a verified run for it, or when the day closes at ${rec.closesAt}`, closesAt: rec.closesAt };
   }
   /** The stored bot par for a seed under the current rules, or null when it has not been computed. */
-  par(seed: string): number | null { const p = this.data.pars?.[seed]; return p && p.rulesVersion === RULES_VERSION ? p.par : null; }
+  par(seed: string): number | null { const p = this.data.pars?.[seed] ?? (() => { const d = this.cold.dateOfSeed(seed); return d ? this.cold.day(d)?.par ?? undefined : undefined; })(); return p && p.rulesVersion === RULES_VERSION ? p.par : null; }
   /** Persist a computed par (atomic, like every write); cached pars are capped at maxSeeds, oldest first (review F07). */
   setPar(seed: string, par: number, runs: number, tries: number) {
     const pars = { ...(this.data.pars ?? {}), [seed]: { par, runs, tries, rulesVersion: RULES_VERSION, computedAt: new Date().toISOString() } };
@@ -364,6 +418,7 @@ export class Verifier {
   dailyRecord(date: string, now = new Date()): DailyRecord | null {
     if (!isUtcDate(date) || date > utcDate(now)) return null;
     const have = this.data.dailies?.[date]; if (have) { this.observeFreeze(now); return this.data.dailies![date]; }
+    const cold = this.cold.day(date)?.record; if (cold) return cold; // a closed day in cold storage is final: never re-minted
     const rec: DailyRecord = { date, seed: mintSeed(this.dailySecret, date), commitment: commitmentFor(mintSeed(this.dailySecret, shiftDate(date, 1))), issuedAt: now.toISOString(), closesAt: new Date(dayStartMs(date) + DAILY_WINDOW_MS).toISOString(), rulesVersion: RULES_VERSION, build: VERSION };
     const next = { ...this.data, dailies: { ...(this.data.dailies ?? {}), [date]: rec } };
     try { this.commit(next); } catch { this.data = next; } // storage trouble: serve the minted seed anyway; it is persisted with the next successful write
@@ -374,15 +429,23 @@ export class Verifier {
   archive(o: { from?: string; to?: string; limit?: number } = {}, now = new Date()): { days: ArchiveDay[]; nextTo: string | null } {
     this.observeFreeze(now);
     const limit = Math.min(MAX_ARCHIVE_LIMIT, Math.max(1, Math.floor(o.limit ?? 30)));
-    const frozen = Object.values(this.data.dailies ?? {}).filter((r) => r.frozenAt && (!o.from || r.date >= o.from) && (!o.to || r.date <= o.to)).sort((a, b) => b.date.localeCompare(a.date));
-    const days = frozen.slice(0, limit).map((r) => ({ date: r.date, seed: r.seed, closesAt: r.closesAt, frozenAt: r.frozenAt!, n: this.rank(r.seed).length, botPar: this.par(r.seed), medals: r.medals ?? null, top: this.board(r.seed, 5) }));
-    return { days, nextTo: frozen.length > limit ? frozen[limit].date : null };
+    const inRange = (d: string) => (!o.from || d >= o.from) && (!o.to || d <= o.to);
+    const hotFrozen = Object.values(this.data.dailies ?? {}).filter((r) => r.frozenAt && inRange(r.date));
+    const hotDates = new Set(hotFrozen.map((r) => r.date));
+    const coldDates = this.cold.dates().filter((d) => inRange(d) && !hotDates.has(d)); // a day present in both (a failed hot commit after a cold write) counts once
+    const dates = [...hotFrozen.map((r) => r.date), ...coldDates].sort((a, b) => b.localeCompare(a));
+    const days: ArchiveDay[] = [];
+    for (const date of dates.slice(0, limit)) {
+      const r = this.data.dailies?.[date] ?? this.cold.day(date)?.record; if (!r) continue;
+      days.push({ date: r.date, seed: r.seed, closesAt: r.closesAt, frozenAt: r.frozenAt ?? r.closesAt, n: this.rank(r.seed).length, botPar: this.par(r.seed), medals: r.medals ?? null, top: this.board(r.seed, 5) });
+    }
+    return { days, nextTo: dates.length > limit ? dates[limit] : null };
   }
   /** Medal thresholds for a seed that is a frozen daily; null otherwise (open days, ordinary seeds, too few runs). */
   medalsForSeed(seed: string, now = new Date()): Medals | null {
     if (!isMintedDailySeed(seed)) return null;
     this.observeFreeze(now);
-    const rec = this.data.dailies?.[dailyDateOf(seed) ?? ''];
+    const rec = this.issuedRecord(dailyDateOf(seed) ?? '');
     return rec && rec.seed === seed && rec.frozenAt ? rec.medals ?? null : null;
   }
   /** Today's minted seed (the one bot par computes first). */
@@ -604,10 +667,10 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     try { url = new URL(req.url || '/', 'http://localhost'); } catch { req.resume(); return json(400, { ok: false, error: 'bad request: malformed URL' }, {}, '(malformed)'); }
     const route = () => {
       if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
-      if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, protocol: PROTOCOL, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, uptimeSec: Math.round((Date.now() - started) / 1000) });
+      if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, protocol: PROTOCOL, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, cold: { days: verifier.cold.dayCount, replays: verifier.cold.replayCount }, uptimeSec: Math.round((Date.now() - started) / 1000) });
       if (req.method === 'GET' && url.pathname === '/replay') {
         const r = verifier.replay(url.searchParams.get('hash') || '');
-        if (!r) return json(404, { ok: false, error: 'no verified replay with that hash' });
+        if (!r) { const why = verifier.replayMissingReason(url.searchParams.get('hash') || '', url.searchParams.get('seed')); return json(404, why === 'compacted' ? { ok: false, reason: 'compacted', error: `replay compacted: only the top ${COLD_REPLAYS_PER_DAY} replays of a day older than ${HOT_DAYS} days are kept; the entry and its score stay on the final board` } : { ok: false, error: 'no verified replay with that hash' }); }
         const bearer = playerIdFromToken(bearerOf(req)); if (req.headers.authorization && !bearer) return json(401, { ok: false, error: 'bad token' });
         const gate = verifier.revealGate(r.seed, bearer, new Date((opts.now ?? Date.now)()));
         if (gate) return json(403, { ok: false, reason: 'reveal-gate', ...gate });
@@ -723,6 +786,9 @@ if (isMain) {
   if (!dailySecret) { try { dailySecret = fs.readFileSync(secretFile, 'utf8').trim(); } catch { /* none yet */ } }
   if (!dailySecret) { dailySecret = randomBytes(32).toString('hex'); fs.mkdirSync(path.dirname(secretFile), { recursive: true }); fs.writeFileSync(secretFile, dailySecret + '\n', { mode: 0o600 }); console.log(`daily secret generated at ${secretFile}: back it up (DAILY_SECRET overrides it)`); }
   const verifier = new Verifier(file, { dailySecret });
+  // cold storage (PLAN-v4 0.7.0): closed dailies older than HOT_DAYS leave the hot board at startup and once an hour
+  try { const { moved } = verifier.splitCold(new Date()); if (moved.length) console.log(`cold: moved ${moved.length} closed day(s) to ${path.join(path.dirname(file), 'cold')}`); } catch (e) { console.error(`cold split failed: ${(e as Error).message}`); }
+  setInterval(() => { try { verifier.splitCold(new Date()); } catch { /* next hour */ } }, 3_600_000).unref();
   const par = process.env.BOT_PAR === '0' ? null : new ParService(verifier, (s) => computeParInWorker(s, Number(process.env.BOT_PAR_CAP_MS || 20_000)));
   createServer(verifier, { rateLimit: { limit, windowMs: 60_000 }, playerRateLimit, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events, par })
     .listen(port, host, () => console.log(`replay verifier v${VERSION} → http://${host}:${port}/  (board: ${file}, events: ${events.file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, ${playerRateLimit}/min/player, CORS ${corsOrigin}${trustProxy ? ', trusting X-Forwarded-For' : ''})`));

@@ -55,7 +55,19 @@ The board is one JSON file rewritten atomically on every commit. The policy trig
 | 10 × 365 | 3,650 | 3,650 | 3.2 MB | 14 ms | 13 ms | within |
 | 100 × 365 | 36,500 | 36,500 | 30.2 MB | 165 ms | 128 ms | **both triggers crossed** |
 
-What the numbers say: an entry costs ~310 bytes and a stored replay ~700 bytes; the per-seed caps bound each day, but every daily is a new seed, so the file grows without bound in *days* (about 85 KB per day per 100 players). A web beta of up to ~100 daily players stays under the trigger for roughly two months; 1,000 players cross the size trigger inside a month while commit latency is still fine (~30 ms at 11 MB on this machine, slower on a small VPS). Decision recorded here, not guessed: **storage stays JSON for the 0.6.8 beta; the first v0.7 storage item is either SQLite or archive compaction** (keep every frozen day's entries, drop stored replays below the top 10 once a day is older than ~30 days: replays are two thirds of the year-long file), to be chosen with the beta's real numbers. Re-run the tool after any change to retention or the entry shape.
+**Hot/cold split (PLAN-v4 0.7.0).** Frozen dailies older than `HOT_DAYS` (30) leave the hot board at startup and once an hour for `cold/YYYY-MM.json` (every entry, the day record with medals, the par, and only the top `COLD_REPLAYS_PER_DAY` (10) stored replays; `cold/index.json` maps seed → date and kept replay → date; months load lazily through a 3-entry LRU). Boards, histograms, medals, pars, `/daily?date=`, `/archive` and `/replay` answer for cold days exactly as before; a compacted replay is 404 `{ reason: 'compacted' }` when the seed is given; names on cold boards resolve against current identities, so renames and `DELETE /me` need no cold rewrite; the commit path writes the hot file only. Measured with `tools/storage-measure.ts --split` (`docs/baselines/0.7/`):
+
+| players × days | whole board | after split: hot file | hot commit (median) | cold files | status |
+|---|---|---|---|---|---|
+| 10 × 365 | 3.2 MB | 0.4 MB | 1.3 ms | 3.2 MB | within |
+| 100 × 365 | 30.2 MB / 118 ms | **4.0 MB** | **9.8 ms** | 12.4 MB | within |
+| 1,000 × 365 | 131 MB / 448 ms | 13.8 MB | 35.6 ms | 103 MB | **hot size over** |
+| 100 × 60 | 5.0 MB | 4.0 MB | 9.8 ms | 1.1 MB | within |
+| 1,000 × 60 | 21.7 MB / 61 ms | 13.8 MB | 28.9 ms | 9.3 MB | **hot size over** |
+
+The hot file is now bounded by players, not days: ≈ players × 30 days × 310 B, so it crosses 5 MB at roughly **550 daily players** regardless of how long the service has run, while commit latency stays under 50 ms to at least 1,000 players on this machine. The one-off split of a year's backlog takes ~1 s per 100 players. **Decision:** the beta runs on JSON with the split; 0.7.0b (SQLite behind the same `Board` interface) is scheduled, not optional, when a measured month shows the hot file above 5 MB, i.e. around 500 daily players.
+
+What the earlier whole-board numbers say: an entry costs ~310 bytes and a stored replay ~700 bytes; the per-seed caps bound each day, but every daily is a new seed, so the file grows without bound in *days* (about 85 KB per day per 100 players). A web beta of up to ~100 daily players stays under the trigger for roughly two months; 1,000 players cross the size trigger inside a month while commit latency is still fine (~30 ms at 11 MB on this machine, slower on a small VPS). Decision recorded here, not guessed: **storage stays JSON for the 0.6.8 beta; the first v0.7 storage item is either SQLite or archive compaction** (keep every frozen day's entries, drop stored replays below the top 10 once a day is older than ~30 days: replays are two thirds of the year-long file), to be chosen with the beta's real numbers. Re-run the tool after any change to retention or the entry shape.
 
 ## Policy
 The fairness and verification policy players see in the game (title and results: "Fairness policy") is generated from this code by `npm run policy` into `game/public/policy.json` and `docs/POLICY.md` (PLAN-v3 0.6.5). The limits above are the exported `DEFAULT_*` constants; changing one regenerates the policy or fails `tests/policy.test.ts`.

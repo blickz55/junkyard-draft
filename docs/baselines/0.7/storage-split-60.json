@@ -1,0 +1,151 @@
+{
+ "at": "2026-10-29T22:12:33.214Z",
+ "node": "v24.14.0",
+ "platform": "win32 10.0.26300",
+ "cpu": "AMD Ryzen 9 9950X3D 16-Core Processor          ",
+ "trigger": {
+  "bytes": 5242880,
+  "commitMs": 50
+ },
+ "caps": {
+  "entriesPerSeed": 1000,
+  "replaysPerSeed": 100,
+  "seeds": 5000
+ },
+ "days": 60,
+ "scenarios": [
+  {
+   "players": 100,
+   "days": 60,
+   "entries": 6000,
+   "replays": 6000,
+   "bytes": 5213048,
+   "mb": 4.97,
+   "loadMs": 29,
+   "constructMs": 22.1,
+   "commitMs": {
+    "median": 18.43,
+    "max": 21.12,
+    "samples": [
+     16.53,
+     20.75,
+     18.43,
+     18.05,
+     18.35,
+     21.12,
+     18.82
+    ]
+   },
+   "boardReadMs": 5.19,
+   "archiveMs": 3.04,
+   "overTrigger": false,
+   "split": {
+    "splitMs": 77,
+    "movedDays": 30,
+    "hotBytes": 4156521,
+    "hotMb": 3.96,
+    "coldBytes": 1163493,
+    "coldMb": 1.11,
+    "hotEntries": 3000,
+    "commitMs": {
+     "median": 9.76,
+     "max": 10.79
+    },
+    "coldBoardReadMs": 0.3,
+    "archiveMs": 1.55,
+    "overTrigger": false
+   }
+  },
+  {
+   "players": 1000,
+   "days": 60,
+   "entries": 60000,
+   "replays": 6000,
+   "bytes": 22763108,
+   "mb": 21.71,
+   "loadMs": 66.9,
+   "constructMs": 68.1,
+   "commitMs": {
+    "median": 61.42,
+    "max": 78.03,
+    "samples": [
+     72.15,
+     59.75,
+     60.17,
+     61.58,
+     59.96,
+     78.03,
+     61.42
+    ]
+   },
+   "boardReadMs": 1.43,
+   "archiveMs": 35.66,
+   "overTrigger": true,
+   "split": {
+    "splitMs": 343,
+    "movedDays": 30,
+    "hotBytes": 14413851,
+    "hotMb": 13.75,
+    "coldBytes": 9709503,
+    "coldMb": 9.26,
+    "hotEntries": 30000,
+    "commitMs": {
+     "median": 28.87,
+     "max": 41.28
+    },
+    "coldBoardReadMs": 1,
+    "archiveMs": 19.26,
+    "overTrigger": true
+   }
+  },
+  {
+   "players": 10000,
+   "days": 60,
+   "entries": 60000,
+   "replays": 6000,
+   "bytes": 24392108,
+   "mb": 23.26,
+   "loadMs": 65.5,
+   "constructMs": 84.4,
+   "commitMs": {
+    "median": 63.61,
+    "max": 79.08,
+    "samples": [
+     62.11,
+     61.9,
+     63.22,
+     64.84,
+     67.33,
+     63.61,
+     79.08
+    ]
+   },
+   "boardReadMs": 1.8,
+   "archiveMs": 33.65,
+   "overTrigger": true,
+   "split": {
+    "splitMs": 331,
+    "movedDays": 30,
+    "hotBytes": 16285851,
+    "hotMb": 15.53,
+    "coldBytes": 9709503,
+    "coldMb": 9.26,
+    "hotEntries": 30000,
+    "commitMs": {
+     "median": 34.62,
+     "max": 40.59
+    },
+    "coldBoardReadMs": 1.02,
+    "archiveMs": 21.19,
+    "overTrigger": true
+   }
+  }
+ ],
+ "anyOverTrigger": true,
+ "split": {
+  "hotDays": 30,
+  "coldReplaysPerDay": 10,
+  "anyHotOverTrigger": true
+ },
+ "elapsedSec": 3.3
+}

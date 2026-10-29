@@ -8,9 +8,10 @@ import type { Action } from '../sim/run';
 
 export interface VerifiedReplay { hash: string; seed: string; player: string; score: number; rulesVersion: number; actions: Action[]; verifiedAt: string }
 
-export async function fetchVerifiedReplay(url: string, hash: string): Promise<VerifiedReplay> {
-  const res = await fetch(`${url}/replay?hash=${encodeURIComponent(hash)}`, { headers: authHeaders(url) }); // the bearer lets the verifier see this player's own entry on an open daily (PLAN-v3 0.6.6)
+export async function fetchVerifiedReplay(url: string, hash: string, seed?: string): Promise<VerifiedReplay> {
+  const res = await fetch(`${url}/replay?hash=${encodeURIComponent(hash)}${seed ? `&seed=${encodeURIComponent(seed)}` : ''}`, { headers: authHeaders(url) }); // the bearer lets the verifier see this player's own entry on an open daily (PLAN-v3 0.6.6)
   if (res.status === 403) { const body = await res.json().catch(() => ({})) as { error?: string }; throw new Error(body.error || 'this replay is not revealed yet'); }
+  if (res.status === 404) { const body = await res.json().catch(() => ({})) as { error?: string }; throw new Error(body.error || `replay ${hash} not available (404)`); }
   if (!res.ok) throw new Error(`replay ${hash} not available (${res.status})`);
   const raw = await res.json() as Partial<VerifiedReplay> & { ok?: boolean };
   // the server's JSON goes through the same structural validation as a pasted replay file before anything trusts it

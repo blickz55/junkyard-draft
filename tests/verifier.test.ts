@@ -789,3 +789,57 @@ test('reveal gate: on an open daily /replay is 403 without a qualifying bearer, 
     const plain = v.submit(JSON.stringify(exportReplay(finishedRun('plain-seed'))), 'p', null, open); assert.equal((await fetch(`${base}/replay?hash=${plain.entry!.replayHash}`)).status, 200);
   } finally { close(); }
 });
+
+// ---- cold storage (PLAN-v4 0.7.0) ----
+test('cold storage: frozen days older than HOT_DAYS move to monthly files with every entry and the top 10 replays; served exactly as before; idempotent; survives a restart; late submissions and the archive still work; recent and open days stay hot', async () => {
+  const { synthesise } = await import('../tools/storage-measure');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-cold-')); const file = path.join(dir, 'board.json');
+  const board = synthesise(50, 40, 'cold-secret', '2027-01-01'); // days 2027-01-01 … 2027-02-09, 50 entries and 50 replays each
+  fs.writeFileSync(file, JSON.stringify(board));
+  const v = new Verifier(file, { dailySecret: 'cold-secret' });
+  const now = new Date('2027-02-20T12:00:00Z'); // cutoff = 2027-01-21: days 01-01 … 01-20 move
+  const before = Object.fromEntries(Object.values(board.dailies!).map((r) => [r.date, { rank: v.board(r.seed, 100).map((e) => [e.replayHash, e.score, e.replayAvailable]), hg: v.histogram(r.seed), medals: v.medalsForSeed(r.seed, now), par: v.par(r.seed) }]));
+  const { moved } = v.splitCold(now);
+  assert.equal(moved.length, 20); assert.equal(moved[0], '2027-01-01'); assert.equal(moved[19], '2027-01-20');
+  assert.equal(v.sizeAllVersions, 20 * 50, 'the hot board keeps the 20 recent days'); assert.equal(Object.keys(JSON.parse(fs.readFileSync(file, 'utf8')).dailies).length, 20);
+  assert.ok(fs.existsSync(path.join(dir, 'cold', '2027-01.json')) && fs.existsSync(path.join(dir, 'cold', 'index.json')));
+  assert.equal(v.cold.dayCount, 20); assert.equal(v.cold.replayCount, 20 * 10, 'top 10 replays per cold day');
+  const coldRec = board.dailies!['2027-01-05'], hotRec = board.dailies!['2027-01-25'];
+  // served as before, with replayAvailable true only for the kept top 10
+  const after = v.board(coldRec.seed, 100);
+  assert.deepEqual(after.map((e) => [e.replayHash, e.score]), before['2027-01-05'].rank.map((x) => [x[0], x[1]]), 'the final board is unchanged');
+  assert.deepEqual(after.map((e) => e.replayAvailable), after.map((_, i) => i < 10));
+  assert.deepEqual(v.histogram(coldRec.seed), before['2027-01-05'].hg); assert.deepEqual(v.medalsForSeed(coldRec.seed, now), before['2027-01-05'].medals); assert.equal(v.par(coldRec.seed), before['2027-01-05'].par);
+  assert.ok(v.replay(after[0].replayHash)); assert.equal(v.replay(after[10].replayHash), null, 'the 11th replay is compacted');
+  assert.equal(v.replayMissingReason(after[10].replayHash, coldRec.seed), 'compacted'); assert.equal(v.replayMissingReason(after[10].replayHash), 'unknown'); assert.equal(v.replayMissingReason('nope', coldRec.seed), 'unknown');
+  assert.equal(v.daily(10, now, '2027-01-05')!.final, true); assert.equal(v.daily(10, now, '2027-01-05')!.entries.length, 10); assert.equal(v.daily(10, now, '2027-01-05')!.seed, coldRec.seed, 'a cold date is served from its record, never re-minted');
+  // recent and open days untouched
+  assert.deepEqual(v.board(hotRec.seed, 100).map((e) => e.replayAvailable), Array(50).fill(true));
+  // archive lists all 40 frozen days newest first, cold ones included, with pages crossing the boundary
+  const a = v.archive({ limit: 100 }, now); assert.equal(a.days.length, 40); assert.equal(a.days[0].date, '2027-02-09'); assert.equal(a.days[39].date, '2027-01-01'); assert.ok(a.days.every((d) => d.n === 50 && d.top.length === 5 && d.medals));
+  const p = v.archive({ limit: 25 }, now); assert.equal(p.nextTo, '2027-01-15'); assert.equal(v.archive({ limit: 25, to: p.nextTo! }, now).days.length, 15);
+  // late submission on a cold seed: verified, answered late, never recorded
+  const late = v.submit(JSON.stringify(exportReplay(finishedRun(coldRec.seed))), 'late', null, now); assert.equal(late.ok, true); assert.equal(late.late, true); assert.equal(v.board(coldRec.seed, 100).length, 50);
+  // idempotent: nothing more to move, files byte-identical
+  const monthBefore = fs.readFileSync(path.join(dir, 'cold', '2027-01.json'), 'utf8'), indexBefore = fs.readFileSync(path.join(dir, 'cold', 'index.json'), 'utf8');
+  assert.deepEqual(v.splitCold(now).moved, []);
+  assert.equal(fs.readFileSync(path.join(dir, 'cold', '2027-01.json'), 'utf8'), monthBefore); assert.equal(fs.readFileSync(path.join(dir, 'cold', 'index.json'), 'utf8'), indexBefore);
+  // a later day moves into the same month file without disturbing the others
+  const laterMoved = v.splitCold(new Date('2027-02-21T12:00:00Z')).moved; assert.deepEqual(laterMoved, ['2027-01-21']); assert.equal(v.cold.dayCount, 21); assert.equal(v.board(coldRec.seed, 100).length, 50);
+  // restart: the cold index is read, everything above still answers
+  const again = new Verifier(file, { dailySecret: 'cold-secret' });
+  assert.equal(again.cold.dayCount, 21); assert.deepEqual(again.board(coldRec.seed, 100).map((e) => e.replayHash), after.map((e) => e.replayHash)); assert.ok(again.replay(after[0].replayHash)); assert.equal(again.archive({ limit: 100 }, now).days.length, 40);
+  // renames and deletions follow the player onto cold boards without rewriting cold files
+  const pid = after[0].playerId!; const renamed = again.claim(pid, 'Renamed One', now); assert.ok(renamed.ok);
+  assert.equal(again.board(coldRec.seed, 1)[0].player, `Renamed One#${tagFor(pid)}`); assert.equal(fs.readFileSync(path.join(dir, 'cold', '2027-01.json'), 'utf8'), fs.readFileSync(path.join(dir, 'cold', '2027-01.json'), 'utf8'));
+  again.deletePlayer(pid); assert.equal(again.board(coldRec.seed, 1)[0].player, 'deleted'); assert.equal(again.board(coldRec.seed, 1)[0].playerId, undefined);
+  // over HTTP: a compacted replay answers 404 with the reason when the seed is given, /health counts cold days
+  const { base, close } = await listen(again, { rateLimit: null, now: () => now.getTime() });
+  try {
+    const miss = await fetch(`${base}/replay?hash=${after[10].replayHash}&seed=${encodeURIComponent(coldRec.seed)}`); assert.equal(miss.status, 404); const body = await miss.json() as { reason: string; error: string }; assert.equal(body.reason, 'compacted'); assert.match(body.error, /top 10 replays/);
+    assert.equal((await fetch(`${base}/replay?hash=${after[10].replayHash}`)).status, 404);
+    assert.equal((await fetch(`${base}/replay?hash=${after[0].replayHash}`)).status, 200, 'a kept cold replay is served (the day is closed, so no reveal gate)');
+    const h = await (await fetch(`${base}/health`)).json() as { cold: { days: number; replays: number } }; assert.deepEqual(h.cold, { days: 21, replays: 210 });
+    const b = await (await fetch(`${base}/board?seed=${encodeURIComponent(coldRec.seed)}&limit=100`)).json() as { entries: { replayAvailable: boolean }[] }; assert.equal(b.entries.length, 50); assert.equal(b.entries.filter((e) => e.replayAvailable).length, 10);
+  } finally { close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});

@@ -107,7 +107,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       const gate = revealGate(run.seed); // PLAN-v3 0.6.6: on an open daily, replays open up once this device has submitted (loadBoard runs again after a submission)
       body.entries.forEach((e, i) => {
         const entry = h('button', { class: 'jd-entry', tid: `board-entry-${i}`, type: 'button', disabled: !e.replayAvailable || !!gate, title: gate ?? (e.replayAvailable ? 'watch this verified replay' : undefined),
-          onClick: () => { setStatus(`Fetching and re-verifying ${e.player}'s replay…`); fetchVerifiedReplay(verifierUrl, e.replayHash).then((r) => playVerifiedReplay(scene, r)).catch((err: Error) => setStatus(err.message, 'jd-red')); } },
+          onClick: () => { setStatus(`Fetching and re-verifying ${e.player}'s replay…`); fetchVerifiedReplay(verifierUrl, e.replayHash, run.seed).then((r) => playVerifiedReplay(scene, r)).catch((err: Error) => setStatus(err.message, 'jd-red')); } },
           `${i + 1}. $${e.score}  ${e.player}${e.replayAvailable ? '  ▶' : ''}`);
         entriesBox.append(h('div', { class: 'jd-board-note' }, entry));
       });

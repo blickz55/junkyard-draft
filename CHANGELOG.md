@@ -3,6 +3,12 @@
 All notable changes to Junkyard Draft. Dates are UTC. Rules changes bump `RULES_VERSION`, which invalidates
 older replays and saves on purpose.
 
+## Unreleased (v0.7, PLAN-v4)
+
+### 0.7.0 Storage: hot/cold split and replay compaction — 2026-10-30
+- **For players.** Nothing changes on open days or on days closed within the last month. Older closed days keep their full final board, medals and bot par in the archive and can still be played as practice; only their replays below the top 10 are no longer watchable, and the fairness policy says so.
+- **For operators.** The live `board.json` now holds open seeds and the last 30 days of closed dailies; older days move at startup and hourly to `cold/YYYY-MM.json` with an index, loaded lazily. Measured: 100 players × 365 days goes from a 30 MB file rewritten in 118 ms to a 4 MB hot file rewritten in 10 ms; the hot file is bounded by players (~550 daily players reach 5 MB), so SQLite (0.7.0b) is scheduled by that measurement. `/replay?hash=&seed=` answers 404 `reason: compacted` for a dropped replay; `/health` counts cold days and replays. No protocol or rules change.
+
 ## 0.6.0 — 2026-10-30 (protocol 2; rules version 3 unchanged)
 
 **For players.** The daily is done right. You have a name without a password: a key on your device gives you `Name#TAG`, a recovery code moves it to another machine, and one best entry per player per seed makes the board a board. The ranked daily seed is minted by the verifier and published with a commitment to tomorrow's, so nobody can see it early or swap it later; every day closes 48 hours after 00:00 UTC for everyone, then its board is final, medals are set at the 50th/80th/95th percentiles, and the day joins the Archive where you can replay it as practice. The title counts your days played and your streak, with yesterday's still-open daily as grace and no loss messages. Other players' replays on an open daily appear once you have submitted your own run. A "Fairness policy" page, generated from the code, says exactly how all of this works. Replays and saves from 0.5.0 still verify and resume: the rules did not change.

@@ -131,7 +131,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     const best = bestIdx >= 0 ? d.entries[bestIdx] : undefined;
     if (best) {
       const gate = revealGate(seed); // PLAN-v3 0.6.6: watchable after this device submitted for the day, or after the close
-      const watch = btn(gate ? `Watch #${bestIdx + 1} (after you submit)` : `Watch #${bestIdx + 1}`, 'daily-watch', () => { watch.disabled = true; fetchVerifiedReplay(url, best.replayHash).then((r) => playVerifiedReplay(scene, r)).catch((err: Error) => { line.textContent = err.message; line.className = 'jd-mono jd-red'; watch.disabled = false; }); }, { small: true, disabled: !!gate, title: gate ?? 'watch the best verified replay of the day' });
+      const watch = btn(gate ? `Watch #${bestIdx + 1} (after you submit)` : `Watch #${bestIdx + 1}`, 'daily-watch', () => { watch.disabled = true; fetchVerifiedReplay(url, best.replayHash, seed).then((r) => playVerifiedReplay(scene, r)).catch((err: Error) => { line.textContent = err.message; line.className = 'jd-mono jd-red'; watch.disabled = false; }); }, { small: true, disabled: !!gate, title: gate ?? 'watch the best verified replay of the day' });
       rightGroup.append(watch);
     }
     const mine = loadSubmissions()[seed];
