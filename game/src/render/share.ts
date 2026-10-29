@@ -15,6 +15,8 @@ export interface ShareInput {
   /** appended only when the player opts in */
   permalink?: string;
   variant?: 'grid' | 'detailed';
+  /** non-ranked badge titles; shown only in the detailed variant of a verified run */
+  badges?: string[];
 }
 
 export const PLAYER_MAX = 32;
@@ -54,6 +56,7 @@ export function shareText(s: ShareInput): string {
   if (s.variant === 'detailed') {
     lines.push(`rounds ${s.rounds.map((r) => `$${r}`).join(' · ')}`);
     lines.push(s.rank ? `replay re-simulated by the verifier, rules v${s.rulesVersion}` : `rules v${s.rulesVersion}`);
+    if (s.rank && s.badges?.length) lines.push(`badges: ${s.badges.join(' · ')}`);
   }
   if (s.daysPlayed && s.daysPlayed > 0) lines.push(`${s.daysPlayed} day${s.daysPlayed === 1 ? '' : 's'} played`);
   if (s.permalink) lines.push(s.permalink);

@@ -7,6 +7,7 @@ import { RULES } from '../sim/rules';
 import { dailySeed, daysPlayed, loadBests, loadPlayer, loadSubmissions, randomSeed, recordSubmission, savePlayer } from '../render/storage';
 import { telemetry } from '../render/telemetry';
 import { shareText, type Rank } from '../render/share';
+import { badgesFor } from '../sim/badges';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { audio } from '../render/audio';
 
@@ -26,6 +27,16 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       : o.newSeed ? h('div', { class: 'jd-green', style: 'margin-top:0.25em' }, 'New local best for this seed')
         : h('div', { class: 'jd-dim', style: 'font-size:0.875em; margin-top:0.25em' }, bests.overall ? `Local best: $${bests.overall.score} (${bests.overall.seed})` : ''));
 
+  // non-ranked badges (PLAN-v1 0.4.6): recognition, never a ladder; Minimalist needs the bot par, so the row is refreshed when the par lands
+  let botPar: number | null = null;
+  const badgeRow = h('div', { class: 'jd-row jd-center', tid: 'badges', style: 'gap:0.5em; margin-top:0.3em; min-height:1.6em' });
+  const renderBadges = () => {
+    const earned = badgesFor(run, botPar);
+    badgeRow.replaceChildren(...earned.map((b) => h('span', { class: 'jd-badge-pill', tid: `badge-${b.id}`, title: b.text }, b.title)));
+    if (earned.length) badgeRow.append(h('span', { class: 'jd-dim', style: 'font-size:0.6875em' }, 'badges · not ranked'));
+  };
+  renderBadges();
+  header.append(badgeRow);
   const max = Math.max(1, ...run.rounds.map((r) => r.earned));
   const rounds = h('div', { class: 'jd-panel' }, h('div', { class: 'jd-head' }, 'Round by round'),
     ...run.rounds.map((r, i) => h('div', { class: 'jd-row', style: 'margin-top:0.4em; flex-wrap:nowrap' },
@@ -57,6 +68,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       if (hg.botPar == null && attempt < 6) setTimeout(() => { if (histBox.isConnected) void loadHistogram(attempt + 1); }, 4000);
       const parLine = hg.botPar != null ? h('div', { class: 'jd-mono jd-dim', tid: 'bot-par', style: 'font-size:0.75em; margin-top:0.3em' }, `Bot par $${hg.botPar} · the shipped autoplayer's median on this seed (a target, never ranked)${run.score > hg.botPar ? ' — you beat it' : run.score === hg.botPar ? ' — matched' : ''}`) : null;
       if (hg.mine) { scene.lastPercentile = hg.mine.percentile; scene.lastN = hg.n; }
+      if (hg.botPar != null && hg.botPar !== botPar) { botPar = hg.botPar; renderBadges(); }
       if (!hg.n) { if (parLine) histBox.append(parLine); return; }
       const max = Math.max(1, ...hg.bins.map((b) => b.count));
       histBox.append(h('div', { class: 'jd-hist', role: 'img', ariaLabel: `distribution of ${hg.n} verified scores` }, ...hg.bins.map((b, i) => h('div', { class: `jd-hist-bin${hg.mine && hg.mine.bin === i ? ' jd-hist-mine' : ''}`, tid: `hist-bin-${i}`, title: `$${b.from}–$${b.to}: ${b.count}` }, h('div', { class: 'jd-hist-count' }, b.count ? String(b.count) : ''), h('div', { class: 'jd-hist-bar', style: `height:${Math.max(2, Math.round((100 * b.count) / max))}%` })))));
@@ -129,7 +141,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
   // share (PLAN-v1 0.4.3): spoiler-free glyph grid by default, per-round dollars in the detailed variant, link only on request
   const linkToggle = h('input', { type: 'checkbox', tid: 'share-link', ariaLabel: 'append a link to this seed' });
   const permalink = () => (linkToggle.checked ? `${location.origin}${location.pathname}?scene=game&seed=${encodeURIComponent(run.seed)}` : undefined);
-  const buildShare = (variant: 'grid' | 'detailed') => shareText({ seed: run.seed, score: run.score, rulesVersion: run.rulesVersion, rounds: run.rounds.map((r) => r.earned), player: scene.lastPlayer || undefined, rank: scene.lastRank, percentile: scene.lastPercentile, n: scene.lastN, daysPlayed: daysPlayed(), permalink: permalink(), variant });
+  const buildShare = (variant: 'grid' | 'detailed') => shareText({ seed: run.seed, score: run.score, rulesVersion: run.rulesVersion, rounds: run.rounds.map((r) => r.earned), player: scene.lastPlayer || undefined, rank: scene.lastRank, percentile: scene.lastPercentile, n: scene.lastN, daysPlayed: daysPlayed(), permalink: permalink(), variant, badges: badgesFor(run, botPar).map((b) => b.title) });
   const shareBtn = btn('Copy share text', 'share', () => {
     const text = buildShare('grid'); scene.lastShareText = text;
     telemetry.track('share_copied', { variant: 'grid' });

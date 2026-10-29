@@ -88,6 +88,7 @@ const STYLE = `
 @keyframes jd-pop { from { transform: scale(0.5); } to { transform: scale(1); } }
 #ui.jd-reduced-motion .jd-pop { animation: none; }
 #ui .jd-item { width: 1.5em; height: 1.5em; vertical-align: middle; image-rendering: auto; }
+#ui .jd-badge-pill { display: inline-block; font-size: 0.75em; font-weight: 700; color: #1a1612; background: ${CSS.green}; border-radius: 1em; padding: 0.15em 0.7em; }
 #ui .jd-hist { display: flex; align-items: flex-end; gap: 2px; height: 3.25em; margin-top: 0.25em; }
 #ui .jd-hist-bin { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-width: 0; height: 100%; }
 #ui .jd-hist-bar { width: 100%; background: #5a6670; border-radius: 0.1em 0.1em 0 0; min-height: 1px; }

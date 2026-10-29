@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased — 2026-10-29 (v0.4: histogram-first results, PLAN-v1 0.4.1)
 
+### Non-ranked run badges (PLAN-v1 0.4.6)
+- Clean (no item waited and no hopper was blocked for a tick in any round), Minimalist (at most 8 machines in the final round while still at or above the bot par) and Full Grid (every cell used in a round), computed from the finished run's own records in `game/src/sim/badges.ts`. Shown as pills on the results screen marked "not ranked", refreshed when the bot par arrives, and listed only in the detailed share text of a verified run. Never a board, never a ladder.
+
 ### Spoiler-free share grid (PLAN-v1 0.4.3)
 - The default share text is now `Junkyard Draft · Daily 2026-10-29 · $1234`, a line of six glyphs (one per round: ░ ≤ $100, ▒ ≤ $250, ▓ ≤ $400, █ above), your verified standing ("better than 61 % of 38 verified runs" once five runs exist, else the rank, else "local score, not yet verified") and "N days played". No URL unless "add link" is ticked, no per-round dollars, no layout. "Copy detailed" adds the per-round earnings and the rules version. Days played are counted per UTC date with a finished run (`jd.days.v1`).
 
