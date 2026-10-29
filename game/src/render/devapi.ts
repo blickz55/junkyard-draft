@@ -21,6 +21,8 @@ export interface DevApi {
   /** keyboard cursor: grid cell, visibility, and the id of the machine held in hand (null when empty) */
   cursor: () => { visible: boolean; x: number; y: number; held: number | null };
   prefs: () => { reducedMotion: boolean; textScale: number };
+  /** +$ pop pool counters: alive now, peak, skipped (pool full), pool size and cap */
+  counters: () => { popsAlive: number; popsPeak: number; popsSkipped: number; poolSize: number; poolMax: number };
 }
 
 export const devEnabled = () => import.meta.env.DEV || new URLSearchParams(location.search).get('dev') === '1';
@@ -40,6 +42,7 @@ export function installDevApi(scene: GameScene) {
     hint: () => scene.hintText(),
     cursor: () => scene.cursorInfo(),
     prefs: () => ({ reducedMotion: prefs.reducedMotion, textScale: prefs.textScale }),
+    counters: () => scene.popCounters(),
   };
   (window as unknown as { __jd: DevApi }).__jd = api;
 }

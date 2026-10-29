@@ -191,6 +191,14 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
         assert.equal((await api('state')).score, before + 10, 'sell bonus added');
       }
       await api('run');
+      if (r === 3) {
+        // pooled_pops_never_exceed_the_pool: let the round run live for a moment (finishRun skips the visuals), then check the pool
+        await wait(1800);
+        const liveEarned = await page.evaluate(() => window.__jdGame.scene.getScene('Game').sim?.earned ?? 0);
+        const live = await api('counters');
+        if (liveEarned > 0) assert.ok(live.popsPeak >= 1, `a round that has earned $${liveEarned} so far showed at least one pop`);
+        assert.ok(live.popsPeak <= live.poolMax && live.poolSize <= live.poolMax, `pops peaked at ${live.popsPeak}, pool ${live.poolSize}/${live.poolMax}`);
+      }
       if (r === 2) {
         // reduced motion (set on the title screen above) keeps conveyor belts on frame 0 while running
         await wait(700);
@@ -200,6 +208,12 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
       }
       await api('finishRun');
       await page.waitForFunction(() => window.__jd.mode() === 'summary');
+      if (r >= 3) {
+        // pooled_pops_never_exceed_the_pool: finishRun ships a whole round in one frame; the +$ pops come from a 16-slot pool
+        const ctr = await api('counters');
+        assert.ok(ctr.popsPeak <= ctr.poolMax, `pops alive peaked at ${ctr.popsPeak} (pool ${ctr.poolMax})`);
+        assert.ok(ctr.poolSize <= ctr.poolMax, 'the pool never grows past its cap');
+      }
       await api('next');
     }
     await page.waitForFunction(() => window.__jdGame.scene.isActive('Results'), null, { timeout: 10000 });

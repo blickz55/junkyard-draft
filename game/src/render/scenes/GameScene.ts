@@ -58,6 +58,17 @@ export class GameScene extends Phaser.Scene {
   /** reused per frame / per tick to avoid allocating sets in the hot path */
   private readonly aliveIds = new Set<number>();
   private readonly jammedNow = new Set<number>();
+  /** +$ pops are pooled: a busy round ships dozens of items and a fresh Text per ship rasterised a canvas each time (0.3.9) */
+  static readonly POP_POOL = 16;
+  private popPool: Phaser.GameObjects.Text[] = [];
+  private popsAlive = 0;
+  private popsPeak = 0;
+  private popsSkipped = 0;
+  private readonly shipsThisTick = new Map<number, number>();
+  /** inputs of the last side-panel build; renderSide() is a no-op while they are unchanged */
+  private sideKey = '';
+  /** the VALUES legend never changes: built once, re-parented into each panel instead of re-rasterised (12 Text objects per rebuild) */
+  private legendC: Phaser.GameObjects.Container | null = null;
 
   constructor() { super('Game'); }
 
@@ -86,6 +97,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    // the scene instance is reused across scene.start(): anything cached on it from the previous life was destroyed at shutdown
+    this.legendC = null; this.sideKey = ''; this.popPool = []; this.popsAlive = 0; this.popsPeak = 0; this.popsSkipped = 0;
     this.cameras.main.setBackgroundColor(P.bg);
     this.input.mouse?.disableContextMenu();
     this.buildStatic();
@@ -405,8 +418,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ---------- side panel ----------
+  /** Everything renderSide() draws is a function of these; identical inputs mean an identical panel. */
+  private sideInputs(): string {
+    const r = this.run;
+    const sel = this.selectedId != null ? r.layout.machines.find((m) => m.id === this.selectedId) ?? r.bin.find((m) => m.id === this.selectedId) : undefined;
+    return JSON.stringify([this.mode, r.phase, r.round, r.offers, r.bin.length, r.layout.machines.length, this.speed, this.replayLabel, !!this.replayRounds, sel ? [sel.id, sel.kind, sel.dir, sel.x >= 0] : null, !!this.replayQueue]);
+  }
   renderSide() {
-    this.side.removeAll(true);
+    const key = this.sideInputs();
+    if (key === this.sideKey && this.side.length > 0) return;
+    this.sideKey = key;
+    this.clearSide();
     this.runBtn = null;
     const add = (o: Phaser.GameObjects.GameObject) => { this.side.add(o); return o; };
     const t = (x: number, y: number, s: string, size = 14, color = CSS.text, style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) => add(this.add.text(x, y, s, { fontFamily: FONT, fontSize: fpx(size), color, wordWrap: { width: SIDE_W - 32 }, ...style })) as Phaser.GameObjects.Text;
@@ -472,7 +494,9 @@ export class GameScene extends Phaser.Scene {
     }
   }
   private legend(x: number, y: number) {
+    if (this.legendC) return this.legendC.setPosition(x, y);
     const c = this.add.container(x, y);
+    this.legendC = c;
     c.add(this.add.text(0, 0, 'VALUES', { fontFamily: FONT, fontSize: fpx(12), color: CSS.amber, fontStyle: 'bold' }));
     const mats: Material[] = ['scrap', 'shards', 'plate', 'ingot', 'slag'];
     const notes: Record<Material, string> = { scrap: 'raw, from the hopper', shards: 'scrap through a crusher', plate: `${RULES.pressShards} shards through a press`, ingot: 'shards through a furnace', slag: 'raw scrap in a furnace' };
@@ -616,15 +640,11 @@ export class GameScene extends Phaser.Scene {
   private centerOfCell(cell: number) { const x = cell % RULES.gridWidth, y = Math.floor(cell / RULES.gridWidth); return { x: GRID_X + x * CELL + CELL / 2, y: GRID_Y + y * CELL + CELL / 2 }; }
   private onTickEvents(evs: SimEvent[]) {
     const jammedNow = this.jammedNow; jammedNow.clear();
+    const ships = this.shipsThisTick; ships.clear();
     for (const e of evs) {
       if (e.kind === 'ship' && e.value != null) {
-        const c = this.centerOfCell(e.cell);
-        const txt = this.add.text(c.x, c.y - 10, `+$${e.value}`, { fontFamily: FONT, fontSize: fpx(e.value >= 12 ? 20 : 15), color: e.value >= 12 ? CSS.gold : e.value >= 3 ? CSS.green : CSS.text, fontStyle: 'bold' }).setOrigin(0.5).setDepth(8);
-        if (prefs.reducedMotion) this.tweens.add({ targets: txt, alpha: 0, duration: 900, delay: 300, onComplete: () => txt.destroy() }); // fade in place, no travel
-        else this.tweens.add({ targets: txt, y: c.y - 48, alpha: 0, duration: 700, onComplete: () => txt.destroy() });
+        ships.set(e.cell, (ships.get(e.cell) ?? 0) + e.value);
         audio.ship(e.value);
-        const dockView = [...this.views.values()].find((v) => !v.inBin && cellIndex(v.m.x, v.m.y, RULES.gridWidth) === e.cell);
-        if (dockView && !prefs.reducedMotion) this.tweens.add({ targets: dockView.img, scale: 1.08, duration: 60, yoyo: true });
       } else if (e.kind === 'transform') {
         audio.transform();
         if (prefs.reducedMotion) continue; // the item sprite itself changes texture; no flash
@@ -647,7 +667,31 @@ export class GameScene extends Phaser.Scene {
       }
     }
     for (const [cell, mk] of this.jamMarks) if (!jammedNow.has(cell)) { mk.destroy(); this.jamMarks.delete(cell); }
+    // one pop per dock per tick (same-tick ships coalesce into their sum), drawn from the pool
+    for (const [cell, value] of ships) {
+      const c = this.centerOfCell(cell);
+      this.popAt(c.x, c.y, value);
+      const dockView = [...this.views.values()].find((v) => !v.inBin && cellIndex(v.m.x, v.m.y, RULES.gridWidth) === cell);
+      if (dockView && !prefs.reducedMotion) this.tweens.add({ targets: dockView.img, scale: 1.08, duration: 60, yoyo: true });
+    }
+    ships.clear();
   }
+  /** Show "+$value" at a cell using a pooled Text; when all POP_POOL pops are busy the visual is skipped (the counter still ticks). */
+  private popAt(x: number, y: number, value: number) {
+    let txt = this.popPool.find((t) => !t.visible);
+    if (!txt) {
+      if (this.popPool.length >= GameScene.POP_POOL) { this.popsSkipped++; return; }
+      txt = this.add.text(0, 0, '', { fontFamily: FONT, fontStyle: 'bold' }).setOrigin(0.5).setDepth(8).setVisible(false);
+      this.popPool.push(txt);
+    }
+    txt.setText(`+$${value}`).setStyle({ fontSize: fpx(value >= 12 ? 20 : 15), color: value >= 12 ? CSS.gold : value >= 3 ? CSS.green : CSS.text }).setPosition(x, y - 10).setAlpha(1).setVisible(true);
+    this.popsAlive++; this.popsPeak = Math.max(this.popsPeak, this.popsAlive);
+    const done = () => { txt!.setVisible(false); this.popsAlive--; };
+    if (prefs.reducedMotion) this.tweens.add({ targets: txt, alpha: 0, duration: 900, delay: 300, onComplete: done }); // fade in place, no travel
+    else this.tweens.add({ targets: txt, y: y - 48, alpha: 0, duration: 700, onComplete: done });
+  }
+  /** Pop-pool counters (dev API / tests / perf): alive now, the peak so far, and ships whose pop was skipped because the pool was full. */
+  popCounters() { return { popsAlive: this.popsAlive, popsPeak: this.popsPeak, popsSkipped: this.popsSkipped, poolSize: this.popPool.length, poolMax: GameScene.POP_POOL }; }
 
   // ---------- round summary / results ----------
   private showSummary() {
@@ -695,8 +739,14 @@ export class GameScene extends Phaser.Scene {
     this.renderSideSummary(notes);
     this.setHint(last ? 'Final round complete. Badges show what each machine did.' : 'Badges show what each machine did. Study the waits, then draft and rearrange.');
   }
-  private renderSideSummary(notes: string[]) {
+  /** Empties the side panel, keeping the cached legend alive for the next build. */
+  private clearSide() {
+    if (this.legendC) this.side.remove(this.legendC);
     this.side.removeAll(true);
+  }
+  private renderSideSummary(notes: string[]) {
+    this.clearSide();
+    this.sideKey = ''; // the summary panel is a different layout: the next renderSide() must rebuild
     const r = this.run;
     const rec = r.rounds[r.rounds.length - 1]; const res = rec.result;
     const t = (x: number, y: number, s: string, size = 14, color = CSS.text, style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) => { const o = this.add.text(x, y, s, { fontFamily: FONT, fontSize: fpx(size), color, wordWrap: { width: SIDE_W - 32 }, ...style }); this.side.add(o); return o; };
