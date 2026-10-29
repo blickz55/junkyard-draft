@@ -193,6 +193,11 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     const howtoPx = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('[data-testid=howto-1]')).fontSize));
     assert.ok(Math.abs(howtoPx - 15 * 1.15) < 0.6, `labels scale with text size (15px × 1.15 ≈ ${howtoPx.toFixed(2)}px)`);
     await titleBtn('textscale'); await titleReady(`${tidText('textscale')} === '130%'`);
+    // the text-size change restarts the Title scene; under load the overlay can lag the canvas for a frame or two, so measure only once
+    // the overlay box equals the canvas box and its scale variable matches (every element is measured against the overlay)
+    const overlaySynced = () => { const u = document.getElementById('ui')?.getBoundingClientRect(), c = document.querySelector('canvas')?.getBoundingClientRect(); if (!u || !c || !c.width) return false; const k = parseFloat(getComputedStyle(document.getElementById('ui')).getPropertyValue('--k')); return Math.abs(u.left - c.left) < 1 && Math.abs(u.top - c.top) < 1 && Math.abs(u.width - c.width) < 1 && Math.abs(u.height - c.height) < 1 && Math.abs(k - c.width / 1120) < 0.01; };
+    await page.waitForFunction(overlaySynced, null, { timeout: 8000 });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     // large_text_layout_fits (title, 130 %, with a saved run present): nothing overlaps or leaves the canvas
     const titleLayout = await page.evaluate(() => { const g = (n) => document.querySelector('[data-testid=' + n + ']')?.getBoundingClientRect(); const ui = document.getElementById('ui').getBoundingClientRect(); const all = [...document.querySelectorAll('#ui [data-testid]')].map((el) => { const r = el.getBoundingClientRect(); return { id: el.dataset.testid, inside: r.left >= ui.left - 1 && r.right <= ui.right + 1 && r.top >= ui.top - 1 && r.bottom <= ui.bottom + 1 }; }); return { howto5: g('howto-5'), note: g('continue-note'), daily: g('daily'), strip: g('daily-strip'), ui, outside: all.filter((a) => !a.inside).map((a) => a.id), scrollH: document.querySelector('#ui .jd-screen').scrollHeight, clientH: document.querySelector('#ui .jd-screen').clientHeight }; });
     assert.ok(titleLayout.note.bottom <= titleLayout.daily.top + 1, `continue note (${titleLayout.note.bottom}) clears the buttons below (${titleLayout.daily.top})`);
@@ -389,10 +394,19 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.equal(psub.ok, true, 'the practice seed is an ordinary seed board');
     const dboard = await (await fetch(`http://127.0.0.1:${VPORT}/daily`)).json();
     assert.deepEqual(dboard.entries.map((e) => e.replayHash), [sub.entry.replayHash], 'only the minted-seed run is on the daily board');
+    // reveal gate (PLAN-v3 0.6.6): before this device has a verified entry for the open daily, the best replay is not watchable (button and endpoint); afterwards it is
+    await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
+    await page.waitForSelector('[data-testid=daily-watch][disabled]', { timeout: 15000 });
+    assert.equal(await page.getByTestId('daily-watch').textContent(), 'Watch #1 (after you submit)');
+    assert.match(await page.getByTestId('daily-watch').getAttribute('title'), /revealed after you submit a verified run/);
+    const gated = await fetch(`http://127.0.0.1:${VPORT}/replay?hash=${sub.entry.replayHash}`);
+    assert.equal(gated.status, 403); assert.match((await gated.json()).error, /revealed after you submit/);
     await page.evaluate(({ seed, s, v }) => localStorage.setItem('jd.submissions.v2', JSON.stringify({ byVersion: { [v]: { [seed]: s } } })), { v: V, seed: dinfo.seed, s: { score: sub.score, replayHash: sub.entry.replayHash, verifiedAt: sub.entry.verifiedAt, player: 'e2e player' } });
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => { const t = document.querySelector('[data-testid=daily-board]')?.textContent || ''; return /^You: #1 of 1 \(\$\d+\)/.test(t) && /1\. \$\d+ e2e player/.test(t); }, null, { timeout: 15000 });
     assert.match(await page.getByTestId('daily-mode').textContent(), /^minted · ranked · provisional · closes in \d+ (h|min)$/); assert.equal(await page.getByTestId('daily-seed').textContent(), `seed ${dinfo.seed}`);
+    await page.waitForSelector('[data-testid=daily-watch]:not([disabled])', { timeout: 10000 });
+    assert.equal(await page.getByTestId('daily-watch').textContent(), 'Watch #1', 'with a verified entry for the day on this device the replay opens up');
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.daily.v1'))).seed, dinfo.seed, 'the minted seed is cached for the day');
     // streak with grace (PLAN-v3 0.6.3): the title line counts consecutive verified dailies ending today or yesterday; a broken chain just shows the plain count
     const dayBack = (n) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);

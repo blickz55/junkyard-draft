@@ -4,6 +4,8 @@
  * `daily-YYYY-MM-DD`, labelled unranked. The client never derives a minted seed itself.
  */
 import { dailySeedFor, isMintedDailySeed, dailyDateOf } from '../sim/daily';
+import { shiftUtcDate } from '../daily/streak';
+import { loadSubmissions } from './storage';
 
 export interface DailyInfo { date: string; seed: string; closesAt: string; commitment: string }
 const KEY = 'jd.daily.v1';
@@ -35,6 +37,19 @@ export async function fetchDaily(verifierUrl: string, timeoutMs = 2500): Promise
     if (!res.ok) return null;
     return acceptDaily(await res.json());
   } catch { return null; }
+}
+/** Whether a minted daily seed's window has closed (48 h after 00:00 UTC of its date): UTC arithmetic, same rule as the verifier. */
+export const dailyClosed = (seed: string, now = new Date()): boolean => { const d = dailyDateOf(seed); return !!d && isMintedDailySeed(seed) && shiftUtcDate(d, 2) <= todayUTC(now); };
+/**
+ * Reveal gate (PLAN-v3 0.6.6): on an open daily other players' replays are watchable only once this device has a
+ * verified entry for that seed (or the day has closed). Returns the reason to show while gated, null when watchable.
+ * The verifier enforces the same rule on GET /replay; this only keeps the buttons honest.
+ */
+export function revealGate(seed: string, now = new Date()): string | null {
+  if (!isMintedDailySeed(seed) || dailyClosed(seed, now)) return null;
+  if (loadSubmissions()[seed]) return null;
+  const d = dailyDateOf(seed)!;
+  return `replays on this daily are revealed after you submit a verified run for it, or when the day closes (${shiftUtcDate(d, 2)} 00:00 UTC)`;
 }
 /** The seed "Today's challenge" plays right now: the minted one when known, else practice. */
 export const todaySeed = (): string => cachedDaily()?.seed ?? practiceSeed();

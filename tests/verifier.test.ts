@@ -752,3 +752,40 @@ test('medals: absent while a day is open, set once at freeze from the final boar
     const d = await (await fetch(`${base}/daily?date=${D}`)).json() as { medals: Medals | null; final: boolean }; assert.equal(d.final, true); assert.deepEqual(d.medals, frozen.medals);
   } finally { close(); }
 });
+
+// ---- reveal gate (PLAN-v3 0.6.6) ----
+test('reveal gate: on an open daily /replay is 403 without a qualifying bearer, 200 for a player with an entry, 200 for everyone once the day closes; ordinary seeds are never gated', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-reveal-')), 'board.json');
+  const v = new Verifier(file, { dailySecret: 'reveal-secret' });
+  const D = '2030-07-10'; const open = new Date('2030-07-10T12:00:00Z'), closed = new Date('2030-07-12T00:00:00Z');
+  const rec = v.daily(10, open, D)!;
+  const first = v.submit(JSON.stringify(exportReplay(finishedRun(rec.seed))), 'first', null, open); assert.equal(first.ok, true);
+  const hash = first.entry!.replayHash;
+  const tokenA = 'a'.repeat(32), tokenB = 'b'.repeat(32); const idA = playerIdFromToken(tokenA)!;
+  assert.deepEqual(v.revealGate('ordinary-seed', null, open), null, 'ordinary seeds are never gated');
+  assert.deepEqual(v.revealGate(dailySeedFor(open), null, open), null, 'practice seeds are never gated');
+  assert.match(v.revealGate(rec.seed, null, open)!.error, /revealed after you submit a verified run/);
+  assert.equal(v.revealGate(rec.seed, null, open)!.closesAt, rec.closesAt);
+  assert.ok(v.revealGate(rec.seed, idA, open), 'a known player without an entry on the seed is still gated');
+  assert.equal(v.revealGate(rec.seed, idA, closed), null, 'once the day closes everyone may watch');
+  let now = open.getTime();
+  const { base, close } = await listen(v, { rateLimit: null, now: () => now, playerRateLimit: 100 });
+  const get = (h: Record<string, string> = {}) => fetch(`${base}/replay?hash=${hash}`, { headers: h });
+  try {
+    const anon = await get(); assert.equal(anon.status, 403);
+    const body = await anon.json() as { reason: string; error: string; closesAt: string }; assert.equal(body.reason, 'reveal-gate'); assert.match(body.error, /closes at 2030-07-12T00:00:00/); assert.equal(body.closesAt, rec.closesAt);
+    assert.equal((await get({ Authorization: `Bearer ${tokenB}` })).status, 403, 'a bearer without an entry on the seed');
+    assert.equal((await get({ Authorization: 'Bearer nope' })).status, 401, 'a malformed bearer');
+    assert.equal((await fetch(`${base}/replay?hash=nope`)).status, 404, 'unknown hashes stay 404');
+    // player A submits a verified run for the day, then may watch
+    const mine = await fetch(`${base}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` }, body: JSON.stringify({ replay: exportReplay(twistRun(rec.seed)) }) });
+    assert.equal(mine.status, 200);
+    const ok = await get({ Authorization: `Bearer ${tokenA}` }); assert.equal(ok.status, 200); assert.equal(((await ok.json()) as { hash: string }).hash, hash);
+    assert.equal((await get({ Authorization: `Bearer ${tokenB}` })).status, 403, 'B still has no entry');
+    // the day closes: open to all
+    now = closed.getTime();
+    assert.equal((await get()).status, 200); assert.equal((await get({ Authorization: `Bearer ${tokenB}` })).status, 200);
+    // an ordinary seed's replay was never gated
+    const plain = v.submit(JSON.stringify(exportReplay(finishedRun('plain-seed'))), 'p', null, open); assert.equal((await fetch(`${base}/replay?hash=${plain.entry!.replayHash}`)).status, 200);
+  } finally { close(); }
+});

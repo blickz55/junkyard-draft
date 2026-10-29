@@ -5,6 +5,10 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.6, PLAN-v3)
 
+### 0.6.6 Replays on an open daily are revealed after you submit — 2026-10-30
+- **For players.** On today's (or yesterday's still-open) daily, "Watch #1" and the board's replay buttons stay off until you have submitted a verified run for that day, and say so; once you have, or once the day closes, they open up. Archive days are always watchable. Unlimited attempts plus visible replays was the fairness leak; this closes it without touching your own replays.
+- **For operators.** `GET /replay` enforces the same rule: 403 with the reason and the close time on an open minted daily unless the bearer's player has a verified entry on that seed. The game sends its bearer on replay fetches. Policy text updated and regenerated. No protocol or rules change.
+
 ### 0.6.5 Fairness and verification policy page — 2026-10-30
 - **For players.** A "Fairness policy" button on the title (and "Policy" on the results) opens a panel that says how scores are verified, how ties break, how the daily seed is minted and when it closes, how medals are computed, what the game stores about you and how to delete it, and what the rate limits are. The text is generated from the code, so it cannot drift from what the verifier actually does. The same document ships as `policy.json` next to the game and as `docs/POLICY.md`.
 - **For operators.** `npm run policy` regenerates both files from `rules.ts`, the verifier's now-named `DEFAULT_*` constants, the identity and medal constants and the telemetry vocabulary; `tests/policy.test.ts` fails when they are stale. No protocol or rules change.

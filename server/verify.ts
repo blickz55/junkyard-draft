@@ -7,6 +7,8 @@
  *   Each day closes 48 h after 00:00 UTC (`closesAt`); from then on `final`/`frozenAt` are set and the board never changes;
  *   a later submission is verified and answered `{ ok, score, late: true, recorded: false }` (PLAN-v3 0.6.2).
  * - GET  /archive?from=&to=&limit=30 → closed days newest first with N, bot par, medals and the top five; `nextTo` pages older.
+ * - Reveal gate (PLAN-v3 0.6.6): GET /replay for a replay on an OPEN minted daily answers 403 unless the bearer's player has a
+ *   verified entry on that seed; closed days, ordinary and practice seeds are never gated.
  * - Medals (PLAN-v3 0.6.4): at freeze the day's verified scores set bronze/silver/gold at the 50th/80th/95th nearest-rank
  *   percentiles (null below 5 runs); stored on the day, returned by /daily, /archive and /histogram (frozen daily seeds only).
  * - GET  /replay?hash=<replayHash> → the stored actions of a VERIFIED entry (for playback); 404 otherwise.
@@ -319,6 +321,19 @@ export class Verifier {
     const r = this.data.replays?.[hash];
     return r && r.rulesVersion === RULES_VERSION ? { hash, ...r } : null;
   }
+  /**
+   * Reveal gate (PLAN-v3 0.6.6): on an open daily, other players' replays are served only to a player with a verified
+   * entry on that seed; once the day closes everyone may watch. Ordinary seeds and practice seeds are never gated.
+   * Returns null when allowed, otherwise the reason (and the close time) for a 403.
+   */
+  revealGate(seed: string, playerId: string | null, now = new Date()): { error: string; closesAt: string } | null {
+    if (!isMintedDailySeed(seed)) return null;
+    const rec = this.data.dailies?.[dailyDateOf(seed) ?? ''];
+    if (!rec || rec.seed !== seed) return null; // not an issued daily: nothing to protect
+    if (rec.frozenAt || Date.parse(rec.closesAt) <= now.getTime()) return null;
+    if (playerId && this.data.entries.some((e) => e.seed === seed && e.playerId === playerId && e.rulesVersion === RULES_VERSION)) return null;
+    return { error: `replays on an open daily are revealed after you submit a verified run for it, or when the day closes at ${rec.closesAt}`, closesAt: rec.closesAt };
+  }
   /** The stored bot par for a seed under the current rules, or null when it has not been computed. */
   par(seed: string): number | null { const p = this.data.pars?.[seed]; return p && p.rulesVersion === RULES_VERSION ? p.par : null; }
   /** Persist a computed par (atomic, like every write); cached pars are capped at maxSeeds, oldest first (review F07). */
@@ -590,7 +605,14 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     const route = () => {
       if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
       if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, protocol: PROTOCOL, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, uptimeSec: Math.round((Date.now() - started) / 1000) });
-      if (req.method === 'GET' && url.pathname === '/replay') { const r = verifier.replay(url.searchParams.get('hash') || ''); return r ? json(200, { ok: true, ...r }) : json(404, { ok: false, error: 'no verified replay with that hash' }); }
+      if (req.method === 'GET' && url.pathname === '/replay') {
+        const r = verifier.replay(url.searchParams.get('hash') || '');
+        if (!r) return json(404, { ok: false, error: 'no verified replay with that hash' });
+        const bearer = playerIdFromToken(bearerOf(req)); if (req.headers.authorization && !bearer) return json(401, { ok: false, error: 'bad token' });
+        const gate = verifier.revealGate(r.seed, bearer, new Date((opts.now ?? Date.now)()));
+        if (gate) return json(403, { ok: false, reason: 'reveal-gate', ...gate });
+        return json(200, { ok: true, ...r });
+      }
       if (req.method === 'GET' && url.pathname === '/daily') {
         const now = new Date((opts.now ?? Date.now)()); const dateQ = url.searchParams.get('date');
         if (dateQ !== null && !isUtcDate(dateQ)) return json(400, { ok: false, error: 'date must be YYYY-MM-DD' });

@@ -46,6 +46,7 @@ export function buildPolicy(): Policy {
       `Each daily accepts submissions for ${hours(DAILY_WINDOW_MS)} from 00:00 UTC of its date, the same deadline for everyone. Then the board is final: a later run is still re-simulated and the player is told its score, but it never joins the board.`,
       'Without a reachable verifier the game offers the practice seed for the date (daily-YYYY-MM-DD): unranked, playable offline, an ordinary seed board.',
       'Closed days stay in the archive with their final board and can be played as practice.',
+      'Other players\' replays on an open daily are revealed to you after you submit a verified run for it, or when the day closes; archive days are always watchable. The verifier enforces this on the replay endpoint.',
     ] },
     { title: 'Medals', lines: [
       `When a day closes with at least ${MEDAL_MIN_N} verified runs, its final scores set three thresholds by nearest-rank percentile: bronze at the ${MEDAL_PERCENTILES.bronze}th, silver at the ${MEDAL_PERCENTILES.silver}th, gold at the ${MEDAL_PERCENTILES.gold}th (threshold(p) = sorted[ceil(p/100 · n) − 1]). A tied score earns the medal. Fewer runs: no medals.`,
