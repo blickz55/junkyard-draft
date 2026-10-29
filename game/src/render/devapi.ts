@@ -6,6 +6,7 @@
 import type { Action } from '../sim/run';
 import type { GameScene } from './scenes/GameScene';
 import { prefs } from './prefs';
+import { telemetry } from './telemetry';
 
 export interface DevApi {
   scene: () => string;
@@ -32,6 +33,9 @@ export interface DevApi {
   tips: () => { open: boolean; current: string | null; suggested: string | null; read: string[]; demo: { tip: string | null; tick: number; shipped: Record<string, number> } | null };
   openTips: (id?: string) => void;
   closeTips: () => void;
+  /** opt-in funnel: enabled flag, install id presence, queue and send counters */
+  telemetry: () => { enabled: boolean; hasInstallId: boolean; queued: number; sent: number; dropped: number; firsts: number; games: number };
+  flushTelemetry: () => Promise<boolean>;
 }
 
 export const devEnabled = () => import.meta.env.DEV || new URLSearchParams(location.search).get('dev') === '1';
@@ -58,6 +62,8 @@ export function installDevApi(scene: GameScene) {
     tips: () => scene.tipsInfo(),
     openTips: (id) => scene.openTips(id),
     closeTips: () => scene.closeTips(),
+    telemetry: () => telemetry.stats(),
+    flushTelemetry: () => telemetry.flush(),
   };
   (window as unknown as { __jd: DevApi }).__jd = api;
 }

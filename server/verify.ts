@@ -5,6 +5,9 @@
  * - GET  /daily?limit=10 → today's UTC daily seed (same rule as the client) with its verified board.
  * - GET  /replay?hash=<replayHash> → the stored actions of a VERIFIED entry (for playback); 404 otherwise.
  * - GET  /health → { ok, version, rulesVersion, entries, uptimeSec }
+ * - POST /events  { installId, consent: true, events[] } → opt-in funnel events (PLAN-v1 0.3.7), appended to events.jsonl with a
+ *                 daily-salted IP hash; only the fixed vocabulary in game/src/telemetry/events.ts is accepted; 30-day retention.
+ * - GET  /funnel  → unique installs per funnel step and event counts (what tools/funnel.ts prints).
  *
  * Guarantees (each covered by tests/verifier.test.ts):
  * - A malformed request never kills the process (URL parsing and every handler are guarded; 400/500 JSON).
@@ -30,11 +33,12 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { decodeReplay, verifyReplay, type ReplayFile } from '../game/src/sim/replay';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { dailySeedFor } from '../game/src/sim/daily';
+import { validateBatch, FUNNEL, type EventBatch, type EventName, type Props } from '../game/src/telemetry/events';
 import pkg from '../package.json' with { type: 'json' };
 
 export const VERSION: string = pkg.version;
@@ -174,6 +178,47 @@ export function loadBoard(text: string): Board {
   } catch { return { entries: [] }; }
 }
 
+/** One stored funnel event (a line of events.jsonl). The IP is a daily-salted hash, never the address. */
+export interface StoredEvent { at: string; receivedAt: string; installId: string; ip: string; name: EventName; props: Props }
+
+/** Append-only JSON-lines store for opt-in funnel events with time-based retention (PLAN-v1 0.3.7). */
+export class EventStore {
+  constructor(public readonly file: string, public readonly retentionDays = 30, private readonly salt = randomBytes(16).toString('hex')) {}
+  /** Daily-salted hash of a client address: the same client is one key within a day, unlinkable across days or restarts. */
+  ipHash(ip: string, now = new Date()): string { return createHash('sha256').update(`${this.salt}:${now.toISOString().slice(0, 10)}:${ip}`).digest('hex').slice(0, 16); }
+  /** Append a validated batch; throws StorageError when the file cannot be written (nothing is kept in memory). */
+  append(batch: EventBatch, ip: string, now = new Date()): number {
+    const rows: StoredEvent[] = batch.events.map((e) => ({ at: e.at, receivedAt: now.toISOString(), installId: batch.installId, ip: this.ipHash(ip, now), name: e.name, props: e.props ?? {} }));
+    try { fs.mkdirSync(path.dirname(this.file), { recursive: true }); fs.appendFileSync(this.file, rows.map((r) => JSON.stringify(r)).join('\n') + '\n'); }
+    catch (e) { throw new StorageError(`events storage unavailable: ${(e as Error).message}`); }
+    return rows.length;
+  }
+  /** Every stored row (damaged lines are skipped). */
+  rows(): StoredEvent[] {
+    if (!fs.existsSync(this.file)) return [];
+    return fs.readFileSync(this.file, 'utf8').split('\n').filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l) as StoredEvent; return r && typeof r.name === 'string' && typeof r.installId === 'string' && typeof r.receivedAt === 'string' ? [r] : []; } catch { return []; } });
+  }
+  /** Drop rows received more than retentionDays ago (atomic rewrite). Returns how many were removed. */
+  prune(now = new Date()): number {
+    const cutoff = now.getTime() - this.retentionDays * 86_400_000;
+    const rows = this.rows();
+    const keep = rows.filter((r) => Date.parse(r.receivedAt) >= cutoff);
+    if (keep.length === rows.length) return 0;
+    const tmp = `${this.file}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, keep.map((r) => JSON.stringify(r)).join('\n') + (keep.length ? '\n' : ''));
+    fs.renameSync(tmp, this.file);
+    return rows.length - keep.length;
+  }
+  /** Unique installs per funnel step, plus event counts. */
+  funnel(rows: StoredEvent[] = this.rows()) {
+    const byName = new Map<string, Set<string>>();
+    const counts: Record<string, number> = {};
+    for (const r of rows) { (byName.get(r.name) ?? byName.set(r.name, new Set()).get(r.name)!).add(r.installId); counts[r.name] = (counts[r.name] ?? 0) + 1; }
+    const installs = new Set(rows.map((r) => r.installId)).size;
+    return { installs, events: rows.length, steps: FUNNEL.map((name) => ({ name, installs: byName.get(name)?.size ?? 0 })), counts };
+  }
+}
+
 /** Fixed-window per-key counter with bounded cardinality (good enough for a small public verifier; one process). */
 export class RateLimiter {
   private hits = new Map<string, { count: number; resetAt: number }>();
@@ -205,6 +250,10 @@ export interface ServerOptions {
   /** one line per request to `log` (default console.log); null disables */
   log?: ((line: string) => void) | null;
   now?: () => number;
+  /** opt-in funnel events store; null (default) disables POST /events and GET /funnel */
+  events?: EventStore | null;
+  /** POST /events limit per client IP per minute (default 30) */
+  eventsRateLimit?: number;
 }
 
 export function clientIp(req: http.IncomingMessage, trustProxy: boolean): string {
@@ -214,6 +263,9 @@ export function clientIp(req: http.IncomingMessage, trustProxy: boolean): string
 
 export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const rl = opts.rateLimit === null ? null : new RateLimiter(opts.rateLimit?.limit ?? 60, opts.rateLimit?.windowMs ?? 60_000, opts.now);
+  const events = opts.events ?? null;
+  const erl = events ? new RateLimiter(opts.eventsRateLimit ?? 30, 60_000, opts.now) : null;
+  const MAX_EVENTS_BODY = 64 * 1024;
   const corsOrigin = opts.corsOrigin ?? '*';
   const log = opts.log === null ? null : opts.log ?? ((l: string) => console.log(l));
   const started = Date.now();
@@ -252,6 +304,22 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         });
         return;
       }
+      if (req.method === 'GET' && url.pathname === '/funnel' && events) return json(200, { ok: true, ...events.funnel() });
+      if (req.method === 'POST' && url.pathname === '/events' && events && erl) {
+        const r = erl.take(ip); if (!r.ok) { req.resume(); return json(429, { ok: false, error: 'rate limited' }, { 'Retry-After': String(r.retryAfterSec) }); }
+        let body = '';
+        req.on('data', (c) => { body += c; if (body.length > MAX_EVENTS_BODY) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
+        req.on('end', () => {
+          if (res.writableEnded) return;
+          let parsed: unknown;
+          try { parsed = JSON.parse(body); } catch (e) { return json(400, { ok: false, error: `bad request: ${(e as Error).message}` }); }
+          const batch = validateBatch(parsed);
+          if (typeof batch === 'string') return json(422, { ok: false, error: `rejected: ${batch}` });
+          try { json(200, { ok: true, stored: events.append(batch, ip) }); }
+          catch (e) { if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable, nothing was recorded; try again' }, { 'Retry-After': '5' }); json(500, { ok: false, error: 'internal error' }); }
+        });
+        return;
+      }
       json(404, { ok: false, error: 'not found' });
     };
     try { route(); } catch { json(500, { ok: false, error: 'internal error' }); }
@@ -273,6 +341,10 @@ if (isMain) {
   const corsOrigin = flag('cors-origin') || process.env.CORS_ORIGIN || '*';
   const limit = Number(flag('rate-limit') || process.env.RATE_LIMIT || 60);
   const trustProxy = process.env.TRUST_PROXY === '1';
-  createServer(new Verifier(file), { rateLimit: { limit, windowMs: 60_000 }, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined })
-    .listen(port, host, () => console.log(`replay verifier v${VERSION} → http://${host}:${port}/  (board: ${file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, CORS ${corsOrigin}${trustProxy ? ', trusting X-Forwarded-For' : ''})`));
+  // opt-in funnel events live next to the board (EVENTS_FILE overrides); retention is enforced at start and hourly
+  const events = new EventStore(process.env.EVENTS_FILE || path.join(path.dirname(file), 'events.jsonl'), Number(process.env.EVENTS_RETENTION_DAYS || 30));
+  const pruned = events.prune(); if (pruned) console.log(`events: pruned ${pruned} rows older than ${events.retentionDays} days`);
+  setInterval(() => { try { events.prune(); } catch { /* next hour */ } }, 3_600_000).unref();
+  createServer(new Verifier(file), { rateLimit: { limit, windowMs: 60_000 }, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events })
+    .listen(port, host, () => console.log(`replay verifier v${VERSION} → http://${host}:${port}/  (board: ${file}, events: ${events.file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, CORS ${corsOrigin}${trustProxy ? ', trusting X-Forwarded-For' : ''})`));
 }

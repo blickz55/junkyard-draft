@@ -42,6 +42,14 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.evaluate(() => { localStorage.removeItem('jd.bests.v1'); localStorage.removeItem('jd.settings.v1'); localStorage.removeItem('jd.submissions.v1'); });
     // player name for the verified board (set here so the results screen does not prompt)
     await page.evaluate(() => localStorage.setItem('jd.player', 'e2e player'));
+    // opt_in_funnel_events (PLAN-v1 0.3.7): off by default; the title toggle turns it on and says so
+    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.settings.v1') || '{}')).telemetry ?? false, false, 'telemetry is off by default');
+    assert.equal(await page.evaluate(() => window.__jdGame.scene.getScene('Title').children.getByName('telemetry').label.text), 'Share stats: Off');
+    await page.evaluate(() => window.__jdGame.scene.getScene('Title').children.getByName('telemetry').emit('pointerdown'));
+    await wait(200);
+    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.settings.v1'))).telemetry, true, 'the toggle records consent');
+    assert.equal(await page.evaluate(() => window.__jdGame.scene.getScene('Title').children.getByName('telemetry').label.text), 'Share stats: On');
+    assert.match(await page.evaluate(() => localStorage.getItem('jd.telemetry.v1') || ''), /"installId":"[0-9a-f]{32}"/, 'a random install id exists only after consent');
     // Title → Game via a real click on "Today's challenge" button (Phaser object; click by canvas coords)
     await page.goto(`${URL}/?dev=1&scene=game&seed=e2e-seed&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
@@ -308,6 +316,15 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.match(hud.seed, /…/, 'the HUD shortens the seed label');
     assert.ok(hud.scoreRight <= hud.width - 160 && hud.bestRight <= hud.width - 150 && hud.roundRight < hud.scoreRight, `HUD fits: round→${hud.roundRight} score→${hud.scoreRight} best→${hud.bestRight} of ${hud.width}`);
     await page.evaluate(() => localStorage.removeItem('jd.settings.v1'));
+    // funnel events reached the test verifier: steps counted per install, nothing identifying stored
+    assert.equal(await api('flushTelemetry'), true, 'the queued events were accepted by the verifier');
+    const funnel = await (await fetch(`http://127.0.0.1:${VPORT}/funnel`)).json();
+    const step = (n) => funnel.steps.find((s) => s.name === n)?.installs;
+    assert.deepEqual({ installs: funnel.installs, app_start: step('app_start'), pick: step('first_draft_pick'), attempt: step('first_place_attempt'), run: step('first_run_start'), complete: step('first_run_complete'), game: step('game_complete') }, { installs: 1, app_start: 1, pick: 1, attempt: 1, run: 1, complete: 1, game: 1 }, `funnel: ${JSON.stringify(funnel)}`);
+    assert.ok(funnel.counts.daily_submit_result >= 1 && funnel.counts.share_copied >= 1 && funnel.counts.undo_used === 1 && funnel.counts.first_place_rejected === 1, `event counts: ${JSON.stringify(funnel.counts)}`);
+    const eventsText = fs.readFileSync(path.join(path.dirname(boardFile), 'events.jsonl'), 'utf8');
+    assert.ok(!eventsText.includes('e2e-seed') && !eventsText.includes('other-seed'), 'no seed string reached the verifier');
+    assert.ok(!eventsText.includes('127.0.0.1'), 'no client address was stored');
     assert.deepEqual(errors, [], 'no page errors');
   } finally {
     if (browser) await browser.close().catch(() => {}); // guard: a failed launch must still stop the servers below

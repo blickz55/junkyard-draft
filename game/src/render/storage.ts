@@ -5,11 +5,12 @@ import { cleanPlayer } from './share';
 
 export { dailySeed };
 
-const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v1', tips: 'jd.tips.v1' };
+const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v1', tips: 'jd.tips.v1', telemetry: 'jd.telemetry.v1' };
 
 export type RenderQuality = 'auto' | 'high' | 'low';
 /** renderQuality: 'auto' until the first run measures frame times at high resolution, then 'high' or 'low' (DPR 1); the title button sets it too. */
-export interface Settings { volume: number; muted: boolean; reducedMotion: boolean; textScale: number; renderQuality: RenderQuality }
+/** telemetry: opt-in anonymous funnel events (PLAN-v1 0.3.7); false until the player turns it on */
+export interface Settings { volume: number; muted: boolean; reducedMotion: boolean; textScale: number; renderQuality: RenderQuality; telemetry: boolean }
 /** Default for reduced motion follows the OS preference until the player chooses. */
 const systemReducedMotion = () => { try { return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 export interface SaveGame { rulesVersion: number; seed: string; actions: Action[]; savedAt: string }
@@ -32,6 +33,7 @@ export function validateSettings(raw: unknown, fallback: Settings): Settings {
     reducedMotion: typeof raw.reducedMotion === 'boolean' ? raw.reducedMotion : fallback.reducedMotion,
     textScale: isFiniteNum(raw.textScale) && TEXT_SCALES.has(raw.textScale) ? raw.textScale : fallback.textScale,
     renderQuality: raw.renderQuality === 'high' || raw.renderQuality === 'low' || raw.renderQuality === 'auto' ? raw.renderQuality : fallback.renderQuality,
+    telemetry: raw.telemetry === true, // anything but an explicit true is off
   };
 }
 export function validateSave(raw: unknown): SaveGame | null {
@@ -60,7 +62,7 @@ function readRaw(key: string): unknown {
 }
 function write(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable */ } }
 
-export const loadSettings = (): Settings => validateSettings(readRaw(K.settings), { volume: 0.7, muted: false, reducedMotion: systemReducedMotion(), textScale: 1, renderQuality: 'auto' });
+export const loadSettings = (): Settings => validateSettings(readRaw(K.settings), { volume: 0.7, muted: false, reducedMotion: systemReducedMotion(), textScale: 1, renderQuality: 'auto', telemetry: false });
 export const saveSettings = (s: Settings) => write(K.settings, s);
 /** Read-modify-write so audio and accessibility settings never clobber each other. */
 export const updateSettings = (p: Partial<Settings>): Settings => { const s = { ...loadSettings(), ...p }; saveSettings(s); return s; };
@@ -93,6 +95,16 @@ export const savePlayer = (name: string) => { try { const n = cleanPlayer(name);
 /** Verified submissions this device made, by seed: lets the title screen look up its own rank without trusting names. */
 export const loadSubmissions = (): Record<string, Submission> => validateSubmissions(readRaw(K.submissions));
 export const recordSubmission = (seed: string, s: Submission) => { const all = loadSubmissions(); if (!all[seed] || s.score >= all[seed].score) { all[seed] = s; write(K.submissions, all); } };
+
+/** Opt-in funnel state (PLAN-v1 0.3.7): the random install id, once-per-install events already sent, games started. Exists only while consent is on. */
+export interface TelemetryState { installId: string | null; firsts: string[]; games: number; /** unsent events, so a page navigation never loses a batch */ pending: unknown[] }
+export const loadTelemetryState = (): TelemetryState => {
+  const raw = readRaw(K.telemetry);
+  if (!isObj(raw)) return { installId: null, firsts: [], games: 0, pending: [] };
+  return { pending: Array.isArray(raw.pending) ? raw.pending.slice(0, 200) : [], installId: typeof raw.installId === 'string' && /^[0-9a-f]{32}$/.test(raw.installId) ? raw.installId : null, firsts: Array.isArray(raw.firsts) ? raw.firsts.filter((x): x is string => typeof x === 'string') : [], games: isFiniteNum(raw.games) && raw.games >= 0 ? Math.floor(raw.games) : 0 };
+};
+export const saveTelemetryState = (s: TelemetryState) => write(K.telemetry, s);
+export const clearTelemetryState = () => { try { localStorage.removeItem(K.telemetry); } catch { /* ignore */ } };
 
 /** Tips the player has opened (PLAN-v1 0.3.6); anything but an array of strings reads as none. */
 export const loadReadTips = (): string[] => { const raw = readRaw(K.tips); return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : []; };

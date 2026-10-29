@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, loadBoard, StorageError } from '../server/verify';
+import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, loadBoard, StorageError, EventStore } from '../server/verify';
 import { build as esbuild } from 'esbuild';
 import net from 'node:net';
 import { RULES_VERSION } from '../game/src/sim/types';
@@ -256,4 +256,49 @@ test('replay identity is SHA-256 of the canonical content; legacy 8-hex ids stil
   assert.equal(v.replay(legacy)?.player, 'old');
   const e = v.submit(encodeReplay(r), 'new');
   assert.equal(e.ok, true); assert.match(e.entry!.replayHash, /^[0-9a-f]{64}$/);
+});
+
+test('events: POST /events accepts only consented batches from the fixed vocabulary, stores a salted IP hash, never a seed; GET /funnel counts installs per step; retention prunes old rows', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-events-'));
+  const store = new EventStore(path.join(dir, 'events.jsonl'), 30);
+  const server = createServer(new Verifier(path.join(dir, 'board.json')), { log: null, events: store, rateLimit: null });
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
+  const port = (server.address() as net.AddressInfo).port;
+  const post = async (body: unknown) => { const r = await fetch(`http://127.0.0.1:${port}/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return { status: r.status, json: await r.json() as { ok: boolean; error?: string; stored?: number } }; };
+  const id = 'a'.repeat(32), id2 = 'b'.repeat(32);
+  const at = new Date().toISOString();
+  try {
+    let r = await post({ installId: id, events: [{ name: 'app_start', at }] });
+    assert.equal(r.status, 422); assert.match(r.json.error!, /no consent/, 'events without explicit consent are refused');
+    r = await post({ installId: id, consent: true, events: [{ name: 'layout_saved', at }] });
+    assert.equal(r.status, 422); assert.match(r.json.error!, /unknown event/);
+    r = await post({ installId: id, consent: true, events: [{ name: 'game_complete', props: { mode: 'seed', seed: 'my-secret-layout' }, at }] });
+    assert.equal(r.status, 422); assert.match(r.json.error!, /seed strings are not recorded/, 'a seed that is not a daily/tutorial label is refused');
+    r = await post({ installId: id, consent: true, events: [{ name: 'first_place_rejected', props: { why: 'x' }, at }] });
+    assert.equal(r.status, 422); assert.match(r.json.error!, /not in the vocabulary/);
+    r = await post({ installId: 'short', consent: true, events: [{ name: 'app_start', at }] });
+    assert.equal(r.status, 422);
+    r = await post({ installId: id, consent: true, events: [{ name: 'app_start', at }, { name: 'first_draft_pick', at }, { name: 'first_run_complete', props: { money: 38 }, at }, { name: 'daily_start', props: {}, at }] });
+    assert.equal(r.status, 200); assert.equal(r.json.stored, 4);
+    r = await post({ installId: id2, consent: true, events: [{ name: 'app_start', at }, { name: 'first_draft_pick', at }] });
+    assert.equal(r.status, 200);
+    const text = fs.readFileSync(store.file, 'utf8');
+    assert.ok(!text.includes('127.0.0.1'), 'the client address is never stored');
+    const rows = store.rows();
+    assert.equal(rows.length, 6);
+    assert.ok(rows.every((x) => /^[0-9a-f]{16}$/.test(x.ip)), 'ips are 16-hex daily-salted hashes');
+    assert.equal(new Set(rows.map((x) => x.ip)).size, 1, 'the same client hashes to one key within a day');
+    assert.notEqual(store.ipHash('127.0.0.1', new Date('2026-01-01')), store.ipHash('127.0.0.1', new Date('2026-01-02')), 'and to a different key on another day');
+    const f = await (await fetch(`http://127.0.0.1:${port}/funnel`)).json() as { installs: number; steps: { name: string; installs: number }[]; counts: Record<string, number> };
+    assert.equal(f.installs, 2);
+    assert.deepEqual(f.steps.slice(0, 5).map((s) => [s.name, s.installs]), [['app_start', 2], ['first_draft_pick', 2], ['first_place_attempt', 0], ['first_run_start', 0], ['first_run_complete', 1]]);
+    assert.equal(f.counts.daily_start, 1);
+    // retention: a row received 40 days ago is pruned, fresh rows stay
+    const old = { ...rows[0], receivedAt: new Date(Date.now() - 40 * 86_400_000).toISOString() };
+    fs.appendFileSync(store.file, JSON.stringify(old) + '\n');
+    assert.equal(store.rows().length, 7);
+    assert.equal(store.prune(), 1);
+    assert.equal(store.rows().length, 6);
+    assert.equal(store.prune(), 0);
+  } finally { server.close(); }
 });

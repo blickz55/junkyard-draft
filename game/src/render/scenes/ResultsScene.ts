@@ -6,6 +6,7 @@ import { Button, label, mono, panel } from '../ui';
 import { CSS, P } from '../palette';
 import { audio } from '../audio';
 import { clearSave, dailySeed, loadBests, loadPlayer, randomSeed, recordBest, recordSubmission, savePlayer } from '../storage';
+import { telemetry } from '../telemetry';
 import { shareText, type Rank } from '../share';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../verified';
 import { W } from '../layout';
@@ -96,10 +97,11 @@ export class ResultsScene extends Phaser.Scene {
     try {
       const res = await fetch(`${url}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(run, import.meta.env.BUILD), player }) });
       body = await res.json() as typeof body;
-      if (res.status === 503 || res.status === 429) { status.setText(`Verifier busy (${body.error || res.status}); nothing was recorded. Try again in a moment.`); status.setColor(CSS.dim); btn.setEnabled(true); return; }
+      if (res.status === 503 || res.status === 429) { telemetry.track('daily_submit_result', { result: 'busy' }); status.setText(`Verifier busy (${body.error || res.status}); nothing was recorded. Try again in a moment.`); status.setColor(CSS.dim); btn.setEnabled(true); return; }
     } catch { status.setText(`Verifier unreachable at ${url} (start it with: npm run verifier). Score stays local/unverified.`); status.setColor(CSS.dim); btn.setEnabled(true); return; }
-    if (!body.ok || !body.entry) { status.setText(`Verifier response: ${body.error || 'rejected'}`); status.setColor(CSS.red); return; }
+    if (!body.ok || !body.entry) { telemetry.track('daily_submit_result', { result: 'rejected' }); status.setText(`Verifier response: ${body.error || 'rejected'}`); status.setColor(CSS.red); return; }
     // 2) verified: record it locally first, so a rank lookup failure cannot make a verified score look unverified
+    telemetry.track('daily_submit_result', { result: 'verified' });
     recordSubmission(run.seed, { score: body.score ?? run.score, replayHash: body.entry.replayHash, verifiedAt: body.entry.verifiedAt, player });
     this.lastPlayer = player;
     status.setColor(CSS.green);
@@ -141,6 +143,7 @@ export class ResultsScene extends Phaser.Scene {
   private copyShare(run: RunState, btn: Button) {
     const text = shareText({ seed: run.seed, score: run.score, rulesVersion: run.rulesVersion, rounds: run.rounds.map((r) => r.earned), player: this.lastPlayer || undefined, rank: this.lastRank });
     this.lastShareText = text;
+    telemetry.track('share_copied', { variant: 'text' });
     const done = () => { btn.setText('Copied!'); this.time.delayedCall(1500, () => btn.setText('Copy share text')); };
     const fallback = () => this.showTextFallback('Share text:', text, btn, 'Copy share text');
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fallback);

@@ -12,6 +12,7 @@ import { Button, label, panel } from './ui';
 import { CSS, FONT, P } from './palette';
 import { loadReadTips, markTipRead } from './storage';
 import { prefs, px } from './prefs';
+import { telemetry } from './telemetry';
 import { W, H } from './layout';
 
 const DEMO_CELL = Math.round(CELL * 0.75);
@@ -66,6 +67,7 @@ export class TipsPanel {
     const tip = TIPS.find((t) => t.id === tipId); if (!tip || !this.root) return;
     this.current = tipId;
     markTipRead(tipId);
+    telemetry.track('tip_opened', { id: tipId });
     const btn = this.root.getByName(`tip-${tipId}`) as Button | null; btn?.setText(tip.title);
     this.stopDemo();
     this.demo?.destroy(true); this.demo = null;

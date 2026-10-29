@@ -11,6 +11,8 @@ keeps only verified scores. One Node process, a JSON file for storage, no databa
 | GET | `/daily?limit=10` | today's UTC daily seed + its verified board |
 | GET | `/replay?hash=…` | the stored actions of a **verified** entry `{ ok, hash, seed, player, score, rulesVersion, actions, verifiedAt }` (404 otherwise) |
 | GET | `/health` | `{ ok, rulesVersion, entries, uptimeSec }` |
+| POST | `/events` `{ installId, consent: true, events[] }` | opt-in funnel events (PLAN-v1 0.3.7): only the fixed vocabulary in `game/src/telemetry/events.ts`, consent explicit, ≤ 100 events, 30 req/min/IP; appended to `events.jsonl` with a daily-salted IP hash (422 rejected, 429 limited, 503 storage) |
+| GET | `/funnel` | unique installs per first-session step and event counts (what `npm run funnel` prints from the file) |
 
 ## Run
 ```
@@ -18,7 +20,7 @@ npm run verifier                       # dev: tsx, 127.0.0.1:4400, board in serv
 npm run verifier:build                 # esbuild → server/dist/verify.mjs (single file, Node ≥ 20, no tsx)
 node server/dist/verify.mjs --host 0.0.0.0 --port 4400 --data-dir /data --cors-origin https://your.site --rate-limit 60
 ```
-Env vars with the same meaning: `HOST`, `PORT`, `DATA_DIR` (or `BOARD_FILE`), `CORS_ORIGIN`, `RATE_LIMIT`
+Env vars with the same meaning: `HOST`, `PORT`, `DATA_DIR` (or `BOARD_FILE`), `EVENTS_FILE` (default next to the board), `EVENTS_RETENTION_DAYS` (30), `CORS_ORIGIN`, `RATE_LIMIT`
 (POST /verify per client IP per minute), `TRUST_PROXY=1` (use `X-Forwarded-For` behind a reverse proxy you
 control), `VERIFIER_LOG=0` (silence the one-line-per-request log).
 
@@ -50,3 +52,4 @@ The image was written without Docker available on the dev machine and has **not 
 - Retention: stored replay actions are kept only for each seed's top 100 entries (the `/board` cap); lower entries keep their score but lose their replay (`replayAvailable: false`). Pruning happens on every write.
 - Rules version mismatches are rejected, so deploy the verifier from the same commit as the game.
 - Nothing authenticates players: `player` is a display name only. Abuse controls = rate limit + duplicate replay hash.
+- Funnel events (`events.jsonl`): one JSON line per event with `at`, `receivedAt`, `installId` (random, client-generated, deleted when the player opts out), `ip` (16-hex SHA-256 of a per-process salt + UTC date + address: one key per client per day, unlinkable across days or restarts), `name`, `props`. No seeds except `daily-*`/`tutorial-*` labels, no layouts, no names. Rows older than the retention are pruned at start and hourly. Report: `npm run funnel -- path/to/events.jsonl`.

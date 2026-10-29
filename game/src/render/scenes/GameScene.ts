@@ -7,6 +7,7 @@ import { cellIndex, type SimState } from '../../sim/sim';
 import { RoundController, type Mode } from '../RoundController';
 import { TipsPanel } from '../TipsPanel';
 import { tipForMachine } from '../../sim/tips';
+import { telemetry } from '../telemetry';
 import { DIR_DX, DIR_DY, MACHINE_INFO, RULES } from '../../sim/rules';
 import type { Machine, Material, SimEvent } from '../../sim/types';
 import { CELL, itemTexture, machineTexture } from '../textures';
@@ -94,13 +95,14 @@ export class GameScene extends Phaser.Scene {
       onPause: (p) => this.onPause(p),
       onRoundEnd: (rec, visual) => this.onRoundEnd(rec, visual),
       onNextRound: () => { this.heldId = null; this.syncMachines(); this.renderSide(); this.updateHint(); },
-      onFinished: () => this.scene.start('Results', { run: this.run, replayed: this.replayLabel != null, replayLabel: this.replayLabel ?? undefined }),
+      onFinished: () => { telemetry.track('game_complete', { mode: this.replayLabel ? 'replay' : this.run.seed.startsWith('daily-') ? 'daily' : 'seed' }); this.scene.start('Results', { run: this.run, replayed: this.replayLabel != null, replayLabel: this.replayLabel ?? undefined }); },
       onStateChange: (a) => this.onStateChange(a),
-      onReject: (a, message) => { if (a.t === 'place') this.showReject(explainRunError(message)); },
+      onReject: (a, message) => { if (a.t === 'place') { this.showReject(explainRunError(message)); telemetry.track('first_place_attempt'); telemetry.track('first_place_rejected', { reason: /occupied/i.test(message) ? 'occupied' : /bounds/i.test(message) ? 'out_of_bounds' : 'other' }); } },
       onPlaybackDone: () => { this.syncMachines(); this.renderSide(); },
       persist: (seed, actions) => writeSave(seed, actions),
       schedule: (ms, fn) => { this.time.delayedCall(ms, fn); },
     });
+    if (data.fresh && !data.replay) telemetry.gameStart(data.seed);
     if (this.ctl.resumeNotice) clearSave(); // a damaged save is dropped so the title stops offering it; the notice is shown once
     this.tutorial = !isOnboarded() && !this.replayQueue;
     this.tutorialStep = 0;
@@ -427,6 +429,7 @@ export class GameScene extends Phaser.Scene {
   /** Controller hook: the run changed (an accepted action, or null for undo/redo/speed): refresh HUD, hints and the panel. */
   private onStateChange(a: Action | null) {
     if (!this.hud.round) return; // init() runs before create(): nothing to draw yet
+    if (a && !this.replayLabel) { if (a.t === 'pick') telemetry.track('first_draft_pick'); else if (a.t === 'place') telemetry.track('first_place_attempt'); else if (a.t === 'rotate') telemetry.track('first_rotate'); }
     if (a?.t === 'pick' && !this.replayLabel) { const kind = this.run.picks[this.run.picks.length - 1]; const tip = kind ? tipForMachine(kind, loadReadTips()) : null; if (tip) this.suggestedTip = tip.id; }
     this.updateHud();
     if (!a || a.t === 'place' || a.t === 'pick' || a.t === 'rotate') this.updateHint();
@@ -439,7 +442,7 @@ export class GameScene extends Phaser.Scene {
 
   // ---------- undo / redo (build phase only; the replay stays a flat list of final actions) ----------
   /** Ctrl+Z: remove the last layout edit of this build phase (never across a run). Returns false when there is nothing to undo. */
-  undo(): boolean { if (!this.ctl.undo()) { audio.invalid(); return false; } this.afterHistoryChange(); return true; }
+  undo(): boolean { if (!this.ctl.undo()) { audio.invalid(); return false; } telemetry.track('undo_used'); this.afterHistoryChange(); return true; }
   /** Ctrl+Y / Ctrl+Shift+Z: re-apply the last undone edit if the rules still accept it. */
   redo(): boolean { if (!this.ctl.redo()) { audio.invalid(); return false; } this.afterHistoryChange(); return true; }
   canRedo(): boolean { return this.ctl.canRedo(); }
@@ -568,6 +571,9 @@ export class GameScene extends Phaser.Scene {
       else if (r.round === 2 && r.phase === 'draft') text = `Next upgrade: a FURNACE turns shards into $${RULES.value.ingot} ingots (raw scrap only melts into $${RULES.value.slag} slag). Splitters and extra hoppers raise throughput.`;
       else if (r.round === 2) text = 'Machines are slow: a furnace handles one item every 3 ticks. Use a splitter to feed two furnaces, or add a second line.';
       else text = '';
+      // funnel: which tutorial step is on screen (1 pick crusher, 2 place it, 3 line it up / run, 4 draft round 2, 5 build round 2)
+      const step = !text ? 0 : r.round === 1 && r.phase === 'draft' ? 1 : r.round === 1 && r.bin.length ? 2 : r.round === 1 ? 3 : r.phase === 'draft' ? 4 : 5;
+      if (step !== this.tutorialStep) { if (this.tutorialStep) telemetry.track('tutorial_step_complete', { n: this.tutorialStep }); if (step) telemetry.track('tutorial_step_start', { n: step }); this.tutorialStep = step; }
       if (r.round >= 3) { this.tutorial = false; setOnboarded(); }
     }
     if (this.ctl.resumeNotice) { text = this.ctl.resumeNotice; this.ctl.resumeNotice = null; }
@@ -598,6 +604,7 @@ export class GameScene extends Phaser.Scene {
     this.selectedId = null; this.heldId = null; this.cursor = null; this.updateSelection(); this.updateCursor(); this.hover.setVisible(false);
     this.lastShipTick = 0; this.hudDirty = false; this.lastHudAt = 0; this.clearStall();
     if (DPR > 1 && !this.dprProbe && loadSettings().renderQuality === 'auto') this.dprProbe = [];
+    if (!this.replayLabel) telemetry.track('first_run_start');
     audio.run();
     this.renderSide();
     this.setHint(this.replayLabel ? 'Watching a verified replay: 1/2/4× change the speed, Skip jumps to the round result, Esc stops and returns to the title.' : 'Running… Jams glow red: an item waits for a free cell or a slow machine.');
@@ -618,6 +625,7 @@ export class GameScene extends Phaser.Scene {
   finishRun() { if (this.ctl.finishRun()) audio.resume(); }
   /** Controller hook: the round is recorded; tear down the live visuals and show the summary. */
   private onRoundEnd(rec: RoundRecord, visual: number) {
+    if (!this.replayLabel) { telemetry.track('round_complete', { n: rec.round }); telemetry.track('first_run_complete', { money: rec.earned }); }
     if (import.meta.env.DEV && rec.earned !== visual) console.error(`DETERMINISM MISMATCH: visual ${visual} vs authoritative ${rec.earned}`);
     for (const s of this.itemSprites.values()) s.destroy();
     this.itemSprites.clear();

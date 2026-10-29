@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { applyDpr, DPR, MAX_DPR } from '../dpr';
 import { TipsPanel } from '../TipsPanel';
+import { telemetry } from '../telemetry';
 import { Button, label, mono, panel, slider } from '../ui';
 import { CSS, P } from '../palette';
 import { audio } from '../audio';
@@ -74,7 +75,11 @@ export class TitleScene extends Phaser.Scene {
     // rendering resolution: high = device pixel ratio (capped at ${MAX_DPR}×), standard = 1× for weak machines; chosen automatically on the first run, changeable here (applies on reload)
     const quality = loadSettings().renderQuality;
     const qualityLabel = () => (quality === 'low' ? 'Resolution: Standard' : quality === 'high' ? 'Resolution: High' : `Resolution: Auto (${DPR}×)`);
-    new Button(this, W - 120, 80, qualityLabel(), () => { updateSettings({ renderQuality: quality === 'low' ? 'high' : 'low' }); location.reload(); }, { w: 200, h: 26, color: P.steelDark, textColor: CSS.text, size: 11, name: 'quality' });
+    new Button(this, W - 120, 80, qualityLabel(), () => { telemetry.track('settings_changed', { key: 'renderQuality' }); updateSettings({ renderQuality: quality === 'low' ? 'high' : 'low' }); location.reload(); }, { w: 200, h: 26, color: P.steelDark, textColor: CSS.text, size: 11, name: 'quality' });
+    // opt-in funnel events (PLAN-v1 0.3.7): off by default; one sentence says what leaves the device
+    const statsLabel = () => `Share stats: ${telemetry.enabled ? 'On' : 'Off'}`;
+    const statsBtn = new Button(this, W - 120, 110, statsLabel(), () => { telemetry.setEnabled(!telemetry.enabled); if (telemetry.enabled) telemetry.track('settings_changed', { key: 'telemetry' }); statsBtn.setText(statsLabel()); }, { w: 200, h: 26, color: P.steelDark, textColor: CSS.text, size: 11, name: 'telemetry' });
+    mono(this, W - 20, 126, 'Anonymous play statistics only: which steps you reach, never seeds or layouts.', 9, '#948a79').setOrigin(1, 0).setName('telemetry-note');
 
     // bests + settings
     panel(this, 640, y, 420, 180, 0.9);
@@ -88,9 +93,9 @@ export class TitleScene extends Phaser.Scene {
     const mute = new Button(this, 990, y + 120, audio.muted ? 'Unmute' : 'Mute', () => { audio.setMuted(!audio.muted); mute.setText(audio.muted ? 'Unmute' : 'Mute'); }, { w: 100, h: 30, color: P.steelDark, textColor: CSS.text, size: 13, name: 'mute' });
     // accessibility: reduced motion (belts, flashes, floats off) and text size (100 / 115 / 130 %)
     label(this, 656, y + 148, 'Motion', 13, CSS.dim);
-    const motion = new Button(this, 760, y + 156, prefs.reducedMotion ? 'Reduced' : 'Full', () => { prefs.setReducedMotion(!prefs.reducedMotion); motion.setText(prefs.reducedMotion ? 'Reduced' : 'Full'); this.scene.restart(); }, { w: 100, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'motion' });
+    const motion = new Button(this, 760, y + 156, prefs.reducedMotion ? 'Reduced' : 'Full', () => { telemetry.track('settings_changed', { key: 'reducedMotion' }); prefs.setReducedMotion(!prefs.reducedMotion); motion.setText(prefs.reducedMotion ? 'Reduced' : 'Full'); this.scene.restart(); }, { w: 100, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'motion' });
     label(this, 830, y + 148, 'Text size', 13, CSS.dim);
-    new Button(this, 955, y + 156, prefs.textScaleLabel(), () => { prefs.setTextScale(prefs.nextTextScale()); this.scene.restart(); }, { w: 80, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'textscale' });
+    new Button(this, 955, y + 156, prefs.textScaleLabel(), () => { telemetry.track('settings_changed', { key: 'textScale' }); prefs.setTextScale(prefs.nextTextScale()); this.scene.restart(); }, { w: 80, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'textscale' });
 
     this.dailyBoard(H - 72); // fixed strip above the bottom edge, same place with or without a saved run
     this.input.keyboard?.on('keydown-ENTER', () => { if (save) this.scene.start('Game', { seed: save.seed, fresh: false, actions: save.actions }); else this.start(dailySeed(), true); });

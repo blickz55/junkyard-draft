@@ -7,6 +7,7 @@ import { W, H } from './render/layout';
 import { P } from './render/palette';
 import { devEnabled } from './render/devapi';
 import { DPR } from './render/dpr';
+import { telemetry } from './render/telemetry';
 
 declare global {
   interface ImportMeta { env: { DEV: boolean; BUILD: string; VERIFIER_URL: string } }
@@ -37,6 +38,10 @@ const game = new Phaser.Game({
   scene: [BootScene, TitleScene, GameScene, ResultsScene],
   input: { mouse: { preventDefaultWheel: false } },
 });
+
+// opt-in funnel events go to the same verifier the boards use; nothing is sent unless the player turned it on
+telemetry.configure({ url: () => new URLSearchParams(location.search).get('verifier') || import.meta.env.VERIFIER_URL });
+telemetry.init();
 
 // Expose for dev tooling only (scene key lookups), behind the same gate as window.__jd; competitive authority never lives here.
 if (devEnabled()) (window as unknown as { __jdGame?: Phaser.Game }).__jdGame = game;
