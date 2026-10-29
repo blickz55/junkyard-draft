@@ -32,6 +32,11 @@ test('share text: days played and the opt-in permalink append lines; the detaile
   assert.match(shareText({ ...base, daysPlayed: 1 }), /\n1 day played$/);
   assert.match(shareText({ ...base, daysPlayed: 12 }), /\n12 days played$/);
   assert.doesNotMatch(shareText({ ...base, daysPlayed: 0 }), /played/);
+  // challenge (PLAN-v4 0.7.1): detailed variant says how it went
+  assert.match(shareText({ ...base, score: 1300, challenge: { player: 'Jon#7Q2M', score: 1200 }, variant: 'detailed' }), /\nbeat Jon#7Q2M's \$1200 by \$100(\n|$)/);
+  assert.match(shareText({ ...base, score: 1100, challenge: { player: 'Jon#7Q2M', score: 1200 }, variant: 'detailed' }), /\nshort of Jon#7Q2M's \$1200 by \$100(\n|$)/);
+  assert.match(shareText({ ...base, score: 1200, challenge: { player: 'Jon#7Q2M', score: 1200 }, variant: 'detailed' }), /\ntied Jon#7Q2M's \$1200(\n|$)/);
+  assert.doesNotMatch(shareText({ ...base, score: 1300, challenge: { player: 'Jon#7Q2M', score: 1200 } }), /Jon/, 'the grid never carries it');
   // medal (PLAN-v3 0.6.4): detailed variant, verified entry only
   assert.match(shareText({ ...base, rank: { n: 3, of: 40 }, medal: 'silver', variant: 'detailed' }), /\nmedal: silver \(final board\)(\n|$)/);
   assert.doesNotMatch(shareText({ ...base, rank: { n: 3, of: 40 }, medal: 'silver' }), /medal/, 'the grid never carries it');

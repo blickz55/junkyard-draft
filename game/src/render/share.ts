@@ -17,6 +17,8 @@ export interface ShareInput {
   streak?: number;
   /** medal of this run's verified entry on a frozen daily (PLAN-v3 0.6.4); detailed variant only, only when the server sent thresholds */
   medal?: string;
+  /** the challenge this run answered (PLAN-v4 0.7.1): the detailed variant says how it went */
+  challenge?: { player: string; score: number };
   /** appended only when the player opts in */
   permalink?: string;
   variant?: 'grid' | 'detailed';
@@ -66,6 +68,7 @@ export function shareText(s: ShareInput): string {
     lines.push(s.rank ? `replay re-simulated by the verifier, rules v${s.rulesVersion}` : `rules v${s.rulesVersion}`);
     if (s.rank && s.badges?.length) lines.push(`badges: ${s.badges.join(' · ')}`);
     if (s.rank && s.medal) lines.push(`medal: ${s.medal} (final board)`);
+    if (s.challenge) { const d = s.score - s.challenge.score; lines.push(d > 0 ? `beat ${s.challenge.player}'s $${s.challenge.score} by $${d}` : d < 0 ? `short of ${s.challenge.player}'s $${s.challenge.score} by $${-d}` : `tied ${s.challenge.player}'s $${s.challenge.score}`); }
   }
   if (s.daysPlayed && s.daysPlayed > 0) lines.push(s.variant === 'detailed' && s.streak && s.streak >= 2 ? `${s.daysPlayed} day${s.daysPlayed === 1 ? '' : 's'} · ${s.streak} in a row` : `${s.daysPlayed} day${s.daysPlayed === 1 ? '' : 's'} played`);
   if (s.permalink) lines.push(s.permalink);

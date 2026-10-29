@@ -17,6 +17,7 @@ import { GRID_X, GRID_Y, GRID_W, GRID_H, SIDE_X, SIDE_W, W, H } from '../render/
 import { prefs } from '../render/prefs';
 import { loadBests } from '../render/storage';
 import { isDailySeed, isMintedDailySeed, dailyDateOf } from '../sim/daily';
+import { challengerTotal, type Challenge } from '../render/challenge';
 
 export type PanelMode = 'build' | 'running' | 'paused' | 'summary';
 
@@ -24,6 +25,8 @@ export type PanelMode = 'build' | 'running' | 'paused' | 'summary';
 export interface PanelState {
   run: RunState; mode: PanelMode; speed: number;
   replayLabel: string | null; replayRounds: number[] | null; playbackPending: boolean;
+  /** the challenge being played, if any (PLAN-v4 0.7.1) */
+  challenge?: Challenge | null;
   canUndo: boolean; canRedo: boolean; selected: Machine | undefined; tipsBadge: boolean; tipsOpen: boolean;
 }
 /** What the panel asks the scene to do. */
@@ -101,7 +104,7 @@ export class GamePanel {
   // ---------- side panel ----------
   private keyOf(s: PanelState): string {
     const sel = s.selected;
-    return JSON.stringify([s.mode, s.run.phase, s.run.round, s.run.offers, s.run.rerolledRound, s.run.score, s.run.bin.length, s.run.layout.machines.length, s.speed, s.replayLabel, !!s.replayRounds, sel ? [sel.id, sel.kind, sel.dir, sel.x >= 0] : null, s.playbackPending, s.canUndo, s.canRedo, s.tipsBadge, s.tipsOpen]);
+    return JSON.stringify([s.mode, s.run.phase, s.run.round, s.run.offers, s.run.rerolledRound, s.run.score, s.challenge?.hash ?? null, s.run.bin.length, s.run.layout.machines.length, s.speed, s.replayLabel, !!s.replayRounds, sel ? [sel.id, sel.kind, sel.dir, sel.x >= 0] : null, s.playbackPending, s.canUndo, s.canRedo, s.tipsBadge, s.tipsOpen]);
   }
   /** Rebuild the side panel if its inputs changed. */
   render(s: PanelState) {
@@ -111,6 +114,11 @@ export class GamePanel {
     this.side.replaceChildren();
     this.progress = null; this.earned = null; this.lastEarned = -1; this.lastTick = -1;
     const r = s.run;
+    if (s.challenge) { // PLAN-v4 0.7.1: the challenger's earnings, round by round, next to yours
+      const c = s.challenge; const idx = Math.min(r.round, c.rounds.length) - 1; const done = r.rounds.length >= RULES.rounds;
+      const text = done ? `Challenge: ${c.player} finished at $${c.score} · you $${r.score}` : `Challenge vs ${c.player}: $${c.rounds[idx] ?? 0} in round ${r.round} · their total after this round $${challengerTotal(c, r.round)} · you so far $${r.score}`;
+      this.side.append(h('div', { class: 'jd-mono jd-amber', tid: 'challenge-line', style: 'font-size:0.75em; margin-bottom:0.4em', title: `beat ${c.player}'s $${c.score} on this seed` }, text));
+    }
     const head = (text: string, right?: HTMLElement | null) => h('div', { class: 'jd-row jd-between', style: 'margin-bottom:0.4em' }, h('div', { class: 'jd-head' }, text), right ?? null);
     const tipsBtn = s.replayLabel ? null : btn(s.tipsBadge ? 'Tips ●' : 'Tips', 'tips', () => this.actions.openTips(), { small: true, variant: s.tipsBadge ? 'primary' : 'dark' });
     const replayBanner = s.replayLabel ? h('span', { class: 'jd-replay-banner jd-blue', tid: 'replay-banner' }, '● REPLAY · Esc stops') : null;

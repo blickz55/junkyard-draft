@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, loadBoard, StorageError, EventStore, histogramOf, niceStep, computeParSync, computeParInWorker, ParService, finalMachinesOf, TIE_BREAK, playerIdFromToken, RENAME_COOLDOWN_MS, type BoardEntry } from '../server/verify';
+import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, loadBoard, StorageError, EventStore, histogramOf, niceStep, computeParSync, computeParInWorker, ParService, finalMachinesOf, TIE_BREAK, playerIdFromToken, RENAME_COOLDOWN_MS, roundsOf, type Board, type BoardEntry } from '../server/verify';
 import { tagFor } from '../game/src/identity/identity';
 import { build as esbuild } from 'esbuild';
 import net from 'node:net';
@@ -842,4 +842,38 @@ test('cold storage: frozen days older than HOT_DAYS move to monthly files with e
     const h = await (await fetch(`${base}/health`)).json() as { cold: { days: number; replays: number } }; assert.deepEqual(h.cold, { days: 21, replays: 210 });
     const b = await (await fetch(`${base}/board?seed=${encodeURIComponent(coldRec.seed)}&limit=100`)).json() as { entries: { replayAvailable: boolean }[] }; assert.equal(b.entries.length, 50); assert.equal(b.entries.filter((e) => e.replayAvailable).length, 10);
   } finally { close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ---- challenge links (PLAN-v4 0.7.1) ----
+test('challenge entries: per-round earnings are derived at verification and backfilled from stored replays, /entry serves earnings and standing but never actions, 404 for unknown hashes and for entries without rounds', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-entry-')), 'board.json');
+  const v = new Verifier(file, { dailySecret: 'entry-secret' });
+  const run = finishedRun('entry-seed'); const replay = exportReplay(run);
+  const sub = v.submit(JSON.stringify(replay), 'challenger'); assert.equal(sub.ok, true);
+  assert.deepEqual(sub.entry!.rounds, run.rounds.map((r) => r.earned), 'rounds derived by re-simulation equal the client\'s per-round earnings');
+  assert.equal(sub.entry!.rounds!.reduce((a, b) => a + b, 0), run.score);
+  assert.deepEqual(roundsOf({ seed: replay.seed, actions: replay.actions, rulesVersion: replay.rulesVersion }), run.rounds.map((r) => r.earned), 'derivation uses seed, actions and rules version only');
+  assert.equal(roundsOf({ seed: 'x', actions: [{ t: 'place', id: 999, x: 0, y: 0, dir: 0 } as never], rulesVersion: RULES_VERSION }), null, 'an illegal replay has no rounds');
+  const e = v.entry(sub.entry!.replayHash)!;
+  assert.deepEqual(e, { seed: 'entry-seed', score: run.score, player: 'challenger', rounds: sub.entry!.rounds, replayHash: sub.entry!.replayHash, verifiedAt: sub.entry!.verifiedAt, rulesVersion: RULES_VERSION, frozen: false, medals: null });
+  assert.equal(v.entry('nope'), null);
+  // a pre-0.7.1 entry (no rounds) with a stored replay is backfilled at startup; one without a replay stays without rounds
+  const raw = JSON.parse(fs.readFileSync(file, 'utf8')) as Board;
+  raw.entries = raw.entries.map((x) => { const { rounds: _r, ...rest } = x; return rest; });
+  const orphan: BoardEntry = { seed: 'orphan-seed', score: 50, player: 'old', verifiedAt: '2026-01-01T00:00:00.000Z', rulesVersion: RULES_VERSION, actions: 20, replayHash: 'f'.repeat(64), finalMachines: 5 };
+  raw.entries.push(orphan); fs.writeFileSync(file, JSON.stringify(raw));
+  const again = new Verifier(file, { dailySecret: 'entry-secret' });
+  assert.deepEqual(again.entry(sub.entry!.replayHash)!.rounds, run.rounds.map((r) => r.earned), 'backfilled from the stored replay');
+  assert.equal(again.entry('f'.repeat(64))!.rounds, null, 'no replay, no rounds');
+  // on a minted daily: an open day is not frozen and carries no medals; the entry never carries actions
+  const d = again.daily(10, new Date())!; const dr = finishedRun(d.seed); const ds = again.submit(JSON.stringify(exportReplay(dr)), 'daily challenger', null, new Date()); assert.equal(ds.ok, true);
+  const de = again.entry(ds.entry!.replayHash)!; assert.equal(de.frozen, false); assert.equal(de.medals, null); assert.ok(!('actions' in de));
+  const { base, close } = await listen(again, { rateLimit: null });
+  try {
+    const ok = await (await fetch(`${base}/entry?hash=${sub.entry!.replayHash}`)).json() as Record<string, unknown>;
+    assert.equal(ok.ok, true); assert.equal(ok.seed, 'entry-seed'); assert.deepEqual(ok.rounds, run.rounds.map((r) => r.earned)); assert.ok(!('actions' in ok), 'never the replay');
+    const gated = await (await fetch(`${base}/entry?hash=${ds.entry!.replayHash}`)).json() as Record<string, unknown>; assert.equal(gated.ok, true); assert.ok(!('actions' in gated), 'an open daily\'s entry gives earnings only; the replay stays behind the reveal gate');
+    assert.equal((await fetch(`${base}/entry?hash=nope`)).status, 404);
+    const nr = await fetch(`${base}/entry?hash=${'f'.repeat(64)}`); assert.equal(nr.status, 404); assert.equal(((await nr.json()) as { reason: string }).reason, 'no-rounds');
+  } finally { close(); }
 });

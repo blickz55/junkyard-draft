@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { applyDpr, DPR } from '../dpr';
+import type { Challenge } from '../challenge';
 import { decideQuality, QUALITY_PROBE_FRAMES } from '../quality';
 import { explainRunError, inputTravelDirs, outputDirs, placementWarning } from '../../sim/advice';
 import { isTutorialSeed, type Action, type RoundRecord, type RunState } from '../../sim/run';
@@ -84,14 +85,17 @@ export class GameScene extends Phaser.Scene {
 
   constructor() { super('Game'); }
 
-  init(data: { seed: string; fresh: boolean; replay?: Action[]; actions?: Action[]; replayLabel?: string }) {
+  /** A challenge being played (PLAN-v4 0.7.1); only when it names this very seed, so an overlay never appears on another seed. */
+  private challenge: Challenge | null = null;
+  init(data: { seed: string; fresh: boolean; replay?: Action[]; actions?: Action[]; replayLabel?: string; challenge?: Challenge }) {
+    this.challenge = data.challenge && data.challenge.seed === data.seed && !data.replay ? data.challenge : null;
     this.ctl = new RoundController(data, {
       onTick: (evs) => this.onTickEvents(evs),
       onRunStart: () => this.onRunStart(),
       onPause: (p) => this.onPause(p),
       onRoundEnd: (rec, visual) => this.onRoundEnd(rec, visual),
       onNextRound: () => { this.heldId = null; this.syncMachines(); this.renderSide(); this.updateHint(); },
-      onFinished: () => { telemetry.track('game_complete', { mode: this.replayLabel ? 'replay' : this.run.seed.startsWith('daily-') ? 'daily' : 'seed' }); this.scene.start('Results', { run: this.run, replayed: this.replayLabel != null, replayLabel: this.replayLabel ?? undefined }); },
+      onFinished: () => { telemetry.track('game_complete', { mode: this.replayLabel ? 'replay' : this.run.seed.startsWith('daily-') ? 'daily' : 'seed' }); this.scene.start('Results', { run: this.run, replayed: this.replayLabel != null, replayLabel: this.replayLabel ?? undefined, challenge: this.challenge ?? undefined }); },
       onStateChange: (a) => this.onStateChange(a),
       onReject: (a, message) => { if (a.t === 'place') { this.showReject(explainRunError(message)); telemetry.track('first_place_attempt'); telemetry.track('first_place_rejected', { reason: /occupied/i.test(message) ? 'occupied' : /bounds/i.test(message) ? 'out_of_bounds' : 'other' }); } },
       onPlaybackDone: () => { this.syncMachines(); this.renderSide(); },
@@ -424,7 +428,7 @@ export class GameScene extends Phaser.Scene {
   private panelState(): PanelState {
     const r = this.run;
     const selected = this.selectedId != null ? r.layout.machines.find((m) => m.id === this.selectedId) ?? r.bin.find((m) => m.id === this.selectedId) : undefined;
-    return { run: r, mode: this.mode, speed: this.speed, replayLabel: this.replayLabel, replayRounds: this.replayRounds, playbackPending: !!this.replayQueue, canUndo: this.ctl.canUndo(), canRedo: this.ctl.canRedo(), selected, tipsBadge: !this.replayLabel && this.suggestedTip != null && !loadReadTips().includes(this.suggestedTip), tipsOpen: this.tips?.isOpen ?? false };
+    return { run: r, mode: this.mode, speed: this.speed, replayLabel: this.replayLabel, replayRounds: this.replayRounds, playbackPending: !!this.replayQueue, challenge: this.challenge, canUndo: this.ctl.canUndo(), canRedo: this.ctl.canRedo(), selected, tipsBadge: !this.replayLabel && this.suggestedTip != null && !loadReadTips().includes(this.suggestedTip), tipsOpen: this.tips?.isOpen ?? false };
   }
   renderSide() { if (this.panel) this.panel.render(this.panelState()); }
   openTips(id?: string) { this.tips.open(id ?? this.suggestedTip ?? undefined); if (this.suggestedTip && loadReadTips().includes(this.suggestedTip)) this.suggestedTip = null; this.renderSide(); }

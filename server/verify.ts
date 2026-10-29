@@ -7,6 +7,8 @@
  *   Each day closes 48 h after 00:00 UTC (`closesAt`); from then on `final`/`frozenAt` are set and the board never changes;
  *   a later submission is verified and answered `{ ok, score, late: true, recorded: false }` (PLAN-v3 0.6.2).
  * - GET  /archive?from=&to=&limit=30 → closed days newest first with N, bot par, medals and the top five; `nextTo` pages older.
+ * - GET  /entry?hash=…[&seed=…] → one verified entry's seed, score, label, per-round earnings, frozen flag and medals (PLAN-v4 0.7.1):
+ *   what a challenge link needs and nothing a reveal-gated replay would leak (no actions).
  * - Cold storage (PLAN-v4 0.7.0): frozen dailies older than HOT_DAYS move to cold/YYYY-MM.json with every entry and only the top
  *   COLD_REPLAYS_PER_DAY replays; boards, histograms, medals, pars and the archive read them lazily; the commit path writes the hot file only.
  * - Reveal gate (PLAN-v3 0.6.6): GET /replay for a replay on an OPEN minted daily answers 403 unless the bearer's player has a
@@ -85,10 +87,14 @@ export function bearerOf(req: http.IncomingMessage): string | null {
 export const VERSION: string = pkg.version;
 
 /** `finalMachines` (rules v3, PLAN-v2 0.5.5): machines on the grid in the last round, derived by the verifier from the re-simulated replay, never taken from a payload; entries written before it exist without it and rank last among equal scores until derived from their stored replay. */
-export interface BoardEntry { seed: string; score: number; player: string; verifiedAt: string; rulesVersion: number; actions: number; replayHash: string; replayAvailable?: boolean; finalMachines?: number; /** claimed identity (PLAN-v3 0.6.0); absent on anonymous entries, which are never claimable */ playerId?: string }
+export interface BoardEntry { seed: string; score: number; player: string; verifiedAt: string; rulesVersion: number; actions: number; replayHash: string; replayAvailable?: boolean; finalMachines?: number; /** claimed identity (PLAN-v3 0.6.0); absent on anonymous entries, which are never claimable */ playerId?: string; /** per-round earnings derived at verification (PLAN-v4 0.7.1); absent on entries verified before and without a stored replay */ rounds?: number[] }
 /** Printed under every board: the one comparator, in words. */
 export const TIE_BREAK = 'Equal scores: fewer machines in round 6 first, then the earlier verified submission.';
 /** Machines on the grid in the final round of a replay, or null when it cannot be re-simulated. */
+/** Per-round earnings of a replay, derived by re-simulation (never from the payload): what a challenge link overlays (PLAN-v4 0.7.1). */
+export function roundsOf(r: Pick<ReplayFile, 'seed' | 'actions' | 'rulesVersion'>): number[] | null {
+  try { const s = replayRun(r.seed, r.actions, r.rulesVersion); return s.rounds.length ? s.rounds.map((x) => x.earned) : null; } catch { return null; }
+}
 export function finalMachinesOf(r: Pick<ReplayFile, 'seed' | 'actions' | 'rulesVersion'>): number | null {
   try { const s = replayRun(r.seed, r.actions, r.rulesVersion); const last = s.rounds[s.rounds.length - 1]; return last ? last.layout.machines.length : null; } catch { return null; }
 }
@@ -201,11 +207,12 @@ export class Verifier {
   private deriveTieBreaks() {
     let changed = false;
     const entries = this.data.entries.map((e) => {
-      if (e.finalMachines != null || e.rulesVersion !== RULES_VERSION) return e;
+      if ((e.finalMachines != null && e.rounds != null) || e.rulesVersion !== RULES_VERSION) return e;
       const r = this.data.replays?.[e.replayHash]; if (!r) return e;
-      const n = finalMachinesOf({ seed: r.seed, actions: r.actions, rulesVersion: r.rulesVersion });
-      if (n == null) return e;
-      changed = true; return { ...e, finalMachines: n };
+      const file = { seed: r.seed, actions: r.actions, rulesVersion: r.rulesVersion };
+      const n = e.finalMachines ?? finalMachinesOf(file); const rounds = e.rounds ?? roundsOf(file);
+      if (n == null && rounds == null) return e;
+      changed = true; return { ...e, ...(n != null ? { finalMachines: n } : {}), ...(rounds ? { rounds } : {}) };
     });
     if (!changed) return;
     try { this.commit({ ...this.data, entries }); } catch { this.data = { ...this.data, entries }; } // storage trouble: rank correctly in memory anyway
@@ -341,7 +348,7 @@ export class Verifier {
       const rec = this.issuedRecord(dailyDateOf(replay.seed)!)!;
       if (now.getTime() >= Date.parse(rec.closesAt)) { this.observeFreeze(now); return { ok: true, score: v.score, late: true, recorded: false, closesAt: rec.closesAt, player: label }; }
     }
-    const entry: BoardEntry = { seed: replay.seed, score: v.score, player: label, verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash, finalMachines: finalMachinesOf(replay) ?? undefined, ...(playerId ? { playerId } : {}) };
+    const entry: BoardEntry = { seed: replay.seed, score: v.score, player: label, verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash, finalMachines: finalMachinesOf(replay) ?? undefined, rounds: roundsOf(replay) ?? undefined, ...(playerId ? { playerId } : {}) };
     // keep-best per (seed, player): a worse or equal run is verified but not recorded; a better one replaces the old entry and its replay
     let entries = this.data.entries; const replays = { ...(this.data.replays ?? {}) };
     if (playerId) {
@@ -367,6 +374,15 @@ export class Verifier {
   replay(hash: string): (StoredReplay & { hash: string }) | null {
     const r = this.data.replays?.[hash] ?? (() => { const d = this.cold.dateOfReplay(hash); return d ? this.cold.day(d)?.replays[hash] : undefined; })();
     return r && r.rulesVersion === RULES_VERSION ? { hash, ...r } : null;
+  }
+  /** A verified entry for a challenge link (PLAN-v4 0.7.1): earnings and standing, never actions. Hot first, then cold (by kept replay, or by seed when given). */
+  entry(hash: string, seed?: string | null): { seed: string; score: number; player: string; rounds: number[] | null; replayHash: string; verifiedAt: string; rulesVersion: number; frozen: boolean; medals: Medals | null } | null {
+    let e = this.data.entries.find((x) => x.replayHash === hash && x.rulesVersion === RULES_VERSION);
+    if (!e) { const date = this.cold.dateOfReplay(hash) ?? (seed ? this.cold.dateOfSeed(seed) : null); if (date) { const day = this.cold.day(date); const found = day?.entries.find((x) => x.replayHash === hash); if (found && day) e = this.coldEntries(day.record.seed).find((x) => x.replayHash === hash) ?? found; } }
+    if (!e) return null;
+    const rec = isMintedDailySeed(e.seed) ? this.issuedRecord(dailyDateOf(e.seed) ?? '') : null;
+    const player = e.playerId && this.data.players?.[e.playerId] ? labelFor(this.data.players[e.playerId].name, this.data.players[e.playerId].tag) : e.player;
+    return { seed: e.seed, score: e.score, player, rounds: e.rounds ?? null, replayHash: e.replayHash, verifiedAt: e.verifiedAt, rulesVersion: e.rulesVersion, frozen: !!rec?.frozenAt, medals: rec?.frozenAt ? rec.medals ?? null : null };
   }
   /** Why a replay is not served: 'compacted' when its entry is on a cold day below the kept top (PLAN-v4 0.7.0), else 'unknown'. */
   replayMissingReason(hash: string, seed?: string | null): 'compacted' | 'unknown' {
@@ -682,6 +698,12 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const d = verifier.daily(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT), now, dateQ ?? undefined);
         if (!d) return json(403, { ok: false, error: `the daily for ${dateQ} has not opened yet (dailies open at 00:00 UTC)`, today: utcDate(now) });
         return json(200, { ok: true, ...d, botPar: withPar(d.seed), tieBreak: TIE_BREAK });
+      }
+      if (req.method === 'GET' && url.pathname === '/entry') { // challenge links (PLAN-v4 0.7.1): earnings, never actions
+        const e = verifier.entry((url.searchParams.get('hash') || '').slice(0, 64), (url.searchParams.get('seed') || '').slice(0, 64) || null);
+        if (!e) return json(404, { ok: false, error: 'no verified entry with that hash' });
+        if (!e.rounds) return json(404, { ok: false, reason: 'no-rounds', error: 'that entry has no per-round earnings (verified before 0.7.1 without a stored replay)' });
+        return json(200, { ok: true, ...e });
       }
       if (req.method === 'GET' && url.pathname === '/archive') {
         const now = new Date((opts.now ?? Date.now)()); const from = url.searchParams.get('from'), to = url.searchParams.get('to');

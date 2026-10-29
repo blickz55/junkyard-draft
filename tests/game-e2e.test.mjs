@@ -435,6 +435,33 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.getByTestId('archive-play').first().click();
     await page.waitForFunction((seed) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, old.seed, { timeout: 15000 });
     assert.equal(await page.getByTestId('hud-seed').textContent(), `seed ${old.seed} · archived daily (practice)`);
+    // challenge link (PLAN-v4 0.7.1): the e2e player's daily entry becomes a link; opening it plays that seed with the earnings overlaid, finishing shows the two-row result and the detailed share line; the run verifies independently
+    const entry = await (await fetch(`http://127.0.0.1:${VPORT}/entry?hash=${sub.entry.replayHash}`)).json();
+    assert.equal(entry.ok, true); assert.equal(entry.seed, dinfo.seed); assert.equal(entry.rounds.length, RULES.rounds); assert.equal(entry.rounds.reduce((a, b) => a + b, 0), sub.score); assert.ok(!('actions' in entry), 'earnings only');
+    await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}&challenge=${sub.entry.replayHash}`);
+    await page.waitForFunction((seed) => window.__jdGame && window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, dinfo.seed, { timeout: 15000 });
+    assert.match(await page.getByTestId('challenge-line').textContent(), new RegExp(`^Challenge vs e2e player: \\$${entry.rounds[0]} in round 1 · their total after this round \\$${entry.rounds[0]} · you so far \\$0$`));
+    for (let r = 0; r < 6; r++) {
+      await page.evaluate(() => { const j = window.__jd; const st = j.state(); j.pick(st.offers.length - 1); j.run(); });
+      await page.waitForFunction(() => window.__jd.mode() === 'running', null, { timeout: 10000 });
+      await page.evaluate(() => window.__jd.finishRun());
+      await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 10000 });
+      await page.evaluate(() => window.__jd.next());
+      await wait(150);
+    }
+    await page.waitForFunction(() => window.__jdGame.scene.isActive('Results'), null, { timeout: 10000 });
+    const cr = await page.getByTestId('challenge-result').textContent();
+    assert.match(cr, new RegExp(`^Challenge · you \\$\\d+ · e2e player \\$${sub.score} · (beat e2e player's \\$${sub.score} by \\$\\d+|short of e2e player's \\$${sub.score} by \\$\\d+|tied e2e player's \\$${sub.score})$`), cr);
+    await page.getByTestId('share-detailed').click();
+    await page.waitForFunction(() => /rounds \$/.test(window.__jdGame.scene.getScene('Results').lastShareText), null, { timeout: 5000 });
+    assert.match(await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText), new RegExp(`\\n(beat|short of|tied) e2e player's \\$${sub.score}`), 'the detailed share says how the challenge went');
+    await dismissCopyDialog();
+    assert.equal(await page.getByTestId('challenge-link').isDisabled(), true, 'no verified entry of its own yet: no link');
+    await page.getByTestId('submit').click();
+    await page.waitForFunction(() => /Verified by re-simulation/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
+    assert.equal(await page.getByTestId('challenge-link').isDisabled(), false, 'the recipient\'s own verified run can be challenged in turn');
+    const dboard2 = await (await fetch(`http://127.0.0.1:${VPORT}/daily`)).json();
+    assert.equal(dboard2.entries.length, 2, 'the challenge run landed on the daily board through the normal path (two players, two entries)');
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
     assert.match(await page.getByTestId('player').textContent(), /^Player: e2e player#[2-9A-HJKMNP-TV-Z]{4}$/);

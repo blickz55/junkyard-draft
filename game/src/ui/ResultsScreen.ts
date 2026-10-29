@@ -16,13 +16,14 @@ import { labelFor } from '../identity/identity';
 import { todaySeed, revealGate } from '../render/daily';
 import { medalFor, medalsLine, type Medals } from '../daily/medals';
 import { openPolicy } from './PolicyPanel';
+import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
 
 /** What the scene keeps so tests and later screens can read it. */
 export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string; lastPercentile: number | null; lastN: number; lastMedal: string | null; verifiedHash: string | null; matchesStoredSubmission(): Promise<boolean>; exportClip(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number }>; exportGif(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number; frames: number }> }
 
-export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: boolean; replayLabel?: string; newOverall: boolean; newSeed: boolean }) {
+export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: boolean; replayLabel?: string; newOverall: boolean; newSeed: boolean; challenge?: Challenge }) {
   const bests = loadBests();
-  const go = (seed: string) => { audio.unlock(); scene.scene.start('Game', { seed, fresh: true }); };
+  const go = (seed: string) => { audio.unlock(); scene.scene.start('Game', { seed, fresh: true, challenge: o.challenge && o.challenge.seed === seed ? o.challenge : undefined }); }; // a retry keeps the challenge; another seed drops it (PLAN-v4 0.7.1)
   const verifierUrl = new URLSearchParams(location.search).get('verifier') || import.meta.env.VERIFIER_URL;
 
   const header = h('div', { style: 'text-align:center' },
@@ -31,7 +32,8 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     h('div', { class: `jd-mono ${o.replayed ? 'jd-blue' : 'jd-dim'}`, tid: 'results-subtitle', style: 'font-size:0.8125em; margin-top:0.25em; overflow-wrap:anywhere' }, `seed ${run.seed} · rules v${run.rulesVersion}${o.replayed ? ` · ${o.replayLabel ?? 'replay playback'} (not recorded as a best)` : ''}`),
     o.newOverall ? h('div', { class: 'jd-green', style: 'font-weight:700; letter-spacing:0.1em; margin-top:0.25em' }, 'NEW LOCAL PERSONAL BEST')
       : o.newSeed ? h('div', { class: 'jd-green', style: 'margin-top:0.25em' }, 'New local best for this seed')
-        : h('div', { class: 'jd-dim', style: 'font-size:0.875em; margin-top:0.25em' }, bests.overall ? `Local best: $${bests.overall.score} (${bests.overall.seed})` : ''));
+        : h('div', { class: 'jd-dim', style: 'font-size:0.875em; margin-top:0.25em' }, bests.overall ? `Local best: $${bests.overall.score} (${bests.overall.seed})` : ''),
+    o.challenge && !o.replayed ? h('div', { class: 'jd-mono jd-amber', tid: 'challenge-result', style: 'font-size:0.8125em; margin-top:0.3em' }, `Challenge · you $${run.score} · ${o.challenge.player} $${o.challenge.score} · ${challengeOutcome(run.score, o.challenge).text}`) : null);
 
   // non-ranked badges (PLAN-v1 0.4.6): recognition, never a ladder; Minimalist needs the bot par, so the row is refreshed when the par lands
   let botPar: number | null = null;
@@ -109,7 +111,9 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
         const entry = h('button', { class: 'jd-entry', tid: `board-entry-${i}`, type: 'button', disabled: !e.replayAvailable || !!gate, title: gate ?? (e.replayAvailable ? 'watch this verified replay' : undefined),
           onClick: () => { setStatus(`Fetching and re-verifying ${e.player}'s replay…`); fetchVerifiedReplay(verifierUrl, e.replayHash, run.seed).then((r) => playVerifiedReplay(scene, r)).catch((err: Error) => setStatus(err.message, 'jd-red')); } },
           `${i + 1}. $${e.score}  ${e.player}${e.replayAvailable ? '  ▶' : ''}`);
-        entriesBox.append(h('div', { class: 'jd-board-note' }, entry));
+        const dare = btn('Challenge', `challenge-${i}`, () => copyWith(dare, 'Challenge', challengeLink(e.replayHash), `Challenge link (plays ${run.seed} against ${e.player}'s $${e.score}):`), { small: true, title: `copy a link that plays this seed against ${e.player}'s run (earnings only, no layout)` });
+        dare.style.cssText += 'padding:0 0.4em; font-size:0.65em; line-height:1.3; min-height:0; margin-left:0.4em';
+        entriesBox.append(h('div', { class: 'jd-board-note jd-row', style: 'gap:0; flex-wrap:nowrap' }, entry, dare));
       });
       if (body.entries.some((e) => e.replayAvailable)) entriesBox.append(h('div', { class: 'jd-mono jd-dim jd-board-note', tid: gate ? 'reveal-note' : undefined, style: 'font-size:0.7em; margin-top:0.3em' }, gate ? `Replays: ${gate}.` : 'click an entry to watch its verified replay'));
       entriesBox.append(h('div', { class: 'jd-mono jd-dim jd-board-note', tid: 'tie-rule', style: 'font-size:0.7em; margin-top:0.3em' }, body.tieBreak ?? 'Equal scores: fewer machines in round 6 first, then the earlier verified submission.'));
@@ -169,6 +173,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     }
     recordSubmission(run.seed, { score: body.score ?? run.score, replayHash: body.entry.replayHash, verifiedAt: body.entry.verifiedAt, player: label });
     scene.verifiedHash = body.entry.replayHash; // this run, this replay: exports and standing may now say verified
+    challengeBtn.disabled = false; // the verified entry can now be challenged (PLAN-v4 0.7.1)
     try {
       scene.lastRank = await rankOf(body.entry.replayHash);
       const r = scene.lastRank;
@@ -186,7 +191,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
   // share (PLAN-v1 0.4.3): spoiler-free glyph grid by default, per-round dollars in the detailed variant, link only on request
   const linkToggle = h('input', { type: 'checkbox', tid: 'share-link', ariaLabel: 'append a link to this seed' });
   const permalink = () => (linkToggle.checked ? `${location.origin}${location.pathname}?scene=game&seed=${encodeURIComponent(run.seed)}` : undefined);
-  const buildShare = (variant: 'grid' | 'detailed') => shareText({ seed: run.seed, score: run.score, rulesVersion: run.rulesVersion, rounds: run.rounds.map((r) => r.earned), player: scene.lastPlayer || undefined, rank: scene.lastRank, percentile: scene.lastPercentile, n: scene.lastN, daysPlayed: daysPlayed(), streak: currentStreak(), medal: scene.lastMedal ?? undefined, permalink: permalink(), variant, rerolls: run.rerolls, badges: badgesFor(run, botPar).map((b) => b.title) });
+  const buildShare = (variant: 'grid' | 'detailed') => shareText({ seed: run.seed, score: run.score, rulesVersion: run.rulesVersion, rounds: run.rounds.map((r) => r.earned), player: scene.lastPlayer || undefined, rank: scene.lastRank, percentile: scene.lastPercentile, n: scene.lastN, daysPlayed: daysPlayed(), streak: currentStreak(), medal: scene.lastMedal ?? undefined, challenge: o.challenge && !o.replayed ? { player: o.challenge.player, score: o.challenge.score } : undefined, permalink: permalink(), variant, rerolls: run.rerolls, badges: badgesFor(run, botPar).map((b) => b.title) });
   const shareBtn = btn('Copy share text', 'share', () => {
     const text = buildShare('grid'); scene.lastShareText = text;
     telemetry.track('share_copied', { variant: 'grid' });
@@ -198,6 +203,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     copyWith(detailedBtn, 'Copy detailed', text, 'Detailed share text:');
   }, { small: true, title: 'adds the per-round earnings and the rules version' });
   const shareLinkLabel = h('label', { class: 'jd-dim', style: 'font-size:0.75em; display:inline-flex; align-items:center; gap:0.3em' }, linkToggle, 'add link');
+  const challengeBtn = btn('Challenge link', 'challenge-link', () => { if (scene.verifiedHash) copyWith(challengeBtn, 'Challenge link', challengeLink(scene.verifiedHash), 'Challenge link (anyone who opens it plays this seed against your run):'); }, { small: true, disabled: !scene.verifiedHash, title: 'a link that plays this seed with your verified run\'s earnings overlaid (after a verified submission)' });
   const exportBtn = btn('Copy replay JSON', 'export', () => copyWith(exportBtn, 'Copy replay JSON', encodeReplay(exportReplay(run, import.meta.env.BUILD)), 'Copy replay JSON:'), { small: true });
   const best = run.rounds.reduce((b, r) => (r.earned > b.earned ? r : b), run.rounds[0]);
   const clipBtn = btn(`Export clip (round ${best?.round ?? 1})`, 'export-clip', async () => {
@@ -232,7 +238,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       btn('Retry this seed', 'retry', () => go(run.seed), { variant: 'primary' }),
       btn('New random seed', 'newseed', () => go(randomSeed()), { variant: 'steel' }),
       btn("Today's challenge", 'daily', () => go(todaySeed()), { variant: 'steel' })),
-    h('div', { class: 'jd-row jd-center' }, submitBtn, shareBtn, detailedBtn, shareLinkLabel, clipBtn, gifBtn, exportBtn, downloadBtn, btn('Policy', 'policy', () => openPolicy(scene), { small: true, title: 'fairness and verification policy' }), btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
+    h('div', { class: 'jd-row jd-center' }, submitBtn, shareBtn, detailedBtn, shareLinkLabel, challengeBtn, clipBtn, gifBtn, exportBtn, downloadBtn, btn('Policy', 'policy', () => openPolicy(scene), { small: true, title: 'fairness and verification policy' }), btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
     status);
   ui.mount(scene, screen, (e) => { if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) go(run.seed); });
   void loadBoard();

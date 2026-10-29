@@ -5,6 +5,10 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.7, PLAN-v4)
 
+### 0.7.1 Challenge link: "beat this" — 2026-10-30
+- **For players.** Every verified entry has a "Challenge" button (your own run after a verified submission, and each board entry) that copies a link. Whoever opens it plays the same seed with your per-round earnings shown beside theirs as they go, and the results say "beat Jon#7Q2M's $1200 by $50", "short of … by $50" or "tied …"; the detailed share text carries the same line. A challenge played on today's daily inside its window counts on the daily board like any run; retrying the seed keeps the challenge, switching seeds drops it. The link carries earnings only, never a replay or layout.
+- **For operators.** `GET /entry?hash=` serves one entry's seed, score, label, per-round earnings, frozen flag and medals; earnings are derived at verification and backfilled from stored replays at startup. Protocol stays 2 (additive). No rules change.
+
 ### 0.7.0 Storage: hot/cold split and replay compaction — 2026-10-30
 - **For players.** Nothing changes on open days or on days closed within the last month. Older closed days keep their full final board, medals and bot par in the archive and can still be played as practice; only their replays below the top 10 are no longer watchable, and the fairness policy says so.
 - **For operators.** The live `board.json` now holds open seeds and the last 30 days of closed dailies; older days move at startup and hourly to `cold/YYYY-MM.json` with an index, loaded lazily. Measured: 100 players × 365 days goes from a 30 MB file rewritten in 118 ms to a 4 MB hot file rewritten in 10 ms; the hot file is bounded by players (~550 daily players reach 5 MB), so SQLite (0.7.0b) is scheduled by that measurement. `/replay?hash=&seed=` answers 404 `reason: compacted` for a dropped replay; `/health` counts cold days and replays. No protocol or rules change.

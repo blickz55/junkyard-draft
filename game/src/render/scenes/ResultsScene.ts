@@ -4,6 +4,7 @@ import type { RunState } from '../../sim/run';
 import { P } from '../palette';
 import { audio } from '../audio';
 import { clearSave, recordBest, recordDayPlayed } from '../storage';
+import type { Challenge } from '../challenge';
 import type { Rank } from '../share';
 import { mountResults } from '../../ui/ResultsScreen';
 import { ui } from '../../ui/dom';
@@ -64,7 +65,7 @@ export class ResultsScene extends Phaser.Scene {
     } finally { this.exporting = false; }
   }
 
-  create(data: { run: RunState; replayed?: boolean; replayLabel?: string }) {
+  create(data: { run: RunState; replayed?: boolean; replayLabel?: string; challenge?: Challenge }) {
     const run = data.run;
     this.run = run; this.verifiedHash = null; this.hashPromise = null;
     this.cameras.main.setBackgroundColor(P.bg);
@@ -74,7 +75,7 @@ export class ResultsScene extends Phaser.Scene {
     if (!data.replayed) recordDayPlayed();
     audio.roundEnd(true);
     this.lastRank = null; this.lastPlayer = ''; this.lastShareText = ''; this.lastPercentile = null; this.lastN = 0; this.lastMedal = null;
-    mountResults(this, run, { replayed: !!data.replayed, replayLabel: data.replayLabel, newOverall: rec.newOverall, newSeed: rec.newSeed });
+    mountResults(this, run, { replayed: !!data.replayed, replayLabel: data.replayLabel, newOverall: rec.newOverall, newSeed: rec.newSeed, challenge: data.challenge });
     this.events.once('shutdown', () => ui.unmount());
   }
 }
