@@ -5,12 +5,14 @@ import { cleanPlayer } from './share';
 
 export { dailySeed };
 
+/** Every record written before 0.5.0 was made under rules version 2; the one-time migration files them there, whatever version runs now. */
+const LEGACY_RECORDS_VERSION = 2;
 const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v2', bestsLegacy: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v2', submissionsLegacy: 'jd.submissions.v1', tips: 'jd.tips.v1', telemetry: 'jd.telemetry.v1', days: 'jd.days.v1' };
 /**
  * Score records are partitioned by rules version (PLAN-v2 0.5.0): `jd.bests.v2` / `jd.submissions.v2` hold
  * `{ byVersion: { "2": …, "3": … } }`. Readers take the current RULES_VERSION; the other versions are archived for the
  * title's "Under rules vN" block. The pre-0.5.0 keys (`jd.bests.v1`, `jd.submissions.v1`) migrate once into the slot of the
- * version current at migration time (every pre-0.5.0 record was made under rules 2) and are then removed. Settings,
+ * rules-2 slot (every pre-0.5.0 record was made under rules 2, whatever version runs at migration time) and are then removed. Settings,
  * player name, onboarding, read tips and days played are version-independent.
  */
 
@@ -110,7 +112,7 @@ export function loadBestsAll(): BestsByVersion {
   if (cur) return cur;
   const legacy = readRaw(K.bestsLegacy);
   const out: BestsByVersion = { byVersion: dict() };
-  if (legacy !== undefined) { const b = validateBests(legacy); if (b.overall || b.runs || Object.keys(b.bySeed).length) out.byVersion[String(RULES_VERSION)] = b; }
+  if (legacy !== undefined) { const b = validateBests(legacy); if (b.overall || b.runs || Object.keys(b.bySeed).length) out.byVersion[String(LEGACY_RECORDS_VERSION)] = b; }
   write(K.bests, out);
   try { localStorage.removeItem(K.bestsLegacy); } catch { /* ignore */ }
   return out;
@@ -144,7 +146,7 @@ export function loadSubmissionsAll(): SubmissionsByVersion {
   if (cur) return cur;
   const legacy = readRaw(K.submissionsLegacy);
   const out: SubmissionsByVersion = { byVersion: dict() };
-  if (legacy !== undefined) { const s = validateSubmissions(legacy); if (Object.keys(s).length) out.byVersion[String(RULES_VERSION)] = s; }
+  if (legacy !== undefined) { const s = validateSubmissions(legacy); if (Object.keys(s).length) out.byVersion[String(LEGACY_RECORDS_VERSION)] = s; }
   write(K.submissions, out);
   try { localStorage.removeItem(K.submissionsLegacy); } catch { /* ignore */ }
   return out;

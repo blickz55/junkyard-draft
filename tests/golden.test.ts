@@ -10,6 +10,7 @@ import { RULES_VERSION } from '../game/src/sim/types';
 import { isTutorialSeed } from '../game/src/sim/run';
 
 const DIR = path.resolve(process.cwd(), 'tests', 'golden');
+const ARCHIVE = path.join(DIR, 'archive');
 const index = JSON.parse(fs.readFileSync(path.join(DIR, 'INDEX.json'), 'utf8')) as { rulesVersion: number; entries: { file: string; seed: string; score: number; actions: number }[] };
 
 test('golden corpus: recorded under the current rules version and complete', () => {
@@ -20,6 +21,21 @@ test('golden corpus: recorded under the current rules version and complete', () 
   assert.ok(kinds.ordinary >= 4 && kinds.tutorial >= 1 && kinds.daily >= 1, `ordinary, scenario and daily seeds are all covered: ${JSON.stringify(kinds)}`);
   assert.ok(index.entries.some((e) => e.seed === 'tutorialish'), 'a tutorial-looking name that is not a scenario');
 });
+
+// archived corpora (older rules versions) must be refused with the version named, never silently re-scored (PLAN-v2 §1)
+if (fs.existsSync(ARCHIVE)) for (const vdir of fs.readdirSync(ARCHIVE)) {
+  const old = JSON.parse(fs.readFileSync(path.join(ARCHIVE, vdir, 'INDEX.json'), 'utf8')) as { rulesVersion: number; entries: { file: string; score: number }[] };
+  test(`archived corpus ${vdir}: every replay is refused under rules v${RULES_VERSION} with its version named`, () => {
+    assert.notEqual(old.rulesVersion, RULES_VERSION);
+    for (const e of old.entries) {
+      const r = decodeReplay(fs.readFileSync(path.join(ARCHIVE, vdir, e.file), 'utf8'));
+      assert.equal(r.rulesVersion, old.rulesVersion);
+      const v = verifyReplay(r);
+      assert.equal(v.ok, false, `${vdir}/${e.file} must not verify under v${RULES_VERSION}`);
+      assert.match(v.error ?? '', new RegExp(`version ${old.rulesVersion}`), `${vdir}/${e.file}: the refusal names the replay's version (${v.error})`);
+    }
+  });
+}
 
 for (const e of index.entries) {
   test(`golden replay ${e.file} re-simulates to $${e.score} with ${e.actions} actions`, () => {

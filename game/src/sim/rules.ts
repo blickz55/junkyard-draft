@@ -3,7 +3,7 @@ import type { Dir, MachineKind, Material } from './types';
 /** Machines that hold an item for a fixed number of ticks (the only keys RULES.process may have). */
 export type ProcessorKind = 'crusher' | 'furnace' | 'press';
 
-/** Tuning constants for rules version 2. Changing any value requires bumping RULES_VERSION. */
+/** Tuning constants for rules version 3 (rules-v3 branch). Changing any value requires bumping RULES_VERSION. */
 export const RULES = {
   gridWidth: 8,
   gridHeight: 6,
@@ -19,7 +19,12 @@ export const RULES = {
   /** money for selling an unwanted drafted part from the bin (never a placed machine) */
   sellValue: 10,
   /** Draft offer weights (relative). */
-  draftWeights: { conveyor: 30, crusher: 18, furnace: 15, splitter: 15, hopper: 10, press: 10, dock: 8 } as Record<MachineKind, number>,
+  draftWeights: { conveyor: 30, crusher: 18, furnace: 15, splitter: 15, hopper: 10, press: 10, dock: 8, sieve: 0 } as Record<MachineKind, number>,
+  /**
+   * Experimental machines (PLAN-v2 0.5.2): present in the simulation so fixtures and tests can measure them, but with draft
+   * weight 0 and no card until a written go/no-go in docs/DESIGN.md admits them (0.5.3 flips the weight and the tier table).
+   */
+  experimental: { sieve: false }, // 0.5.2 fixture: no convincing benefit on the same inventory (docs/DESIGN.md); kept in the sim for the record, never offered
   /** Starter layout machine kinds. */
   starter: [
     { kind: 'hopper', x: 1, y: 2, dir: 0 },
@@ -38,6 +43,7 @@ export const MACHINE_INFO: Record<MachineKind, { name: string; blurb: string }> 
   furnace: { name: 'Furnace', blurb: 'Shards → Ingot ($12). Raw scrap melts to Slag ($1). Takes 3 ticks.' },
   press: { name: 'Plate Press', blurb: 'Two Shards → one Plate ($8). Takes 2 ticks and halves the traffic behind it. Other materials pass through.' },
   dock: { name: 'Shipping Dock', blurb: 'Accepts items from any side and sells them for their value.' },
+  sieve: { name: 'Sieve', blurb: 'Takes from behind. Raw scrap passes forward; shards, plates, ingots and slag turn right. A blocked exit waits.' },
 };
 
 /** Processing machines hold an item for RULES.process[kind] ticks. */

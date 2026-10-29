@@ -3,6 +3,15 @@
 All notable changes to Junkyard Draft. Dates are UTC. Rules changes bump `RULES_VERSION`, which invalidates
 older replays and saves on purpose.
 
+## Unreleased — rules-v3 branch (PLAN-v2 0.5.2 onward; merges as 0.5.0 with RULES_VERSION 3)
+
+### Rules identity (PLAN-v2 §1)
+- `RULES_VERSION` is 3 on this branch from its first commit. Version-2 replays and saves are refused with the version named; the v2 golden corpus is archived under `tests/golden/archive/v2/` and a test proves every archived replay is refused, while the v3 corpus is regenerated (same actions, same scores: no existing machine changed behaviour).
+- Local records written before 0.5.0 always migrate into the rules-2 slot, whatever version runs at migration time (the first cut filed them under the current version, which would have mislabelled every upgrading device).
+
+### Sieve measured and deferred (PLAN-v2 0.5.2)
+- The Sieve exists in the simulation as an experimental kind (input from behind, raw scrap forward, processed materials right, a blocked exit waits and counts as a jam) with draft weight 0 and no card. On the same-inventory fixture the separated routes beat the Sieve line by 17 % ($338 vs $289), and still beat it if a dock paid double for ingots ($638 vs $577): the merge it sorts costs more throughput than the sorting saves, and eleven machines on 48 cells never force a merge. Decision and numbers in `docs/DESIGN.md`; the v0.5 decision machine becomes the Tuner (PLAN-v2 0.5.3 re-cut).
+
 ## Unreleased — 2026-10-29 (v0.5 foundations on main, PLAN-v2)
 
 ### Measurement tools generalised (PLAN-v2 0.5.1)

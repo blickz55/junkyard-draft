@@ -1,0 +1,62 @@
+{
+ "rulesVersion": 2,
+ "generatedBy": "tools/make-golden.ts",
+ "entries": [
+  {
+   "file": "golden-ordinary-1.json",
+   "seed": "golden-ordinary-1",
+   "score": 1814,
+   "actions": 106,
+   "note": "autoplayer line (bounded search, fixed rng stream)"
+  },
+  {
+   "file": "golden-ordinary-2.json",
+   "seed": "golden-ordinary-2",
+   "score": 1466,
+   "actions": 105,
+   "note": "autoplayer line (bounded search, fixed rng stream)"
+  },
+  {
+   "file": "golden-sell.json",
+   "seed": "golden-sell",
+   "score": 734,
+   "actions": 25,
+   "note": "crusher placed in round 1, every later pick sold ($10 each)"
+  },
+  {
+   "file": "golden-press.json",
+   "seed": "golden-press-0",
+   "score": 834,
+   "actions": 22,
+   "note": "crusher at (2,2) then a press at (3,2): shards become plates from round 2"
+  },
+  {
+   "file": "golden-churn.json",
+   "seed": "golden-churn",
+   "score": 684,
+   "actions": 30,
+   "note": "rotate/unplace/re-place churn in round 1 (what undo/redo records)"
+  },
+  {
+   "file": "tutorial-1.json",
+   "seed": "tutorial-1",
+   "score": 684,
+   "actions": 20,
+   "note": "the tutorial scenario (constrained drafts, spare conveyors); scenario semantics are versioned with RULES_VERSION from 0.4.1 on"
+  },
+  {
+   "file": "tutorialish.json",
+   "seed": "tutorialish",
+   "score": 228,
+   "actions": 18,
+   "note": "a tutorial-looking name without the dash: an ordinary seed, never a scenario"
+  },
+  {
+   "file": "daily-2026-10-29.json",
+   "seed": "daily-2026-10-29",
+   "score": 684,
+   "actions": 20,
+   "note": "a daily seed label"
+  }
+ ]
+}

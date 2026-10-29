@@ -1,9 +1,9 @@
 // Deterministic simulation types. No DOM, no Phaser.
 
 /** v2 (2026-10-25): Plate Press machine + plate material; conveyor draft weight 34 → 30. */
-export const RULES_VERSION = 2;
+export const RULES_VERSION = 3; // rules-v3 branch (PLAN-v2): bumped on the first semantic change; v2 replays and saves are refused from here on
 
-export type MachineKind = 'hopper' | 'conveyor' | 'splitter' | 'crusher' | 'furnace' | 'press' | 'dock';
+export type MachineKind = 'hopper' | 'conveyor' | 'splitter' | 'crusher' | 'furnace' | 'press' | 'dock' | 'sieve';
 export type Material = 'scrap' | 'shards' | 'plate' | 'ingot' | 'slag';
 /** Facing: 0=east, 1=south, 2=west, 3=north (clockwise). */
 export type Dir = 0 | 1 | 2 | 3;

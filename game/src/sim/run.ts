@@ -51,6 +51,7 @@ export function draftOffers(seed: string, round: number): MachineKind[] {
   const offers: MachineKind[] = [];
   if (round === 1) offers.push('crusher'); // first useful upgrade is always reachable
   const weights = { ...RULES.draftWeights } as Record<MachineKind, number>;
+  for (const k of Object.keys(weights) as MachineKind[]) if (weights[k] <= 0) delete weights[k]; // experimental kinds are never offered
   let guard = 0;
   while (offers.length < 3 && guard++ < 50) {
     const k = rng.weighted(weights);

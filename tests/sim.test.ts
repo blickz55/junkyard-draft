@@ -175,7 +175,7 @@ test('press: two shards become one $8 plate, scrap passes through, absorbed shar
 
 test('rules version 2: new runs carry it, replays from other versions are rejected, press picks replay-verify', () => {
   const s = newRun('press-seed');
-  assert.equal(s.rulesVersion, 2);
+  assert.equal(s.rulesVersion, RULES_VERSION); // the current version, whatever it is (rules-v3 branch: 3)
   // play a run that places a press whenever one is offered
   for (let r = 1; r <= RULES.rounds; r++) {
     const pi = s.offers.indexOf('press'); apply(s, { t: 'pick', i: pi >= 0 ? pi : 0 });

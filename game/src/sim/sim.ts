@@ -63,11 +63,13 @@ function accepts(s: SimState, cell: number, travel: Dir): boolean {
     case 'hopper': return false;
     case 'dock': return true;
     case 'conveyor': return travel !== opposite(m.dir); // not head-on into its output
-    case 'splitter': case 'crusher': case 'furnace': case 'press': return travel === m.dir; // only from behind
+    case 'splitter': case 'crusher': case 'furnace': case 'press': case 'sieve': return travel === m.dir; // only from behind
   }
 }
 
-function outputDirs(s: SimState, m: Machine, cell: number): Dir[] {
+/** Where an item may leave `m`. A sieve (rules v3) routes by material: raw scrap forward, anything processed to the right; a blocked chosen exit waits (jam-on-full, no overflow). */
+function outputDirs(s: SimState, m: Machine, cell: number, item?: Item): Dir[] {
+  if (m.kind === 'sieve') return [item && item.mat !== 'scrap' ? rightOf(m.dir) : m.dir];
   if (m.kind === 'splitter') {
     const t = s.splitterToggle[cell] ?? 0;
     const first = t === 0 ? leftOf(m.dir) : rightOf(m.dir);
@@ -105,7 +107,7 @@ function tryAdvance(s: SimState, item: Item): boolean {
   const cell = item.cell;
   const m = s.grid[cell];
   if (!m || m.kind === 'dock') return false;
-  for (const dir of outputDirs(s, m, cell)) {
+  for (const dir of outputDirs(s, m, cell, item)) {
     const target = neighbor(s, cell, dir);
     if (target < 0 || !accepts(s, target, dir)) continue;
     const tm = s.grid[target]!;

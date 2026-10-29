@@ -92,3 +92,19 @@ Identical seeds give identical offers; nothing in progression changes scoring. L
 ## Scenario namespaces and rules identity (review F13, 2026-10-29)
 
 Reserved seed prefixes change what a seed does: `tutorial-*` constrains the first three drafts and adds spare conveyors (PLAN-v1 0.3.4). That is rules behaviour even though no tuning value changed, and it altered the outcome of pre-0.3 replays on tutorial-prefixed seeds without a `RULES_VERSION` bump — the one exception to the "every v0.2 replay verifies" claim. Policy from here: any change to a reserved namespace's behaviour, or a new reserved prefix, bumps `RULES_VERSION`; `daily-*` is a label only (same rules as any seed). The golden corpus under `tests/golden/` (ordinary seeds, a sold part, a press line, churn, the tutorial, a tutorial-looking ordinary name, a daily label) is re-simulated by `npm test` and is regenerated (`tools/make-golden.ts`) only together with a deliberate version bump.
+
+## Decision: the Sieve is deferred (PLAN-v2 0.5.2, rules-v3 branch, 2026-10-29)
+
+**Question.** Does a 1-cell Sieve (input from behind; raw scrap forward; shards, plate, ingot and slag to the right; a blocked chosen exit waits) earn its slot on a same-inventory mixed-material puzzle?
+
+**Fixture** (`tests/sieve-fixture.test.ts`, `tools/sieve-fixture.ts`). Eleven machines each: the five starters plus six picks (hopper, crusher, furnace, dock, conveyor, and either a Sieve or a second conveyor). The Sieve line merges a raw belt with a crusher's shards on one conveyor, sorts them at the Sieve, sends scrap to one dock and shards right into a furnace whose ingots ship at a second dock. The separated line keeps the raw belt and the crusher → furnace → dock route apart.
+
+| | Sieve line | separated routes |
+| --- | --- | --- |
+| money, standard pricing | **$289** | **$338** (+17 %) |
+| money if the second dock paid 2× for ingots and $0 for the rest | $577 | $638 |
+| furnace protected from raw scrap | yes (0 slag) | yes (never meets any) |
+
+The Sieve does what it promises (ingots, no slag), but the merge it exists to sort costs more than it saves: the shared conveyor accepts one item per tick, so the crusher waits behind the hopper's scrap. On 8 × 6 with at most eleven machines the two routes always fit side by side, so the sorting detour is never forced. Even a dock that rewards sorting (the export-dock hypothesis) does not rescue it, because separation delivers the same sorted stream for free. The searched layouts (neutral policy, 300 tries × 4 streams from an empty grid) agree in direction and are weaker than the hand lines, which is a note against the from-empty search, not for the Sieve.
+
+**Decision.** No convincing benefit: the Sieve stays in the simulation as an experimental kind (`RULES.experimental.sieve = false`, draft weight 0, no card) and does not enter the pool in v0.5. Two of PLAN-v2's named replacements were weighed: a Buffer cell adds nothing here because no processor is starved by burstiness beyond its own hold time, and a dock bonus is just a better dock (see the table). The v0.5 decision machine becomes a **Tuner**: a 1-cell machine with no input or output that shortens the hold of every orthogonally adjacent processor by one tick (minimum one). It spends a cell and a draft slot for throughput on the line's bottleneck (a furnace at 3 → 2 ticks is +50 % ingots), which is the Kaizen trade-off the plan wants, it composes with every existing machine, and it is measurable with `tools/balance.ts --machine tuner --gate`. PLAN-v2 0.5.3 is re-cut accordingly; the Sieve can return in a later version if a mode with scarcer cells or more machines ever makes merging necessary.

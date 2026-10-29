@@ -11,6 +11,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync('/opt/pw-browsers')) process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/pw-browsers';
 const { chromium } = await import('playwright');
 const { draftOffers, TUTORIAL_SEED } = await import('../game/src/sim/run.ts');
+const { RULES_VERSION } = await import('../game/src/sim/types.ts');
 const PORT = 5198;
 const URL = `http://127.0.0.1:${PORT}`;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -224,16 +225,16 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
       const migrated = await page.evaluate(() => ({ legacy: localStorage.getItem('jd.bests.v1'), v2: JSON.parse(localStorage.getItem('jd.bests.v2') || 'null'), text: document.querySelector('#ui')?.textContent || '' }));
       assert.equal(migrated.legacy, null, 'legacy key removed');
-      assert.equal(migrated.v2?.byVersion?.['2']?.overall?.score, 912, 'migrated into the rules-2 slot');
-      assert.match(migrated.text, /Best score: \$912/);
-      assert.equal(await page.locator('[data-testid^=archived-bests-]').count(), 0, 'nothing archived yet');
+      assert.equal(migrated.v2?.byVersion?.['2']?.overall?.score, 912, 'migrated into the rules-2 slot whatever version runs');
+      if (RULES_VERSION === 2) { assert.match(migrated.text, /Best score: \$912/); assert.equal(await page.locator('[data-testid^=archived-bests-]').count(), 0, 'nothing archived while rules 2 are current'); }
+      else { assert.match(migrated.text, /No finished runs yet/); assert.match(migrated.text, /Under rules v2/); assert.match(migrated.text, /\$912/, 'the migrated v2 best is archived, not the headline, under newer rules'); }
       await context.close();
       const c2 = await browser.newContext({ viewport: { width: 1120, height: 700 } });
       const p2 = await c2.newPage();
-      await p2.addInitScript(() => { try {
-        localStorage.setItem('jd.bests.v2', JSON.stringify({ byVersion: { '2': { overall: { score: 1500, seed: 'now', at: 't' }, bySeed: {}, runs: 2 }, '1': { overall: { score: 300, seed: 'then', at: 't' }, bySeed: {}, runs: 4 } } }));
+      await p2.addInitScript((v) => { try {
+        localStorage.setItem('jd.bests.v2', JSON.stringify({ byVersion: { [v]: { overall: { score: 1500, seed: 'now', at: 't' }, bySeed: {}, runs: 2 }, '1': { overall: { score: 300, seed: 'then', at: 't' }, bySeed: {}, runs: 4 } } }));
         localStorage.setItem('jd.settings.v1', JSON.stringify({ volume: 0.7, muted: false, reducedMotion: false, textScale: 1.3, renderQuality: 'auto', telemetry: false }));
-      } catch {} });
+      } catch {} }, String(RULES_VERSION));
       await p2.goto(`${URL}/?dev=1`);
       await p2.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
       const arch = await p2.evaluate(() => { const d = document.querySelector('[data-testid=archived-bests-1]'); const sc = document.querySelector('#ui .jd-screen'); return { present: !!d, open: d?.open, text: d?.textContent, scrollH: sc?.scrollHeight, clientH: sc?.clientHeight, headline: document.querySelector('#ui')?.textContent?.includes('Best score: $1500') }; });
