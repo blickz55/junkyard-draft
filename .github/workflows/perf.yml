@@ -1,0 +1,40 @@
+# Performance gate (DOSSIER-v1 0.3.8): runs tools/perf.ts on device preset B (4 GB Chromebook: 1366x768,
+# CPU x6) in headless Chromium against the dev server and compares it with the CI baseline committed under
+# the newest docs/baselines/<version>/perf-ci.json using tools/perf-gate.ts. GitHub runners render with software GL,
+# so CI numbers are only comparable with CI numbers: the gate fails on a >25 % script-time regression or on
+# more dropped frames than the CI baseline plus 5 % of frames. When no CI baseline exists yet, the report is
+# uploaded as an artifact and the job passes; commit that artifact as the baseline to arm the gate.
+name: perf
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  perf-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Start the dev server
+        run: |
+          node scripts/dev.mjs > dev-server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:5173/main.js > /dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:5173/main.js > /dev/null || { cat dev-server.log; exit 1; }
+      - name: Measure device preset B
+        run: node --import tsx tools/perf.ts --device B --skip-electron --json perf-ci.json > /dev/null
+      - name: Show the report
+        run: node -e "const r=require('./perf-ci.json'); for (const s of r.samples) console.log(s.label, JSON.stringify({p50:s.p50,p95:s.p95,dropped:s.dropped,frames:s.frames,script:s.scriptMsPerFrame,cpu:s.cpuMsPerFrame,draws:s.drawsPerFrame,binds:s.bindsPerFrame,texts:s.textObjectsCreated,objects:s.maxObjects,heap:s.heapMB}))"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: perf-ci
+          path: perf-ci.json
+      - name: Gate against the CI baseline
+        run: |
+          BASE=$(ls -d docs/baselines/*/ | sort -V | tail -1)perf-ci.json
+          if [ -f "$BASE" ]; then node --import tsx tools/perf-gate.ts perf-ci.json "$BASE"; else echo "no CI baseline at $BASE yet; download the perf-ci artifact and commit it there to arm the gate"; fi

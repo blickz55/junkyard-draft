@@ -1,6 +1,6 @@
 # The improved Junkyard Draft — design and engineering dossier
 
-*Written 2026-10-29 against commit `0df337b` (main), in answer to `docs/ASTRA-BRIEF.md`. Measurements in this document were taken on the author's Windows 11 PC with `tools/perf.ts`, the new `tools/render-probe.ts`, and the esbuild output in `dist/`; anything not measured is labelled inference. It extends `docs/PLAN-v1.md` (the plan of record) and disagrees with it in four places, listed in §7. The nightly routine has one open pull request, [blickz55/junkyard-draft#1](https://github.com/blickz55/junkyard-draft/pull/1) (PLAN-v1 0.3.2, placement reasons), which the delivery plan assumes is reviewed and merged first.*
+*Written 2026-10-29 against commit `0df337b` (main), in answer to `docs/ASTRA-BRIEF.md`. Measurements in this document were taken on the author's Windows 11 PC with `tools/perf.ts`, the render probe (now part of , 0.3.8)`tools/render-probe.ts`, and the esbuild output in `dist/`; anything not measured is labelled inference. It extends `docs/PLAN-v1.md` (the plan of record) and disagrees with it in four places, listed in §7. The nightly routine has one open pull request, [blickz55/junkyard-draft#1](https://github.com/blickz55/junkyard-draft/pull/1) (PLAN-v1 0.3.2, placement reasons), which the delivery plan assumes is reviewed and merged first.*
 
 ## 1. The vision
 
