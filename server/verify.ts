@@ -188,6 +188,7 @@ export class Verifier {
       const keep = new Set<string>();
       const touched = new Set(data.entries.map((e) => e.seed));
       for (const s of touched) for (const e of this.rank(s, data).slice(0, this.replaysPerSeed)) keep.add(e.replayHash);
+      for (const e of data.entries) if (e.rulesVersion !== RULES_VERSION) keep.add(e.replayHash); // other versions never rank here, but a rollback needs their replays intact (PLAN-v2 §1)
       for (const h of Object.keys(data.replays)) if (!keep.has(h)) delete data.replays[h];
     }
   }

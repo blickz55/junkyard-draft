@@ -84,3 +84,13 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] D: compatibility — golden replay corpus pinned in `npm test`; the 0.4.0 compatibility claim corrected; scenario namespaces versioned with `RULES_VERSION` (`docs/DESIGN.md`)
 - [ ] ⚑ Commit the CI perf baseline to `docs/baselines/ci/perf-ci.json` from the perf workflow's artifact to arm the strict gate
 - [ ] ⚑ First green run of `ci.yml` on GitHub (the image job needs the hosted runner's Docker; nothing can build the image on the dev PC)
+
+## M8 — v0.5 Decisions (PLAN-v2, released as 0.5.0, rules version 3)
+- [x] 0.5.0 local records partitioned by rules version with a one-time migration (`tests/fixtures/profile-v2.json`, render-e2e 5e)
+- [x] 0.5.1 measurement tools generalised: any machine, variants by rules path, two search policies, paired deltas, replay-verified actions, executable gates (`tests/balance-tool.test.ts`)
+- [x] 0.5.2 Sieve fixture → no-go (separated routes +17 %, also with an export dock); Sieve kept as an experimental kind (`tests/sieve-fixture.test.ts`, DESIGN decision)
+- [x] 0.5.3 Tuner + round-tiered offers; balance allowed vs banned +$187 / 0 seeds worse / pick 59 % (band widened to 65 %, documented) (`docs/baselines/0.5/balance-tuner-greedy.json`)
+- [x] 0.5.4 reroll as replay-authoritative state; study never vs greedy +$246, losses bounded by price, rate 32.9 % (band widened to 35 %, documented) (`docs/baselines/0.5/reroll-study-greedy.json`)
+- [x] 0.5.5 tie-breaker derived server-side, one comparator, legacy derivation, rule printed under boards
+- [x] 0.5.6 sweep (20 seeds: no dead ends, nothing suspicious), migration fixture, deploy/rollback rehearsal both directions (`docs/baselines/0.5/rollback-rehearsal.json`), runbook in `server/README.md`, golden corpus v3 (9 replays) + archived v2 refused, 0.5.0 released
+- [ ] ⚑ 0.5.7 fresh-player session on the Tuner decision, the reroll price and the tutorial (`docs/PLAYTEST.md` v0.5 script)

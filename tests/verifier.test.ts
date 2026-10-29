@@ -382,6 +382,7 @@ test('old_rules_board_is_not_current_verified_board: entries persisted under ano
   const board = v.board('mixed-seed');
   assert.equal(board.length, 1); assert.equal(board[0].player, 'new'); assert.equal(board[0].rulesVersion, RULES_VERSION);
   assert.equal(new Verifier(file).sizeAllVersions, 2, 'old rows survive on disk for a future migration');
+  assert.ok(JSON.parse(fs.readFileSync(file, 'utf8')).replays[legacyHash], 'and so does the old replay: pruning never drops the replays of another version, so a rollback keeps them (PLAN-v2 0.5.6)');
 });
 
 test('bounds: query limits are finite integers clamped to [1, max]; limiter cardinality is capped; a damaged board file loads empty', async () => {

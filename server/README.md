@@ -48,6 +48,14 @@ The image was written without Docker available on the dev machine and has **not 
   cardinality ≤ 10,000 keys, replays kept for each seed's top 100, entries ≤ 1,000 per seed, ≤ 5,000 seeds (least recently active dropped).
 - A damaged `board.json` loads as an empty board with bad rows dropped, rather than preventing startup.
 
+## Rules-version deployment and rollback (runbook, rehearsed by `tools/rehearse-rollback.ts`)
+A rules bump (`RULES_VERSION`) changes what the verifier accepts; entries and replays of every version stay in the board file and only the current version ranks.
+1. Merge the rules branch to `main`, tag the release, build the bundle (`npm run verifier:build`) and the web/desktop builds from the same commit.
+2. Deploy the new bundle over the existing data directory. Expect: `/health` reports the new `rulesVersion`, `entries` 0 for seeds with no new-version runs and `entriesAllVersions` unchanged; old-version replays are refused with `rejected: rules version N not accepted (server has M)`; old entries keep their replays (pruning never drops another version's replays).
+3. Publish the web build and the desktop installer the same hour; the title's archived-bests block tells upgrading players that old replays and saves no longer verify.
+4. Rollback: redeploy the previous bundle over the same data. Expect: the old version ranks again with replays intact; new-version entries stay stored and refused. Nothing is deleted in either direction.
+`node --import tsx tools/rehearse-rollback.ts` performs steps 2 and 4 against bundles built from `main` (previous version) and the working tree, on a temporary data directory, and writes `docs/baselines/0.5/rollback-rehearsal.json`; run it before every rules release.
+
 ## Operational notes
 - The default data directory is `<cwd>/server/data` for both the source run and the bundled run; set `DATA_DIR` (or `--data-dir`) in production.
 - Rate limiting is a fixed window per process; behind several replicas use the proxy's limiter instead.
