@@ -23,14 +23,14 @@ const { RULES_VERSION } = await import('../game/src/sim/types');
 
 test('bests: null bySeed, wrong primitive types and extra junk fall back field by field (this shape crashed the title screen)', () => {
   setLegacyBests(JSON.stringify({ bySeed: null }));
-  assert.deepEqual(plain(storage.loadBests()), { overall: null, bySeed: {}, runs: 0 });
+  assert.deepEqual(plain(storage.loadBests(2)), { overall: null, bySeed: {}, runs: 0 });
   setLegacyBests(JSON.stringify({ overall: { score: 'high', seed: 1 }, bySeed: { a: { score: 10, at: 't' }, b: 'nope', c: { score: 'x' } }, runs: -3 }));
-  const b = storage.loadBests();
+  const b = storage.loadBests(2); // legacy junk lands in the rules-2 slot
   assert.equal(b.overall, null); assert.deepEqual(Object.keys(b.bySeed), ['a']); assert.equal(b.runs, 0);
   setLegacyBests('[1,2,3]');
-  assert.deepEqual(plain(storage.loadBests()), { overall: null, bySeed: {}, runs: 0 });
+  assert.deepEqual(plain(storage.loadBests(2)), { overall: null, bySeed: {}, runs: 0 });
   setLegacyBests('{not json');
-  assert.deepEqual(plain(storage.loadBests()), { overall: null, bySeed: {}, runs: 0 });
+  assert.deepEqual(plain(storage.loadBests(2)), { overall: null, bySeed: {}, runs: 0 });
   // recording on top of a damaged file produces a clean file
   const rec = storage.recordBest('seed-z', 500);
   assert.deepEqual(rec, { newOverall: true, newSeed: true });
@@ -65,9 +65,9 @@ test('save: wrong shapes are not resumable and are reported as unusable; other r
 
 test('submissions and player name: junk entries are dropped, names are cleaned', () => {
   setLegacySubs(JSON.stringify({ good: { score: 1, replayHash: 'h', verifiedAt: 't', player: 'p' }, bad: { score: 'x' }, worse: 5 }));
-  assert.deepEqual(Object.keys(storage.loadSubmissions()), ['good']);
+  assert.deepEqual(Object.keys(storage.loadSubmissions(2)), ['good']);
   setLegacySubs('"string"');
-  assert.deepEqual({ ...storage.loadSubmissions() }, {});
+  assert.deepEqual({ ...storage.loadSubmissions(2) }, {});
   storage.savePlayer('  Jon   Flynn  ');
   assert.equal(storage.loadPlayer(), 'Jon Flynn');
 });
@@ -96,12 +96,12 @@ test('records are partitioned by rules version (PLAN-v2 0.5.0): a real v2 profil
   store.clear();
   for (const [k, v] of Object.entries(fixture)) if (k.startsWith('jd.')) store.set(k, v);
   // migration on first read
-  const b = storage.loadBests();
+  const b = storage.loadBests(2); // legacy records always land in the rules-2 slot (the current version may already be higher)
   assert.equal(b.overall?.score, 1814); assert.equal(b.runs, 7); assert.equal(b.bySeed['daily-2026-10-28']?.score, 912);
   assert.equal(store.has('jd.bests.v1'), false, 'the legacy key is removed after migration');
   const all = JSON.parse(store.get('jd.bests.v2')!);
-  assert.deepEqual(Object.keys(all.byVersion), [String(RULES_VERSION)], 'pre-0.5.0 records land in the current version\'s slot');
-  const subs = storage.loadSubmissions();
+  assert.deepEqual(Object.keys(all.byVersion), ['2'], 'pre-0.5.0 records land in the rules-2 slot');
+  const subs = storage.loadSubmissions(2);
   assert.equal(subs['daily-2026-10-28']?.replayHash.length, 64); assert.equal(store.has('jd.submissions.v1'), false);
   // everything version-independent is untouched
   assert.equal(storage.loadPlayer(), 'Jon'); assert.deepEqual(storage.loadReadTips(), ['press', 'crusher']); assert.equal(storage.loadSettings().textScale, 1.15); assert.equal(storage.daysPlayed(), 3);
@@ -110,13 +110,13 @@ test('records are partitioned by rules version (PLAN-v2 0.5.0): a real v2 profil
   storage.loadBests(); storage.loadSubmissions();
   assert.equal([...store.entries()].sort().join('|'), snapshot);
   // writing under another version leaves this one alone, and shows up as archived from that version's point of view
-  storage.recordBest('future-seed', 2500, RULES_VERSION + 1);
-  storage.recordSubmission('future-seed', { score: 2500, replayHash: 'f'.repeat(64), verifiedAt: '', player: 'Jon' }, RULES_VERSION + 1);
-  assert.equal(storage.loadBests().overall?.score, 1814, 'current version unchanged');
-  assert.equal(storage.loadBests(RULES_VERSION + 1).overall?.score, 2500);
-  assert.equal(storage.loadSubmissions()['future-seed'], undefined); assert.equal(storage.loadSubmissions(RULES_VERSION + 1)['future-seed']?.score, 2500);
-  const archived = storage.loadArchivedBests();
-  assert.deepEqual(archived.map((a) => [a.version, a.bests.overall?.score, a.bests.runs]), [[RULES_VERSION + 1, 2500, 1]]);
+  storage.recordBest('future-seed', 2500, 99);
+  storage.recordSubmission('future-seed', { score: 2500, replayHash: 'f'.repeat(64), verifiedAt: '', player: 'Jon' }, 99);
+  assert.equal(storage.loadBests(2).overall?.score, 1814, 'the rules-2 slot is unchanged');
+  assert.equal(storage.loadBests(99).overall?.score, 2500);
+  assert.equal(storage.loadSubmissions(2)['future-seed'], undefined); assert.equal(storage.loadSubmissions(99)['future-seed']?.score, 2500);
+  const archived = storage.loadArchivedBests().filter((a) => a.version !== RULES_VERSION);
+  assert.deepEqual(archived.map((a) => [a.version, a.bests.overall?.score, a.bests.runs]).sort((x, y) => Number(y[0]) - Number(x[0])), [[99, 2500, 1], [2, 1814, 7]].filter((r) => r[0] !== RULES_VERSION));
   // a device with no legacy data migrates to an empty partition without inventing records
   store.clear();
   assert.deepEqual(plain(storage.loadBests()), { overall: null, bySeed: {}, runs: 0 });
