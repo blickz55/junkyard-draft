@@ -36,7 +36,7 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = 
   if (attrs.disabled != null && (el instanceof HTMLButtonElement || el instanceof HTMLInputElement)) el.disabled = attrs.disabled;
   if (attrs.src != null && el instanceof HTMLImageElement) el.src = attrs.src;
   if (attrs.alt != null && el instanceof HTMLImageElement) el.alt = attrs.alt;
-  if (attrs.onClick) el.addEventListener('click', (e) => { audio.unlock(); audio.click(); attrs.onClick!(e); });
+  if (attrs.onClick) el.addEventListener('click', (e) => { audio.unlock(); audio.click(); attrs.onClick!(e as MouseEvent); });
   if (attrs.onInput) el.addEventListener('input', attrs.onInput);
   if (attrs.text != null) el.textContent = attrs.text;
   for (const c of children) { if (c == null || c === false) continue; el.append(c instanceof Node ? c : String(c)); }

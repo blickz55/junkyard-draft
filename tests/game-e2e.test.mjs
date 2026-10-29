@@ -106,7 +106,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.keyboard.press('r'); await wait(150);
     assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id).dir, 1, 'R rotates the machine just placed');
     // undo_restores_facing (PLAN-v1 0.3.3): Ctrl+Z undoes the rotation, Ctrl+Y re-applies it, the panel buttons track it
-    const undoBtn = () => page.evaluate(() => { const s = window.__jdGame.scene.getScene('Game').side; return { undo: s.getByName('undo')?.alpha, redo: s.getByName('redo')?.alpha }; });
+    const undoBtn = () => page.evaluate(() => { const q = (n) => document.querySelector('[data-testid=' + n + ']'); const a = (el) => (el ? (el.disabled ? 0.4 : 1) : undefined); return { undo: a(q('undo')), redo: a(q('redo')) }; });
     assert.deepEqual(await undoBtn(), { undo: 1, redo: 0.4 }, 'Undo enabled after an edit, Redo disabled');
     await page.keyboard.press('Control+z'); await wait(200);
     assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id).dir, 0, 'Ctrl+Z restores the previous facing');
@@ -270,11 +270,11 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.evaluate((s) => localStorage.setItem('jd.save.v1', s), plantedSave);
     await page.waitForSelector('[data-testid=board-entry-0]:not([disabled])', { timeout: 10000 });
     await page.getByTestId('board-entry-0').click();
-    await page.waitForFunction(() => window.__jdGame.scene.isActive('Game') && !!window.__jd && /verified replay by e2e player/.test(window.__jdGame.scene.getScene('Game').children.getByName('hud-seed')?.text || ''), null, { timeout: 15000 });
+    await page.waitForFunction(() => window.__jdGame.scene.isActive('Game') && !!window.__jd && /verified replay by e2e player/.test(document.querySelector('[data-testid=hud-seed]')?.textContent || ''), null, { timeout: 15000 });
     // playback controls: REPLAY marker, the original run's earnings next to the live total, a Stop button
-    assert.ok(await page.evaluate(() => !!window.__jdGame.scene.getScene('Game').children.getByName('replay-banner')), 'REPLAY marker shown while watching');
+    assert.ok(await page.evaluate(() => !!document.querySelector('[data-testid=replay-banner]')), 'REPLAY marker shown while watching');
     await page.waitForFunction(() => window.__jd.mode() === 'running', null, { timeout: 15000 });
-    const sideTexts = await page.evaluate(() => ({ orig: window.__jdGame.scene.getScene('Game').side.getByName('replay-original')?.text, stop: window.__jdGame.scene.getScene('Game').side.getByName('stop')?.label.text }));
+    const sideTexts = await page.evaluate(() => ({ orig: document.querySelector('[data-testid=replay-original]')?.textContent, stop: document.querySelector('[data-testid=stop]')?.textContent }));
     assert.match(sideTexts.orig || '', /^Original run: \$\d+ this round · \$\d+ after round 1 · \$\d+ final$/);
     assert.equal(sideTexts.stop, 'Stop watching (Esc)');
     for (let r = 1; r <= 6; r++) {
@@ -314,10 +314,10 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.evaluate(() => localStorage.setItem('jd.settings.v1', JSON.stringify({ volume: 0.7, muted: false, reducedMotion: true, textScale: 1.3 })));
     await page.goto(`${URL}/?dev=1&scene=game&seed=${'m'.repeat(64)}&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
-    const hud = await page.evaluate(() => { const g = window.__jdGame.scene.getScene('Game'); const h = g.hud; return { seed: g.children.getByName('hud-seed').text, scoreRight: h.score.x + h.score.width, bestRight: h.best.x + h.best.width, roundRight: h.round.x + h.round.width, width: g.scale.width, state: window.__jd.state().seed.length }; });
+    const hud = await page.evaluate(() => { const q = (n) => document.querySelector('[data-testid=' + n + ']'); const seed = q('hud-seed'); const r = (el) => el.getBoundingClientRect(); return { seedTruncated: seed.scrollWidth > seed.clientWidth + 1 && getComputedStyle(seed).textOverflow === 'ellipsis', seedText: seed.textContent, scoreRight: r(q('hud-score').parentElement).right, titleLeft: r(q('title')).left, roundRight: r(q('hud-round')).right, scoreLeft: r(q('hud-score')).left, uiRight: document.getElementById('ui').getBoundingClientRect().right, state: window.__jd.state().seed.length }; });
     assert.equal(hud.state, 64, 'the full 64-character seed is the run seed');
-    assert.match(hud.seed, /…/, 'the HUD shortens the seed label');
-    assert.ok(hud.scoreRight <= hud.width - 160 && hud.bestRight <= hud.width - 150 && hud.roundRight < hud.scoreRight, `HUD fits: round→${hud.roundRight} score→${hud.scoreRight} best→${hud.bestRight} of ${hud.width}`);
+    assert.ok(hud.seedTruncated && hud.seedText.includes('m'.repeat(64)), 'the HUD shortens the seed label visually (ellipsis) while keeping the full seed in the text');
+    assert.ok(hud.scoreRight <= hud.titleLeft && hud.roundRight <= hud.scoreLeft && hud.scoreRight <= hud.uiRight, `HUD fits: round→${hud.roundRight} score→${hud.scoreLeft}..${hud.scoreRight} title button at ${hud.titleLeft}`);
     await page.evaluate(() => localStorage.removeItem('jd.settings.v1'));
     // funnel events reached the test verifier: steps counted per install, nothing identifying stored
     assert.equal(await api('flushTelemetry'), true, 'the queued events were accepted by the verifier');

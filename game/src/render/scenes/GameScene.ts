@@ -7,16 +7,18 @@ import { runLayout } from '../../sim/sim';
 import { cellIndex, type SimState } from '../../sim/sim';
 import { RoundController, type Mode } from '../RoundController';
 import { TipsPanel } from '../TipsPanel';
+import { GamePanel, type PanelState } from '../../ui/GamePanel';
+import { ui } from '../../ui/dom';
 import { tipForMachine } from '../../sim/tips';
 import { telemetry } from '../telemetry';
 import { DIR_DX, DIR_DY, MACHINE_INFO, RULES } from '../../sim/rules';
 import type { Machine, Material, SimEvent } from '../../sim/types';
 import { CELL, itemTexture, machineTexture } from '../textures';
-import { Button, label, mono, panel } from '../ui';
+import { label, panel } from '../ui';
 import { CSS, FONT, P } from '../palette';
 import { audio } from '../audio';
 import { clearSave, isOnboarded, loadBests, loadReadTips, loadSettings, setOnboarded, updateSettings, writeSave } from '../storage';
-import { BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y, H, SIDE_W, SIDE_X, W } from '../layout';
+import { BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y } from '../layout';
 import { installDevApi } from '../devapi';
 import { prefs, px as fpx } from '../prefs';
 
@@ -42,17 +44,13 @@ export class GameScene extends Phaser.Scene {
   private lastReject = '';
   private selection!: Phaser.GameObjects.Image;
   private selectedId: number | null = null;
-  private side!: Phaser.GameObjects.Container;
-  private hud: Record<string, Phaser.GameObjects.Text> = {};
-  private hint!: Phaser.GameObjects.Text;
-  private hintBg!: Phaser.GameObjects.Rectangle;
-  private overlay: Phaser.GameObjects.Container | null = null;
+  /** HUD, side panel, hint strip, result banner and badges are DOM (ui/GamePanel.ts); the canvas keeps the factory */
+  private panel!: GamePanel;
   private jamMarks = new Map<number, Phaser.GameObjects.Image>();
   private tutorial = false;
   private tutorialStep = 0;
   private dragging: MachineView | null = null;
   private dragFrom: { x: number; y: number } | null = null;
-  private runBtn: Button | null = null;
   /** keyboard placement: grid cursor (null = hidden) and the machine currently held "in hand" */
   private cursor: { x: number; y: number } | null = null;
   private cursorImg!: Phaser.GameObjects.Image;
@@ -67,8 +65,6 @@ export class GameScene extends Phaser.Scene {
   private popsPeak = 0;
   private popsSkipped = 0;
   private readonly shipsThisTick = new Map<number, number>();
-  /** inputs of the last side-panel build; renderSide() is a no-op while they are unchanged */
-  private sideKey = '';
   private lastShortcutAt = -1000;
   /** tips (PLAN-v1 0.3.6): the panel and the tip suggested by the most recent first-time draft (badge on the Tips button) */
   private tips!: TipsPanel;
@@ -84,8 +80,6 @@ export class GameScene extends Phaser.Scene {
   private lastHudAt = 0;
   /** adaptive resolution: frame deltas of the first 120 running frames at DPR > 1 while renderQuality is still 'auto' */
   private dprProbe: number[] | null = null;
-  /** the VALUES legend never changes: built once, re-parented into each panel instead of re-rasterised (12 Text objects per rebuild) */
-  private legendC: Phaser.GameObjects.Container | null = null;
 
   constructor() { super('Game'); }
 
@@ -108,35 +102,38 @@ export class GameScene extends Phaser.Scene {
     this.tutorial = isTutorialSeed(data.seed) && !this.replayQueue; // the tutorial seed carries the lesson; other seeds get one pointer to it
     this.tutorialStep = 0;
     this.views.clear(); this.itemSprites.clear(); this.jamMarks.clear();
-    this.selectedId = null; this.overlay = null; this.dragging = null;
+    this.selectedId = null; this.dragging = null;
     this.cursor = null; this.heldId = null;
   }
 
   create() {
     // the scene instance is reused across scene.start(): anything cached on it from the previous life was destroyed at shutdown
-    this.legendC = null; this.sideKey = ''; this.popPool = []; this.popsAlive = 0; this.popsPeak = 0; this.popsSkipped = 0;
+    this.popPool = []; this.popsAlive = 0; this.popsPeak = 0; this.popsSkipped = 0;
     this.cameras.main.setBackgroundColor(P.bg);
     applyDpr(this);
     this.input.mouse?.disableContextMenu();
     this.buildStatic();
-    this.buildHud();
     this.hover = this.add.image(0, 0, 'tile-ok').setOrigin(0).setVisible(false).setDepth(5);
     this.ghostGfx = this.add.graphics().setDepth(6);
     this.stallMark = this.add.image(0, 0, 'tile-sel').setOrigin(0).setDepth(7).setTint(P.red).setVisible(false).setName('stall-mark');
     this.selection = this.add.image(0, 0, 'tile-sel').setOrigin(0).setVisible(false).setDepth(6);
     this.cursorImg = this.add.image(0, 0, 'tile-cursor').setOrigin(0).setVisible(false).setDepth(6);
-    this.side = this.add.container(SIDE_X, GRID_Y);
-    this.tips = new TipsPanel(this, () => this.renderSide());
+    this.panel = new GamePanel(this, {
+      pick: (i) => this.pick(i), startRun: () => this.startRun(), setPaused: (p) => this.setPaused(p), finishRun: () => this.finishRun(), stopReplay: () => this.stopReplay(),
+      setSpeed: (s) => this.ctl.setSpeed(s), undo: () => this.undo(), redo: () => this.redo(), openTips: () => this.openTips(this.suggestedTip ?? undefined), rotateSelected: () => this.rotateSelected(),
+      toBin: (id) => { this.act({ t: 'unplace', id }); this.syncMachines(); },
+      sell: (id) => { if (this.act({ t: 'sell', id })) { audio.ship(RULES.sellValue); this.selectedId = null; this.syncMachines(); this.renderSide(); } },
+      nextRound: () => this.nextRound(), toTitle: () => this.scene.start('Title'), toggleMute: () => { audio.setMuted(!audio.muted); return audio.muted; },
+    }, this.run.seed, this.replayLabel, audio.muted);
+    this.tips = new TipsPanel(this, () => { ui.setHidden(false); this.renderSide(); });
     this.suggestedTip = null;
+    this.updateHud();
     this.syncMachines();
     this.renderSide();
     this.setupInput();
-    this.hintBg = this.add.rectangle(GRID_X, H - 62, GRID_W, 50, P.panel, 0.95).setOrigin(0).setStrokeStyle(1, P.panelLine);
-    this.hint = label(this, GRID_X + 12, H - 56, '', 13, CSS.text, { wordWrap: { width: GRID_W - 24 } });
     this.updateHint();
-    if (this.replayLabel) this.buildReplayBanner();
     installDevApi(this);
-    this.events.on('shutdown', () => { this.views.clear(); this.itemSprites.clear(); });
+    this.events.on('shutdown', () => { this.views.clear(); this.itemSprites.clear(); this.tips.close(); this.panel.destroy(); });
     if (this.replayQueue) this.time.delayedCall(600, () => this.ctl.advanceReplay());
     if (this.mode === 'summary') this.showSummary();
   }
@@ -147,42 +144,6 @@ export class GameScene extends Phaser.Scene {
     this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H).setOrigin(0).setStrokeStyle(2, P.panelLine);
     panel(this, GRID_X, BIN_Y, GRID_W, 100, 0.9);
     label(this, GRID_X + 10, BIN_Y + 6, 'PARTS BIN  — drag parts onto the grid, or arrow keys + Enter', 12, CSS.amber, { fontStyle: 'bold', letterSpacing: 1 });
-    panel(this, SIDE_X, GRID_Y, SIDE_W, H - GRID_Y - 24, 0.95);
-  }
-  private buildHud() {
-    this.add.rectangle(0, 0, W, 56, P.panel).setOrigin(0).setStrokeStyle(1, P.panelLine);
-    const title = label(this, 24, 14, 'JUNKYARD DRAFT', 20, CSS.amber, { fontStyle: 'bold', letterSpacing: 3 });
-    // positions follow measured widths so larger text sizes and long seeds never overlap
-    // the seed label is the flexible element: long seeds are shortened with an ellipsis (the full seed is on the title and
-    // results screens) so round, score and local-best never leave the canvas at any text size
-    const suffix = this.replayLabel ? ` · ${this.replayLabel}` : '';
-    let seedText = this.run.seed;
-    this.hud.seed = mono(this, title.x + title.width + 18, 20, `seed ${seedText}${suffix}`, 12, this.replayLabel ? CSS.blue : CSS.dim).setName('hud-seed');
-    const fitSeed = (maxW: number) => { while (this.hud.seed.width > maxW && seedText.length > 6) { seedText = seedText.slice(0, Math.max(4, seedText.length - 3)) + '…'; this.hud.seed.setText(`seed ${seedText}${suffix}`); } };
-    fitSeed(Math.max(80, 470 - 28 - this.hud.seed.x + (this.replayLabel ? 190 : 0)));
-    let roundX = Math.max(470, this.hud.seed.x + this.hud.seed.width + 28);
-    this.hud.round = label(this, roundX, 10, `Round ${RULES.rounds} / ${RULES.rounds}`, 16, CSS.text, { fontStyle: 'bold' });
-    let scoreX = Math.max(640, this.hud.round.x + this.hud.round.width + 40);
-    const scoreRoom = W - 340; // the score block ("$1234" + "local best for this seed: $1234") must end before the Title button
-    if (scoreX > scoreRoom) {
-      fitSeed(Math.max(60, this.hud.seed.width - (scoreX - scoreRoom)));
-      roundX = Math.max(470, this.hud.seed.x + this.hud.seed.width + 28); this.hud.round.setX(roundX);
-      scoreX = Math.min(scoreRoom, Math.max(640, this.hud.round.x + this.hud.round.width + 40));
-    }
-    this.hud.score = label(this, scoreX, 10, '', 16, CSS.gold, { fontStyle: 'bold' });
-    this.hud.best = mono(this, scoreX, 34, '', 11, CSS.dim);
-    this.hud.stall = mono(this, scoreX, 50, '', 11, CSS.red).setName('stall');
-    const mute = new Button(this, W - 60, 28, audio.muted ? 'Unmute' : 'Mute', () => { audio.setMuted(!audio.muted); mute.setText(audio.muted ? 'Unmute' : 'Mute'); }, { w: 80, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'mute' });
-    new Button(this, W - 160, 28, 'Title', () => this.scene.start('Title'), { w: 70, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'title' });
-    this.updateHud();
-  }
-  /** Watching a verified replay: a marker in the HUD; Esc stops (see setupInput), speed/skip/stop live in the running panel. */
-  private buildReplayBanner() {
-    // right end of the side panel's header row: that area is free in every phase (headers are left-aligned)
-    const c = this.add.container(SIDE_X + SIDE_W - 92, GRID_Y + 21).setDepth(9).setName('replay-banner');
-    c.add(this.add.rectangle(0, 0, 150, 26, P.blue, 0.18).setStrokeStyle(1, P.blue, 0.9));
-    c.add(this.add.circle(-60, 0, 4, P.blue));
-    c.add(this.add.text(-50, 0, 'REPLAY · Esc stops', { fontFamily: FONT, fontSize: fpx(11), color: CSS.blue, fontStyle: 'bold', letterSpacing: 1 }).setOrigin(0, 0.5));
   }
   /** Leave a watched replay at any point: nothing was recorded, nothing to save. */
   stopReplay() {
@@ -190,12 +151,7 @@ export class GameScene extends Phaser.Scene {
     this.ctl.stopReplay(); audio.resume();
     this.scene.start('Title');
   }
-  private updateHud() {
-    this.hud.round.setText(`Round ${this.run.round} / ${RULES.rounds}`);
-    this.hud.score.setText(`$${this.run.score}`);
-    const b = loadBests().bySeed[this.run.seed];
-    this.hud.best.setText(b ? `local best for this seed: $${b.score}` : 'no local best for this seed yet');
-  }
+  private updateHud() { this.panel.setHud(this.run, this.run.score, false); }
 
   // ---------- machine views ----------
   private cellXY(x: number, y: number) { return { px: GRID_X + x * CELL, py: GRID_Y + y * CELL }; }
@@ -429,7 +385,7 @@ export class GameScene extends Phaser.Scene {
   act(a: Action): boolean { return this.ctl.act(a); }
   /** Controller hook: the run changed (an accepted action, or null for undo/redo/speed): refresh HUD, hints and the panel. */
   private onStateChange(a: Action | null) {
-    if (!this.hud.round) return; // init() runs before create(): nothing to draw yet
+    if (!this.panel) return; // init() runs before create(): nothing to draw yet
     if (a && !this.replayLabel) { if (a.t === 'pick') telemetry.track('first_draft_pick'); else if (a.t === 'place') telemetry.track('first_place_attempt'); else if (a.t === 'rotate') telemetry.track('first_rotate'); }
     if (a?.t === 'pick' && !this.replayLabel) { const kind = this.run.picks[this.run.picks.length - 1]; const tip = kind ? tipForMachine(kind, loadReadTips()) : null; if (tip) this.suggestedTip = tip.id; }
     this.updateHud();
@@ -456,110 +412,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ---------- side panel ----------
-  /** Everything renderSide() draws is a function of these; identical inputs mean an identical panel. */
-  private sideInputs(): string {
+  /** The DOM side panel renders from this snapshot and rebuilds only when it changes. */
+  private panelState(): PanelState {
     const r = this.run;
-    const sel = this.selectedId != null ? r.layout.machines.find((m) => m.id === this.selectedId) ?? r.bin.find((m) => m.id === this.selectedId) : undefined;
-    return JSON.stringify([this.mode, r.phase, r.round, r.offers, r.bin.length, r.layout.machines.length, this.speed, this.replayLabel, !!this.replayRounds, sel ? [sel.id, sel.kind, sel.dir, sel.x >= 0] : null, !!this.replayQueue, this.ctl.canUndo(), this.ctl.canRedo(), this.suggestedTip, this.tips?.isOpen]);
+    const selected = this.selectedId != null ? r.layout.machines.find((m) => m.id === this.selectedId) ?? r.bin.find((m) => m.id === this.selectedId) : undefined;
+    return { run: r, mode: this.mode, speed: this.speed, replayLabel: this.replayLabel, replayRounds: this.replayRounds, playbackPending: !!this.replayQueue, canUndo: this.ctl.canUndo(), canRedo: this.ctl.canRedo(), selected, tipsBadge: !this.replayLabel && this.suggestedTip != null && !loadReadTips().includes(this.suggestedTip), tipsOpen: this.tips?.isOpen ?? false };
   }
-  renderSide() {
-    const key = this.sideInputs();
-    if (key === this.sideKey && this.side.length > 0) return;
-    this.sideKey = key;
-    this.clearSide();
-    this.runBtn = null;
-    const add = (o: Phaser.GameObjects.GameObject) => { this.side.add(o); return o; };
-    const t = (x: number, y: number, s: string, size = 14, color = CSS.text, style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) => add(this.add.text(x, y, s, { fontFamily: FONT, fontSize: fpx(size), color, wordWrap: { width: SIDE_W - 32 }, ...style })) as Phaser.GameObjects.Text;
-    const r = this.run;
-    if (this.mode === 'running' || this.mode === 'paused') {
-      t(16, 12, this.mode === 'paused' ? 'PAUSED' : 'RUNNING', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
-      t(16, 36, `Round ${r.round}: watch the line. Items flow every tick; jams glow red.`, 14, CSS.dim);
-      const prog = add(this.add.rectangle(16, 84, SIDE_W - 32, 10, P.panelLine).setOrigin(0)) as Phaser.GameObjects.Rectangle; void prog;
-      const fill = add(this.add.rectangle(16, 84, 1, 10, P.amber).setOrigin(0)) as Phaser.GameObjects.Rectangle; fill.setName('progress');
-      const earned = t(16, 104, 'Earned this round: $0', 18, CSS.gold, { fontStyle: 'bold' }); earned.setName('earned');
-      if (this.replayRounds) {
-        const idx = r.round - 1; const orig = this.replayRounds[idx] ?? 0; const total = this.replayRounds.slice(0, idx + 1).reduce((a, b) => a + b, 0);
-        t(16, 126, `Original run: $${orig} this round · $${total} after round ${r.round} · $${this.replayRounds.reduce((a, b) => a + b, 0)} final`, 11, CSS.blue).setName('replay-original');
-      }
-      t(16, 140, 'Speed', 12, CSS.dim);
-      [1, 2, 4].forEach((s, i) => add(new Button(this, 90 + i * 70, 148, `${s}×`, () => this.ctl.setSpeed(s), { w: 60, h: 28, color: this.speed === s ? P.amber : P.steelDark, textColor: this.speed === s ? '#1a1612' : CSS.text, size: 13, name: `speed-${s}` })));
-      add(new Button(this, SIDE_W / 2, 200, this.mode === 'paused' ? 'Resume' : this.replayLabel ? 'Pause' : 'Pause (Esc)', () => this.setPaused(this.mode !== 'paused'), { w: 200, h: 36, color: P.steelDark, textColor: CSS.text, size: 14, name: 'pause' }));
-      add(new Button(this, SIDE_W / 2, 246, 'Skip to result', () => this.finishRun(), { w: 200, h: 32, color: P.steelDark, textColor: CSS.text, size: 13, name: 'skip' }));
-      if (this.replayLabel) {
-        add(new Button(this, SIDE_W / 2, 290, 'Stop watching (Esc)', () => this.stopReplay(), { w: 200, h: 32, color: P.steelDark, textColor: CSS.text, size: 13, name: 'stop' }));
-        t(16, 316, this.replayLabel, 12, CSS.blue).setWordWrapWidth(SIDE_W - 32);
-      }
-      this.side.add(this.legend(16, this.replayLabel ? 350 : 300));
-      return;
-    }
-    if (r.phase === 'draft') {
-      t(16, 12, `ROUND ${r.round} DRAFT — pick one part`, 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
-      this.tipsButton(add);
-      r.offers.forEach((kind, i) => {
-        const y = 44 + i * 112;
-        const card = add(this.add.rectangle(16, y, SIDE_W - 32, 100, P.floor).setOrigin(0).setStrokeStyle(2, P.panelLine).setInteractive({ useHandCursor: true })) as Phaser.GameObjects.Rectangle;
-        card.setName(`offer-${i}`);
-        card.on('pointerover', () => card.setStrokeStyle(2, P.amber)); card.on('pointerout', () => card.setStrokeStyle(2, P.panelLine));
-        card.on('pointerdown', () => { if (!this.replayQueue) this.pick(i); });
-        add(this.add.image(16 + 50, y + 50, machineTexture(kind)).setScale(1.05));
-        t(112, y + 10, MACHINE_INFO[kind].name, 17, CSS.text, { fontStyle: 'bold' });
-        const b = t(112, y + 34, MACHINE_INFO[kind].blurb, 13, CSS.dim); b.setWordWrapWidth(SIDE_W - 150);
-        add(this.add.text(SIDE_W - 60, y + 76, `[${i + 1}]`, { fontFamily: FONT, fontSize: fpx(12), color: CSS.dim }));
-      });
-      this.side.add(this.legend(16, 390));
-      return;
-    }
-    if (r.phase === 'build') {
-      t(16, 12, `ROUND ${r.round} — ARRANGE THE WORKSHOP`, 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
-      this.tipsButton(add);
-      const sel = this.selectedId != null ? this.run.layout.machines.find((m) => m.id === this.selectedId) || this.run.bin.find((m) => m.id === this.selectedId) : undefined;
-      if (sel) {
-        add(this.add.rectangle(16, 40, SIDE_W - 32, 118, P.floor).setOrigin(0).setStrokeStyle(1, P.panelLine));
-        add(this.add.image(16 + 44, 40 + 44, machineTexture(sel.kind)).setAngle(sel.dir * 90).setScale(0.9));
-        t(104, 48, MACHINE_INFO[sel.kind].name, 17, CSS.text, { fontStyle: 'bold' });
-        t(104, 72, MACHINE_INFO[sel.kind].blurb, 12.5, CSS.dim).setWordWrapWidth(SIDE_W - 130);
-        add(new Button(this, 70, 128, 'Rotate (R)', () => this.rotateSelected(), { w: 100, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'rotate' }));
-        if (sel.x >= 0) add(new Button(this, 190, 128, 'To bin (Del)', () => { this.act({ t: 'unplace', id: sel.id }); this.syncMachines(); }, { w: 110, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'tobin' }));
-        else add(new Button(this, 200, 128, `Sell for $${RULES.sellValue}`, () => { if (this.act({ t: 'sell', id: sel.id })) { audio.ship(RULES.sellValue); this.selectedId = null; this.syncMachines(); this.renderSide(); } }, { w: 120, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'sell' }));
-      } else {
-        t(16, 44, 'Drag a part from the bin onto the grid. Click a placed machine to select it; R or right-click rotates it. Drop a machine on the bin to remove it.\n\nKeyboard: arrow keys move the cursor · Enter places the next bin part, or picks up / drops a machine · Tab cycles bin parts · R rotates · Delete sends it to the bin.', 14, CSS.dim);
-      }
-      const placedCount = r.layout.machines.length;
-      t(16, 176, `${placedCount} machines placed · ${r.bin.length} in bin`, 12, CSS.dim);
-      add(new Button(this, SIDE_W - 124, 184, 'Undo (Ctrl+Z)', () => this.undo(), { w: 104, h: 24, color: P.steelDark, textColor: CSS.text, size: 11, name: 'undo', disabled: !this.ctl.canUndo() }));
-      add(new Button(this, SIDE_W - 36, 184, 'Redo', () => this.redo(), { w: 56, h: 24, color: P.steelDark, textColor: CSS.text, size: 11, name: 'redo', disabled: !this.ctl.canRedo() }));
-      this.runBtn = add(new Button(this, SIDE_W / 2, 230, `RUN ROUND ${r.round}  (Space)`, () => this.startRun(), { w: SIDE_W - 48, h: 52, size: 18, name: 'run' })) as Button;
-      let legendY = 300;
-      if (r.bin.length > 0) { const note = t(16, 262, `Parts left in the bin do nothing this round. Select one to sell it for $${RULES.sellValue}.`, 12, CSS.dim); legendY = Math.max(300, note.y + note.height + 14); }
-      this.side.add(this.legend(16, legendY));
-      return;
-    }
-  }
-  /** "Tips" at the right end of the panel header; a dot badge while a first-time draft has an unread tip. Never during playback. */
-  private tipsButton(add: (o: Phaser.GameObjects.GameObject) => Phaser.GameObjects.GameObject) {
-    if (this.replayLabel) return;
-    const badge = this.suggestedTip != null && !loadReadTips().includes(this.suggestedTip);
-    add(new Button(this, SIDE_W - 52, 18, badge ? 'Tips ●' : 'Tips', () => this.openTips(this.suggestedTip ?? undefined), { w: 72, h: 24, color: badge ? P.amber : P.steelDark, textColor: badge ? '#1a1612' : CSS.text, size: 11, name: 'tips' }));
-  }
-  openTips(id?: string) { this.tips.open(id ?? this.suggestedTip ?? undefined); if (this.suggestedTip && loadReadTips().includes(this.suggestedTip)) this.suggestedTip = null; this.renderSide(); }
+  renderSide() { if (this.panel) this.panel.render(this.panelState()); }
+  openTips(id?: string) { ui.setHidden(true); this.tips.open(id ?? this.suggestedTip ?? undefined); if (this.suggestedTip && loadReadTips().includes(this.suggestedTip)) this.suggestedTip = null; this.renderSide(); }
   closeTips() { this.tips.close(); }
   tipsInfo() { return { open: this.tips.isOpen, current: this.tips.currentId, suggested: this.suggestedTip != null && !loadReadTips().includes(this.suggestedTip) ? this.suggestedTip : null, read: loadReadTips(), demo: this.tips.demoState() }; }
-  private legend(x: number, y: number) {
-    if (this.legendC) return this.legendC.setPosition(x, y);
-    const c = this.add.container(x, y);
-    this.legendC = c;
-    c.add(this.add.text(0, 0, 'VALUES', { fontFamily: FONT, fontSize: fpx(12), color: CSS.amber, fontStyle: 'bold' }));
-    const mats: Material[] = ['scrap', 'shards', 'plate', 'ingot', 'slag'];
-    const notes: Record<Material, string> = { scrap: 'raw, from the hopper', shards: 'scrap through a crusher', plate: `${RULES.pressShards} shards through a press`, ingot: 'shards through a furnace', slag: 'raw scrap in a furnace' };
-    mats.forEach((m, i) => {
-      c.add(this.add.image(12, 28 + i * 26, itemTexture(m)).setScale(0.9));
-      c.add(this.add.text(30, 19 + i * 26, `${m.charAt(0).toUpperCase() + m.slice(1)}  $${RULES.value[m]}`, { fontFamily: FONT, fontSize: fpx(13), color: CSS.text }));
-      c.add(this.add.text(140, 20 + i * 26, notes[m], { fontFamily: FONT, fontSize: fpx(12), color: CSS.dim }));
-    });
-    c.add(this.add.text(0, 162, `Hopper: 1 scrap / ${RULES.hopperPeriod} ticks · Crusher ${RULES.process.crusher} · Press ${RULES.process.press} · Furnace ${RULES.process.furnace} ticks · Round ${RULES.ticksPerRound} ticks`, { fontFamily: FONT, fontSize: fpx(11), color: CSS.dim, wordWrap: { width: SIDE_W - 40 } }));
-    return c;
-  }
-
   // ---------- onboarding hints ----------
   updateHint() {
     if (this.rejectTimer) return;
@@ -614,14 +476,8 @@ export class GameScene extends Phaser.Scene {
     return { step: 6, text: 'You know every rule. Rounds 4 to 6 are an ordinary draft: pick what helps your line most, arrange, run. Parts you cannot use sell for $10. The daily challenge is waiting on the title screen.' };
   }
   /** Current hint text (typed accessor for the dev API and tests instead of private-field access). */
-  hintText(): string { return this.hint?.text ?? ''; }
-  /** Hint box grows with wrapped text (larger text sizes) and stays anchored to the bottom edge. */
-  private setHint(text: string) {
-    this.hint.setText(text).setWordWrapWidth(GRID_W - 24);
-    const h = Math.max(50, this.hint.height + 14);
-    this.hintBg.setSize(GRID_W, h).setPosition(GRID_X, H - 12 - h);
-    this.hint.setPosition(GRID_X + 12, H - 12 - h + 7);
-  }
+  hintText(): string { return this.panel?.hintText ?? ''; }
+  private setHint(text: string) { this.panel?.setHint(text); }
   private chainHasCrusher() {
     return this.run.layout.machines.some((m) => m.kind === 'crusher');
   }
@@ -641,15 +497,8 @@ export class GameScene extends Phaser.Scene {
   }
   setPaused(p: boolean) { this.ctl.setPaused(p); }
   private onPause(paused: boolean) {
-    if (paused) { audio.suspend(); this.renderSide(); this.showPauseOverlay(); }
-    else { audio.resume(); this.overlay?.destroy(); this.overlay = null; this.renderSide(); }
-  }
-  private showPauseOverlay() {
-    this.overlay?.destroy();
-    const c = this.add.container(0, 0).setDepth(20);
-    c.add(this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H, 0x000000, 0.55).setOrigin(0));
-    c.add(this.add.text(GRID_X + GRID_W / 2, GRID_Y + GRID_H / 2, 'PAUSED\nEsc to resume', { fontFamily: FONT, fontSize: fpx(28), color: CSS.text, align: 'center', fontStyle: 'bold' }).setOrigin(0.5));
-    this.overlay = c;
+    if (paused) { audio.suspend(); this.renderSide(); this.panel.showPauseVeil(true); }
+    else { audio.resume(); this.panel.clearGridLayer(); this.renderSide(); }
   }
   /** Complete the round instantly (authoritative result comes from the run orchestrator). */
   finishRun() { if (this.ctl.finishRun()) audio.resume(); }
@@ -684,8 +533,7 @@ export class GameScene extends Phaser.Scene {
     const sim = this.sim; if (!sim) return;
     if (this.hudDirty && now - this.lastHudAt >= GameScene.HUD_MS) {
       this.hudDirty = false; this.lastHudAt = now;
-      this.hud.score.setText(`$${this.run.score + sim.earned}`);
-      if (!prefs.reducedMotion) { this.hud.score.setScale(1.08); this.tweens.add({ targets: this.hud.score, scale: 1, duration: 140, ease: 'Quad.out' }); }
+      this.panel.setHud(this.run, this.run.score + sim.earned, true);
     }
     const phase = this.ctl.tickPhase;
     this.beltFrame = (this.beltFrame + delta * this.speed * 0.012) % 3;
@@ -718,10 +566,7 @@ export class GameScene extends Phaser.Scene {
       if (it.hold > 0) { s.setScale(prefs.reducedMotion ? 0.85 : 0.8 + 0.1 * Math.sin(_time / 60)); } else s.setScale(1);
     }
     for (const [id, s] of this.itemSprites) if (!alive.has(id)) { this.itemSprites.delete(id); if (prefs.reducedMotion) s.destroy(); else this.tweens.add({ targets: s, scale: 1.6, alpha: 0, duration: 200, onComplete: () => s.destroy() }); }
-    const fill = this.side.getByName('progress') as Phaser.GameObjects.Rectangle | null;
-    if (fill) fill.width = (SIDE_W - 32) * (sim.tick / RULES.ticksPerRound);
-    const earned = this.side.getByName('earned') as Phaser.GameObjects.Text | null;
-    if (earned) earned.setText(`Earned this round: $${sim.earned}`);
+    this.panel.setProgress(sim.tick, sim.earned);
   }
   private centerOfCell(cell: number) { const x = cell % RULES.gridWidth, y = Math.floor(cell / RULES.gridWidth); return { x: GRID_X + x * CELL + CELL / 2, y: GRID_Y + y * CELL + CELL / 2 }; }
   private onTickEvents(evs: SimEvent[]) {
@@ -778,15 +623,15 @@ export class GameScene extends Phaser.Scene {
     const m = sim.grid[cell];
     const x = cell % RULES.gridWidth, y = Math.floor(cell / RULES.gridWidth);
     const what = m ? MACHINE_INFO[m.kind].name : 'Item';
-    this.hud.stall.setText(`Stalled: ${what} at ${x + 1},${y + 1} ${m?.kind === 'hopper' ? 'is blocked' : 'is waiting'} — nothing shipped for ${GameScene.STALL_TICKS} ticks`);
+    this.panel.setStall(`Stalled: ${what} at ${x + 1},${y + 1} ${m?.kind === 'hopper' ? 'is blocked' : 'is waiting'} — nothing shipped for ${GameScene.STALL_TICKS} ticks`);
     const { px, py } = this.cellXY(x, y);
     this.stallMark.setPosition(px, py).setAlpha(1).setVisible(true);
     this.tweens.killTweensOf(this.stallMark);
     if (!prefs.reducedMotion) this.tweens.add({ targets: this.stallMark, alpha: 0.35, duration: 450, yoyo: true, repeat: -1 });
   }
-  private clearStall() { this.stallCell = null; this.hud.stall?.setText(''); if (this.stallMark) { this.tweens.killTweensOf(this.stallMark); this.stallMark.setVisible(false); } }
+  private clearStall() { this.stallCell = null; this.panel?.setStall(''); if (this.stallMark) { this.tweens.killTweensOf(this.stallMark); this.stallMark.setVisible(false); } }
   /** Stall indicator state (dev API / tests): the HUD text and the flagged cell (null when none). */
-  stallInfo() { return { text: this.hud.stall?.text ?? '', cell: this.stallCell, tick: this.sim?.tick ?? -1 }; }
+  stallInfo() { return { text: this.panel?.stallText ?? '', cell: this.stallCell, tick: this.sim?.tick ?? -1 }; }
   /** Show "+$value" at a cell using a pooled Text; when all POP_POOL pops are busy the visual is skipped (the counter still ticks). */
   private popAt(x: number, y: number, value: number) {
     let txt = this.popPool.find((t) => !t.visible);
@@ -807,76 +652,14 @@ export class GameScene extends Phaser.Scene {
   // ---------- round summary / results ----------
   private showSummary() {
     const rec = this.run.rounds[this.run.rounds.length - 1];
-    const res = rec.result;
     audio.roundEnd(rec.earned > 38);
-    this.overlay?.destroy();
-    const c = this.add.container(0, 0).setDepth(20);
-    c.add(this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H, 0x000000, 0.25).setOrigin(0));
-    // per-machine badges on the grid: what each machine actually did
-    const g = this.run.layout;
-    const notes: string[] = [];
-    for (const m of g.machines) {
-      const st = res.cellStats[cellIndex(m.x, m.y, g.width)];
-      const { px, py } = this.cellXY(m.x, m.y);
-      let line1 = ''; let line2 = ''; let color = CSS.text; let warn = true;
-      if (m.kind === 'hopper') { line1 = st ? `${st.spawned} out` : 'idle'; if (st && st.blockedTicks > 5) { line2 = `blocked ${st.blockedTicks}`; notes.push(`Hopper ${m.x + 1},${m.y + 1} blocked ${st.blockedTicks} ticks: line ahead full or facing wrong.`); } if (!st) { color = CSS.dim; notes.push(`Hopper ${m.x + 1},${m.y + 1} never emitted: nothing accepts items ahead of it.`); } }
-      else if (m.kind === 'dock') { if (st && st.shipped) { line1 = `$${st.earned}`; line2 = `${st.shipped} shipped`; color = CSS.green; warn = false; } else { line1 = 'no items'; color = CSS.dim; } }
-      else if (m.kind === 'crusher' || m.kind === 'furnace' || m.kind === 'press') {
-        line1 = st && st.passed ? `${st.processed} made` : 'unused'; if (!st || !st.processed) color = CSS.dim;
-        if (st && st.jammedTicks > 8) { line2 = `waited ${st.jammedTicks}`; notes.push(`${MACHINE_INFO[m.kind].name} ${m.x + 1},${m.y + 1}: output blocked ${st.jammedTicks} ticks.`); }
-        else if (m.kind === 'press' && st && st.stored) { line2 = `${st.stored} shard held`; warn = false; }
-      }
-      else { if (st && st.jammedTicks > 8) line2 = `waited ${st.jammedTicks}`; else if (!st || !st.passed) { line1 = 'unused'; color = CSS.dim; } }
-      if (!line1 && !line2) continue;
-      const lines = [line1, line2].filter(Boolean);
-      const bg = this.add.rectangle(px + CELL / 2, py + CELL - 2, CELL - 6, 12 * lines.length + 4, 0x000000, 0.8).setOrigin(0.5, 1);
-      c.add(bg);
-      if (line1) c.add(this.add.text(px + CELL / 2, py + CELL - 4 - (line2 ? 11 : 0), line1, { fontFamily: FONT, fontSize: fpx(10), color, fontStyle: 'bold' }).setOrigin(0.5, 1));
-      if (line2) c.add(this.add.text(px + CELL / 2, py + CELL - 4, line2, { fontFamily: FONT, fontSize: fpx(10), color: warn ? CSS.red : CSS.dim, fontStyle: 'bold' }).setOrigin(0.5, 1));
-    }
-    const inTransit = res.spawned - res.absorbed - Object.values(res.shipped).reduce((a, b) => a + b, 0);
-    if (inTransit > 6) notes.push(`${inTransit} items were still in transit or stuck when time ran out.`);
-    if (!Object.values(res.shipped).some(Boolean)) notes.unshift('Nothing reached a dock. Items only enter crushers, furnaces, presses and splitters from behind.');
-    // banner across the top of the grid
-    const last = this.run.round >= RULES.rounds;
-    c.add(this.add.rectangle(GRID_X, GRID_Y, GRID_W, 64, P.panel, 0.97).setOrigin(0).setStrokeStyle(2, P.amber));
-    c.add(this.add.text(GRID_X + 16, GRID_Y + 8, `ROUND ${rec.round} RESULT`, { fontFamily: FONT, fontSize: fpx(12), color: CSS.amber, fontStyle: 'bold', letterSpacing: 2 }));
-    c.add(this.add.text(GRID_X + 16, GRID_Y + 24, `$${rec.earned}`, { fontFamily: FONT, fontSize: fpx(30), color: CSS.gold, fontStyle: 'bold' }));
-    c.add(this.add.text(GRID_X + 120, GRID_Y + 36, `this round · total $${this.run.score}`, { fontFamily: FONT, fontSize: fpx(13), color: CSS.dim }));
-    c.add(new Button(this, GRID_X + GRID_W - 130, GRID_Y + 32, last ? 'Final score (Space)' : 'Next round (Space)', () => this.nextRound(), { w: 230, h: 40, size: 15, name: 'next' }));
-    this.overlay = c;
-    this.renderSideSummary(notes);
-    this.setHint(last ? 'Final round complete. Badges show what each machine did.' : 'Badges show what each machine did. Study the waits, then draft and rearrange.');
-  }
-  /** Empties the side panel, keeping the cached legend alive for the next build. */
-  private clearSide() {
-    if (this.legendC) this.side.remove(this.legendC);
-    this.side.removeAll(true);
-  }
-  private renderSideSummary(notes: string[]) {
-    this.clearSide();
-    this.sideKey = ''; // the summary panel is a different layout: the next renderSide() must rebuild
-    const r = this.run;
-    const rec = r.rounds[r.rounds.length - 1]; const res = rec.result;
-    const t = (x: number, y: number, s: string, size = 14, color = CSS.text, style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) => { const o = this.add.text(x, y, s, { fontFamily: FONT, fontSize: fpx(size), color, wordWrap: { width: SIDE_W - 32 }, ...style }); this.side.add(o); return o; };
-    t(16, 12, 'WHAT SHIPPED', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
-    let y = 36;
-    const mats: Material[] = ['ingot', 'plate', 'shards', 'scrap', 'slag'];
-    for (const m of mats) if (res.shipped[m]) { const img = this.add.image(26, y + 9, itemTexture(m)); this.side.add(img); t(44, y, `${res.shipped[m]} × ${m} @ $${RULES.value[m]} = $${res.shipped[m] * RULES.value[m]}`, 14); y += 24; }
-    if (!Object.values(res.shipped).some(Boolean)) { t(16, y, 'nothing', 14, CSS.dim); y += 24; }
-    y += 10;
-    t(16, y, 'DIAGNOSTICS', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 }); y += 24;
-    const diag = t(16, y, notes.slice(0, 5).join('\n') || 'Clean run: nothing waited, every hopper kept flowing.', 13, notes.length ? CSS.red : CSS.green, { lineSpacing: 4 });
-    y += diag.height + 16;
-    t(16, y, 'ROUND HISTORY', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 }); y += 24;
-    r.rounds.forEach((rr, i) => { t(16 + (i % 3) * 140, y + Math.floor(i / 3) * 22, `R${rr.round}: $${rr.earned}`, 14, i === r.rounds.length - 1 ? CSS.gold : CSS.text); });
-    y += Math.ceil(r.rounds.length / 3) * 22 + 8;
-    if (r.sold) t(16, y, `Sold parts: $${r.sold}`, 13, CSS.dim);
-    this.side.add(this.legend(16, Math.max(y + 24, 330)));
+    this.panel.showSummaryOverlay(this.run);
+    this.renderSide();
+    this.setHint(this.run.round >= RULES.rounds ? 'Final round complete. Badges show what each machine did.' : 'Badges show what each machine did. Study the waits, then draft and rearrange.');
   }
   nextRound() {
     if (this.mode !== 'summary') return;
-    this.overlay?.destroy(); this.overlay = null;
+    this.panel.clearGridLayer();
     this.ctl.nextRound(); // onNextRound / onFinished hooks redraw or hand over to the results screen
   }
 }

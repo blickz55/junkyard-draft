@@ -103,13 +103,13 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       assert.equal(conv?.kind, 'conveyor');
       assert.ok(await api('act', { t: 'rotate', id: conv.id })); assert.ok(await api('act', { t: 'rotate', id: conv.id })); // now facing west: head-on to the line
       await api('run');
-      await page.evaluate(() => { const b = window.__jdGame.scene.getScene('Game').side.getByName('speed-4'); if (b) b.emit('pointerdown'); });
+      await page.getByTestId('speed-4').click();
       const seen = await page.waitForFunction(() => { const s = window.__jd.stall(); return s.text ? s : false; }, null, { timeout: 15000 });
       const stall = await seen.jsonValue();
       assert.match(stall.text, /^Stalled: [A-Za-z ]+ at \d,\d is (waiting|blocked) — nothing shipped for 8 ticks$/, stall.text);
       assert.ok(stall.tick <= 10, `flagged by tick ${stall.tick}`);
       assert.ok([2 * 8 + 1, 2 * 8 + 2].includes(stall.cell), `first blocking cell is the hopper (1,2) or the conveyor in front of the head-on belt (2,2): got ${stall.cell}`);
-      const hud = await page.evaluate(() => { const s = window.__jdGame.scene.getScene('Game'); return { score: s.children.list.find((o) => o.type === 'Text' && /^\$\d+$/.test(o.text))?.text, mark: !!s.children.getByName('stall-mark')?.visible }; });
+      const hud = await page.evaluate(() => ({ score: document.querySelector('[data-testid=hud-score]')?.textContent, mark: !!window.__jdGame.scene.getScene('Game').children.getByName('stall-mark')?.visible }));
       assert.deepEqual(hud, { score: '$0', mark: true }, 'nothing shipped and the marker is visible');
       await api('finishRun');
       await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 15000 });
@@ -123,7 +123,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       let seed = ''; for (let i = 0; i < 500 && !seed; i++) if (draftOffers(`tips-${i}`, 1).includes('press')) seed = `tips-${i}`;
       assert.ok(seed, 'found a seed whose round-1 offers include a press');
       const { context, page, api, errors } = await open(`seed=${seed}`);
-      const btnText = () => page.evaluate(() => window.__jdGame.scene.getScene('Game').side.getByName('tips')?.label.text ?? null);
+      const btnText = () => page.evaluate(() => document.querySelector('[data-testid=tips]')?.textContent ?? null);
       assert.equal(await btnText(), 'Tips', 'no badge before any draft');
       assert.equal((await api('tips')).suggested, null);
       const idx = (await api('state')).offers.indexOf('press');

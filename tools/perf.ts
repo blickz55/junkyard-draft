@@ -94,7 +94,7 @@ const SAMPLER = `((speed) => {
   if (!s.add.__counted) { const orig = s.add.text; s.add.text = function (...a) { w.__texts++; return orig.apply(this, a); }; s.add.__counted = true; }
   w.__texts = 0;
   w.__jd.run();
-  const btn = s.side.getByName('speed-' + speed); if (btn) btn.emit('pointerdown');
+  const b = document.querySelector('[data-testid=speed-' + speed + ']'); if (b) b.click();
   w.__frames = []; w.__peakItems = 0; w.__maxObjects = 0;
   w.__gl0 = { draws: w.__gl ? w.__gl.draws : 0, binds: w.__gl ? w.__gl.binds : 0 };
   let last = performance.now();
