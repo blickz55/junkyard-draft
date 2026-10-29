@@ -5,6 +5,10 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.7, PLAN-v4)
 
+### 0.7.2 Groups: a code that scopes the board — 2026-10-30
+- **For players.** A "Groups" button on the title opens a panel: create a group by name and get an 8-character code, join with a code someone gave you, leave, and choose "Use for boards". With a group in use, the daily strip, the histogram and the boards show only its members' verified runs, with your rank and percentile recomputed over the group ("You: #2 of 5"); the strip says "· group Lunch Crew" and the results board head names it. Up to 5 groups per player and 50 members per group; no chat; the code is the whole invitation.
+- **For operators.** `POST /groups` and `/groups/join|leave|rename|disband`, `GET /groups`, and `?group=<code>` on `/board`, `/histogram`, `/daily` and `/archive` for a member's bearer. Memberships are keyed by player id; a deleted player leaves every group. Protocol stays 2 (additive). No rules change.
+
 ### 0.7.1 Challenge link: "beat this" — 2026-10-30
 - **For players.** Every verified entry has a "Challenge" button (your own run after a verified submission, and each board entry) that copies a link. Whoever opens it plays the same seed with your per-round earnings shown beside theirs as they go, and the results say "beat Jon#7Q2M's $1200 by $50", "short of … by $50" or "tied …"; the detailed share text carries the same line. A challenge played on today's daily inside its window counts on the daily board like any run; retrying the seed keeps the challenge, switching seeds drops it. The link carries earnings only, never a replay or layout.
 - **For operators.** `GET /entry?hash=` serves one entry's seed, score, label, per-round earnings, frozen flag and medals; earnings are derived at verification and backfilled from stored replays at startup. Protocol stays 2 (additive). No rules change.

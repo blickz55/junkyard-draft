@@ -464,6 +464,50 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.equal(dboard2.entries.length, 2, 'the challenge run landed on the daily board through the normal path (two players, two entries)');
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+    // groups (PLAN-v4 0.7.2): this context creates a group, a second context joins by code and submits a run; the group daily board shows the two members and a different standing than the global board
+    await page.getByTestId('groups').click();
+    await page.waitForFunction(() => /^Everyone · in use$/.test(document.querySelector('[data-testid=group-list] > div')?.textContent || ''), null, { timeout: 10000 });
+    await page.getByTestId('group-name').fill('Lunch Crew'); await page.getByTestId('group-create').click();
+    await page.waitForSelector('[data-testid=group-code]', { timeout: 10000 });
+    const groupCode = await page.getByTestId('group-code').textContent(); assert.match(groupCode, /^[a-z2-7]{8}$/);
+    assert.match(await page.getByTestId('group-row').textContent(), /^Lunch Crew · code [a-z2-7]{8} · 1 member · yours/);
+    await page.getByTestId('group-use').click(); await wait(100);
+    assert.match(await page.getByTestId('group-row').textContent(), / · in use/);
+    await page.getByTestId('groups-close').click();
+    await page.waitForFunction(() => /· group Lunch Crew$/.test(document.querySelector('[data-testid=daily-mode]')?.textContent || ''), null, { timeout: 15000 });
+    let buddyToken;
+    {
+      const buddy = await browser.newContext({ viewport: { width: 1120, height: 700 } });
+      const p2 = await buddy.newPage();
+      await p2.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
+      await p2.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+      await p2.getByTestId('player').click(); await p2.getByTestId('dialog-input').fill('Buddy'); await p2.keyboard.press('Enter');
+      await p2.waitForFunction(() => /^Player: Buddy#/.test(document.querySelector('[data-testid=player]')?.textContent || ''), null, { timeout: 10000 });
+      await p2.getByTestId('groups').click();
+      await p2.waitForSelector('[data-testid=group-join-code]', { timeout: 10000 });
+      await p2.getByTestId('group-join-code').fill(groupCode); await p2.getByTestId('group-join').click();
+      await p2.waitForFunction(() => /Lunch Crew · code [a-z2-7]{8} · 2 members/.test(document.querySelector('[data-testid=group-row]')?.textContent || ''), null, { timeout: 10000 });
+      await p2.getByTestId('group-use').click(); await p2.getByTestId('groups-close').click();
+      await p2.waitForFunction(() => /· group Lunch Crew$/.test(document.querySelector('[data-testid=daily-mode]')?.textContent || ''), null, { timeout: 15000 });
+      buddyToken = JSON.parse(await p2.evaluate(() => localStorage.getItem('jd.identity.v1'))).token;
+      await buddy.close();
+    }
+    // Buddy submits a different run on today's daily; the group board has two entries, the global board three
+    const buddyRun = newRun(dinfo.seed);
+    for (let r = 1; r <= RULES.rounds; r++) { apply(buddyRun, { t: 'pick', i: 0 }); if (r === 1) apply(buddyRun, { t: 'rotate', id: buddyRun.bin[0].id }); apply(buddyRun, { t: 'run' }); apply(buddyRun, { t: 'next' }); }
+    const bsub = await (await fetch(`http://127.0.0.1:${VPORT}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${buddyToken}` }, body: JSON.stringify({ replay: exportReplay(buddyRun) }) })).json();
+    assert.equal(bsub.ok, true, JSON.stringify(bsub));
+    const everyone = await (await fetch(`http://127.0.0.1:${VPORT}/daily`)).json(); assert.equal(everyone.entries.length, 3, 'anonymous + this player + Buddy');
+    const scoped = await (await fetch(`http://127.0.0.1:${VPORT}/daily?group=${groupCode}`, { headers: { Authorization: `Bearer ${buddyToken}` } })).json();
+    assert.equal(scoped.entries.length, 2, 'the group board holds the two members only'); assert.deepEqual(scoped.group, { code: groupCode, name: 'Lunch Crew' });
+    assert.equal((await fetch(`http://127.0.0.1:${VPORT}/daily?group=${groupCode}`)).status, 401, 'a group board needs a member\'s token');
+    // this device's locally recorded submission on the daily is the anonymous one planted above (the local record keeps the higher score), so the group view honestly says 'beyond the top 2'
+    await page.reload(); await page.waitForFunction(() => /^You: (#\d of 2|beyond the top 2) \(\$\d+\)/.test(document.querySelector('[data-testid=daily-board]')?.textContent || ''), null, { timeout: 15000 });
+    assert.match(await page.getByTestId('daily-mode').textContent(), /· group Lunch Crew$/);
+    await page.getByTestId('groups').click(); await page.waitForSelector('[data-testid=group-use-everyone]', { timeout: 10000 }); await page.getByTestId('group-use-everyone').click(); await page.getByTestId('groups-close').click();
+    await page.waitForFunction(() => /^You: (#\d of 3|beyond the top 3) \(\$\d+\)/.test(document.querySelector('[data-testid=daily-board]')?.textContent || ''), null, { timeout: 15000 });
+    await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
+    await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
     assert.match(await page.getByTestId('player').textContent(), /^Player: e2e player#[2-9A-HJKMNP-TV-Z]{4}$/);
     // keep_best_per_player (PLAN-v3 0.6.0): with the page's bearer, a better run on a seed replaces the entry, an equal one is verified but not recorded
     {

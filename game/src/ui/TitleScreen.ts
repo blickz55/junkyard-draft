@@ -16,6 +16,8 @@ import { identityDialog, playerLabel } from './identityDialog';
 import { acceptDaily, cachedDaily, fetchDaily, practiceSeed, todaySeed, revealGate } from '../render/daily';
 import { openArchive } from './ArchivePanel';
 import { openPolicy } from './PolicyPanel';
+import { openGroups } from './GroupsPanel';
+import { groupHeaders, groupParam, loadGroup, saveGroup } from '../render/groups';
 
 export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const save = loadSave();
@@ -105,23 +107,26 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const rightGroup = h('span', { class: 'jd-row', style: 'gap:0.4em; flex-wrap:nowrap; flex:0 0 auto' });
   const policyBtn = btn('Fairness policy', 'policy', () => openPolicy(scene), { small: true, title: 'how scores are verified, how the daily works, what is stored about you (generated from the code, PLAN-v3 0.6.5)' });
   policyBtn.style.cssText += 'padding:0 0.5em; font-size:0.75em; line-height:1.4; min-height:0';
-  rightGroup.append(policyBtn, archiveBtn); // text-height like Archive: the top row at 130 % has no room for a fourth button
+  const groupsBtn = btn('Groups', 'groups', () => openGroups(scene, verifierUrl, () => scene.scene.restart()), { small: true, title: 'a code that scopes the boards to its members (PLAN-v4 0.7.2)' });
+  groupsBtn.style.cssText += 'padding:0 0.5em; font-size:0.75em; line-height:1.4; min-height:0';
+  rightGroup.append(groupsBtn, policyBtn, archiveBtn); // text-height like Archive: the top row at 130 % has no room for a fourth button
   const stripHead = h('div', { class: 'jd-row jd-between', style: 'flex-wrap:nowrap' }, h('div', { class: 'jd-row', style: 'flex-wrap:nowrap; min-width:0; overflow:hidden' }, h('div', { class: 'jd-head', style: 'white-space:nowrap' }, "Today's verified board"), seedSpan, modeSpan), rightGroup);
   const practiceMode = (why: string) => { seedSpan.textContent = `seed ${practiceSeed()}`; modeSpan.textContent = `practice (unranked): ${why}`; };
   const strip = h('div', { class: 'jd-panel', tid: 'daily-strip', style: 'margin-top:auto; padding-top:0.4em; padding-bottom:0.4em' }, stripHead, line);
   const alive = () => line.isConnected && scene.scene.isActive('Title');
   const closesIn = (closesAt: string, now: string) => { const ms = Date.parse(closesAt) - Date.parse(now); if (!Number.isFinite(ms) || ms <= 0) return 'closing'; const h = Math.floor(ms / 3_600_000); return h >= 1 ? `closes in ${h} h` : `closes in ${Math.max(1, Math.round(ms / 60_000))} min`; };
-  fetch(`${url}/daily?limit=5`).then((r) => r.json()).then((d: { seed: string; date?: string; rulesVersion: number; entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[]; botPar?: number | null; closesAt?: string; now?: string; final?: boolean }) => {
+  const groupSel = loadGroup();
+  fetch(`${url}/daily?limit=5${groupParam(url)}`, { headers: groupHeaders(url) }).then((r) => { if (!r.ok && groupSel && (r.status === 401 || r.status === 403)) { saveGroup(null); throw new Error('group unavailable'); } return r.json(); }).then((d: { seed: string; date?: string; rulesVersion: number; entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[]; botPar?: number | null; closesAt?: string; now?: string; final?: boolean }) => {
     if (!alive()) return;
     const info = acceptDaily(d);
     if (!info) { practiceMode(`the verifier's daily is for ${d.date ?? 'another day'}`); line.textContent = `Verifier day differs (${d.seed}); board hidden.`; return; }
     const seed = info.seed; seedSpan.textContent = `seed ${seed}`; seedSpan.title = seed;
-    modeSpan.textContent = d.final ? 'minted · final' : `minted · ranked · provisional · ${closesIn(d.closesAt ?? info.closesAt, d.now ?? new Date().toISOString())}`; // PLAN-v3 0.6.2: one global deadline, said plainly
+    modeSpan.textContent = `${d.final ? 'minted · final' : `minted · ranked · provisional · ${closesIn(d.closesAt ?? info.closesAt, d.now ?? new Date().toISOString())}`}${groupSel ? ` · group ${groupSel.name}` : ''}`; // PLAN-v3 0.6.2: one global deadline, said plainly
     const top = d.entries.length ? d.entries.map((e, i) => `${i + 1}. $${e.score} ${e.player}`).join('   ·   ') + `   ·   re-simulated by the verifier (rules v${d.rulesVersion}) · ties: fewer round-6 machines first` : 'No verified scores yet today. Finish a run and submit the replay from the results screen.';
     if (d.botPar != null) rightGroup.prepend(h('span', { class: 'jd-mono jd-dim', tid: 'daily-par', style: 'font-size:0.75em; white-space:nowrap', title: 'the shipped autoplayer\'s median on today\'s seed: a target, never an entry' }, `bot par $${d.botPar}`));
     line.textContent = top; line.title = top; line.classList.toggle('jd-dim', !d.entries.length);
     if (d.entries.length) {
-      fetch(`${url}/histogram?seed=${encodeURIComponent(seed)}`).then((r) => r.json()).then((hg: { n: number; bins: { count: number }[] }) => {
+      fetch(`${url}/histogram?seed=${encodeURIComponent(seed)}${groupParam(url)}`, { headers: groupHeaders(url) }).then((r) => r.json()).then((hg: { n: number; bins: { count: number }[] }) => {
         if (!alive() || !hg.n) return;
         const max = Math.max(1, ...hg.bins.map((b) => b.count));
         rightGroup.prepend(h('span', { class: 'jd-hist-mini', tid: 'daily-hist', title: `${hg.n} verified runs today` }, ...hg.bins.map((b) => h('span', { class: 'jd-hist-bar', style: `height:${Math.max(8, Math.round((100 * b.count) / max))}%` }))));
@@ -136,12 +141,12 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     }
     const mine = loadSubmissions()[seed];
     if (!mine) return;
-    fetch(`${url}/board?seed=${encodeURIComponent(seed)}&limit=100`).then((r) => r.json()).then((b: { entries: { replayHash: string }[] }) => {
+    fetch(`${url}/board?seed=${encodeURIComponent(seed)}&limit=100${groupParam(url)}`, { headers: groupHeaders(url) }).then((r) => r.json()).then((b: { entries: { replayHash: string }[] }) => {
       if (!alive()) return;
       const i = b.entries.findIndex((e) => e.replayHash === mine.replayHash);
       line.textContent = `You: ${i >= 0 ? `#${i + 1} of ${b.entries.length}` : `beyond the top ${b.entries.length}`} ($${mine.score})   ·   ${top}`; line.title = line.textContent; line.classList.remove('jd-dim');
     }).catch(() => { /* board unavailable: keep the top list */ });
-  }).catch(() => { if (alive()) { practiceMode('verifier unreachable'); line.textContent = 'Verifier offline (optional: npm run verifier). Daily board unavailable; local bests above are unverified.'; } });
+  }).catch((err: Error) => { if (!alive()) return; if (err.message === 'group unavailable') { line.textContent = 'Group board unavailable for this identity; showing everyone instead.'; scene.time.delayedCall(1200, () => { if (alive()) scene.scene.restart(); }); return; } { practiceMode('verifier unreachable'); line.textContent = 'Verifier offline (optional: npm run verifier). Daily board unavailable; local bests above are unverified.'; } });
 
   const screen = h('div', { class: 'jd-title' }, top, playerNote, statsNote, hero, actions, h('div', { class: 'jd-grid2', style: 'margin-top:0.4em' }, howto, bestsPanel), strip);
   ui.mount(scene, screen, (e) => {

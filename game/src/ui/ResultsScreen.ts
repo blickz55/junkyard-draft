@@ -17,6 +17,7 @@ import { todaySeed, revealGate } from '../render/daily';
 import { medalFor, medalsLine, type Medals } from '../daily/medals';
 import { openPolicy } from './PolicyPanel';
 import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
+import { groupHeaders, groupParam, loadGroup } from '../render/groups';
 
 /** What the scene keeps so tests and later screens can read it. */
 export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string; lastPercentile: number | null; lastN: number; lastMedal: string | null; verifiedHash: string | null; matchesStoredSubmission(): Promise<boolean>; exportClip(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number }>; exportGif(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number; frames: number }> }
@@ -62,7 +63,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
 
   const histBox = h('div', { tid: 'histogram' });
   const entriesBox = h('div', { class: 'jd-entries' });
-  const boardPanel = h('div', { class: 'jd-panel', tid: 'board' }, h('div', { class: 'jd-head' }, 'Local verified board · this seed'), h('div', { class: 'jd-grid2', style: 'gap:1.25em; align-items:start' }, histBox, entriesBox));
+  const boardPanel = h('div', { class: 'jd-panel', tid: 'board' }, h('div', { class: 'jd-head', tid: 'board-head' }, `Local verified board · this seed${loadGroup() ? ` · group ${loadGroup()!.name}` : ''}`), h('div', { class: 'jd-grid2', style: 'gap:1.25em; align-items:start' }, histBox, entriesBox));
   const status = h('div', { class: 'jd-mono jd-dim', tid: 'status', style: 'font-size:0.75em; min-height:1.3em' });
   const setStatus = (text: string, cls = 'jd-dim') => { status.textContent = text; status.className = `jd-mono ${cls}`; };
 
@@ -76,7 +77,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       if (!scene.verifiedHash && (await scene.matchesStoredSubmission())) scene.verifiedHash = loadSubmissions()[run.seed]?.replayHash ?? null;
       const mine = scene.verifiedHash ?? undefined;
       const prior = !mine ? loadSubmissions()[run.seed] : undefined;
-      const hres = await fetch(`${verifierUrl}/histogram?seed=${encodeURIComponent(run.seed)}${mine ? `&hash=${encodeURIComponent(mine)}` : ''}`);
+      const hres = await fetch(`${verifierUrl}/histogram?seed=${encodeURIComponent(run.seed)}${mine ? `&hash=${encodeURIComponent(mine)}` : ''}${groupParam(verifierUrl)}`, { headers: groupHeaders(verifierUrl) });
       const hg = await hres.json() as { n: number; step: number; bins: { from: number; to: number; count: number }[]; mine: { score: number; rank: number; bin: number; percentile: number } | null; around: { rank: number; player: string; score: number; mine: boolean }[]; botPar?: number | null; medals?: Medals | null };
       if (gen !== histGen || !histBox.isConnected) return;
       // the par is computed off the request path by the verifier the first time a seed is seen: poll a few times while it is pending
@@ -103,7 +104,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     entriesBox.replaceChildren();
     void loadHistogram();
     try {
-      const res = await fetch(`${verifierUrl}/board?seed=${encodeURIComponent(run.seed)}&limit=5`);
+      const res = await fetch(`${verifierUrl}/board?seed=${encodeURIComponent(run.seed)}&limit=5${groupParam(verifierUrl)}`, { headers: groupHeaders(verifierUrl) });
       const body = await res.json() as { entries: { player: string; score: number; verifiedAt: string; replayHash: string; replayAvailable?: boolean; finalMachines?: number }[]; tieBreak?: string };
       if (!body.entries.length) entriesBox.append(h('div', { class: 'jd-mono jd-dim jd-board-note', style: 'font-size:0.75em' }, 'no verified scores yet'));
       const gate = revealGate(run.seed); // PLAN-v3 0.6.6: on an open daily, replays open up once this device has submitted (loadBoard runs again after a submission)
@@ -137,7 +138,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     return player;
   };
   const rankOf = async (replayHash: string): Promise<Rank> => {
-    const res = await fetch(`${verifierUrl}/board?seed=${encodeURIComponent(run.seed)}&limit=100`);
+    const res = await fetch(`${verifierUrl}/board?seed=${encodeURIComponent(run.seed)}&limit=100${groupParam(verifierUrl)}`, { headers: groupHeaders(verifierUrl) });
     const body = await res.json() as { entries: { replayHash: string }[] };
     const i = body.entries.findIndex((e) => e.replayHash === replayHash);
     return { n: i >= 0 ? i + 1 : null, of: body.entries.length };

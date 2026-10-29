@@ -7,6 +7,7 @@ import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, load
 import { tagFor } from '../game/src/identity/identity';
 import { build as esbuild } from 'esbuild';
 import net from 'node:net';
+import { createHash } from 'node:crypto';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { apply, newRun } from '../game/src/sim/run';
 import { encodeReplay, exportReplay } from '../game/src/sim/replay';
@@ -875,5 +876,69 @@ test('challenge entries: per-round earnings are derived at verification and back
     const gated = await (await fetch(`${base}/entry?hash=${ds.entry!.replayHash}`)).json() as Record<string, unknown>; assert.equal(gated.ok, true); assert.ok(!('actions' in gated), 'an open daily\'s entry gives earnings only; the replay stays behind the reveal gate');
     assert.equal((await fetch(`${base}/entry?hash=nope`)).status, 404);
     const nr = await fetch(`${base}/entry?hash=${'f'.repeat(64)}`); assert.equal(nr.status, 404); assert.equal(((await nr.json()) as { reason: string }).reason, 'no-rounds');
+  } finally { close(); }
+});
+
+// ---- groups (PLAN-v4 0.7.2) ----
+test('groups: create/join/leave/rename/disband with caps and filtered names; a group board is members\' entries with ranks recomputed; non-members and unknown codes get one 403; deletion removes memberships', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-groups-')), 'board.json');
+  const v = new Verifier(file, { dailySecret: 'group-secret' });
+  const tok = (c: string) => c.repeat(32); const ids = ['a', 'b', 'c', 'd'].map((c) => playerIdFromToken(tok(c))!);
+  const t0 = new Date('2030-09-01T10:00:00Z');
+  assert.equal(v.createGroup(ids[0], 'Lunch Crew', t0).ok, false, 'a group needs a claimed identity');
+  for (const [i, id] of ids.entries()) assert.ok(v.claim(id, `Player ${i}`, t0).ok);
+  const bad = v.createGroup(ids[0], 'adm1n squad', t0); assert.equal(bad.ok, false); if (!bad.ok) assert.match(bad.error, /not allowed/);
+  const made = v.createGroup(ids[0], '  Lunch  Crew ', t0); assert.ok(made.ok); if (!made.ok) return;
+  const code = made.group.code; assert.match(code, /^[a-z2-7]{8}$/); assert.deepEqual(made.group, { code, name: 'Lunch Crew', members: 1, creator: true });
+  const joined = v.joinGroup(ids[1], code); assert.ok(joined.ok && joined.group.members === 2 && !joined.group.creator);
+  assert.deepEqual(v.joinGroup(ids[1], code), { ok: true, group: { code, name: 'Lunch Crew', members: 2, creator: false } }, 'joining twice is idempotent');
+  assert.equal(v.joinGroup(ids[2], 'zzzzzzzz').ok, false); assert.equal(v.joinGroup(ids[2], 'NOT-A-CODE').ok, false);
+  assert.deepEqual(v.groupsOf(ids[1]), [{ code, name: 'Lunch Crew', members: 2, creator: false }]); assert.deepEqual(v.groupsOf(ids[2]), []);
+  // caps: 5 groups per player, 50 members per group
+  for (let i = 0; i < 4; i++) assert.ok(v.createGroup(ids[0], `Extra ${i}`, t0).ok);
+  const sixth = v.createGroup(ids[0], 'One too many', t0); assert.equal(sixth.ok, false); if (!sixth.ok) assert.match(sixth.error, /at most 5/);
+  const small = new Verifier(path.join(path.dirname(file), 'small.json'), { dailySecret: 's' });
+  const many = Array.from({ length: 51 }, (_, i) => createHash('sha256').update(`m${i}`).digest('hex')); for (const m of many) small.claim(m, `M ${m.slice(0, 4)}`, t0);
+  const big = small.createGroup(many[0], 'Big', t0); if (!big.ok) throw new Error('big'); for (let i = 1; i < 50; i++) assert.ok(small.joinGroup(many[i], big.group.code).ok); const full = small.joinGroup(many[50], big.group.code); assert.equal(full.ok, false); if (!full.ok) assert.match(full.error, /full/);
+  // a group board: only members' verified entries, ranks over the members
+  const park: [number, number][] = [[6, 0], [6, 5], [0, 5]];
+  const mk = (extra: number) => { const s = newRun('group-seed'); for (let r = 1; r <= RULES.rounds; r++) { apply(s, { t: 'pick', i: 0 }); if (r === RULES.rounds) for (let k = 0; k < extra; k++) apply(s, { t: 'place', id: s.bin[k].id, x: park[k][0], y: park[k][1], dir: 0 }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); } return s; };
+  assert.ok(v.submit(JSON.stringify(exportReplay(mk(0))), 'x', ids[2], t0).ok, 'non-member, best run'); // 5 machines: ranks first globally
+  assert.ok(v.submit(JSON.stringify(exportReplay(mk(1))), 'x', ids[0], t0).ok); assert.ok(v.submit(JSON.stringify(exportReplay(mk(2))), 'x', ids[1], t0).ok);
+  assert.ok(v.submit(JSON.stringify(exportReplay(finishedRun('group-seed'))), 'anonymous', null, t0).ok, 'an anonymous entry is never in any group');
+  const members = v.groupMembers(code, ids[0])!; assert.equal(members.size, 2); assert.equal(v.groupMembers(code, ids[2]), null, 'a non-member gets nothing'); assert.equal(v.groupMembers('zzzzzzzz', ids[0]), null);
+  const global = v.board('group-seed', 100), scoped = v.board('group-seed', 100, members);
+  assert.equal(global.length, 4); assert.deepEqual(scoped.map((e) => e.playerId), [ids[0], ids[1]], 'members only, in rank order');
+  const hg = v.histogram('group-seed', scoped[1].replayHash, members); assert.equal(hg.n, 2); assert.equal(hg.mine!.rank, 2, 'rank recomputed over the group (globally this run is #3)');
+  assert.equal(v.histogram('group-seed', scoped[1].replayHash).mine!.rank, 4, 'globally the anonymous crusher run and the non-member rank above it');
+  // rename (creator only, cooldown), leave hands over, disband
+  assert.equal(v.renameGroup(ids[1], code, 'Nope', t0).ok, false);
+  const ren = v.renameGroup(ids[0], code, 'Lunch Crew 2', new Date(t0.getTime() + 60_000)); assert.equal(ren.ok, false); if (!ren.ok) assert.ok(ren.retryAfterSec! > 0, 'renamed at creation counts for the cooldown');
+  assert.ok(v.renameGroup(ids[0], code, 'Lunch Crew 2', new Date(t0.getTime() + RENAME_COOLDOWN_MS + 1)).ok); assert.equal(v.group(code)!.name, 'Lunch Crew 2');
+  assert.ok(v.leaveGroup(ids[0], code).ok); assert.equal(v.group(code)!.creatorId, ids[1], 'the leaving creator hands the group to the next member');
+  assert.equal(v.leaveGroup(ids[0], code).ok, false, 'not a member any more');
+  assert.equal(v.disbandGroup(ids[0], code).ok, false); assert.ok(v.disbandGroup(ids[1], code).ok); assert.equal(v.group(code), null);
+  const solo = v.createGroup(ids[3], 'Solo', t0); if (!solo.ok) throw new Error('solo'); assert.ok(v.leaveGroup(ids[3], solo.group.code).ok); assert.equal(v.group(solo.group.code), null, 'the last member leaving removes the group');
+  // deletion removes memberships; persisted across a restart
+  const again = new Verifier(file, { dailySecret: 'group-secret' });
+  const extra0 = again.groupsOf(ids[0])[0].code; assert.ok(again.joinGroup(ids[1], extra0).ok);
+  again.deletePlayer(ids[0]); assert.deepEqual(again.groupsOf(ids[0]), []); assert.equal(again.group(extra0)!.creatorId, ids[1], 'the deleted creator\'s group passes to the remaining member');
+  // over HTTP: create/join/list, a scoped board needs a member's bearer, unknown code and non-member share one 403
+  const { base, close } = await listen(again, { rateLimit: null, now: () => t0.getTime() });
+  const call = async (method: string, p: string, token: string | null, body?: unknown) => { const r = await fetch(`${base}${p}`, { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) }); return { status: r.status, json: await r.json() as Record<string, unknown> }; };
+  try {
+    const created = await call('POST', '/groups', tok('b'), { name: 'Http Crew' }); assert.equal(created.status, 200); const hc = (created.json.group as { code: string }).code;
+    assert.equal((await call('POST', '/groups', null, { name: 'x' })).status, 401);
+    assert.equal((await call('POST', '/groups', tok('c'), { name: 'adm1n' })).status, 422);
+    assert.equal((await call('POST', '/groups/join', tok('c'), { code: hc })).status, 200);
+    assert.equal((await call('POST', '/groups/join', tok('d'), { code: 'zzzzzzzz' })).status, 403);
+    const mine = await call('GET', '/groups', tok('c')); assert.equal(mine.status, 200); assert.ok((mine.json.groups as { code: string }[]).some((g) => g.code === hc));
+    const scopedBoard = await call('GET', `/board?seed=group-seed&group=${hc}`, tok('c')); assert.equal(scopedBoard.status, 200); assert.deepEqual(((scopedBoard.json.entries as BoardEntry[]).map((e) => e.playerId)), [ids[2], ids[1]], 'members only, ranked: the fewer-machines run first'); assert.deepEqual(scopedBoard.json.group, { code: hc, name: 'Http Crew' });
+    assert.equal((await call('GET', `/board?seed=group-seed&group=${hc}`, null)).status, 401, 'a group board needs the bearer');
+    assert.equal((await call('GET', `/board?seed=group-seed&group=${hc}`, tok('d'))).status, 403, 'non-member');
+    assert.equal((await call('GET', `/board?seed=group-seed&group=zzzzzzzz`, tok('c'))).status, 403, 'unknown code: the same answer');
+    assert.equal((await call('GET', `/histogram?seed=group-seed&group=${hc}`, tok('c'))).status, 200); assert.equal((await call('GET', `/archive?group=${hc}`, tok('c'))).status, 200); assert.equal((await call('GET', `/daily?group=${hc}`, tok('c'))).status, 200);
+    assert.equal((await call('GET', '/board?seed=group-seed', null)).status, 200, 'the global board is open as before');
+    assert.equal((await call('POST', '/groups/leave', tok('c'), { code: hc })).status, 200); assert.equal((await call('GET', `/board?seed=group-seed&group=${hc}`, tok('c'))).status, 403);
   } finally { close(); }
 });

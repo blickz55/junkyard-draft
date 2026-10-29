@@ -7,6 +7,8 @@
  *   Each day closes 48 h after 00:00 UTC (`closesAt`); from then on `final`/`frozenAt` are set and the board never changes;
  *   a later submission is verified and answered `{ ok, score, late: true, recorded: false }` (PLAN-v3 0.6.2).
  * - GET  /archive?from=&to=&limit=30 → closed days newest first with N, bot par, medals and the top five; `nextTo` pages older.
+ * - Groups (PLAN-v4 0.7.2): POST /groups { name } (bearer, filtered name, 8-char code), POST /groups/join|leave|rename|disband, GET /groups;
+ *   ?group=<code> on /board, /histogram, /daily and /archive (bearer of a member) scopes entries to members' player ids.
  * - GET  /entry?hash=…[&seed=…] → one verified entry's seed, score, label, per-round earnings, frozen flag and medals (PLAN-v4 0.7.1):
  *   what a challenge link needs and nothing a reveal-gated replay would leak (no actions).
  * - Cold storage (PLAN-v4 0.7.0): frozen dailies older than HOT_DAYS move to cold/YYYY-MM.json with every entry and only the top
@@ -59,7 +61,7 @@ import { decodeReplay, verifyReplay, canonicalReplayJson, type ReplayFile } from
 import { replay as replayRun } from '../game/src/sim/run';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { dailySeedFor, isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
-import { mintSeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS } from './mint';
+import { mintSeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS, base32Lower } from './mint';
 import { medalThresholds, type Medals } from '../game/src/daily/medals';
 import { ColdStore, HOT_DAYS, COLD_REPLAYS_PER_DAY, type ColdDay } from './cold';
 export { HOT_DAYS, COLD_REPLAYS_PER_DAY, ColdStore } from './cold';
@@ -107,10 +109,14 @@ export interface DailyRecord { date: string; seed: string; commitment: string; i
 /** One closed day in GET /archive. */
 export interface ArchiveDay { date: string; seed: string; closesAt: string; frozenAt: string; n: number; botPar: number | null; medals: Medals | null; top: BoardEntry[] }
 export const MAX_ARCHIVE_LIMIT = 100;
+/** A group (PLAN-v4 0.7.2): a code that scopes boards to its members' verified entries. Keyed by player id, never by name. */
+export interface Group { code: string; name: string; creatorId: string | null; createdAt: string; renamedAt: string; playerIds: string[] }
+export const MAX_GROUPS_PER_PLAYER = 5, MAX_GROUP_MEMBERS = 50, GROUP_CODE_LEN = 8, GROUP_RATE_LIMIT = 5;
+const GROUP_CODE = /^[a-z2-7]{8}$/;
 /** Defaults the policy page publishes (PLAN-v3 0.6.5); env/flags override the rate limits at runtime. */
 export const DEFAULT_RATE_LIMIT = 60, DEFAULT_PLAYER_RATE_LIMIT = 2, IDENTITY_RATE_LIMIT = 5, DEFAULT_EVENTS_RATE_LIMIT = 30;
 export const DEFAULT_REPLAYS_PER_SEED = 100, DEFAULT_MAX_ENTRIES_PER_SEED = 1000, DEFAULT_MAX_SEEDS = 5000, DEFAULT_EVENTS_RETENTION_DAYS = 30;
-export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay>; pars?: Record<string, BotPar>; players?: Record<string, Player>; dailies?: Record<string, DailyRecord> }
+export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay>; pars?: Record<string, BotPar>; players?: Record<string, Player>; dailies?: Record<string, DailyRecord>; groups?: Record<string, Group> }
 
 export const MAX_BODY_BYTES = 512 * 1024;
 const MAX_BODY = MAX_BODY_BYTES;
@@ -219,10 +225,10 @@ export class Verifier {
   }
 
   /** Current-version entries for a seed in board order. Entries persisted under another rules version never rank. */
-  private rank(seed: string, data: Board = this.data): BoardEntry[] {
+  private rank(seed: string, data: Board = this.data, members?: ReadonlySet<string> | null): BoardEntry[] {
     const hot = data.entries.filter((e) => e.seed === seed && e.rulesVersion === RULES_VERSION).sort(byRank);
-    if (hot.length || data !== this.data) return hot;
-    return this.coldEntries(seed).filter((e) => e.rulesVersion === RULES_VERSION).sort(byRank);
+    const all = hot.length || data !== this.data ? hot : this.coldEntries(seed).filter((e) => e.rulesVersion === RULES_VERSION).sort(byRank);
+    return members ? all.filter((e) => !!e.playerId && members.has(e.playerId)) : all; // a group board: members' verified entries only, ranks recomputed over them (PLAN-v4 0.7.2)
   }
   /** A cold day's entries with labels resolved against the current identities (renames and deletions follow the player without rewriting cold files). */
   private coldEntries(seed: string): BoardEntry[] {
@@ -304,6 +310,60 @@ export class Verifier {
   }
 
   /** Verify a replay; on success record it. Returns the verdict (never trusts claimedScore). Throws StorageError if it cannot persist. */
+  // ---------- groups (PLAN-v4 0.7.2) ----------
+  group(code: string): Group | null { return this.data.groups?.[code] ?? null; }
+  /** The member set of a group the caller belongs to; null for an unknown code or a non-member (one answer, so codes cannot be probed). */
+  groupMembers(code: string, playerId: string): ReadonlySet<string> | null { const g = this.data.groups?.[code]; return g && g.playerIds.includes(playerId) ? new Set(g.playerIds) : null; }
+  private groupInfo(g: Group, playerId: string) { return { code: g.code, name: g.name, members: g.playerIds.length, creator: g.creatorId === playerId }; }
+  groupsOf(playerId: string) { return Object.values(this.data.groups ?? {}).filter((g) => g.playerIds.includes(playerId)).sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map((g) => this.groupInfo(g, playerId)); }
+  private newGroupCode(): string { for (let i = 0; i < 20; i++) { const code = base32Lower(randomBytes(5)).slice(0, GROUP_CODE_LEN); if (!this.data.groups?.[code]) return code; } throw new Error('could not mint a group code'); }
+  createGroup(playerId: string, rawName: unknown, now = new Date()): { ok: true; group: ReturnType<Verifier['groupInfo']> } | { ok: false; error: string } {
+    if (!this.data.players?.[playerId]) return { ok: false, error: 'claim a name before creating a group' };
+    const problem = nameProblem(rawName); if (problem) return { ok: false, error: `group ${problem}` };
+    if (this.groupsOf(playerId).length >= MAX_GROUPS_PER_PLAYER) return { ok: false, error: `at most ${MAX_GROUPS_PER_PLAYER} groups per player` };
+    const g: Group = { code: this.newGroupCode(), name: normaliseName(rawName), creatorId: playerId, createdAt: now.toISOString(), renamedAt: now.toISOString(), playerIds: [playerId] };
+    this.commit({ ...this.data, groups: { ...(this.data.groups ?? {}), [g.code]: g } });
+    return { ok: true, group: this.groupInfo(g, playerId) };
+  }
+  joinGroup(playerId: string, code: unknown): { ok: true; group: ReturnType<Verifier['groupInfo']> } | { ok: false; error: string } {
+    if (!this.data.players?.[playerId]) return { ok: false, error: 'claim a name before joining a group' };
+    const g = typeof code === 'string' && GROUP_CODE.test(code) ? this.data.groups?.[code] : undefined;
+    if (!g) return { ok: false, error: 'unknown group code' };
+    if (g.playerIds.includes(playerId)) return { ok: true, group: this.groupInfo(g, playerId) };
+    if (g.playerIds.length >= MAX_GROUP_MEMBERS) return { ok: false, error: `that group is full (${MAX_GROUP_MEMBERS} members)` };
+    if (this.groupsOf(playerId).length >= MAX_GROUPS_PER_PLAYER) return { ok: false, error: `at most ${MAX_GROUPS_PER_PLAYER} groups per player` };
+    const next = { ...g, playerIds: [...g.playerIds, playerId] };
+    this.commit({ ...this.data, groups: { ...(this.data.groups ?? {}), [g.code]: next } });
+    return { ok: true, group: this.groupInfo(next, playerId) };
+  }
+  /** Leave; the last member leaving removes the group; a leaving creator hands the group to the next member. */
+  leaveGroup(playerId: string, code: unknown): { ok: true; left: string } | { ok: false; error: string } {
+    const g = typeof code === 'string' ? this.data.groups?.[code] : undefined;
+    if (!g || !g.playerIds.includes(playerId)) return { ok: false, error: 'not a member of that group' };
+    const groups = { ...(this.data.groups ?? {}) };
+    const rest = g.playerIds.filter((p) => p !== playerId);
+    if (rest.length) groups[g.code] = { ...g, playerIds: rest, creatorId: g.creatorId === playerId ? rest[0] : g.creatorId }; else delete groups[g.code];
+    this.commit({ ...this.data, groups });
+    return { ok: true, left: g.code };
+  }
+  renameGroup(playerId: string, code: unknown, rawName: unknown, now = new Date()): { ok: true; group: ReturnType<Verifier['groupInfo']> } | { ok: false; error: string; retryAfterSec?: number } {
+    const g = typeof code === 'string' ? this.data.groups?.[code] : undefined;
+    if (!g || g.creatorId !== playerId) return { ok: false, error: 'only the group\'s creator can rename it' };
+    const problem = nameProblem(rawName); if (problem) return { ok: false, error: `group ${problem}` };
+    const name = normaliseName(rawName); if (name === g.name) return { ok: true, group: this.groupInfo(g, playerId) };
+    const since = now.getTime() - Date.parse(g.renamedAt); if (since < RENAME_COOLDOWN_MS) return { ok: false, error: 'group was renamed recently; try again later', retryAfterSec: Math.ceil((RENAME_COOLDOWN_MS - since) / 1000) };
+    const next = { ...g, name, renamedAt: now.toISOString() };
+    this.commit({ ...this.data, groups: { ...(this.data.groups ?? {}), [g.code]: next } });
+    return { ok: true, group: this.groupInfo(next, playerId) };
+  }
+  disbandGroup(playerId: string, code: unknown): { ok: true } | { ok: false; error: string } {
+    const g = typeof code === 'string' ? this.data.groups?.[code] : undefined;
+    if (!g || g.creatorId !== playerId) return { ok: false, error: 'only the group\'s creator can disband it' };
+    const groups = { ...(this.data.groups ?? {}) }; delete groups[g.code];
+    this.commit({ ...this.data, groups });
+    return { ok: true };
+  }
+
   /** Identity records (PLAN-v3 0.6.0). */
   player(id: string): (Player & { playerId: string }) | null { const p = this.data.players?.[id]; return p ? { playerId: id, ...p } : null; }
   /** Claim or rename a display name for a player id. Returns the record or a refusal. */
@@ -326,7 +386,9 @@ export class Verifier {
     const players = { ...(this.data.players ?? {}) }; delete players[playerId];
     const replays = { ...(this.data.replays ?? {}) }; for (const e of mine) delete replays[e.replayHash];
     const entries = this.data.entries.map((e) => (e.playerId === playerId ? { ...e, player: 'deleted', playerId: undefined } : e));
-    this.commit({ ...this.data, players, replays, entries });
+    const groups: Record<string, Group> = {}; // memberships go too (PLAN-v4 0.7.2); an emptied group disappears
+    for (const g of Object.values(this.data.groups ?? {})) { const rest = g.playerIds.filter((p) => p !== playerId); if (rest.length) groups[g.code] = { ...g, playerIds: rest, creatorId: g.creatorId === playerId ? rest[0] : g.creatorId }; }
+    this.commit({ ...this.data, players, replays, entries, groups });
     return { entries: mine.length };
   }
 
@@ -366,9 +428,9 @@ export class Verifier {
     this.commit(candidate); // throws StorageError: nothing recorded, caller answers 503
     return { ok: true, score: v.score, entry, recorded: true, player: label };
   }
-  board(seed: string, limit = 20): BoardEntry[] {
+  board(seed: string, limit = 20, members?: ReadonlySet<string> | null): BoardEntry[] {
     const n = Math.min(MAX_BOARD_LIMIT, Math.max(1, Math.floor(limit) || 1));
-    return this.rank(seed).slice(0, n).map((e) => ({ ...e, replayAvailable: !!this.data.replays?.[e.replayHash] || !!this.cold.dateOfReplay(e.replayHash) }));
+    return this.rank(seed, this.data, members).slice(0, n).map((e) => ({ ...e, replayAvailable: !!this.data.replays?.[e.replayHash] || !!this.cold.dateOfReplay(e.replayHash) }));
   }
   /** Stored replay of a verified, current-version entry (boards written before replay storage existed have none). */
   replay(hash: string): (StoredReplay & { hash: string }) | null {
@@ -417,7 +479,7 @@ export class Verifier {
   /** Number of cached pars (for tests and /health). */
   get parCount() { return Object.keys(this.data.pars ?? {}).length; }
   /** Verified score distribution for a seed; `hash` locates the caller's own entry. */
-  histogram(seed: string, hash?: string): Histogram { return { seed, ...histogramOf(this.rank(seed), hash) }; }
+  histogram(seed: string, hash?: string, members?: ReadonlySet<string> | null): Histogram { return { seed, ...histogramOf(this.rank(seed, this.data, members), hash) }; }
   /** The issued daily for a UTC date, minting and persisting it on first request; null when that day has not opened yet (PLAN-v3 0.6.1). */
   /** Mark every issued day whose window has closed as frozen at its close time: idempotent, persisted, derived from the clock alone (PLAN-v3 0.6.2). */
   private observeFreeze(now: Date) {
@@ -442,7 +504,7 @@ export class Verifier {
     return this.data.dailies![date];
   }
   /** Closed days, newest first, paged by `limit` with `nextTo` = the next older date to pass as `to` (PLAN-v3 0.6.2). */
-  archive(o: { from?: string; to?: string; limit?: number } = {}, now = new Date()): { days: ArchiveDay[]; nextTo: string | null } {
+  archive(o: { from?: string; to?: string; limit?: number } = {}, now = new Date(), members?: ReadonlySet<string> | null): { days: ArchiveDay[]; nextTo: string | null } {
     this.observeFreeze(now);
     const limit = Math.min(MAX_ARCHIVE_LIMIT, Math.max(1, Math.floor(o.limit ?? 30)));
     const inRange = (d: string) => (!o.from || d >= o.from) && (!o.to || d <= o.to);
@@ -453,7 +515,7 @@ export class Verifier {
     const days: ArchiveDay[] = [];
     for (const date of dates.slice(0, limit)) {
       const r = this.data.dailies?.[date] ?? this.cold.day(date)?.record; if (!r) continue;
-      days.push({ date: r.date, seed: r.seed, closesAt: r.closesAt, frozenAt: r.frozenAt ?? r.closesAt, n: this.rank(r.seed).length, botPar: this.par(r.seed), medals: r.medals ?? null, top: this.board(r.seed, 5) });
+      days.push({ date: r.date, seed: r.seed, closesAt: r.closesAt, frozenAt: r.frozenAt ?? r.closesAt, n: this.rank(r.seed, this.data, members).length, botPar: this.par(r.seed), medals: r.medals ?? null, top: this.board(r.seed, 5, members) });
     }
     return { days, nextTo: dates.length > limit ? dates[limit] : null };
   }
@@ -467,10 +529,10 @@ export class Verifier {
   /** Today's minted seed (the one bot par computes first). */
   todaySeed(now = new Date()): string { return this.dailyRecord(utcDate(now), now)!.seed; }
   /** Today's challenge (or an opened past day): the minted record, its verified board, and the previous day for commitment checks. */
-  daily(limit = 10, now = new Date(), date = utcDate(now)): (Omit<DailyRecord, 'frozenAt'> & { frozenAt: string | null; final: boolean; now: string; verified: true; minted: true; entries: BoardEntry[]; previous: { date: string; seed: string; commitment: string } | null }) | null {
+  daily(limit = 10, now = new Date(), date = utcDate(now), members?: ReadonlySet<string> | null): (Omit<DailyRecord, 'frozenAt'> & { frozenAt: string | null; final: boolean; now: string; verified: true; minted: true; entries: BoardEntry[]; previous: { date: string; seed: string; commitment: string } | null }) | null {
     const rec = this.dailyRecord(date, now); if (!rec) return null;
     const prev = this.dailyRecord(shiftDate(date, -1), now);
-    return { ...rec, frozenAt: rec.frozenAt ?? null, final: !!rec.frozenAt, now: now.toISOString(), verified: true, minted: true, entries: this.board(rec.seed, Math.min(MAX_DAILY_LIMIT, limit)), previous: prev ? { date: prev.date, seed: prev.seed, commitment: prev.commitment } : null };
+    return { ...rec, frozenAt: rec.frozenAt ?? null, final: !!rec.frozenAt, now: now.toISOString(), verified: true, minted: true, entries: this.board(rec.seed, Math.min(MAX_DAILY_LIMIT, limit), members), previous: prev ? { date: prev.date, seed: prev.seed, commitment: prev.commitment } : null };
   }
 }
 
@@ -564,7 +626,10 @@ export function loadBoard(text: string): Board {
     const out: Board = { entries, replays };
     if (Object.keys(pars).length) out.pars = pars;
     if (Object.keys(players).length) out.players = players;
+    const groups: Record<string, Group> = {};
+    if (raw.groups && typeof raw.groups === 'object') for (const [code, g] of Object.entries(raw.groups as Record<string, Group>)) if (g && GROUP_CODE.test(code) && typeof g.name === 'string' && Array.isArray(g.playerIds)) groups[code] = { code, name: g.name, creatorId: typeof g.creatorId === 'string' ? g.creatorId : null, createdAt: typeof g.createdAt === 'string' ? g.createdAt : '', renamedAt: typeof g.renamedAt === 'string' ? g.renamedAt : '', playerIds: g.playerIds.filter((p): p is string => typeof p === 'string' && /^[0-9a-f]{64}$/.test(p)) };
     if (Object.keys(dailies).length) out.dailies = dailies;
+    if (Object.keys(groups).length) out.groups = groups;
     return out;
   } catch { return { entries: [] }; }
 }
@@ -664,6 +729,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const erl = events ? new RateLimiter(opts.eventsRateLimit ?? DEFAULT_EVENTS_RATE_LIMIT, 60_000, opts.now) : null;
   const prl = new RateLimiter(opts.playerRateLimit ?? DEFAULT_PLAYER_RATE_LIMIT, 60_000, opts.now); // per-player submissions (PLAN-v3 §1 abuse baseline)
   const irl = new RateLimiter(IDENTITY_RATE_LIMIT, 60_000, opts.now); // per-player identity calls
+  const grl = new RateLimiter(GROUP_RATE_LIMIT, 60_000, opts.now); // per-player group calls (PLAN-v4 0.7.2)
   const MAX_EVENTS_BODY = 64 * 1024;
   const corsOrigin = opts.corsOrigin ?? '*';
   const log = opts.log === null ? null : opts.log ?? ((l: string) => console.log(l));
@@ -692,12 +758,20 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         if (gate) return json(403, { ok: false, reason: 'reveal-gate', ...gate });
         return json(200, { ok: true, ...r });
       }
+      // group scope (PLAN-v4 0.7.2): ?group=<code> needs the bearer of a member; one refusal for unknown codes and non-members so codes cannot be probed
+      const groupScope = (): { ok: true; members: ReadonlySet<string> | null; group: { code: string; name: string } | null } | { ok: false; status: number; error: string } => {
+        const code = url.searchParams.get('group'); if (!code) return { ok: true, members: null, group: null };
+        const pid = playerIdFromToken(bearerOf(req)); if (!pid) return { ok: false, status: 401, error: 'a group board needs your identity token' };
+        const members = verifier.groupMembers(code, pid); if (!members) return { ok: false, status: 403, error: 'unknown group or not a member' };
+        return { ok: true, members, group: { code, name: verifier.group(code)!.name } };
+      };
       if (req.method === 'GET' && url.pathname === '/daily') {
+        const gs = groupScope(); if (!gs.ok) return json(gs.status, { ok: false, error: gs.error });
         const now = new Date((opts.now ?? Date.now)()); const dateQ = url.searchParams.get('date');
         if (dateQ !== null && !isUtcDate(dateQ)) return json(400, { ok: false, error: 'date must be YYYY-MM-DD' });
-        const d = verifier.daily(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT), now, dateQ ?? undefined);
+        const d = verifier.daily(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT), now, dateQ ?? undefined, gs.members);
         if (!d) return json(403, { ok: false, error: `the daily for ${dateQ} has not opened yet (dailies open at 00:00 UTC)`, today: utcDate(now) });
-        return json(200, { ok: true, ...d, botPar: withPar(d.seed), tieBreak: TIE_BREAK });
+        return json(200, { ok: true, ...d, group: gs.group, botPar: withPar(d.seed), tieBreak: TIE_BREAK });
       }
       if (req.method === 'GET' && url.pathname === '/entry') { // challenge links (PLAN-v4 0.7.1): earnings, never actions
         const e = verifier.entry((url.searchParams.get('hash') || '').slice(0, 64), (url.searchParams.get('seed') || '').slice(0, 64) || null);
@@ -708,10 +782,11 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       if (req.method === 'GET' && url.pathname === '/archive') {
         const now = new Date((opts.now ?? Date.now)()); const from = url.searchParams.get('from'), to = url.searchParams.get('to');
         if ((from !== null && !isUtcDate(from)) || (to !== null && !isUtcDate(to))) return json(400, { ok: false, error: 'from/to must be YYYY-MM-DD' });
-        return json(200, { ok: true, ...verifier.archive({ from: from ?? undefined, to: to ?? undefined, limit: clampInt(url.searchParams.get('limit'), 30, MAX_ARCHIVE_LIMIT) }, now), tieBreak: TIE_BREAK });
+        const gs = groupScope(); if (!gs.ok) return json(gs.status, { ok: false, error: gs.error });
+        return json(200, { ok: true, ...verifier.archive({ from: from ?? undefined, to: to ?? undefined, limit: clampInt(url.searchParams.get('limit'), 30, MAX_ARCHIVE_LIMIT) }, now, gs.members), group: gs.group, tieBreak: TIE_BREAK });
       }
-      if (req.method === 'GET' && url.pathname === '/histogram') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { ok: true, ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined), botPar: withPar(seed), medals: verifier.medalsForSeed(seed, new Date((opts.now ?? Date.now)())), tieBreak: TIE_BREAK }); }
-      if (req.method === 'GET' && url.pathname === '/board') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { seed, verified: true, entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT)), botPar: withPar(seed), tieBreak: TIE_BREAK }); }
+      if (req.method === 'GET' && url.pathname === '/histogram') { const gs = groupScope(); if (!gs.ok) return json(gs.status, { ok: false, error: gs.error }); const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { ok: true, ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined, gs.members), group: gs.group, botPar: withPar(seed), medals: verifier.medalsForSeed(seed, new Date((opts.now ?? Date.now)())), tieBreak: TIE_BREAK }); }
+      if (req.method === 'GET' && url.pathname === '/board') { const gs = groupScope(); if (!gs.ok) return json(gs.status, { ok: false, error: gs.error }); const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { seed, verified: true, entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT), gs.members), group: gs.group, botPar: withPar(seed), tieBreak: TIE_BREAK }); }
       // identity (PLAN-v3 0.6.0): the bearer is a device token; only its hash is used or stored
       const bearerId = playerIdFromToken(bearerOf(req));
       if (req.headers.authorization && !bearerId) return json(401, { ok: false, error: 'bad token' });
@@ -729,6 +804,26 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
             const out = verifier.claim(bearerId, parsed && typeof parsed === 'object' ? parsed.name : undefined, new Date((opts.now ?? Date.now)()));
             if (!out.ok) return json(out.retryAfterSec ? 429 : 422, { ok: false, error: out.error }, out.retryAfterSec ? { 'Retry-After': String(out.retryAfterSec) } : {});
             json(200, { ok: true, ...out.player });
+          } catch (e) { if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable; try again' }, { 'Retry-After': '5' }); json(500, { ok: false, error: 'internal error' }); }
+        }));
+        return;
+      }
+      if (url.pathname === '/groups' && req.method === 'GET') { if (!bearerId) return json(401, { ok: false, error: 'token required' }); return json(200, { ok: true, groups: verifier.groupsOf(bearerId) }); }
+      if (req.method === 'POST' && /^\/groups(\/(join|leave|rename|disband))?$/.test(url.pathname)) { // PLAN-v4 0.7.2
+        if (!bearerId) { req.resume(); return json(401, { ok: false, error: 'token required' }); }
+        const r = grl.take(bearerId); if (!r.ok) { req.resume(); return json(429, { ok: false, error: 'rate limited' }, { 'Retry-After': String(r.retryAfterSec) }); }
+        const action = url.pathname.split('/')[2] ?? 'create';
+        let body = '';
+        req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
+        req.on('end', () => guarded(() => {
+          if (res.writableEnded) return;
+          let parsed: { name?: unknown; code?: unknown } = {};
+          try { parsed = (JSON.parse(body || '{}') ?? {}) as { name?: unknown; code?: unknown }; } catch { return json(400, { ok: false, error: 'bad request' }); }
+          try {
+            const now = new Date((opts.now ?? Date.now)());
+            const out = action === 'create' ? verifier.createGroup(bearerId, parsed.name, now) : action === 'join' ? verifier.joinGroup(bearerId, parsed.code) : action === 'leave' ? verifier.leaveGroup(bearerId, parsed.code) : action === 'rename' ? verifier.renameGroup(bearerId, parsed.code, parsed.name, now) : verifier.disbandGroup(bearerId, parsed.code);
+            if (!out.ok) { const retry = (out as { retryAfterSec?: number }).retryAfterSec; return json(retry ? 429 : /unknown group|not a member|only the group/.test(out.error) ? 403 : 422, { ok: false, error: out.error }, retry ? { 'Retry-After': String(retry) } : {}); }
+            json(200, out);
           } catch (e) { if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable; try again' }, { 'Retry-After': '5' }); json(500, { ok: false, error: 'internal error' }); }
         }));
         return;

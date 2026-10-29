@@ -9,7 +9,7 @@ import { RULES_VERSION } from '../game/src/sim/types';
 import { EVENTS } from '../game/src/telemetry/events';
 import { NAME_MAX, NAME_BLOCKLIST, TAG_ALPHABET } from '../game/src/identity/identity';
 import { MEDAL_PERCENTILES, MEDAL_MIN_N } from '../game/src/daily/medals';
-import { TIE_BREAK, RENAME_COOLDOWN_MS, MAX_BOARD_LIMIT, MAX_DAILY_LIMIT, MAX_ARCHIVE_LIMIT, DAILY_WINDOW_MS, DEFAULT_RATE_LIMIT, DEFAULT_PLAYER_RATE_LIMIT, IDENTITY_RATE_LIMIT, DEFAULT_EVENTS_RATE_LIMIT, MAX_BODY_BYTES, DEFAULT_REPLAYS_PER_SEED, DEFAULT_MAX_ENTRIES_PER_SEED, DEFAULT_MAX_SEEDS, DEFAULT_EVENTS_RETENTION_DAYS, PROTOCOL, HOT_DAYS, COLD_REPLAYS_PER_DAY } from '../server/verify';
+import { TIE_BREAK, RENAME_COOLDOWN_MS, MAX_BOARD_LIMIT, MAX_DAILY_LIMIT, MAX_ARCHIVE_LIMIT, DAILY_WINDOW_MS, DEFAULT_RATE_LIMIT, DEFAULT_PLAYER_RATE_LIMIT, IDENTITY_RATE_LIMIT, DEFAULT_EVENTS_RATE_LIMIT, MAX_BODY_BYTES, DEFAULT_REPLAYS_PER_SEED, DEFAULT_MAX_ENTRIES_PER_SEED, DEFAULT_MAX_SEEDS, DEFAULT_EVENTS_RETENTION_DAYS, PROTOCOL, HOT_DAYS, COLD_REPLAYS_PER_DAY, MAX_GROUPS_PER_PLAYER, MAX_GROUP_MEMBERS } from '../server/verify';
 
 export interface PolicySection { title: string; lines: string[] }
 export interface Policy {
@@ -57,6 +57,7 @@ export function buildPolicy(): Policy {
       `Your display name (up to ${NAME_MAX} characters, normalised, ${NAME_BLOCKLIST.length} blocked words after folding look-alikes) is shown as Name#TAG, the four-character tag derived from your player id over the alphabet ${TAG_ALPHABET}. You can rename once every ${hours(RENAME_COOLDOWN_MS)}; a rename follows you onto every board.`,
       'The recovery code is your key in base32 groups. Anyone with it can play as you: keep it private. Entering it on another device moves the player there.',
       'Deletion: DELETE /me with your key removes your name, anonymises your entries as "deleted" and drops their replays. Nothing else about you is stored.',
+      `Groups: a group is an 8-character code; its boards, histograms and daily strip show only members\' verified entries with ranks and percentiles recomputed over the group. Membership is keyed by player id, group names pass the same filter as player names, at most ${MAX_GROUPS_PER_PLAYER} groups per player and ${MAX_GROUP_MEMBERS} members per group, and a code is never listed anywhere: whoever holds it can join.`,
       'The verifier stores: verified entries (seed, score, label, time, replay hash, machine count, player id when claimed), replays for the retention window, claimed names, issued dailies, bot pars. It stores no addresses: play statistics, when you opt in, carry a daily-salted hash of the address that cannot be linked across days.',
     ] },
     { title: 'Play statistics (opt-in)', lines: [
