@@ -1,12 +1,13 @@
 /** Title screen as DOM (DOSSIER-v1 0.4.0). The Phaser TitleScene keeps the decorative belt and the tips panel; everything else lives here. */
 import type Phaser from 'phaser';
 import { h, btn, ui, alertText, dialog, promptText } from './dom';
+import { RULES_VERSION } from '../sim/types';
 import type { TipsPanel } from './TipsPanel';
 import { telemetry } from '../render/telemetry';
 import { audio } from '../render/audio';
 import { prefs } from '../render/prefs';
 import { DPR } from '../render/dpr';
-import { clearSave, dailySeed, hasUnusableSave, loadBests, loadPlayer, loadSave, loadSettings, loadSubmissions, randomSeed, savePlayer, updateSettings, isOnboarded } from '../render/storage';
+import { clearSave, dailySeed, hasUnusableSave, loadArchivedBests, loadBests, loadPlayer, loadSave, loadSettings, loadSubmissions, randomSeed, savePlayer, updateSettings, isOnboarded } from '../render/storage';
 import { MAX_SEED_LENGTH, sanitizeSeed, TUTORIAL_SEED } from '../sim/run';
 import { decodeReplay, verifyReplay } from '../sim/replay';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
@@ -72,6 +73,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     h('div', { style: 'margin-top:0.35em; font-size:0.9375em' }, bests.overall ? `Best score: $${bests.overall.score}  (seed ${bests.overall.seed})` : 'No finished runs yet on this device.'),
     h('div', { class: 'jd-dim', style: 'font-size:0.875em' }, todayBest ? `Today's challenge best: $${todayBest.score}` : "Today's challenge: not played yet"),
     h('div', { class: 'jd-mono jd-dim', style: 'font-size:0.75em' }, `${bests.runs} run(s) recorded locally · not verified online`),
+    ...loadArchivedBests().map(({ version, bests: ab }) => h('details', { tid: `archived-bests-${version}`, style: 'margin-top:0.2em' }, h('summary', { class: 'jd-dim', style: 'font-size:0.75em; cursor:pointer' }, `Under rules v${version}`), h('div', { class: 'jd-mono jd-dim', style: 'font-size:0.75em; margin-top:0.15em' }, `${ab.overall ? `best $${ab.overall.score} (seed ${ab.overall.seed}) · ` : ''}${ab.runs} run(s) · kept, not comparable with v${RULES_VERSION}`))),
     h('div', { class: 'jd-row', style: 'margin-top:0.6em' }, h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, 'Volume'), volume, muteBtn),
     (() => {
       // audio buses (DOSSIER-v1 0.4.9): collapsed so the title keeps its height at 130 % text

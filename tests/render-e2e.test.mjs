@@ -214,6 +214,33 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       assert.deepEqual(errors, [], 'no page errors without window.prompt');
       await context.close();
     }
+    // 5e) records_partitioned_by_rules_version (PLAN-v2 0.5.0): a pre-0.5.0 profile migrates on the title and the legacy key goes;
+    //     bests under another version show as a collapsed archived block, and the 130 % title still fits with it
+    {
+      const context = await browser.newContext({ viewport: { width: 1120, height: 700 } });
+      const page = await context.newPage();
+      await page.addInitScript(() => { try { localStorage.setItem('jd.bests.v1', JSON.stringify({ overall: { score: 912, seed: 'old-seed', at: 't' }, bySeed: { 'old-seed': { score: 912, at: 't' } }, runs: 3 })); } catch {} });
+      await page.goto(`${URL}/?dev=1`);
+      await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+      const migrated = await page.evaluate(() => ({ legacy: localStorage.getItem('jd.bests.v1'), v2: JSON.parse(localStorage.getItem('jd.bests.v2') || 'null'), text: document.querySelector('#ui')?.textContent || '' }));
+      assert.equal(migrated.legacy, null, 'legacy key removed');
+      assert.equal(migrated.v2?.byVersion?.['2']?.overall?.score, 912, 'migrated into the rules-2 slot');
+      assert.match(migrated.text, /Best score: \$912/);
+      assert.equal(await page.locator('[data-testid^=archived-bests-]').count(), 0, 'nothing archived yet');
+      await context.close();
+      const c2 = await browser.newContext({ viewport: { width: 1120, height: 700 } });
+      const p2 = await c2.newPage();
+      await p2.addInitScript(() => { try {
+        localStorage.setItem('jd.bests.v2', JSON.stringify({ byVersion: { '2': { overall: { score: 1500, seed: 'now', at: 't' }, bySeed: {}, runs: 2 }, '1': { overall: { score: 300, seed: 'then', at: 't' }, bySeed: {}, runs: 4 } } }));
+        localStorage.setItem('jd.settings.v1', JSON.stringify({ volume: 0.7, muted: false, reducedMotion: false, textScale: 1.3, renderQuality: 'auto', telemetry: false }));
+      } catch {} });
+      await p2.goto(`${URL}/?dev=1`);
+      await p2.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+      const arch = await p2.evaluate(() => { const d = document.querySelector('[data-testid=archived-bests-1]'); const sc = document.querySelector('#ui .jd-screen'); return { present: !!d, open: d?.open, text: d?.textContent, scrollH: sc?.scrollHeight, clientH: sc?.clientHeight, headline: document.querySelector('#ui')?.textContent?.includes('Best score: $1500') }; });
+      assert.equal(arch.present, true); assert.equal(arch.open, false, 'collapsed by default'); assert.match(arch.text ?? '', /Under rules v1/); assert.match(arch.text ?? '', /\$300/); assert.equal(arch.headline, true, 'the current version is the headline');
+      assert.ok(arch.scrollH <= arch.clientH + 1, `the title still fits at 130 % with the archived block (${arch.scrollH} vs ${arch.clientH})`);
+      await c2.close();
+    }
     // 5b) tips_panel_fits_at_130 (0.4.12): from the title at 130 % text, the dialog needs no scrolling and every control stays inside the overlay
       const cBig = await browser.newContext({ viewport: { width: 1120, height: 700 } });
       const pBig = await cBig.newPage();

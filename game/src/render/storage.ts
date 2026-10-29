@@ -5,7 +5,14 @@ import { cleanPlayer } from './share';
 
 export { dailySeed };
 
-const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v1', tips: 'jd.tips.v1', telemetry: 'jd.telemetry.v1', days: 'jd.days.v1' };
+const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v2', bestsLegacy: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v2', submissionsLegacy: 'jd.submissions.v1', tips: 'jd.tips.v1', telemetry: 'jd.telemetry.v1', days: 'jd.days.v1' };
+/**
+ * Score records are partitioned by rules version (PLAN-v2 0.5.0): `jd.bests.v2` / `jd.submissions.v2` hold
+ * `{ byVersion: { "2": …, "3": … } }`. Readers take the current RULES_VERSION; the other versions are archived for the
+ * title's "Under rules vN" block. The pre-0.5.0 keys (`jd.bests.v1`, `jd.submissions.v1`) migrate once into the slot of the
+ * version current at migration time (every pre-0.5.0 record was made under rules 2) and are then removed. Settings,
+ * player name, onboarding, read tips and days played are version-independent.
+ */
 
 export type RenderQuality = 'auto' | 'high' | 'low';
 /** renderQuality: 'auto' until the first run measures frame times at high resolution, then 'high' or 'low' (DPR 1); the title button sets it too. */
@@ -56,6 +63,21 @@ export function validateBests(raw: unknown): Bests {
   if (Number.isInteger(raw.runs) && (raw.runs as number) >= 0) out.runs = raw.runs as number;
   return out;
 }
+export interface BestsByVersion { byVersion: Record<string, Bests> }
+export interface SubmissionsByVersion { byVersion: Record<string, Record<string, Submission>> }
+const isVersionKey = (k: string) => /^\d+$/.test(k);
+export function validateBestsByVersion(raw: unknown): BestsByVersion | null {
+  if (!isObj(raw) || !isObj(raw.byVersion)) return null;
+  const byVersion = dict<Bests>();
+  for (const [k, v] of Object.entries(raw.byVersion)) if (isVersionKey(k)) byVersion[k] = validateBests(v);
+  return { byVersion };
+}
+export function validateSubmissionsByVersion(raw: unknown): SubmissionsByVersion | null {
+  if (!isObj(raw) || !isObj(raw.byVersion)) return null;
+  const byVersion = dict<Record<string, Submission>>();
+  for (const [k, v] of Object.entries(raw.byVersion)) if (isVersionKey(k)) byVersion[k] = validateSubmissions(v);
+  return { byVersion };
+}
 export function validateSubmissions(raw: unknown): Record<string, Submission> {
   const out = dict<Submission>();
   if (!isObj(raw)) return out;
@@ -81,17 +103,34 @@ export const hasUnusableSave = (): boolean => { try { return localStorage.getIte
 export const writeSave = (seed: string, actions: Action[]) => write(K.save, { rulesVersion: RULES_VERSION, seed, actions, savedAt: new Date().toISOString() } satisfies SaveGame);
 export const clearSave = () => { try { localStorage.removeItem(K.save); } catch { /* ignore */ } };
 
-export const loadBests = (): Bests => validateBests(readRaw(K.bests));
-/** Records a finished run locally. Returns which records were beaten. */
-export function recordBest(seed: string, score: number): { newOverall: boolean; newSeed: boolean } {
-  const b = loadBests();
+const emptyBests = (): Bests => ({ overall: null, bySeed: dict(), runs: 0 });
+/** Every version's bests; migrates the pre-0.5.0 key once (idempotent: the new key's presence ends migration). */
+export function loadBestsAll(): BestsByVersion {
+  const cur = validateBestsByVersion(readRaw(K.bests));
+  if (cur) return cur;
+  const legacy = readRaw(K.bestsLegacy);
+  const out: BestsByVersion = { byVersion: dict() };
+  if (legacy !== undefined) { const b = validateBests(legacy); if (b.overall || b.runs || Object.keys(b.bySeed).length) out.byVersion[String(RULES_VERSION)] = b; }
+  write(K.bests, out);
+  try { localStorage.removeItem(K.bestsLegacy); } catch { /* ignore */ }
+  return out;
+}
+/** The current rules version's bests (or another version's when asked). */
+export const loadBests = (version: number = RULES_VERSION): Bests => loadBestsAll().byVersion[String(version)] ?? emptyBests();
+/** Bests kept under other rules versions (newest version first), for the title's archived block. */
+export const loadArchivedBests = (): { version: number; bests: Bests }[] => Object.entries(loadBestsAll().byVersion).filter(([k, b]) => Number(k) !== RULES_VERSION && (b.overall || b.runs > 0)).map(([k, bests]) => ({ version: Number(k), bests })).sort((a, b) => b.version - a.version);
+/** Records a finished run locally under `version` (the current rules by default). Returns which records were beaten. */
+export function recordBest(seed: string, score: number, version: number = RULES_VERSION): { newOverall: boolean; newSeed: boolean } {
+  const all = loadBestsAll();
+  const b = all.byVersion[String(version)] ?? emptyBests();
   const at = new Date().toISOString();
   const newSeed = !own(b.bySeed, seed) || score > b.bySeed[seed].score;
   if (newSeed) b.bySeed[seed] = { score, at };
   const newOverall = !b.overall || score > b.overall.score;
   if (newOverall) b.overall = { score, seed, at };
   b.runs++;
-  write(K.bests, b);
+  all.byVersion[String(version)] = b;
+  write(K.bests, all);
   return { newOverall, newSeed };
 }
 
@@ -99,9 +138,20 @@ export function recordBest(seed: string, score: number): { newOverall: boolean; 
 export const loadPlayer = (): string => { try { return cleanPlayer(localStorage.getItem(K.player)); } catch { return ''; } };
 export const savePlayer = (name: string) => { try { const n = cleanPlayer(name); if (n) localStorage.setItem(K.player, n); else localStorage.removeItem(K.player); } catch { /* ignore */ } };
 
-/** Verified submissions this device made, by seed: lets the title screen look up its own rank without trusting names. */
-export const loadSubmissions = (): Record<string, Submission> => validateSubmissions(readRaw(K.submissions));
-export const recordSubmission = (seed: string, s: Submission) => { const all = loadSubmissions(); if (!own(all, seed) || s.score >= all[seed].score) { all[seed] = s; write(K.submissions, all); } };
+/** Every version's submissions; migrates the pre-0.5.0 key once. */
+export function loadSubmissionsAll(): SubmissionsByVersion {
+  const cur = validateSubmissionsByVersion(readRaw(K.submissions));
+  if (cur) return cur;
+  const legacy = readRaw(K.submissionsLegacy);
+  const out: SubmissionsByVersion = { byVersion: dict() };
+  if (legacy !== undefined) { const s = validateSubmissions(legacy); if (Object.keys(s).length) out.byVersion[String(RULES_VERSION)] = s; }
+  write(K.submissions, out);
+  try { localStorage.removeItem(K.submissionsLegacy); } catch { /* ignore */ }
+  return out;
+}
+/** Verified submissions this device made under the current rules, by seed: lets the title screen look up its own rank without trusting names. */
+export const loadSubmissions = (version: number = RULES_VERSION): Record<string, Submission> => loadSubmissionsAll().byVersion[String(version)] ?? dict<Submission>();
+export const recordSubmission = (seed: string, s: Submission, version: number = RULES_VERSION) => { const all = loadSubmissionsAll(); const cur = all.byVersion[String(version)] ?? dict<Submission>(); if (!own(cur, seed) || s.score >= cur[seed].score) { cur[seed] = s; all.byVersion[String(version)] = cur; write(K.submissions, all); } };
 
 /** Opt-in funnel state (PLAN-v1 0.3.7): the random install id, once-per-install events already sent, games started. Exists only while consent is on. */
 export interface TelemetryState { installId: string | null; firsts: string[]; games: number; /** unsent events, so a page navigation never loses a batch */ pending: unknown[] }

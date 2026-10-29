@@ -39,7 +39,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
     assert.deepEqual(errors, [], 'damaged storage shapes produced no page errors');
     assert.equal(await page.getByTestId('textscale').textContent(), '100%', 'an invalid text scale falls back to 100%');
-    await page.evaluate(() => { localStorage.removeItem('jd.bests.v1'); localStorage.removeItem('jd.settings.v1'); localStorage.removeItem('jd.submissions.v1'); });
+    await page.evaluate(() => { localStorage.removeItem('jd.bests.v1'); localStorage.removeItem('jd.bests.v2'); localStorage.removeItem('jd.settings.v1'); localStorage.removeItem('jd.submissions.v1'); localStorage.removeItem('jd.submissions.v2'); });
     // player name for the verified board (set here so the results screen does not prompt)
     await page.evaluate(() => localStorage.setItem('jd.player', 'e2e player'));
     // opt_in_funnel_events (PLAN-v1 0.3.7): off by default; the title toggle turns it on and says so
@@ -243,7 +243,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await wait(700);
     await page.screenshot({ path: path.join(SHOTS, `e2e-results-${Date.now()}.png`) });
     const completed = (await api('state')).score; // the Game scene's run object holds the finished run
-    const bests = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.bests.v1')));
+    const bests = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.bests.v2')).byVersion['2']); // partitioned by rules version (PLAN-v2 0.5.0)
     assert.equal(bests.overall?.score, completed, 'personal_best_equals_completed_score (overall)');
     assert.equal(bests.bySeed['e2e-seed']?.score, completed, 'personal_best_equals_completed_score (seed)');
     assert.equal(bests.runs, 1);
@@ -285,7 +285,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     const badgeLine = detailed.split('\n').find((l) => l.startsWith('badges: '));
     if (pills.length) assert.equal(badgeLine, 'badges: ' + pills.map((p) => p.title).join(' · ')); else assert.equal(badgeLine, undefined, 'no badges, no line');
     assert.doesNotMatch(shared, /badges/, 'the spoiler-free grid never lists badges');
-    const subs = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.submissions.v1')));
+    const subs = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.submissions.v2')).byVersion['2']);
     assert.equal(subs['e2e-seed'].replayHash, board.entries[0].replayHash, 'submission recorded locally by replay hash');
     // loop_clip_exports (PLAN-v1 0.4.2): the best round is re-simulated and recorded live in Chromium; the clip is non-empty, at least 3 s, and takes under 10 s to make
     const clip = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportClip().then((c) => ({ ...c })));
@@ -329,7 +329,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     const localGif = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportGif().then((g) => ({ footer: g.footer })));
     assert.equal(localGif.footer, 'junkyard draft · local run · not verified', 'a local export never claims verification');
     // 7) watch the verified replay from the board: fetched by hash, re-verified locally, played back labelled, never recorded as a best
-    const bestsBefore = await page.evaluate(() => localStorage.getItem('jd.bests.v1'));
+    const bestsBefore = await page.evaluate(() => localStorage.getItem('jd.bests.v2'));
     // watched_replay_preserves_existing_save: plant an unrelated unfinished run; it must survive playback byte for byte
     const plantedSave = JSON.stringify({ rulesVersion: 2, seed: 'other-seed', actions: [{ t: 'pick', i: 0 }], savedAt: '2026-10-26T00:00:00.000Z' });
     await page.evaluate((s) => localStorage.setItem('jd.save.v1', s), plantedSave);
@@ -348,7 +348,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
       await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 15000 });
     }
     await page.waitForFunction(() => window.__jdGame.scene.isActive('Results') && /verified replay by e2e player/.test(document.querySelector('[data-testid=results-subtitle]')?.textContent || ''), null, { timeout: 15000 });
-    assert.equal(await page.evaluate(() => localStorage.getItem('jd.bests.v1')), bestsBefore, 'watching a replay does not change local bests');
+    assert.equal(await page.evaluate(() => localStorage.getItem('jd.bests.v2')), bestsBefore, 'watching a replay does not change local bests');
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), plantedSave, 'finishing a watched replay leaves the unrelated save untouched');
     assert.equal(await page.evaluate(() => Number(document.querySelector('[data-testid=score]').textContent.slice(1))), board.entries[0].score, 'playback reproduces the verified score');
     const finalScore = await page.evaluate(() => Number(document.querySelector('[data-testid=score]').textContent.slice(1)));
@@ -371,7 +371,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     for (let r = 1; r <= RULES.rounds; r++) { const ci = daily.offers.indexOf('crusher'); apply(daily, { t: 'pick', i: ci >= 0 ? ci : 0 }); if (r === 1) { const cv = daily.layout.machines.find((m) => m.x === 2 && m.y === 2); apply(daily, { t: 'unplace', id: cv.id }); apply(daily, { t: 'place', id: daily.bin[0].id, x: 2, y: 2, dir: 0 }); } apply(daily, { t: 'run' }); apply(daily, { t: 'next' }); }
     const sub = await (await fetch(`http://127.0.0.1:${VPORT}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(daily), player: 'e2e player' }) })).json();
     assert.equal(sub.ok, true, 'daily replay verified');
-    await page.evaluate(({ seed, s }) => localStorage.setItem('jd.submissions.v1', JSON.stringify({ [seed]: s })), { seed: dailySeed(), s: { score: sub.score, replayHash: sub.entry.replayHash, verifiedAt: sub.entry.verifiedAt, player: 'e2e player' } });
+    await page.evaluate(({ seed, s }) => localStorage.setItem('jd.submissions.v2', JSON.stringify({ byVersion: { '2': { [seed]: s } } })), { seed: dailySeed(), s: { score: sub.score, replayHash: sub.entry.replayHash, verifiedAt: sub.entry.verifiedAt, player: 'e2e player' } });
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => { const t = document.querySelector('[data-testid=daily-board]')?.textContent || ''; return /^You: #1 of 1 \(\$\d+\)/.test(t) && /1\. \$\d+ e2e player/.test(t); }, null, { timeout: 15000 });
     assert.equal(await page.getByTestId('player').textContent(), 'Player: e2e player');

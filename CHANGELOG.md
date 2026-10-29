@@ -3,6 +3,11 @@
 All notable changes to Junkyard Draft. Dates are UTC. Rules changes bump `RULES_VERSION`, which invalidates
 older replays and saves on purpose.
 
+## Unreleased — 2026-10-29 (v0.5 foundations on main, PLAN-v2)
+
+### Local records partitioned by rules version (PLAN-v2 0.5.0)
+- Bests and verified submissions are stored per rules version (`jd.bests.v2` / `jd.submissions.v2`: `{ byVersion: { "2": … } }`). The pre-0.5.0 keys migrate once into the rules-2 slot and are removed; settings, player name, onboarding, read tips and days played are untouched. Readers take the current version; bests kept under another version appear on the title as a collapsed "Under rules vN" block (kept, not comparable). This is the prerequisite for the rules-v3 work: after the bump an old best can no longer pose as the current target, and an old submission can no longer block a new result. No rules change.
+
 ## Unreleased — 2026-10-29 (pre-v0.5 stabilization from the independent review, docs/reviews/PRE-V05-REVIEW-2026-10-29.md)
 
 ### Verifier and collector integrity (F01–F03, F08, F12)
