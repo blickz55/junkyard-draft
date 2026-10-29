@@ -5,7 +5,8 @@
  * With --secret the seeds are also recomputed locally from the secret (operator-side check that the deployment uses
  * the backed-up secret). Exit 0 when every check passes, 1 on a failed check, 2 on usage.
  */
-import { commitmentFor, isUtcDate, mintSeed, shiftDate, utcDate } from '../server/mint';
+import { commitmentFor, isUtcDate, mintSeed, mintWeeklySeed, shiftDate, utcDate } from '../server/mint';
+import { currentWeekId, prevWeekId, isWeekId } from '../game/src/sim/weekly';
 
 const args = process.argv.slice(2);
 const url = args.find((a) => /^https?:\/\//.test(a));
@@ -27,7 +28,16 @@ async function main() {
   if (!yesterday.minted || !yesterday.seed || !yesterday.commitment) fail(`no minted daily for ${prev}: ${JSON.stringify(yesterday)}`);
   if (commitmentFor(today.seed!) !== yesterday.commitment) fail(`the seed for ${date} (${today.seed}) does not match the commitment published on ${prev} (${yesterday.commitment})`);
   console.log(`OK   ${date}: seed ${today.seed} matches the commitment published on ${prev}`);
+  // the weekly chain (PLAN-v4 0.7.5): this week's seed hashes to the previous week's published commitment
+  const week = flag('week') ?? currentWeekId(new Date()); if (!isWeekId(week)) fail(`bad --week ${week}`);
+  const getWeek = async (w: string): Promise<Daily & { week?: string }> => { const r = await fetch(`${url}/weekly?week=${w}&limit=1`); return (await r.json()) as Daily & { week?: string }; };
+  const pw = prevWeekId(week)!; const [thisWeek, lastWeek] = await Promise.all([getWeek(week), getWeek(pw)]);
+  if (!thisWeek.minted || !thisWeek.seed || !thisWeek.commitment) fail(`no minted weekly for ${week}: ${JSON.stringify(thisWeek)}`);
+  if (!lastWeek.minted || !lastWeek.seed || !lastWeek.commitment) fail(`no minted weekly for ${pw}: ${JSON.stringify(lastWeek)}`);
+  if (commitmentFor(thisWeek.seed!) !== lastWeek.commitment) fail(`the weekly ${week} (${thisWeek.seed}) does not match the commitment published with ${pw} (${lastWeek.commitment})`);
+  console.log(`OK   ${week}: seed ${thisWeek.seed} matches the commitment published with ${pw}`);
   if (secret) {
+    if (mintWeeklySeed(secret, week) !== thisWeek.seed) fail(`weekly seed for ${week} is ${thisWeek.seed}, the secret mints ${mintWeeklySeed(secret, week)}`);
     for (const [d, got] of [[date, today.seed], [prev, yesterday.seed]] as const) { const want = mintSeed(secret, d); if (want !== got) fail(`seed for ${d} is ${got}, the secret mints ${want}`); }
     if (commitmentFor(mintSeed(secret, shiftDate(date, 1))) !== today.commitment) fail(`the commitment published on ${date} is not the hash of what the secret mints for ${shiftDate(date, 1)}`);
     console.log(`OK   both seeds and today's commitment re-derive from the given secret`);

@@ -942,3 +942,65 @@ test('groups: create/join/leave/rename/disband with caps and filtered names; a g
     assert.equal((await call('POST', '/groups/leave', tok('c'), { code: hc })).status, 200); assert.equal((await call('GET', `/board?seed=group-seed&group=${hc}`, tok('c'))).status, 403);
   } finally { close(); }
 });
+
+// ---- weekly seed (PLAN-v4 0.7.5) ----
+test('weekly: minted from the same secret under its own domain, opens exactly Friday 18:00 UTC and closes seven days later; a Friday daily publishes the commitment; weeks chain; freeze sets medals; the archive lists weeklies with their kind; cold split keys by week; forged and daily seeds never cross; HTTP 200/400/403', async () => {
+  const { mintWeeklySeed, currentWeekId, weeklyWindow } = await import('../server/verify');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-weekly-')); const file = path.join(dir, 'board.json');
+  const v = new Verifier(file, { dailySecret: 'week-secret' });
+  // 2030-03-15 is a Friday (ISO 2030-W11); the weekly opens 18:00 UTC that day and closes 2030-03-22 18:00 UTC
+  const W = '2030-W11', before = new Date('2030-03-15T17:59:59Z'), at = new Date('2030-03-15T18:00:00Z'), mid = new Date('2030-03-19T09:00:00Z'), close = new Date('2030-03-22T18:00:00Z'), after = new Date('2030-03-23T10:00:00Z');
+  assert.equal(mintWeeklySeed('week-secret', W), mintWeeklySeed('week-secret', W)); assert.notEqual(mintWeeklySeed('week-secret', W), mintWeeklySeed('other', W)); assert.notEqual(mintWeeklySeed('week-secret', W), mintWeeklySeed('week-secret', '2030-W12'));
+  assert.match(mintWeeklySeed('week-secret', W), /^weekly-2030-W11-[a-z2-7]{8}$/); assert.throws(() => mintWeeklySeed('week-secret', '2030-W53'));
+  // the Friday's daily commits to the weekly opening that evening; a Thursday's does not
+  const fri = v.daily(10, before, '2030-03-15')!; assert.equal(fri.weeklyCommitment, commitmentFor(mintWeeklySeed('week-secret', W))); assert.equal(v.daily(10, before, '2030-03-14')!.weeklyCommitment, undefined);
+  // not open one millisecond before 18:00 UTC; the previous week is the current one
+  assert.equal(v.weekly(10, before, W), null); assert.equal(currentWeekId(before), '2030-W10'); assert.equal(v.weekly(10, before)!.week, '2030-W10');
+  const rec = v.weekly(10, at)!;
+  assert.equal(rec.week, W); assert.equal(rec.kind, 'weekly'); assert.equal(rec.seed, mintWeeklySeed('week-secret', W)); assert.equal(rec.opensAt, '2030-03-15T18:00:00.000Z'); assert.equal(rec.closesAt, '2030-03-22T18:00:00.000Z'); assert.equal(rec.date, '2030-03-15');
+  assert.equal(rec.final, false); assert.equal(rec.frozenAt, null); assert.equal(rec.minted, true); assert.equal(rec.now, at.toISOString()); assert.deepEqual(rec.entries, []);
+  assert.equal(rec.commitment, commitmentFor(mintWeeklySeed('week-secret', '2030-W12')), 'commits to next week'); assert.equal(rec.previous!.week, '2030-W10'); assert.equal(commitmentFor(rec.seed), rec.previous!.commitment, 'this week matches the commitment published with the previous week');
+  assert.equal(v.weekly(10, mid)!.seed, rec.seed, 'never re-minted'); assert.equal(new Verifier(file, { dailySecret: 'rotated' }).weekly(10, mid, W)!.seed, rec.seed, 'a secret rotation keeps the issued week');
+  // submissions: an issued weekly lands on its own board, not the daily one; forged weeklies and closed weeks are refused or answered late
+  const park: [number, number][] = [[6, 0], [6, 5], [0, 5], [6, 2], [0, 0]];
+  const mk = (extra: number) => { const s = newRun(rec.seed); for (let r = 1; r <= RULES.rounds; r++) { apply(s, { t: 'pick', i: 0 }); if (r === RULES.rounds) for (let k = 0; k < extra; k++) { const cell = park[k]; apply(s, { t: 'place', id: s.bin[k].id, x: cell[0], y: cell[1], dir: 0 }); } apply(s, { t: 'run' }); apply(s, { t: 'next' }); } return s; };
+  const runs = [mk(0), mk(1), mk(2), finishedRun(rec.seed), twistRun(rec.seed)];
+  for (const [i, r] of runs.entries()) { const out = v.submit(JSON.stringify(exportReplay(r)), `w${i}`, null, mid); assert.equal(out.ok, true, out.error); assert.equal(out.recorded, true); }
+  assert.equal(v.weekly(10, mid)!.entries.length, 5); assert.equal(v.daily(10, mid)!.entries.length, 0, 'the daily board is untouched');
+  const forged = v.submit(JSON.stringify(exportReplay(finishedRun('weekly-2030-W11-aaaaaaaa'))), 'forger', null, mid); assert.equal(forged.ok, false); assert.match(forged.error!, /not an issued weekly seed/);
+  const unissued = v.submit(JSON.stringify(exportReplay(finishedRun(mintWeeklySeed('week-secret', '2030-W12')))), 'early', null, mid); assert.equal(unissued.ok, false, "next week's seed is not issued yet even though the secret would mint it");
+  // reveal gate and medals: gated while open, medals only once frozen
+  assert.ok(v.revealGate(rec.seed, null, mid)); assert.equal(v.revealGate(rec.seed, null, after), null); assert.equal(v.medalsForSeed(rec.seed, mid), null);
+  assert.equal(v.weekly(10, new Date(close.getTime() - 1), W)!.final, false);
+  const frozen = v.weekly(10, close, W)!; assert.equal(frozen.final, true); assert.equal(frozen.frozenAt, close.toISOString(), 'freeze flips exactly at Friday 18:00 UTC');
+  const scores = v.board(rec.seed).map((e) => e.score).sort((a, b) => a - b); assert.deepEqual(frozen.medals, medalThresholds(scores)); assert.equal(frozen.medals!.n, 5); assert.deepEqual(v.medalsForSeed(rec.seed, after), frozen.medals);
+  assert.equal(currentWeekId(close), '2030-W12'); assert.equal(v.weekly(10, close)!.week, '2030-W12'); assert.equal(v.weekly(10, close)!.previous!.seed, rec.seed);
+  const late = v.submit(JSON.stringify(exportReplay(mk(3))), 'late', null, after); assert.equal(late.ok, true); assert.equal(late.late, true); assert.equal(late.recorded, false); assert.equal(v.board(rec.seed).length, 5);
+  // archive: the weekly sorts by the Friday it opened, with its kind and key, among the dailies
+  for (const d of ['2030-03-13', '2030-03-14', '2030-03-15', '2030-03-16']) v.daily(10, after, d);
+  const a = v.archive({ limit: 100 }, after);
+  const wk = a.days.find((d) => d.kind === 'weekly')!; assert.ok(wk); assert.equal(wk.key, W); assert.equal(wk.date, '2030-03-15'); assert.equal(wk.seed, rec.seed); assert.equal(wk.n, 5); assert.equal(wk.frozenAt, close.toISOString()); assert.deepEqual(wk.medals, frozen.medals);
+  const i = a.days.indexOf(wk); assert.equal(a.days[i + 1].date, '2030-03-15', 'the weekly comes right before the daily of the same date'); assert.ok(a.days.slice(0, i).every((d) => d.kind === 'daily' && d.date > '2030-03-15'));
+  assert.deepEqual(v.archive({ from: '2030-03-15', to: '2030-03-15' }, after).days.map((d) => d.kind), ['weekly', 'daily']);
+  // persisted under its week id; a restart serves it; the loader accepts the record
+  const raw = JSON.parse(fs.readFileSync(file, 'utf8')) as Board; assert.equal(raw.dailies![W].kind, 'weekly'); assert.equal(raw.dailies![W].seed, rec.seed);
+  assert.equal(new Verifier(file, { dailySecret: 'week-secret' }).weekly(10, after, W)!.frozenAt, close.toISOString());
+  // cold split keys by the week id and keeps serving it
+  const far = new Date('2030-05-01T12:00:00Z'); const moved = v.splitCold(far).moved; assert.ok(moved.includes(W), `moved ${moved.join(',')}`);
+  assert.equal(v.cold.day(W)!.record.seed, rec.seed); assert.equal(v.weekly(10, far, W)!.seed, rec.seed); assert.equal(v.weekly(10, far, W)!.entries.length, 5); assert.equal(v.weekly(10, far, W)!.final, true);
+  assert.ok(v.archive({ limit: 100 }, far).days.some((d) => d.kind === 'weekly' && d.key === W), 'listed from cold'); assert.equal(v.submit(JSON.stringify(exportReplay(mk(3))), 'late2', null, far).late, true);
+  assert.equal(v.revealGate(rec.seed, null, far), null); assert.deepEqual(v.medalsForSeed(rec.seed, far), frozen.medals);
+  assert.deepEqual(weeklyWindow(W), { opensAt: '2030-03-15T18:00:00.000Z', closesAt: '2030-03-22T18:00:00.000Z', openDate: '2030-03-15' });
+  // HTTP
+  let clock = mid.getTime();
+  const { base, close: stop } = await listen(v, { rateLimit: null, now: () => clock });
+  try {
+    const cur = await (await fetch(`${base}/weekly`)).json() as { ok: boolean; week: string; seed: string; final: boolean; entries: unknown[]; previous: { week: string } | null; tieBreak: string; minted: boolean };
+    assert.equal(cur.ok, true); assert.equal(cur.week, W); assert.equal(cur.seed, rec.seed); assert.equal(cur.final, true); assert.equal(cur.entries.length, 5); assert.equal(cur.previous!.week, '2030-W10'); assert.equal(cur.minted, true); assert.equal(cur.tieBreak, TIE_BREAK);
+    const byWeek = await (await fetch(`${base}/weekly?week=2030-W10&limit=1`)).json() as { ok: boolean; week: string; entries: unknown[] }; assert.equal(byWeek.week, '2030-W10'); assert.equal(byWeek.entries.length, 0);
+    const bad = await fetch(`${base}/weekly?week=2030-03-15`); assert.equal(bad.status, 400);
+    const bad2 = await fetch(`${base}/weekly?week=2030-W53`); assert.equal(bad2.status, 400, 'a week that does not exist in that year');
+    clock = before.getTime(); const early = await fetch(`${base}/weekly?week=${W}`); assert.equal(early.status, 403); const eb = await early.json() as { currentWeek: string }; assert.equal(eb.currentWeek, '2030-W10');
+    clock = mid.getTime(); const h = await (await fetch(`${base}/histogram?seed=${encodeURIComponent(rec.seed)}`)).json() as { medals?: Medals | null }; assert.deepEqual(h.medals, frozen.medals, 'the frozen weekly carries its medals on /histogram');
+  } finally { stop(); fs.rmSync(dir, { recursive: true, force: true }); }
+});

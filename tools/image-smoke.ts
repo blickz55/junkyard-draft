@@ -65,6 +65,9 @@ async function main() {
   const early = await fetch(`${url}/daily?date=${tomorrow}`);
   if (early.status !== 403) fail(`tomorrow's daily should be refused with 403, got ${early.status}`);
   console.log(`daily ${d.date} minted as ${d.seed}; commitment published; tomorrow refused`);
+  const wk = await (await fetch(`${url}/weekly`)).json() as { minted?: boolean; seed?: string; week?: string; commitment?: string };
+  if (wk.minted !== true || !/^weekly-d{4}-Wd{2}-[a-z2-7]{8}$/.test(wk.seed ?? '') || !/^[0-9a-f]{64}$/.test(wk.commitment ?? '')) fail(`/weekly is not a minted weekly: ${JSON.stringify(wk)}`);
+  console.log(`weekly ${wk.week} minted as ${wk.seed}`);
   const twoBack = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
   const old = await (await fetch(`${url}/daily?date=${twoBack}`)).json() as { final?: boolean; frozenAt?: string | null };
   if (old.final !== true || !old.frozenAt) fail(`a day two days back should be final: ${JSON.stringify(old)}`);

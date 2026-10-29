@@ -17,6 +17,7 @@ import { GRID_X, GRID_Y, GRID_W, GRID_H, SIDE_X, SIDE_W, W, H } from '../render/
 import { prefs } from '../render/prefs';
 import { loadBests } from '../render/storage';
 import { isDailySeed, isMintedDailySeed, dailyDateOf } from '../sim/daily';
+import { isWeeklySeed, weeklyClosed } from '../sim/weekly';
 import { challengerTotal, type Challenge } from '../render/challenge';
 
 export type PanelMode = 'build' | 'running' | 'paused' | 'summary';
@@ -60,7 +61,7 @@ export class GamePanel {
   stallText = '';
 
   constructor(private readonly scene: Phaser.Scene, private readonly actions: PanelActions, seed: string, replayLabel: string | null, muted: boolean, forkLabel: string | null = null) {
-    const suffix = forkLabel ? ` · ${forkLabel}` : replayLabel ? ` · ${replayLabel}` : isMintedDailySeed(seed) ? (dailyDateOf(seed) === new Date().toISOString().slice(0, 10) ? " · today's challenge" : ' · archived daily (practice)') : isDailySeed(seed) ? ' · practice (unranked)' : ''; // PLAN-v3 0.6.1/0.6.2: the HUD says which daily this is
+    const suffix = forkLabel ? ` · ${forkLabel}` : replayLabel ? ` · ${replayLabel}` : isWeeklySeed(seed) ? (weeklyClosed(seed, new Date()) ? ' · archived weekly (practice)' : " · this week's seed") : isMintedDailySeed(seed) ? (dailyDateOf(seed) === new Date().toISOString().slice(0, 10) ? " · today's challenge" : ' · archived daily (practice)') : isDailySeed(seed) ? ' · practice (unranked)' : ''; // PLAN-v3 0.6.1/0.6.2: the HUD says which daily this is
     this.hud = {
       seed: h('span', { class: `jd-mono jd-hud-seed ${replayLabel ? 'jd-blue' : 'jd-dim'}`, tid: 'hud-seed', title: seed }, `seed ${seed}${suffix}`),
       round: h('span', { class: 'jd-hud-round', tid: 'hud-round' }, ''),

@@ -5,6 +5,7 @@
  */
 import { dailySeedFor, isMintedDailySeed, dailyDateOf } from '../sim/daily';
 import { shiftUtcDate } from '../daily/streak';
+import { isWeeklySeed, weeklyClosed } from '../sim/weekly';
 import { loadSubmissions } from './storage';
 
 export interface DailyInfo { date: string; seed: string; closesAt: string; commitment: string }
@@ -46,10 +47,26 @@ export const dailyClosed = (seed: string, now = new Date()): boolean => { const 
  * The verifier enforces the same rule on GET /replay; this only keeps the buttons honest.
  */
 export function revealGate(seed: string, now = new Date()): string | null {
+  if (isWeeklySeed(seed)) { // PLAN-v4 0.7.5: the weekly is gated the same way until its Friday 18:00 UTC close
+    if (weeklyClosed(seed, now) || loadSubmissions()[seed]) return null;
+    return 'replays on this weekly are revealed after you submit a verified run for it, or when the week closes (Friday 18:00 UTC)';
+  }
   if (!isMintedDailySeed(seed) || dailyClosed(seed, now)) return null;
   if (loadSubmissions()[seed]) return null;
   const d = dailyDateOf(seed)!;
   return `replays on this daily are revealed after you submit a verified run for it, or when the day closes (${shiftUtcDate(d, 2)} 00:00 UTC)`;
+}
+export interface WeeklyInfo { week: string; seed: string; closesAt: string; final: boolean; now: string }
+/** This week's minted seed from the verifier; null when unreachable or malformed. */
+export async function fetchWeekly(verifierUrl: string, timeoutMs = 2500): Promise<WeeklyInfo | null> {
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), timeoutMs);
+    const res = await fetch(`${verifierUrl}/weekly?limit=1`, { signal: ctl.signal }); clearTimeout(t);
+    if (!res.ok) return null;
+    const b = await res.json() as { ok?: boolean; week?: string; seed?: string; closesAt?: string; final?: boolean; now?: string };
+    if (!b.ok || typeof b.seed !== 'string' || !isWeeklySeed(b.seed) || typeof b.week !== 'string' || typeof b.closesAt !== 'string') return null;
+    return { week: b.week, seed: b.seed, closesAt: b.closesAt, final: !!b.final, now: typeof b.now === 'string' ? b.now : new Date().toISOString() };
+  } catch { return null; }
 }
 /** The seed "Today's challenge" plays right now: the minted one when known, else practice. */
 export const todaySeed = (): string => cachedDaily()?.seed ?? practiceSeed();

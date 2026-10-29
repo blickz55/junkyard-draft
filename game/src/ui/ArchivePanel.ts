@@ -10,7 +10,7 @@ import { audio } from '../render/audio';
 import { clearSave, loadSubmissions } from '../render/storage';
 import { medalFor, medalsLine, type Medals } from '../daily/medals';
 
-export interface ArchiveDay { date: string; seed: string; closesAt: string; frozenAt: string; n: number; botPar: number | null; medals?: Medals | null; top: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[] }
+export interface ArchiveDay { date: string; key?: string; kind?: 'daily' | 'weekly'; seed: string; closesAt: string; frozenAt: string; n: number; botPar: number | null; medals?: Medals | null; top: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[] }
 
 export function openArchive(scene: Phaser.Scene, verifierUrl: string): void {
   const prev = document.activeElement as HTMLElement | null;
@@ -31,7 +31,7 @@ export function openArchive(scene: Phaser.Scene, verifierUrl: string): void {
     if (!a.days?.length) { list.append(h('div', { class: 'jd-dim' }, 'No closed days yet. The first archive entry appears 48 hours after the first minted daily.')); return; }
     for (const d of a.days) {
       const top = d.top[0];
-      const text = `${d.date} · final · ${d.n} verified run${d.n === 1 ? '' : 's'}${top ? ` · #1 $${top.score} ${top.player}` : ''}${d.botPar != null ? ` · bot par $${d.botPar}` : ''}`;
+      const text = `${d.kind === 'weekly' ? `Week ${d.key ?? d.date}` : d.date} · final · ${d.n} verified run${d.n === 1 ? '' : 's'}${top ? ` · #1 $${top.score} ${top.player}` : ''}${d.botPar != null ? ` · bot par $${d.botPar}` : ''}`;
       // medals only when the server sent thresholds (PLAN-v3 0.6.4); this device's own verified run on that day gets its medal named
       const mine = loadSubmissions()[d.seed];
       const medalText = d.medals ? ` · medals: ${medalsLine(d.medals)}${mine ? ` · yours ($${mine.score}): ${medalFor(mine.score, d.medals) ?? 'none'}` : ''}` : '';
@@ -40,7 +40,7 @@ export function openArchive(scene: Phaser.Scene, verifierUrl: string): void {
         h('span', { class: 'jd-row', style: 'gap:0.4em' },
           btn('Play as practice', 'archive-play', () => play(d.seed), { small: true }),
           top?.replayAvailable ? btn('Watch #1', 'archive-watch', () => { close(); fetchVerifiedReplay(verifierUrl, top.replayHash, d.seed).then((r) => playVerifiedReplay(scene, r)).catch(() => { /* the title strip reports verifier trouble */ }); }, { small: true }) : null));
-      row.dataset.date = d.date;
+      row.dataset.date = d.date; row.dataset.kind = d.kind ?? 'daily';
       list.append(row);
     }
   }).catch(() => { if (layer.isConnected) { list.replaceChildren(h('div', { class: 'jd-red' }, 'Verifier unreachable: the archive lives on the verifier.')); } });

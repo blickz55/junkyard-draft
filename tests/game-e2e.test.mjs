@@ -467,6 +467,31 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.getByTestId('archive-play').first().click();
     await page.waitForFunction((seed) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, old.seed, { timeout: 15000 });
     assert.equal(await page.getByTestId('hud-seed').textContent(), `seed ${old.seed} · archived daily (practice)`);
+    // weekly seed (PLAN-v4 0.7.5): the strip's Weekly button names the open week from the spawned verifier; clicking it plays the minted weekly seed; a run on it lands on /weekly and never on /daily
+    const winfo = await (await fetch(`http://127.0.0.1:${VPORT}/weekly`)).json();
+    assert.equal(winfo.ok, true); assert.match(winfo.seed, /^weekly-\d{4}-W\d{2}-[a-z2-7]{8}$/); assert.equal(winfo.final, false); assert.ok(winfo.previous && winfo.previous.week, 'the previous week is minted alongside for the commitment chain');
+    await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
+    await page.waitForSelector('[data-testid=weekly]:not([disabled])', { timeout: 15000 });
+    assert.match(await page.getByTestId('weekly').textContent(), new RegExp(`^Weekly ${winfo.week.slice(5)} · closes in \\d+ (d|h|min)$`));
+    assert.match(await page.getByTestId('weekly').getAttribute('title'), new RegExp(winfo.seed));
+    await page.getByTestId('weekly').click();
+    await page.waitForFunction((seed) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, winfo.seed, { timeout: 15000 });
+    assert.equal(await page.getByTestId('hud-seed').textContent(), `seed ${winfo.seed} · this week's seed`);
+    const weeklyRun = newRun(winfo.seed);
+    for (let r = 1; r <= RULES.rounds; r++) { const ci = weeklyRun.offers.indexOf('crusher'); apply(weeklyRun, { t: 'pick', i: ci >= 0 ? ci : 0 }); if (r === 1) { const cv = weeklyRun.layout.machines.find((m) => m.x === 2 && m.y === 2); apply(weeklyRun, { t: 'unplace', id: cv.id }); apply(weeklyRun, { t: 'place', id: weeklyRun.bin[0].id, x: 2, y: 2, dir: 0 }); } apply(weeklyRun, { t: 'run' }); apply(weeklyRun, { t: 'next' }); }
+    const wsub = await (await fetch(`http://127.0.0.1:${VPORT}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(weeklyRun), player: 'weekly player' }) })).json();
+    assert.equal(wsub.ok, true, wsub.error); assert.equal(wsub.recorded, true);
+    const wboard = await (await fetch(`http://127.0.0.1:${VPORT}/weekly`)).json();
+    assert.deepEqual(wboard.entries.map((e) => e.replayHash), [wsub.entry.replayHash], 'the run is on the weekly board');
+    assert.deepEqual((await (await fetch(`http://127.0.0.1:${VPORT}/daily`)).json()).entries.map((e) => e.replayHash), [sub.entry.replayHash], 'and not on the daily one');
+    // the previous week was minted alongside for the commitment chain and has already closed: the archive lists it with its kind and week id among the dailies, and the panel names it as a week
+    const warch = await (await fetch(`http://127.0.0.1:${VPORT}/archive`)).json();
+    const wdays = warch.days.filter((d) => d.kind === 'weekly'); assert.equal(wdays.length, 1); assert.equal(wdays[0].key, winfo.previous.week); assert.equal(wdays[0].seed, winfo.previous.seed); assert.equal(wdays[0].n, 0);
+    assert.ok(warch.days.filter((d) => d.kind === 'daily').every((d) => d.key === d.date)); assert.equal(warch.days[0].date, twoBack, 'the newest daily still comes first');
+    await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
+    await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+    await page.getByTestId('archive').click();
+    await page.waitForFunction((w) => [...document.querySelectorAll('[data-testid=archive-row]')].some((r) => r.dataset.kind === 'weekly' && r.textContent.startsWith(`Week ${w} · final · 0 verified runs`)), winfo.previous.week, { timeout: 10000 });
     // challenge link (PLAN-v4 0.7.1): the e2e player's daily entry becomes a link; opening it plays that seed with the earnings overlaid, finishing shows the two-row result and the detailed share line; the run verifies independently
     const entry = await (await fetch(`http://127.0.0.1:${VPORT}/entry?hash=${sub.entry.replayHash}`)).json();
     assert.equal(entry.ok, true); assert.equal(entry.seed, dinfo.seed); assert.equal(entry.rounds.length, RULES.rounds); assert.equal(entry.rounds.reduce((a, b) => a + b, 0), sub.score); assert.ok(!('actions' in entry), 'earnings only');

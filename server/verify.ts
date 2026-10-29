@@ -7,6 +7,8 @@
  *   Each day closes 48 h after 00:00 UTC (`closesAt`); from then on `final`/`frozenAt` are set and the board never changes;
  *   a later submission is verified and answered `{ ok, score, late: true, recorded: false }` (PLAN-v3 0.6.2).
  * - GET  /archive?from=&to=&limit=30 → closed days newest first with N, bot par, medals and the top five; `nextTo` pages older.
+ * - GET  /weekly?limit=10[&week=YYYY-Www] → this week's seed (opens Friday 18:00 UTC, closes 7 days later; PLAN-v4 0.7.5) with its board,
+ *   commitment to the next week and the previous week; a Friday's daily carries weeklyCommitment for the weekly opening that evening.
  * - Groups (PLAN-v4 0.7.2): POST /groups { name } (bearer, filtered name, 8-char code), POST /groups/join|leave|rename|disband, GET /groups;
  *   ?group=<code> on /board, /histogram, /daily and /archive (bearer of a member) scopes entries to members' player ids.
  * - GET  /entry?hash=…[&seed=…] → one verified entry's seed, score, label, per-round earnings, frozen flag and medals (PLAN-v4 0.7.1):
@@ -61,7 +63,10 @@ import { decodeReplay, verifyReplay, canonicalReplayJson, type ReplayFile } from
 import { replay as replayRun } from '../game/src/sim/run';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { dailySeedFor, isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
-import { mintSeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS, base32Lower } from './mint';
+import { mintSeed, mintWeeklySeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS, base32Lower } from './mint';
+import { isWeekId, isWeeklySeed, weeklyIdOf, weeklyWindow, currentWeekId, nextWeekId, prevWeekId, isoWeekId } from '../game/src/sim/weekly';
+export { mintWeeklySeed } from './mint';
+export { currentWeekId, weeklyWindow, isWeeklySeed, weeklyIdOf } from '../game/src/sim/weekly';
 import { medalThresholds, type Medals } from '../game/src/daily/medals';
 import { ColdStore, HOT_DAYS, COLD_REPLAYS_PER_DAY, type ColdDay } from './cold';
 export { HOT_DAYS, COLD_REPLAYS_PER_DAY, ColdStore } from './cold';
@@ -105,9 +110,11 @@ export interface StoredReplay { seed: string; rulesVersion: number; actions: Rep
 /** The autoplayer's median score on a seed: a target that exists on day one without inventing competitors. */
 export interface BotPar { par: number; runs: number; tries: number; rulesVersion: number; computedAt: string }
 /** One issued daily (PLAN-v3 0.6.1): the seed minted from the secret for that UTC date, the commitment to the next day's seed, and the window. */
-export interface DailyRecord { date: string; seed: string; commitment: string; issuedAt: string; closesAt: string; rulesVersion: number; build: string; /** set once the window closed (= closesAt); the board is final from then on (PLAN-v3 0.6.2) */ frozenAt?: string; /** computed once at freeze from the final board (PLAN-v3 0.6.4): thresholds, or null when fewer than MEDAL_MIN_N runs; absent while open */ medals?: Medals | null }
+export interface DailyRecord { date: string; seed: string; commitment: string; issuedAt: string; closesAt: string; rulesVersion: number; build: string; /** set once the window closed (= closesAt); the board is final from then on (PLAN-v3 0.6.2) */ frozenAt?: string; /** computed once at freeze from the final board (PLAN-v3 0.6.4): thresholds, or null when fewer than MEDAL_MIN_N runs; absent while open */ medals?: Medals | null; /** a weekly (PLAN-v4 0.7.5): keyed by its ISO week, `date` is the Friday it opened, `opensAt` Friday 18:00 UTC; dailies have no kind */ kind?: 'weekly'; week?: string; opensAt?: string; /** on a Friday's daily: SHA-256 of the weekly seed that opens that evening */ weeklyCommitment?: string }
+/** The key a record lives under in `dailies`: its date, or its week id for a weekly. */
+export const recordKey = (r: DailyRecord): string => (r.kind === 'weekly' ? r.week! : r.date);
 /** One closed day in GET /archive. */
-export interface ArchiveDay { date: string; seed: string; closesAt: string; frozenAt: string; n: number; botPar: number | null; medals: Medals | null; top: BoardEntry[] }
+export interface ArchiveDay { date: string; key: string; kind: 'daily' | 'weekly'; seed: string; closesAt: string; frozenAt: string; n: number; botPar: number | null; medals: Medals | null; top: BoardEntry[] }
 export const MAX_ARCHIVE_LIMIT = 100;
 /** A group (PLAN-v4 0.7.2): a code that scopes boards to its members' verified entries. Keyed by player id, never by name. */
 export interface Group { code: string; name: string; creatorId: string | null; createdAt: string; renamedAt: string; playerIds: string[] }
@@ -240,8 +247,34 @@ export class Verifier {
       return p ? { ...e, player: labelFor(p.name, p.tag) } : { ...e, player: 'deleted', playerId: undefined };
     });
   }
-  /** The issued record for a date from the hot board or cold storage, never minting (PLAN-v4 0.7.0). */
-  private issuedRecord(date: string): DailyRecord | null { return this.data.dailies?.[date] ?? this.cold.day(date)?.record ?? null; }
+  /** The issued record for a date or week id from the hot board or cold storage, never minting (PLAN-v4 0.7.0). */
+  private issuedRecord(key: string): DailyRecord | null { return this.data.dailies?.[key] ?? this.cold.day(key)?.record ?? null; }
+  /** The record behind a minted seed of either kind; null for ordinary, practice or unissued seeds. */
+  private issuedRecordForSeed(seed: string): DailyRecord | null {
+    const key = isMintedDailySeed(seed) ? dailyDateOf(seed) : isWeeklySeed(seed) ? weeklyIdOf(seed) : null;
+    const rec = key ? this.issuedRecord(key) : null;
+    return rec && rec.seed === seed ? rec : null;
+  }
+  /**
+   * The weekly for an ISO week (PLAN-v4 0.7.5): minted and persisted on first request once its Friday 18:00 UTC has passed,
+   * null before that; never re-minted once issued or cold. Same freeze, medals, archive and cold path as a daily.
+   */
+  weeklyRecord(week: string, now = new Date()): DailyRecord | null {
+    const w = isWeekId(week) ? weeklyWindow(week) : null; if (!w || Date.parse(w.opensAt) > now.getTime()) return null;
+    const have = this.data.dailies?.[week]; if (have) { this.observeFreeze(now); return this.data.dailies![week]; }
+    const cold = this.cold.day(week)?.record; if (cold) return cold;
+    const rec: DailyRecord = { kind: 'weekly', week, date: w.openDate, opensAt: w.opensAt, seed: mintWeeklySeed(this.dailySecret, week), commitment: commitmentFor(mintWeeklySeed(this.dailySecret, nextWeekId(week)!)), issuedAt: now.toISOString(), closesAt: w.closesAt, rulesVersion: RULES_VERSION, build: VERSION };
+    const next = { ...this.data, dailies: { ...(this.data.dailies ?? {}), [week]: rec } };
+    try { this.commit(next); } catch { this.data = next; }
+    this.observeFreeze(now);
+    return this.data.dailies![week];
+  }
+  /** This week's seed (or an opened past week): record, board, previous week for the commitment chain. */
+  weekly(limit = 10, now = new Date(), week = currentWeekId(now), members?: ReadonlySet<string> | null): (Omit<DailyRecord, 'frozenAt'> & { frozenAt: string | null; final: boolean; now: string; verified: true; minted: true; entries: BoardEntry[]; previous: { week: string; seed: string; commitment: string } | null }) | null {
+    const rec = this.weeklyRecord(week, now); if (!rec) return null;
+    const pw = prevWeekId(week); const prev = pw ? this.weeklyRecord(pw, now) : null;
+    return { ...rec, frozenAt: rec.frozenAt ?? null, final: !!rec.frozenAt, now: now.toISOString(), verified: true, minted: true, entries: this.board(rec.seed, Math.min(MAX_DAILY_LIMIT, limit), members), previous: prev ? { week: prev.week!, seed: prev.seed, commitment: prev.commitment } : null };
+  }
   /**
    * Move frozen dailies older than HOT_DAYS to cold storage: every entry, the record, the par and only the top
    * COLD_REPLAYS_PER_DAY replays. Idempotent; a day is written cold before it leaves the hot board, so a failed hot
@@ -259,11 +292,11 @@ export class Verifier {
       const top = mine.filter((e) => e.rulesVersion === RULES_VERSION).sort(byRank).slice(0, COLD_REPLAYS_PER_DAY);
       const keep: Record<string, StoredReplay> = {}; for (const e of top) { const r = replays[e.replayHash]; if (r) keep[e.replayHash] = r; }
       const day: ColdDay = { record: rec, entries: mine, replays: keep, par: pars[rec.seed] ?? null };
-      try { this.cold.put(day); } catch { continue; } // cold write failed: the day stays hot and is retried on the next split
+      try { this.cold.put(day, recordKey(rec)); } catch { continue; } // cold write failed: the day stays hot and is retried on the next split
       entries = entries.filter((e) => e.seed !== rec.seed);
       for (const e of mine) delete replays[e.replayHash];
-      delete pars[rec.seed]; delete dailies[rec.date];
-      moved.push(rec.date);
+      delete pars[rec.seed]; delete dailies[recordKey(rec)];
+      moved.push(recordKey(rec));
     }
     if (moved.length) { const next = { ...this.data, entries, replays, pars, dailies }; try { this.commit(next); } catch { this.data = next; } }
     return { moved };
@@ -400,14 +433,14 @@ export class Verifier {
     if (!v.ok) return { ok: false, error: v.error ? `rejected: ${v.error}` : `rejected: re-simulated score $${v.score} does not match claimed $${v.claimed}${v.finished ? '' : ' (run not finished)'}` };
     const replayHash = replayId(replay);
     if (this.data.entries.some((e) => e.replayHash === replayHash)) return { ok: false, error: 'rejected: duplicate replay' };
-    if (isMintedDailySeed(replay.seed)) { // a minted-looking seed counts only if this server issued it and its window is open (PLAN-v3 0.6.1)
-      const rec = this.issuedRecord(dailyDateOf(replay.seed) ?? '');
-      if (!rec || rec.seed !== replay.seed) return { ok: false, error: 'rejected: not an issued daily seed' };
+    if (isMintedDailySeed(replay.seed) || isWeeklySeed(replay.seed)) { // a minted-looking seed counts only if this server issued it and its window is open (PLAN-v3 0.6.1, PLAN-v4 0.7.5)
+      const rec = this.issuedRecordForSeed(replay.seed);
+      if (!rec) return { ok: false, error: `rejected: not an issued ${isWeeklySeed(replay.seed) ? 'weekly' : 'daily'} seed` };
     }
     const claimed = playerId ? this.data.players?.[playerId] : undefined;
     const label = claimed ? labelFor(claimed.name, claimed.tag) : String(player).replace(/\s+/g, ' ').trim().slice(0, 32) || 'anonymous';
-    if (isMintedDailySeed(replay.seed)) { // after the close the run is verified and told so, but the final board never changes (PLAN-v3 0.6.2)
-      const rec = this.issuedRecord(dailyDateOf(replay.seed)!)!;
+    if (isMintedDailySeed(replay.seed) || isWeeklySeed(replay.seed)) { // after the close the run is verified and told so, but the final board never changes (PLAN-v3 0.6.2)
+      const rec = this.issuedRecordForSeed(replay.seed)!;
       if (now.getTime() >= Date.parse(rec.closesAt)) { this.observeFreeze(now); return { ok: true, score: v.score, late: true, recorded: false, closesAt: rec.closesAt, player: label }; }
     }
     const entry: BoardEntry = { seed: replay.seed, score: v.score, player: label, verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash, finalMachines: finalMachinesOf(replay) ?? undefined, rounds: roundsOf(replay) ?? undefined, ...(playerId ? { playerId } : {}) };
@@ -442,7 +475,7 @@ export class Verifier {
     let e = this.data.entries.find((x) => x.replayHash === hash && x.rulesVersion === RULES_VERSION);
     if (!e) { const date = this.cold.dateOfReplay(hash) ?? (seed ? this.cold.dateOfSeed(seed) : null); if (date) { const day = this.cold.day(date); const found = day?.entries.find((x) => x.replayHash === hash); if (found && day) e = this.coldEntries(day.record.seed).find((x) => x.replayHash === hash) ?? found; } }
     if (!e) return null;
-    const rec = isMintedDailySeed(e.seed) ? this.issuedRecord(dailyDateOf(e.seed) ?? '') : null;
+    const rec = this.issuedRecordForSeed(e.seed);
     const player = e.playerId && this.data.players?.[e.playerId] ? labelFor(this.data.players[e.playerId].name, this.data.players[e.playerId].tag) : e.player;
     return { seed: e.seed, score: e.score, player, rounds: e.rounds ?? null, replayHash: e.replayHash, verifiedAt: e.verifiedAt, rulesVersion: e.rulesVersion, frozen: !!rec?.frozenAt, medals: rec?.frozenAt ? rec.medals ?? null : null };
   }
@@ -459,9 +492,9 @@ export class Verifier {
    * Returns null when allowed, otherwise the reason (and the close time) for a 403.
    */
   revealGate(seed: string, playerId: string | null, now = new Date()): { error: string; closesAt: string } | null {
-    if (!isMintedDailySeed(seed)) return null;
-    const rec = this.data.dailies?.[dailyDateOf(seed) ?? ''];
-    if (!rec || rec.seed !== seed) return null; // not an issued daily: nothing to protect
+    if (!isMintedDailySeed(seed) && !isWeeklySeed(seed)) return null;
+    const rec = this.issuedRecordForSeed(seed);
+    if (!rec) return null; // not an issued daily or weekly: nothing to protect
     if (rec.frozenAt || Date.parse(rec.closesAt) <= now.getTime()) return null;
     if (playerId && this.data.entries.some((e) => e.seed === seed && e.playerId === playerId && e.rulesVersion === RULES_VERSION)) return null;
     return { error: `replays on an open daily are revealed after you submit a verified run for it, or when the day closes at ${rec.closesAt}`, closesAt: rec.closesAt };
@@ -497,7 +530,8 @@ export class Verifier {
     if (!isUtcDate(date) || date > utcDate(now)) return null;
     const have = this.data.dailies?.[date]; if (have) { this.observeFreeze(now); return this.data.dailies![date]; }
     const cold = this.cold.day(date)?.record; if (cold) return cold; // a closed day in cold storage is final: never re-minted
-    const rec: DailyRecord = { date, seed: mintSeed(this.dailySecret, date), commitment: commitmentFor(mintSeed(this.dailySecret, shiftDate(date, 1))), issuedAt: now.toISOString(), closesAt: new Date(dayStartMs(date) + DAILY_WINDOW_MS).toISOString(), rulesVersion: RULES_VERSION, build: VERSION };
+    const friday = new Date(dayStartMs(date)).getUTCDay() === 5;
+    const rec: DailyRecord = { date, seed: mintSeed(this.dailySecret, date), commitment: commitmentFor(mintSeed(this.dailySecret, shiftDate(date, 1))), issuedAt: now.toISOString(), closesAt: new Date(dayStartMs(date) + DAILY_WINDOW_MS).toISOString(), rulesVersion: RULES_VERSION, build: VERSION, ...(friday ? { weeklyCommitment: commitmentFor(mintWeeklySeed(this.dailySecret, isoWeekId(new Date(dayStartMs(date))))) } : {}) }; // PLAN-v4 0.7.5: a Friday's daily commits to the weekly opening at 18:00 UTC
     const next = { ...this.data, dailies: { ...(this.data.dailies ?? {}), [date]: rec } };
     try { this.commit(next); } catch { this.data = next; } // storage trouble: serve the minted seed anyway; it is persisted with the next successful write
     this.observeFreeze(now); // a day issued after its own close (an archive lookup) is frozen at once
@@ -507,24 +541,25 @@ export class Verifier {
   archive(o: { from?: string; to?: string; limit?: number } = {}, now = new Date(), members?: ReadonlySet<string> | null): { days: ArchiveDay[]; nextTo: string | null } {
     this.observeFreeze(now);
     const limit = Math.min(MAX_ARCHIVE_LIMIT, Math.max(1, Math.floor(o.limit ?? 30)));
+    const dateOfKey = (k: string) => (isWeekId(k) ? weeklyWindow(k)!.openDate : k); // weeklies sort by the Friday they opened
     const inRange = (d: string) => (!o.from || d >= o.from) && (!o.to || d <= o.to);
     const hotFrozen = Object.values(this.data.dailies ?? {}).filter((r) => r.frozenAt && inRange(r.date));
-    const hotDates = new Set(hotFrozen.map((r) => r.date));
-    const coldDates = this.cold.dates().filter((d) => inRange(d) && !hotDates.has(d)); // a day present in both (a failed hot commit after a cold write) counts once
-    const dates = [...hotFrozen.map((r) => r.date), ...coldDates].sort((a, b) => b.localeCompare(a));
+    const hotKeys = new Set(hotFrozen.map(recordKey));
+    const coldKeys = this.cold.dates().filter((k) => inRange(dateOfKey(k)) && !hotKeys.has(k)); // a record present in both (a failed hot commit after a cold write) counts once
+    const keys = [...hotFrozen.map(recordKey), ...coldKeys].sort((a, b) => dateOfKey(b).localeCompare(dateOfKey(a)) || (isWeekId(a) ? -1 : 1)); // newest first; on the same date the weekly comes first
     const days: ArchiveDay[] = [];
-    for (const date of dates.slice(0, limit)) {
-      const r = this.data.dailies?.[date] ?? this.cold.day(date)?.record; if (!r) continue;
-      days.push({ date: r.date, seed: r.seed, closesAt: r.closesAt, frozenAt: r.frozenAt ?? r.closesAt, n: this.rank(r.seed, this.data, members).length, botPar: this.par(r.seed), medals: r.medals ?? null, top: this.board(r.seed, 5, members) });
+    for (const key of keys.slice(0, limit)) {
+      const r = this.data.dailies?.[key] ?? this.cold.day(key)?.record; if (!r) continue;
+      days.push({ date: r.date, key, kind: r.kind === 'weekly' ? 'weekly' : 'daily', seed: r.seed, closesAt: r.closesAt, frozenAt: r.frozenAt ?? r.closesAt, n: this.rank(r.seed, this.data, members).length, botPar: this.par(r.seed), medals: r.medals ?? null, top: this.board(r.seed, 5, members) });
     }
-    return { days, nextTo: dates.length > limit ? dates[limit] : null };
+    return { days, nextTo: keys.length > limit ? dateOfKey(keys[limit]) : null };
   }
   /** Medal thresholds for a seed that is a frozen daily; null otherwise (open days, ordinary seeds, too few runs). */
   medalsForSeed(seed: string, now = new Date()): Medals | null {
-    if (!isMintedDailySeed(seed)) return null;
+    if (!isMintedDailySeed(seed) && !isWeeklySeed(seed)) return null;
     this.observeFreeze(now);
-    const rec = this.issuedRecord(dailyDateOf(seed) ?? '');
-    return rec && rec.seed === seed && rec.frozenAt ? rec.medals ?? null : null;
+    const rec = this.issuedRecordForSeed(seed);
+    return rec && rec.frozenAt ? rec.medals ?? null : null;
   }
   /** Today's minted seed (the one bot par computes first). */
   todaySeed(now = new Date()): string { return this.dailyRecord(utcDate(now), now)!.seed; }
@@ -622,7 +657,7 @@ export function loadBoard(text: string): Board {
     const players: Record<string, Player> = {};
     if (raw.players && typeof raw.players === 'object') for (const [id, p] of Object.entries(raw.players as Record<string, Player>)) if (p && typeof p.name === 'string' && typeof p.tag === 'string' && /^[0-9a-f]{64}$/.test(id)) players[id] = { name: p.name, tag: p.tag, createdAt: typeof p.createdAt === 'string' ? p.createdAt : '', renamedAt: typeof p.renamedAt === 'string' ? p.renamedAt : '' };
     const dailies: Record<string, DailyRecord> = {};
-    if (raw.dailies && typeof raw.dailies === 'object') for (const [date, d] of Object.entries(raw.dailies as Record<string, DailyRecord>)) if (d && isUtcDate(date) && typeof d.seed === 'string' && isMintedDailySeed(d.seed) && typeof d.commitment === 'string') dailies[date] = { date, seed: d.seed, commitment: d.commitment, issuedAt: typeof d.issuedAt === 'string' ? d.issuedAt : '', closesAt: typeof d.closesAt === 'string' ? d.closesAt : new Date(dayStartMs(date) + DAILY_WINDOW_MS).toISOString(), rulesVersion: typeof d.rulesVersion === 'number' ? d.rulesVersion : RULES_VERSION, build: typeof d.build === 'string' ? d.build : '', ...(typeof d.frozenAt === 'string' ? { frozenAt: d.frozenAt } : {}), ...(d.medals === null ? { medals: null } : d.medals && typeof d.medals === 'object' && typeof d.medals.gold === 'number' && typeof d.medals.silver === 'number' && typeof d.medals.bronze === 'number' && typeof d.medals.n === 'number' ? { medals: { n: d.medals.n, bronze: d.medals.bronze, silver: d.medals.silver, gold: d.medals.gold } } : {}) };
+    if (raw.dailies && typeof raw.dailies === 'object') for (const [date, d] of Object.entries(raw.dailies as Record<string, DailyRecord>)) if (d && ((isUtcDate(date) && typeof d.seed === 'string' && isMintedDailySeed(d.seed)) || (isWeekId(date) && d.kind === 'weekly' && typeof d.seed === 'string' && isWeeklySeed(d.seed) && isUtcDate(d.date))) && typeof d.commitment === 'string') dailies[date] = { ...(d.kind === 'weekly' ? { kind: 'weekly' as const, week: date, opensAt: typeof d.opensAt === 'string' ? d.opensAt : weeklyWindow(date)!.opensAt } : {}), ...(typeof d.weeklyCommitment === 'string' ? { weeklyCommitment: d.weeklyCommitment } : {}), date: d.kind === 'weekly' ? d.date : date, seed: d.seed, commitment: d.commitment, issuedAt: typeof d.issuedAt === 'string' ? d.issuedAt : '', closesAt: typeof d.closesAt === 'string' ? d.closesAt : new Date(dayStartMs(date) + DAILY_WINDOW_MS).toISOString(), rulesVersion: typeof d.rulesVersion === 'number' ? d.rulesVersion : RULES_VERSION, build: typeof d.build === 'string' ? d.build : '', ...(typeof d.frozenAt === 'string' ? { frozenAt: d.frozenAt } : {}), ...(d.medals === null ? { medals: null } : d.medals && typeof d.medals === 'object' && typeof d.medals.gold === 'number' && typeof d.medals.silver === 'number' && typeof d.medals.bronze === 'number' && typeof d.medals.n === 'number' ? { medals: { n: d.medals.n, bronze: d.medals.bronze, silver: d.medals.silver, gold: d.medals.gold } } : {}) };
     const out: Board = { entries, replays };
     if (Object.keys(pars).length) out.pars = pars;
     if (Object.keys(players).length) out.players = players;
@@ -778,6 +813,14 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         if (!e) return json(404, { ok: false, error: 'no verified entry with that hash' });
         if (!e.rounds) return json(404, { ok: false, reason: 'no-rounds', error: 'that entry has no per-round earnings (verified before 0.7.1 without a stored replay)' });
         return json(200, { ok: true, ...e });
+      }
+      if (req.method === 'GET' && url.pathname === '/weekly') { // PLAN-v4 0.7.5: mirrors /daily by ISO week
+        const gs = groupScope(); if (!gs.ok) return json(gs.status, { ok: false, error: gs.error });
+        const now = new Date((opts.now ?? Date.now)()); const weekQ = url.searchParams.get('week');
+        if (weekQ !== null && !isWeekId(weekQ)) return json(400, { ok: false, error: 'week must be an ISO week like 2030-W11' });
+        const w = verifier.weekly(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT), now, weekQ ?? undefined, gs.members);
+        if (!w) return json(403, { ok: false, error: `the weekly ${weekQ} has not opened yet (weeklies open Friday 18:00 UTC)`, currentWeek: currentWeekId(now) });
+        return json(200, { ok: true, ...w, group: gs.group, botPar: withPar(w.seed), tieBreak: TIE_BREAK });
       }
       if (req.method === 'GET' && url.pathname === '/archive') {
         const now = new Date((opts.now ?? Date.now)()); const from = url.searchParams.get('from'), to = url.searchParams.get('to');

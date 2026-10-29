@@ -13,7 +13,7 @@ import { MAX_SEED_LENGTH, sanitizeSeed, TUTORIAL_SEED } from '../sim/run';
 import { decodeReplay, verifyReplay } from '../sim/replay';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { identityDialog, playerLabel } from './identityDialog';
-import { acceptDaily, cachedDaily, fetchDaily, practiceSeed, todaySeed, revealGate } from '../render/daily';
+import { acceptDaily, cachedDaily, fetchDaily, practiceSeed, todaySeed, revealGate, fetchWeekly } from '../render/daily';
 import { openArchive } from './ArchivePanel';
 import { openPolicy } from './PolicyPanel';
 import { openGroups } from './GroupsPanel';
@@ -109,13 +109,24 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   policyBtn.style.cssText += 'padding:0 0.5em; font-size:0.75em; line-height:1.4; min-height:0';
   const groupsBtn = btn('Groups', 'groups', () => openGroups(scene, verifierUrl, () => scene.scene.restart()), { small: true, title: 'a code that scopes the boards to its members (PLAN-v4 0.7.2)' });
   groupsBtn.style.cssText += 'padding:0 0.5em; font-size:0.75em; line-height:1.4; min-height:0';
-  rightGroup.append(groupsBtn, policyBtn, archiveBtn); // text-height like Archive: the top row at 130 % has no room for a fourth button
+  const weeklyBtn = btn('Weekly…', 'weekly', () => { /* set once the verifier answers */ }, { small: true, disabled: true, title: 'this week\'s seed: opens Friday 18:00 UTC, closes seven days later, same rules (PLAN-v4 0.7.5)' });
+  weeklyBtn.style.cssText += 'padding:0 0.5em; font-size:0.75em; line-height:1.4; min-height:0';
+  rightGroup.append(weeklyBtn, groupsBtn, policyBtn, archiveBtn); // text-height like Archive: the top row at 130 % has no room for a fourth button
   const stripHead = h('div', { class: 'jd-row jd-between', style: 'flex-wrap:nowrap' }, h('div', { class: 'jd-row', style: 'flex-wrap:nowrap; min-width:0; overflow:hidden' }, h('div', { class: 'jd-head', style: 'white-space:nowrap' }, "Today's verified board"), seedSpan, modeSpan), rightGroup);
   const practiceMode = (why: string) => { seedSpan.textContent = `seed ${practiceSeed()}`; modeSpan.textContent = `practice (unranked): ${why}`; };
   const strip = h('div', { class: 'jd-panel', tid: 'daily-strip', style: 'margin-top:auto; padding-top:0.4em; padding-bottom:0.4em' }, stripHead, line);
   const alive = () => line.isConnected && scene.scene.isActive('Title');
   const closesIn = (closesAt: string, now: string) => { const ms = Date.parse(closesAt) - Date.parse(now); if (!Number.isFinite(ms) || ms <= 0) return 'closing'; const h = Math.floor(ms / 3_600_000); return h >= 1 ? `closes in ${h} h` : `closes in ${Math.max(1, Math.round(ms / 60_000))} min`; };
   const groupSel = loadGroup();
+  void fetchWeekly(url).then((wk) => { // PLAN-v4 0.7.5: the weekly lives in the strip head as a button; no new row
+    if (!alive()) return;
+    if (!wk) { weeklyBtn.textContent = 'Weekly offline'; return; }
+    const ms = Date.parse(wk.closesAt) - Date.parse(wk.now); const d = Math.floor(ms / 86_400_000);
+    const wn = wk.week.slice(5); // W43: the year is implied by the window
+    weeklyBtn.textContent = wk.final ? `Weekly ${wn} · final` : `Weekly ${wn} · closes in ${d >= 1 ? `${d} d` : closesIn(wk.closesAt, wk.now).replace('closes in ', '')}`;
+    weeklyBtn.title = `this week's seed ${wk.seed}: one window for everyone, Friday 18:00 UTC to Friday 18:00 UTC; the board is provisional until it closes`;
+    weeklyBtn.disabled = false; weeklyBtn.onclick = () => start(wk.seed, true);
+  });
   fetch(`${url}/daily?limit=5${groupParam(url)}`, { headers: groupHeaders(url) }).then((r) => { if (!r.ok && groupSel && (r.status === 401 || r.status === 403)) { saveGroup(null); throw new Error('group unavailable'); } return r.json(); }).then((d: { seed: string; date?: string; rulesVersion: number; entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[]; botPar?: number | null; closesAt?: string; now?: string; final?: boolean }) => {
     if (!alive()) return;
     const info = acceptDaily(d);
