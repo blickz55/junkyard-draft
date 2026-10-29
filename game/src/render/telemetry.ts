@@ -37,6 +37,8 @@ class Telemetry {
   private sender: Sender = defaultSender;
   private urlProvider: () => string = () => '';
   private flushing: Promise<boolean> | null = null;
+  /** bumped on every opt-out: completions from an older generation must not touch the queue or counters (review F12) */
+  private generation = 0;
 
   /** Mirror the in-memory queue into the persisted state (bounded). */
   private persistQueue() { const st = loadTelemetryState(); if (st.installId) saveTelemetryState({ ...st, pending: this.queue.slice(-MAX_QUEUE) }); }
@@ -58,6 +60,7 @@ class Telemetry {
       void this.flush();
     } else {
       updateSettings({ telemetry: false });
+      this.generation++; this.flushing = null; // an in-flight send may still complete: its events never come back
       this.queue.length = 0; if (this.timer) { clearTimeout(this.timer); this.timer = null; }
       clearTelemetryState();
     }
@@ -92,7 +95,12 @@ class Telemetry {
     const events = this.queue.splice(0, MAX_BATCH);
     const body = JSON.stringify({ installId: st.installId, consent: true, events });
     const url = `${this.urlProvider().replace(/\/$/, '')}/events`;
-    this.flushing = this.sender(url, body, beacon).then((ok) => { if (ok) this.sent += events.length; else this.queue.unshift(...events.slice(0, MAX_QUEUE - this.queue.length)); this.persistQueue(); this.flushing = null; return ok; });
+    const gen = this.generation;
+    this.flushing = this.sender(url, body, beacon).then((ok) => {
+      if (gen !== this.generation) return ok; // consent was withdrawn meanwhile: discard the outcome, restore nothing
+      if (ok) this.sent += events.length; else this.queue.unshift(...events.slice(0, MAX_QUEUE - this.queue.length));
+      this.persistQueue(); this.flushing = null; return ok;
+    });
     return this.flushing;
   }
 

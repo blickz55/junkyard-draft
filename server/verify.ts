@@ -62,7 +62,7 @@ const MAX_BODY = 512 * 1024;
 export const MAX_BOARD_LIMIT = 100;
 export const MAX_DAILY_LIMIT = 50;
 
-/** Replay identity: SHA-256 of the canonical verified content. Collision-free in practice, unlike the 32-bit FNV it replaces. */
+/** Replay identity: SHA-256 of the canonical verified content (actions in canonical field order, see replay.ts). Collision-free in practice, unlike the 32-bit FNV it replaces. */
 export const replayId = (r: Pick<ReplayFile, 'rulesVersion' | 'seed' | 'actions'>): string =>
   createHash('sha256').update(JSON.stringify({ rulesVersion: r.rulesVersion, seed: r.seed, actions: r.actions })).digest('hex');
 
@@ -195,6 +195,7 @@ export class Verifier {
     if (this.data.entries.some((e) => e.replayHash === replayHash)) return { ok: false, error: 'rejected: duplicate replay' };
     const entry: BoardEntry = { seed: replay.seed, score: v.score, player: String(player).replace(/\s+/g, ' ').trim().slice(0, 32) || 'anonymous', verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash };
     const candidate: Board = {
+      ...this.data, // never rebuild the board from a subset of its fields: cached pars were lost that way (review F08)
       entries: [...this.data.entries, entry],
       replays: { ...(this.data.replays ?? {}), [replayHash]: { seed: replay.seed, rulesVersion: replay.rulesVersion, actions: replay.actions, score: v.score, player: entry.player, verifiedAt: entry.verifiedAt } },
     };
@@ -399,6 +400,8 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...cors, ...extra }); res.end(JSON.stringify(body));
       log?.(`${new Date().toISOString()} ${ip} ${req.method} ${pathForLog} ${code} ${Date.now() - t0}ms`);
     };
+    /** Asynchronous handlers (request 'end') run outside the route() try/catch: anything they throw would kill the process. */
+    const guarded = (fn: () => void) => { try { fn(); } catch { if (!res.writableEnded) json(500, { ok: false, error: 'internal error' }); } };
     let url: URL;
     try { url = new URL(req.url || '/', 'http://localhost'); } catch { req.resume(); return json(400, { ok: false, error: 'bad request: malformed URL' }, {}, '(malformed)'); }
     const route = () => {
@@ -412,19 +415,20 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         if (rl) { const r = rl.take(ip); if (!r.ok) { req.resume(); return json(429, { ok: false, error: `rate limited: ${rl.limit} submissions per ${rl.windowMs / 1000}s` }, { 'Retry-After': String(r.retryAfterSec) }); } }
         let body = '';
         req.on('data', (c) => { body += c; if (body.length > MAX_BODY) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
-        req.on('end', () => {
+        req.on('end', () => guarded(() => {
           if (res.writableEnded) return;
           let parsed: { replay: unknown; player?: string };
           try { parsed = JSON.parse(body) as { replay: unknown; player?: string }; } catch (e) { return json(400, { ok: false, error: `bad request: ${(e as Error).message}` }); }
+          if (!parsed || typeof parsed !== 'object') return json(400, { ok: false, error: 'bad request: body is not an object' });
           try {
-            const result = verifier.submit(JSON.stringify(parsed.replay), parsed.player);
+            const result = verifier.submit(JSON.stringify(parsed.replay ?? null), typeof parsed.player === 'string' ? parsed.player : undefined);
             if (result.ok && result.entry) par?.request(result.entry.seed);
             json(result.ok ? 200 : 422, result);
           } catch (e) {
             if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable, nothing was recorded; try again' }, { 'Retry-After': '5' });
             json(500, { ok: false, error: 'internal error' });
           }
-        });
+        }));
         return;
       }
       if (req.method === 'GET' && url.pathname === '/funnel' && events) return json(200, { ok: true, ...events.funnel() });
@@ -432,15 +436,16 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const r = erl.take(ip); if (!r.ok) { req.resume(); return json(429, { ok: false, error: 'rate limited' }, { 'Retry-After': String(r.retryAfterSec) }); }
         let body = '';
         req.on('data', (c) => { body += c; if (body.length > MAX_EVENTS_BODY) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
-        req.on('end', () => {
+        req.on('end', () => guarded(() => {
           if (res.writableEnded) return;
           let parsed: unknown;
           try { parsed = JSON.parse(body); } catch (e) { return json(400, { ok: false, error: `bad request: ${(e as Error).message}` }); }
-          const batch = validateBatch(parsed);
-          if (typeof batch === 'string') return json(422, { ok: false, error: `rejected: ${batch}` });
+          let batch: ReturnType<typeof validateBatch>;
+          try { batch = validateBatch(parsed); } catch { batch = 'unreadable batch'; } // validation is meant to be total; a surprise still answers 4xx
+          if (typeof batch === 'string') return json(422, { ok: false, error: `rejected: ${batch}`.slice(0, 200) });
           try { json(200, { ok: true, stored: events.append(batch, ip) }); }
           catch (e) { if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable, nothing was recorded; try again' }, { 'Retry-After': '5' }); json(500, { ok: false, error: 'internal error' }); }
-        });
+        }));
         return;
       }
       json(404, { ok: false, error: 'not found' });

@@ -20,6 +20,19 @@ export function exportReplay(s: RunState, build?: string): ReplayFile {
 
 export function encodeReplay(r: ReplayFile): string { return JSON.stringify(r); }
 
+/** The same action with its fields in canonical order (`t` first), so two equal actions serialise identically whatever key order they arrived in (review F03). */
+export function canonicalAction(a: Action): Action {
+  switch (a.t) {
+    case 'pick': return { t: 'pick', i: a.i };
+    case 'place': return { t: 'place', id: a.id, x: a.x, y: a.y, dir: a.dir };
+    case 'rotate': return { t: 'rotate', id: a.id };
+    case 'unplace': return { t: 'unplace', id: a.id };
+    case 'sell': return { t: 'sell', id: a.id };
+    case 'run': return { t: 'run' };
+    case 'next': return { t: 'next' };
+  }
+}
+
 /**
  * Structural validation shared by every replay entry point (files pasted by the player, verifier
  * submissions, replays fetched from the verifier). Returns the same object narrowed to ReplayFile or throws.
@@ -36,7 +49,7 @@ export function validateReplayFile(raw: unknown): ReplayFile {
   if (typeof r.claimedScore !== 'number' || !Number.isFinite(r.claimedScore)) throw new Error('malformed replay: claimed score');
   if (r.actions.length > MAX_REPLAY_ACTIONS) throw new Error('replay too long');
   if (!r.actions.every(validateAction)) throw new Error('replay contains a malformed action');
-  return { format: REPLAY_FORMAT, rulesVersion: r.rulesVersion as number, seed: r.seed, actions: r.actions as Action[], claimedScore: r.claimedScore, createdAt: typeof r.createdAt === 'string' ? r.createdAt : '', build: typeof r.build === 'string' ? r.build : undefined };
+  return { format: REPLAY_FORMAT, rulesVersion: r.rulesVersion as number, seed: r.seed, actions: (r.actions as Action[]).map(canonicalAction), claimedScore: r.claimedScore, createdAt: typeof r.createdAt === 'string' ? r.createdAt : '', build: typeof r.build === 'string' ? r.build : undefined };
 }
 
 export function decodeReplay(text: string): ReplayFile {

@@ -80,6 +80,57 @@ test('http: POST /verify and GET /board return verified data only', async () => 
   } finally { server.closeAllConnections(); server.close(); }
 });
 
+test('malformed events body does not kill the verifier (review F01): an event without a name gets 422 and /health still answers', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-ev-'));
+  const server = createServer(new Verifier(path.join(dir, 'board.json')), { events: new EventStore(path.join(dir, 'events.jsonl')), eventsRateLimit: 100 });
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
+  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  try {
+    const bodies = [
+      { installId: 'a'.repeat(32), consent: true, events: [{}] },
+      { installId: 'a'.repeat(32), consent: true, events: [{ name: null }] },
+      { installId: 'a'.repeat(32), consent: true, events: [{ name: 7, props: 1, at: 2 }] },
+      { installId: 'a'.repeat(32), consent: true, events: [{ name: { toString: 1 } }] },
+      { installId: 'a'.repeat(32), consent: true, events: ['app_start'] },
+      [], 'x', 1,
+    ];
+    for (const b of bodies) {
+      const res = await fetch(`${base}/events`, { method: 'POST', body: JSON.stringify(b), headers: { 'Content-Type': 'application/json' } });
+      assert.ok(res.status >= 400 && res.status < 500, `${JSON.stringify(b)} → ${res.status}`);
+      const text = await res.text(); assert.ok(text.length < 400, 'error bodies are bounded');
+    }
+    const verifyBodies = ['null', '[]', '"replay"', '{"replay":null}', '{"replay":{"format":1}}', '{"replay":5,"player":{}}'];
+    for (const b of verifyBodies) { const res = await fetch(`${base}/verify`, { method: 'POST', body: b }); assert.ok(res.status >= 400 && res.status < 500, `/verify ${b} → ${res.status}`); }
+    assert.equal((await fetch(`${base}/health`)).status, 200, 'the server is still serving');
+  } finally { server.closeAllConnections(); server.close(); }
+});
+
+test('replay identity is canonical (review F03): the same actions with permuted JSON keys hash identically and a second submission is a duplicate', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-canon-')), 'board.json');
+  const v = new Verifier(file);
+  const run = finishedRun('canon-seed');
+  const rep = exportReplay(run);
+  const permuted = { ...rep, actions: rep.actions.map((a) => Object.fromEntries(Object.entries(a).reverse())) };
+  assert.notEqual(JSON.stringify(permuted.actions), JSON.stringify(rep.actions), 'the permutation changes the raw JSON');
+  const first = v.submit(JSON.stringify(rep), 'a'); assert.equal(first.ok, true);
+  const second = v.submit(JSON.stringify(permuted), 'b');
+  assert.equal(second.ok, false); assert.match(second.error ?? '', /duplicate/);
+  assert.equal(v.size, 1, 'one entry, not two');
+  const stored = v.replay(first.entry!.replayHash)!;
+  assert.deepEqual(stored.actions, rep.actions.map((a) => ({ t: a.t, ...Object.fromEntries(Object.entries(a).filter(([k]) => k !== 't')) })), 'stored actions are canonical');
+});
+
+test('accepted submissions keep cached bot pars (review F08), across a restart from the file', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-pars-')), 'board.json');
+  const v = new Verifier(file);
+  v.setPar('par-a', 123, 5, 40); v.setPar('par-b', 456, 5, 40);
+  const run = finishedRun('par-a');
+  assert.equal(v.submit(JSON.stringify(exportReplay(run)), 'p').ok, true);
+  assert.deepEqual([v.par('par-a'), v.par('par-b')], [123, 456], 'pars survive a submission in memory');
+  const again = new Verifier(file);
+  assert.deepEqual([again.par('par-a'), again.par('par-b')], [123, 456], 'and in the persisted file');
+});
+
 test('rate limiter: fixed window per key, resets after the window', () => {
   let t = 1_000_000;
   const rl = new RateLimiter(3, 60_000, () => t);

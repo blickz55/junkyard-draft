@@ -51,7 +51,7 @@ export const isEventName = (n: unknown): n is EventName => typeof n === 'string'
 export function validateEvent(raw: unknown): TelemetryEvent | string {
   if (!raw || typeof raw !== 'object') return 'event is not an object';
   const e = raw as { name?: unknown; props?: unknown; at?: unknown };
-  if (!isEventName(e.name)) return `unknown event ${JSON.stringify(e.name).slice(0, 40)}`;
+  if (!isEventName(e.name)) return `unknown event ${String(JSON.stringify(e.name) ?? typeof e.name).slice(0, 40)}`; // stringify(undefined) is undefined: never .slice() on it
   const allowed = EVENTS[e.name] as readonly string[];
   const props: Props = {};
   if (e.props != null) {

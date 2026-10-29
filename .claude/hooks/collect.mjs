@@ -7,6 +7,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { redact } from './redact.mjs';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -15,22 +16,7 @@ const OUT_FILE = path.join(OUT_DIR, 'events.jsonl');
 const MAX_STDIN = 1_000_000;
 const EXCERPT = 200;
 
-const SECRET_PATTERNS = [
-  /(sk-ant-[A-Za-z0-9_-]{8,})/g,
-  /(sk-[A-Za-z0-9]{16,})/g,
-  /(ghp_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,})/g,
-  /(AKIA[0-9A-Z]{12,})/g,
-  /(xox[baprs]-[A-Za-z0-9-]{10,})/g,
-  /(Bearer\s+)[A-Za-z0-9._\-]{8,}/gi,
-  /((?:password|passwd|pwd|secret|token|api[_-]?key|authorization)\s*[=:]\s*['"]?)[^\s'"&]{4,}/gi,
-  /(https?:\/\/[^\s/@]+:)[^\s@]+@/gi, // user:pass@host
-];
-
-function redact(s) {
-  let out = String(s);
-  for (const re of SECRET_PATTERNS) out = out.replace(re, (m, pre) => (pre && m.startsWith(pre) ? pre + '[redacted]' : '[redacted]'));
-  return out;
-}
+// secret patterns and redaction live in redact.mjs (tested by tests/collector.test.mjs)
 function clip(s, n = EXCERPT) {
   if (s == null) return undefined;
   const t = redact(String(s)).replace(/\s+/g, ' ').trim();
