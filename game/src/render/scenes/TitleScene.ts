@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
+import { applyDpr, DPR, MAX_DPR } from '../dpr';
 import { Button, label, mono, panel, slider } from '../ui';
 import { CSS, P } from '../palette';
 import { audio } from '../audio';
-import { clearSave, dailySeed, hasUnusableSave, loadBests, loadPlayer, loadSave, loadSubmissions, randomSeed, savePlayer } from '../storage';
+import { clearSave, dailySeed, hasUnusableSave, loadBests, loadPlayer, loadSave, loadSettings, loadSubmissions, randomSeed, savePlayer, updateSettings } from '../storage';
 import { MAX_SEED_LENGTH, sanitizeSeed } from '../../sim/run';
 import { decodeReplay, verifyReplay } from '../../sim/replay';
 import { W, H } from '../layout';
@@ -14,6 +15,7 @@ export class TitleScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor(P.bg);
+    applyDpr(this);
     // decorative belt
     for (let i = 0; i < 16; i++) this.add.image(i * 72 + 36, H - 36, 'm-conveyor').setAlpha(0.25);
     const scrapBelt = this.add.group();
@@ -65,6 +67,10 @@ export class TitleScene extends Phaser.Scene {
       const typed = window.prompt('Name shown on verified boards (max 32 characters, leave empty to clear):', loadPlayer() || 'player');
       if (typed !== null) { savePlayer(typed); playerBtn.setText(playerLabel()); }
     }, { w: 200, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'player' });
+    // rendering resolution: high = device pixel ratio (capped at ${MAX_DPR}×), standard = 1× for weak machines; chosen automatically on the first run, changeable here (applies on reload)
+    const quality = loadSettings().renderQuality;
+    const qualityLabel = () => (quality === 'low' ? 'Resolution: Standard' : quality === 'high' ? 'Resolution: High' : `Resolution: Auto (${DPR}×)`);
+    new Button(this, W - 120, 80, qualityLabel(), () => { updateSettings({ renderQuality: quality === 'low' ? 'high' : 'low' }); location.reload(); }, { w: 200, h: 26, color: P.steelDark, textColor: CSS.text, size: 11, name: 'quality' });
 
     // bests + settings
     panel(this, 640, y, 420, 180, 0.9);

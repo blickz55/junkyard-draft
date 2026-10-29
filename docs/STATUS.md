@@ -1,4 +1,19 @@
-# Status — 2026-10-26 (routine run: 0.3.2 placement ghost + rejection reasons)
+# Status — 2026-10-29 (PR #1 merged; DOSSIER-v1 slice 0.3.8–0.3.10 done on the PC)
+
+## Session 2026-10-29 — worst-machine foundation (docs/DOSSIER-v1.md §8)
+Reviewed and merged the routine's PR #1 (0.3.2) after running its suite here (47/47). Then the three increments, each a commit on main:
+
+| Id | What | Evidence |
+|---|---|---|
+| 0.3.8 | Render probe folded into `tools/perf.ts` (draws, binds, objects, Text creations, heap); `--device A|B|C|D`; `--renderer` via `?renderer=`; `tools/perf-gate.ts`; `.github/workflows/perf.yml` | gate passes today vs 0.2.0, fails a synthetic +30 % (`tests/perf-gate.test.ts`); workflow green on 9c9e93d and 78adf2d (no CI baseline yet, see below) |
+| 0.3.9 | Pooled, coalesced +$ pops (16 slots); `renderSide()` no-op while inputs unchanged; legend built once; caches reset in `create()` (Phaser reuses the scene instance; the replay e2e caught a destroyed legend) | Text objects per busy round **208 → 68**; script ms/frame at 4× CPU throttle **3.05 → 2.5–2.7**; device B webgl 5.05 → 4.3 ms (dropped 2 → 1), canvas 5.23 → 4.75 ms. Target was −20 %, achieved −13 to −17 %: the rest is the running/summary panels, which 0.4.0 removes |
+| 0.3.10 | DPR-sized canvas (cap 2) + camera zoom per scene; Text resolution injected once via `TextStyle.setStyle`; pointer handlers use world coordinates; adaptive probe (`quality.ts`, 120 frames, p95 > 20 ms → `renderQuality: 'low'`); title "Resolution" button; `?renderer=canvas`; context-loss handling verified | `tests/render-e2e.test.mjs`: 2240×1400 backing store, text resolution 2, a real drag lands on (5,4) under the zoomed camera; Canvas renderer completes a round; `WEBGL_lose_context` lose + restore leaves `state()` identical, textures re-uploaded, grid visible, a round still runs. Screenshots at DPR 1 and 2 compared by eye: identical layout, crisp text at 2× |
+
+Numbers after the slice (Chromium headless on this PC, seed auto-12 last round at 4×; headless Chromium renders WebGL in software, so fill cost appears as CPU): hardware 1× script 0.55 ms, cpu 8.5 ms, 0 dropped · 4× CPU throttle script 2.6 ms, cpu 12.4 ms, 0 dropped · **device A** (1920×1080, DPR 1.5) cpu 17.8 ms, 8 dropped of 200 · **device B** (1366×768, ×6) webgl cpu 15.6 ms 1 dropped, canvas cpu 10.6 ms 0 dropped · **device D** (915×412, DPR 2.6→2, ×4) p95 66 ms, 72 dropped — exactly the case the adaptive probe exists for (it would store 'low' after that run; `tests/quality.test.ts` pins the decision). A real GPU does not pay software fill cost; measuring A and D on hardware is a human item. All files under `docs/baselines/0.3.0/`.
+
+**Not done / needs a human:** (1) commit a CI baseline: download the `perf-ci` artifact from a green run of the perf workflow (https://github.com/blickz55/junkyard-draft/actions) and save it as `docs/baselines/0.3.0/perf-ci.json` to arm the gate (CI numbers only compare with CI numbers); (2) run the packaged app on a HiDPI laptop and a Chromebook and note the probe's decision (`jd.settings.v1`.renderQuality); (3) the packaged build in `release/` is still 0.2.0 (rebuild with `npm run desktop:pack` before the next perf run that includes Electron). Deviation from the dossier prompt: the adaptive fallback does not reload mid-run; it stores the decision and applies it on the next start (the run in progress keeps its resolution, a hint says so).
+
+## Routine run 2026-10-26 — PLAN-v1 0.3.2 (merged 2026-10-29 as PR #1)
 
 ## Routine run 2026-10-26 — PLAN-v1 0.3.2 (no rule changes, RULES_VERSION stays 2)
 - New pure module `game/src/sim/advice.ts`: `explainRunError()` (every `RunError` message from `apply` → player sentence), `placementWarning()` (legal-but-unfed: nothing behind a behind-only machine, neighbour not pointing in, output off the grid), `inputTravelDirs`/`outputDirs` (mirror `accepts` in sim.ts).
@@ -8,7 +23,7 @@
 - Not done: tested only in headless Chromium; no human playtest of the arrow legibility.
 
 ## Next task
-**In progress on the PC (2026-10-29): the "worst-machine foundation" slice from `docs/DOSSIER-v1.md` §8** (0.3.8 render probe + device presets + CI perf gate → 0.3.9 pooled pops + render-on-change → 0.3.10 DPR-aware canvas + renderer toggle + context-loss test); it touches no sim or gameplay files. `tools/render-probe.ts` measured 2–5 draw calls and 32–69 texture binds per frame, 45 MB heap, 77–120 game objects, boot to title 470 ms on localhost (dossier §2.1). **After the slice:** PLAN-v1 **0.3.3 undo/redo in the build phase covering rotations** (S/M): Ctrl+Z / Ctrl+Y plus on-screen buttons over the build-phase action list since the last run; undo removes (the replay stays a flat list of final actions); keyboard-only path reaches undo. Accept: sim test place→rotate→undo→undo yields the pre-place layout and the exported replay verifies; e2e Ctrl+Z after a rotate restores facing. Then 0.3.5, 0.3.6, 0.3.7. Human-gated items (0.3.1 playtest, installer run, Docker build) still stand.
+PLAN-v1 **0.3.3 undo/redo in the build phase covering rotations** (S/M): Ctrl+Z / Ctrl+Y plus on-screen buttons over the build-phase action list since the last run; undo removes (the replay stays a flat list of final actions); keyboard-only path reaches undo. Accept: sim test place→rotate→undo→undo yields the pre-place layout and the exported replay verifies; e2e Ctrl+Z after a rotate restores facing. Then 0.3.5, 0.3.6, 0.3.7. Human-gated items (0.3.1 playtest, installer run, Docker build) still stand.
 
 # Status — 2026-10-26 (external review of 0.2.0 addressed; routine paused during the fix, re-enabled after)
 

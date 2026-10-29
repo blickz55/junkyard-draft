@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { applyDpr, DPR } from '../dpr';
+import { decideQuality, QUALITY_PROBE_FRAMES } from '../quality';
 import { explainRunError, inputTravelDirs, outputDirs, placementWarning } from '../../sim/advice';
 import { apply, newRun, replay as replayRun, RunError, type Action, type RunState } from '../../sim/run';
 import { createSim, step, cellIndex, type SimState } from '../../sim/sim';
@@ -8,7 +10,7 @@ import { CELL, itemTexture, machineTexture } from '../textures';
 import { Button, label, mono, panel } from '../ui';
 import { CSS, FONT, P } from '../palette';
 import { audio } from '../audio';
-import { clearSave, isOnboarded, loadBests, setOnboarded, writeSave } from '../storage';
+import { clearSave, isOnboarded, loadBests, loadSettings, setOnboarded, updateSettings, writeSave } from '../storage';
 import { RULES_VERSION } from '../../sim/types';
 import { BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y, H, SIDE_W, SIDE_X, W } from '../layout';
 import { installDevApi } from '../devapi';
@@ -67,6 +69,8 @@ export class GameScene extends Phaser.Scene {
   private readonly shipsThisTick = new Map<number, number>();
   /** inputs of the last side-panel build; renderSide() is a no-op while they are unchanged */
   private sideKey = '';
+  /** adaptive resolution: frame deltas of the first 120 running frames at DPR > 1 while renderQuality is still 'auto' */
+  private dprProbe: number[] | null = null;
   /** the VALUES legend never changes: built once, re-parented into each panel instead of re-rasterised (12 Text objects per rebuild) */
   private legendC: Phaser.GameObjects.Container | null = null;
 
@@ -100,6 +104,7 @@ export class GameScene extends Phaser.Scene {
     // the scene instance is reused across scene.start(): anything cached on it from the previous life was destroyed at shutdown
     this.legendC = null; this.sideKey = ''; this.popPool = []; this.popsAlive = 0; this.popsPeak = 0; this.popsSkipped = 0;
     this.cameras.main.setBackgroundColor(P.bg);
+    applyDpr(this);
     this.input.mouse?.disableContextMenu();
     this.buildStatic();
     this.buildHud();
@@ -222,7 +227,7 @@ export class GameScene extends Phaser.Scene {
   // ---------- input ----------
   private setupInput() {
     const toCell = (p: Phaser.Input.Pointer) => {
-      const x = Math.floor((p.x - GRID_X) / CELL), y = Math.floor((p.y - GRID_Y) / CELL);
+      const x = Math.floor((p.worldX - GRID_X) / CELL), y = Math.floor((p.worldY - GRID_Y) / CELL); // world coordinates: the camera is zoomed on HiDPI
       return x >= 0 && y >= 0 && x < RULES.gridWidth && y < RULES.gridHeight ? { x, y } : null;
     };
     this.input.on('dragstart', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image) => {
@@ -248,7 +253,7 @@ export class GameScene extends Phaser.Scene {
       if (this.mode !== 'build') { this.cancelDrag(); return; } // drop after the round started: no edit, snap back
       this.dragging = null; this.hover.setVisible(false); this.hideGhost(); v.c.setDepth(2);
       const cell = toCell(p);
-      const inBinArea = p.y >= BIN_Y && p.y <= BIN_Y + 110 && p.x >= GRID_X && p.x <= GRID_X + GRID_W;
+      const inBinArea = p.worldY >= BIN_Y && p.worldY <= BIN_Y + 110 && p.worldX >= GRID_X && p.worldX <= GRID_X + GRID_W;
       if (cell) {
         const ok = this.act({ t: 'place', id: v.m.id, x: cell.x, y: cell.y, dir: v.m.dir });
         if (ok) audio.place(); else { audio.invalid(); this.flashBad(cell.x, cell.y); }
@@ -551,6 +556,7 @@ export class GameScene extends Phaser.Scene {
     const layout = { width: this.run.layout.width, height: this.run.layout.height, machines: this.run.layout.machines.map((m) => ({ ...m })) };
     this.sim = createSim(layout);
     this.acc = 0; this.mode = 'running';
+    if (DPR > 1 && !this.dprProbe && loadSettings().renderQuality === 'auto') this.dprProbe = [];
     audio.run();
     this.renderSide();
     this.setHint(this.replayLabel ? 'Watching a verified replay: 1/2/4× change the speed, Skip jumps to the round result, Esc stops and returns to the title.' : 'Running… Jams glow red: an item waits for a free cell or a slow machine.');
@@ -593,6 +599,14 @@ export class GameScene extends Phaser.Scene {
     const now = performance.now();
     const delta = this.lastFrame ? Math.min(250, now - this.lastFrame) : 16;
     this.lastFrame = now;
+    if (this.dprProbe) {
+      this.dprProbe.push(delta);
+      if (this.dprProbe.length >= QUALITY_PROBE_FRAMES) {
+        const quality = decideQuality(this.dprProbe);
+        updateSettings({ renderQuality: quality }); this.dprProbe = null;
+        if (quality === 'low') this.setHint('This device struggles at high resolution: from the next start the game runs at standard resolution (change it on the title screen).');
+      }
+    }
     this.acc += delta * this.speed;
     let guard = 0;
     while (this.acc >= this.tickMs && guard++ < 10) {

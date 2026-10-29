@@ -1,0 +1,60 @@
+{
+ "seed": "auto-12",
+ "score": 2088,
+ "picks": [
+  "crusher",
+  "furnace",
+  "hopper",
+  "crusher",
+  "hopper",
+  "conveyor"
+ ],
+ "speed": 4,
+ "device": null,
+ "budgetMs": 16.7,
+ "droppedMs": 25,
+ "samples": [
+  {
+   "label": "chromium @4×",
+   "renderer": "webgl",
+   "frames": 201,
+   "p50": 16.7,
+   "p95": 16.7,
+   "max": 16.8,
+   "dropped": 0,
+   "cpuMsPerFrame": 8.46,
+   "scriptMsPerFrame": 0.55,
+   "drawsPerFrame": 4,
+   "bindsPerFrame": 58.6,
+   "maxObjects": 109,
+   "textObjectsCreated": 68,
+   "heapMB": 48.1,
+   "runMs": 3392,
+   "machines": 10,
+   "peakItems": 4,
+   "withinBudget": true
+  },
+  {
+   "label": "chromium cpu×4 @4×",
+   "renderer": "webgl",
+   "frames": 202,
+   "p50": 16.7,
+   "p95": 16.8,
+   "max": 16.8,
+   "dropped": 0,
+   "cpuMsPerFrame": 12.43,
+   "scriptMsPerFrame": 2.63,
+   "drawsPerFrame": 4,
+   "bindsPerFrame": 58.9,
+   "maxObjects": 109,
+   "textObjectsCreated": 68,
+   "heapMB": 48.1,
+   "runMs": 3415,
+   "machines": 10,
+   "peakItems": 4,
+   "withinBudget": true
+  }
+ ],
+ "allWithinBudget": true,
+ "at": "2026-10-29T12:55:36.854Z"
+}

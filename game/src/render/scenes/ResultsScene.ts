@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { applyDpr } from '../dpr';
 import type { RunState } from '../../sim/run';
 import { encodeReplay, exportReplay } from '../../sim/replay';
 import { Button, label, mono, panel } from '../ui';
@@ -21,6 +22,7 @@ export class ResultsScene extends Phaser.Scene {
   create(data: { run: RunState; replayed?: boolean; replayLabel?: string }) {
     const run = data.run;
     this.cameras.main.setBackgroundColor(P.bg);
+    applyDpr(this);
     if (!data.replayed) clearSave(); // a watched replay is someone else's run: the player's own unfinished save stays untouched
     const rec = data.replayed ? { newOverall: false, newSeed: false } : recordBest(run.seed, run.score);
     const bests = loadBests();

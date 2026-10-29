@@ -6,6 +6,7 @@ import { ResultsScene } from './render/scenes/ResultsScene';
 import { W, H } from './render/layout';
 import { P } from './render/palette';
 import { devEnabled } from './render/devapi';
+import { DPR } from './render/dpr';
 
 declare global {
   interface ImportMeta { env: { DEV: boolean; BUILD: string; VERIFIER_URL: string } }
@@ -13,11 +14,22 @@ declare global {
 
 // ?renderer=canvas forces the Canvas renderer (perf presets, weak GPUs); anything else keeps AUTO (WebGL when available).
 const rendererParam = new URLSearchParams(location.search).get('renderer');
+// HiDPI: the canvas is DPR times the logical size and every scene's camera zooms the logical space onto it (render/dpr.ts).
+// Text objects rasterise their own canvas, so they need the same resolution or they would be upscaled and blurry:
+// inject it once here instead of at every add.text call site.
+if (DPR !== 1) {
+  const proto = Phaser.GameObjects.TextStyle.prototype as unknown as { setStyle: (style: unknown, updateText?: boolean, setDefaults?: boolean) => unknown };
+  const orig = proto.setStyle;
+  proto.setStyle = function (style, updateText, setDefaults) {
+    const s = style && typeof style === 'object' && (style as { resolution?: number }).resolution == null ? { ...(style as object), resolution: DPR } : style;
+    return orig.call(this, s, updateText, setDefaults);
+  };
+}
 const game = new Phaser.Game({
   type: rendererParam === 'canvas' ? Phaser.CANVAS : Phaser.AUTO,
   parent: 'game',
-  width: W,
-  height: H,
+  width: W * DPR,
+  height: H * DPR,
   backgroundColor: P.bg,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   render: { antialias: true, pixelArt: false, roundPixels: false },

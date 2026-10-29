@@ -61,6 +61,6 @@ export function slider(scene: Phaser.Scene, x: number, y: number, w: number, val
   const set = (px: number) => { const v = Phaser.Math.Clamp((px - x) / w, 0, 1); knob.x = x + w * v; fill.width = w * v; onChange(v); };
   scene.input.setDraggable(knob);
   knob.on('drag', (_p: unknown, dx: number) => set(dx));
-  zone.on('pointerdown', (p: Phaser.Input.Pointer) => set(p.x));
+  zone.on('pointerdown', (p: Phaser.Input.Pointer) => set(p.worldX)); // world coordinates: the camera is zoomed on HiDPI (render/dpr.ts)
   return { track, fill, knob, zone, set: (v: number) => set(x + w * v) };
 }

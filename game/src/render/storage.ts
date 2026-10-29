@@ -7,7 +7,9 @@ export { dailySeed };
 
 const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v1' };
 
-export interface Settings { volume: number; muted: boolean; reducedMotion: boolean; textScale: number }
+export type RenderQuality = 'auto' | 'high' | 'low';
+/** renderQuality: 'auto' until the first run measures frame times at high resolution, then 'high' or 'low' (DPR 1); the title button sets it too. */
+export interface Settings { volume: number; muted: boolean; reducedMotion: boolean; textScale: number; renderQuality: RenderQuality }
 /** Default for reduced motion follows the OS preference until the player chooses. */
 const systemReducedMotion = () => { try { return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 export interface SaveGame { rulesVersion: number; seed: string; actions: Action[]; savedAt: string }
@@ -29,6 +31,7 @@ export function validateSettings(raw: unknown, fallback: Settings): Settings {
     muted: typeof raw.muted === 'boolean' ? raw.muted : fallback.muted,
     reducedMotion: typeof raw.reducedMotion === 'boolean' ? raw.reducedMotion : fallback.reducedMotion,
     textScale: isFiniteNum(raw.textScale) && TEXT_SCALES.has(raw.textScale) ? raw.textScale : fallback.textScale,
+    renderQuality: raw.renderQuality === 'high' || raw.renderQuality === 'low' || raw.renderQuality === 'auto' ? raw.renderQuality : fallback.renderQuality,
   };
 }
 export function validateSave(raw: unknown): SaveGame | null {
@@ -57,7 +60,7 @@ function readRaw(key: string): unknown {
 }
 function write(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable */ } }
 
-export const loadSettings = (): Settings => validateSettings(readRaw(K.settings), { volume: 0.7, muted: false, reducedMotion: systemReducedMotion(), textScale: 1 });
+export const loadSettings = (): Settings => validateSettings(readRaw(K.settings), { volume: 0.7, muted: false, reducedMotion: systemReducedMotion(), textScale: 1, renderQuality: 'auto' });
 export const saveSettings = (s: Settings) => write(K.settings, s);
 /** Read-modify-write so audio and accessibility settings never clobber each other. */
 export const updateSettings = (p: Partial<Settings>): Settings => { const s = { ...loadSettings(), ...p }; saveSettings(s); return s; };
