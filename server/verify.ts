@@ -49,11 +49,27 @@ import { RULES_VERSION } from '../game/src/sim/types';
 import { dailySeedFor } from '../game/src/sim/daily';
 import { validateBatch, FUNNEL, type EventBatch, type EventName, type Props } from '../game/src/telemetry/events';
 import pkg from '../package.json' with { type: 'json' };
+import { tagFor, labelFor, normaliseName, nameProblem, TOKEN_HEX } from '../game/src/identity/identity';
+
+/** Protocol level of this server's HTTP surface (PLAN-v3 §1): 2 adds identity (bearer tokens, /identity, DELETE /me, keep-best per player). */
+export const PROTOCOL = 2;
+export const RENAME_COOLDOWN_MS = 24 * 60 * 60_000;
+/** A claimed identity: the player id is the SHA-256 of a device token the server never stores. */
+export interface Player { name: string; tag: string; createdAt: string; renamedAt: string }
+/** Player id from a bearer token (32 hex chars); null when absent or malformed. The token itself is never kept or logged. */
+export function playerIdFromToken(token: string | null | undefined): string | null {
+  if (!token || !TOKEN_HEX.test(token)) return null;
+  return createHash('sha256').update(token).digest('hex');
+}
+export function bearerOf(req: http.IncomingMessage): string | null {
+  const h = req.headers.authorization; if (!h) return null;
+  const m = /^Bearer\s+([0-9a-f]{32})$/i.exec(h.trim()); return m ? m[1].toLowerCase() : null;
+}
 
 export const VERSION: string = pkg.version;
 
 /** `finalMachines` (rules v3, PLAN-v2 0.5.5): machines on the grid in the last round, derived by the verifier from the re-simulated replay, never taken from a payload; entries written before it exist without it and rank last among equal scores until derived from their stored replay. */
-export interface BoardEntry { seed: string; score: number; player: string; verifiedAt: string; rulesVersion: number; actions: number; replayHash: string; replayAvailable?: boolean; finalMachines?: number }
+export interface BoardEntry { seed: string; score: number; player: string; verifiedAt: string; rulesVersion: number; actions: number; replayHash: string; replayAvailable?: boolean; finalMachines?: number; /** claimed identity (PLAN-v3 0.6.0); absent on anonymous entries, which are never claimable */ playerId?: string }
 /** Printed under every board: the one comparator, in words. */
 export const TIE_BREAK = 'Equal scores: fewer machines in round 6 first, then the earlier verified submission.';
 /** Machines on the grid in the final round of a replay, or null when it cannot be re-simulated. */
@@ -64,7 +80,7 @@ export function finalMachinesOf(r: Pick<ReplayFile, 'seed' | 'actions' | 'rulesV
 export interface StoredReplay { seed: string; rulesVersion: number; actions: ReplayFile['actions']; score: number; player: string; verifiedAt: string }
 /** The autoplayer's median score on a seed: a target that exists on day one without inventing competitors. */
 export interface BotPar { par: number; runs: number; tries: number; rulesVersion: number; computedAt: string }
-export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay>; pars?: Record<string, BotPar> }
+export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay>; pars?: Record<string, BotPar>; players?: Record<string, Player> }
 
 const MAX_BODY = 512 * 1024;
 export const MAX_BOARD_LIMIT = 100;
@@ -209,7 +225,33 @@ export class Verifier {
   }
 
   /** Verify a replay; on success record it. Returns the verdict (never trusts claimedScore). Throws StorageError if it cannot persist. */
-  submit(replayText: string, player = 'anonymous'): { ok: boolean; score?: number; error?: string; entry?: BoardEntry } {
+  /** Identity records (PLAN-v3 0.6.0). */
+  player(id: string): (Player & { playerId: string }) | null { const p = this.data.players?.[id]; return p ? { playerId: id, ...p } : null; }
+  /** Claim or rename a display name for a player id. Returns the record or a refusal. */
+  claim(playerId: string, rawName: unknown, now = new Date()): { ok: true; player: Player & { playerId: string } } | { ok: false; error: string; retryAfterSec?: number } {
+    const problem = nameProblem(rawName); if (problem) return { ok: false, error: problem };
+    const name = normaliseName(rawName); const tag = tagFor(playerId);
+    const prev = this.data.players?.[playerId];
+    if (prev && prev.name === name) return { ok: true, player: { playerId, ...prev } };
+    if (prev && prev.renamedAt) { const since = now.getTime() - new Date(prev.renamedAt).getTime(); if (since < RENAME_COOLDOWN_MS) return { ok: false, error: 'name was changed recently; try again later', retryAfterSec: Math.ceil((RENAME_COOLDOWN_MS - since) / 1000) }; }
+    const rec: Player = { name, tag, createdAt: prev?.createdAt ?? now.toISOString(), renamedAt: now.toISOString() };
+    const players = { ...(this.data.players ?? {}), [playerId]: rec };
+    const label = labelFor(name, tag);
+    const entries = this.data.entries.map((e) => (e.playerId === playerId ? { ...e, player: label } : e)); // a rename follows the player onto the boards
+    this.commit({ ...this.data, players, entries });
+    return { ok: true, player: { playerId, ...rec } };
+  }
+  /** GDPR-minimal deletion: the name goes, the player's entries are anonymised and lose their replays, the id is forgotten. */
+  deletePlayer(playerId: string): { entries: number } {
+    const mine = this.data.entries.filter((e) => e.playerId === playerId);
+    const players = { ...(this.data.players ?? {}) }; delete players[playerId];
+    const replays = { ...(this.data.replays ?? {}) }; for (const e of mine) delete replays[e.replayHash];
+    const entries = this.data.entries.map((e) => (e.playerId === playerId ? { ...e, player: 'deleted', playerId: undefined } : e));
+    this.commit({ ...this.data, players, replays, entries });
+    return { entries: mine.length };
+  }
+
+  submit(replayText: string, player = 'anonymous', playerId: string | null = null): { ok: boolean; score?: number; error?: string; entry?: BoardEntry; recorded?: boolean; player?: string } {
     let replay: ReplayFile;
     try { replay = decodeReplay(replayText); } catch (e) { return { ok: false, error: `rejected: ${(e as Error).message}` }; }
     if (replay.rulesVersion !== RULES_VERSION) return { ok: false, error: `rejected: rules version ${replay.rulesVersion} not accepted (server has ${RULES_VERSION})` };
@@ -217,15 +259,25 @@ export class Verifier {
     if (!v.ok) return { ok: false, error: v.error ? `rejected: ${v.error}` : `rejected: re-simulated score $${v.score} does not match claimed $${v.claimed}${v.finished ? '' : ' (run not finished)'}` };
     const replayHash = replayId(replay);
     if (this.data.entries.some((e) => e.replayHash === replayHash)) return { ok: false, error: 'rejected: duplicate replay' };
-    const entry: BoardEntry = { seed: replay.seed, score: v.score, player: String(player).replace(/\s+/g, ' ').trim().slice(0, 32) || 'anonymous', verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash, finalMachines: finalMachinesOf(replay) ?? undefined };
+    const claimed = playerId ? this.data.players?.[playerId] : undefined;
+    const label = claimed ? labelFor(claimed.name, claimed.tag) : String(player).replace(/\s+/g, ' ').trim().slice(0, 32) || 'anonymous';
+    const entry: BoardEntry = { seed: replay.seed, score: v.score, player: label, verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash, finalMachines: finalMachinesOf(replay) ?? undefined, ...(playerId ? { playerId } : {}) };
+    // keep-best per (seed, player): a worse or equal run is verified but not recorded; a better one replaces the old entry and its replay
+    let entries = this.data.entries; const replays = { ...(this.data.replays ?? {}) };
+    if (playerId) {
+      const mine = entries.find((e) => e.seed === replay.seed && e.playerId === playerId && e.rulesVersion === RULES_VERSION);
+      if (mine && byRank(mine, entry) <= 0) return { ok: true, score: v.score, entry: mine, recorded: false, player: label };
+      if (mine) { entries = entries.filter((e) => e !== mine); delete replays[mine.replayHash]; }
+    }
+    replays[replayHash] = { seed: replay.seed, rulesVersion: replay.rulesVersion, actions: replay.actions, score: v.score, player: entry.player, verifiedAt: entry.verifiedAt };
     const candidate: Board = {
       ...this.data, // never rebuild the board from a subset of its fields: cached pars were lost that way (review F08)
-      entries: [...this.data.entries, entry],
-      replays: { ...(this.data.replays ?? {}), [replayHash]: { seed: replay.seed, rulesVersion: replay.rulesVersion, actions: replay.actions, score: v.score, player: entry.player, verifiedAt: entry.verifiedAt } },
+      entries: [...entries, entry],
+      replays,
     };
     this.prune(candidate, replay.seed);
     this.commit(candidate); // throws StorageError: nothing recorded, caller answers 503
-    return { ok: true, score: v.score, entry };
+    return { ok: true, score: v.score, entry, recorded: true, player: label };
   }
   board(seed: string, limit = 20): BoardEntry[] {
     const n = Math.min(MAX_BOARD_LIMIT, Math.max(1, Math.floor(limit) || 1));
@@ -339,7 +391,12 @@ export function loadBoard(text: string): Board {
     if (raw.replays && typeof raw.replays === 'object') for (const [h, r] of Object.entries(raw.replays)) if (r && typeof r.seed === 'string' && Array.isArray(r.actions) && Number.isInteger(r.rulesVersion)) replays[h] = r;
     const pars: Record<string, BotPar> = {};
     if (raw.pars && typeof raw.pars === 'object') for (const [s, p] of Object.entries(raw.pars)) if (p && typeof p.par === 'number' && Number.isInteger(p.rulesVersion)) pars[s] = p;
-    return Object.keys(pars).length ? { entries, replays, pars } : { entries, replays };
+    const players: Record<string, Player> = {};
+    if (raw.players && typeof raw.players === 'object') for (const [id, p] of Object.entries(raw.players as Record<string, Player>)) if (p && typeof p.name === 'string' && typeof p.tag === 'string' && /^[0-9a-f]{64}$/.test(id)) players[id] = { name: p.name, tag: p.tag, createdAt: typeof p.createdAt === 'string' ? p.createdAt : '', renamedAt: typeof p.renamedAt === 'string' ? p.renamedAt : '' };
+    const out: Board = { entries, replays };
+    if (Object.keys(pars).length) out.pars = pars;
+    if (Object.keys(players).length) out.players = players;
+    return out;
   } catch { return { entries: [] }; }
 }
 
@@ -419,6 +476,8 @@ export interface ServerOptions {
   events?: EventStore | null;
   /** POST /events limit per client IP per minute (default 30) */
   eventsRateLimit?: number;
+  /** POST /verify limit per player id per minute when a bearer is present (default 2) */
+  playerRateLimit?: number;
   /** bot-par jobs (PLAN-v1 0.4.5); null (default) means pars are never computed */
   par?: ParService | null;
 }
@@ -434,11 +493,13 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const par = opts.par ?? null;
   const withPar = (seed: string) => { par?.request(seed, seed === dailySeedFor(new Date())); return verifier.par(seed); }; // today's seed goes first; the answer never waits for the job
   const erl = events ? new RateLimiter(opts.eventsRateLimit ?? 30, 60_000, opts.now) : null;
+  const prl = new RateLimiter(opts.playerRateLimit ?? 2, 60_000, opts.now); // per-player submissions (PLAN-v3 §1 abuse baseline)
+  const irl = new RateLimiter(5, 60_000, opts.now); // per-player identity calls
   const MAX_EVENTS_BODY = 64 * 1024;
   const corsOrigin = opts.corsOrigin ?? '*';
   const log = opts.log === null ? null : opts.log ?? ((l: string) => console.log(l));
   const started = Date.now();
-  const cors = { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Vary': 'Origin' };
+  const cors = { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Vary': 'Origin' }; // Authorization and DELETE: identity (PLAN-v3 0.6.0)
   const server = http.createServer((req, res) => {
     const t0 = Date.now();
     const ip = clientIp(req, !!opts.trustProxy);
@@ -453,13 +514,40 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     try { url = new URL(req.url || '/', 'http://localhost'); } catch { req.resume(); return json(400, { ok: false, error: 'bad request: malformed URL' }, {}, '(malformed)'); }
     const route = () => {
       if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
-      if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, uptimeSec: Math.round((Date.now() - started) / 1000) });
+      if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, protocol: PROTOCOL, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, uptimeSec: Math.round((Date.now() - started) / 1000) });
       if (req.method === 'GET' && url.pathname === '/replay') { const r = verifier.replay(url.searchParams.get('hash') || ''); return r ? json(200, { ok: true, ...r }) : json(404, { ok: false, error: 'no verified replay with that hash' }); }
       if (req.method === 'GET' && url.pathname === '/daily') { const d = verifier.daily(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT)); return json(200, { ...d, botPar: withPar(d.seed), tieBreak: TIE_BREAK }); }
       if (req.method === 'GET' && url.pathname === '/histogram') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { ok: true, ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined), botPar: withPar(seed), tieBreak: TIE_BREAK }); }
       if (req.method === 'GET' && url.pathname === '/board') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { seed, verified: true, entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT)), botPar: withPar(seed), tieBreak: TIE_BREAK }); }
+      // identity (PLAN-v3 0.6.0): the bearer is a device token; only its hash is used or stored
+      const bearerId = playerIdFromToken(bearerOf(req));
+      if (req.headers.authorization && !bearerId) return json(401, { ok: false, error: 'bad token' });
+      if (url.pathname === '/identity' && req.method === 'GET') { if (!bearerId) return json(401, { ok: false, error: 'token required' }); const p = verifier.player(bearerId); return p ? json(200, { ok: true, ...p }) : json(404, { ok: false, error: 'no name claimed for this token', playerId: bearerId, tag: tagFor(bearerId) }); }
+      if (url.pathname === '/identity' && req.method === 'POST') {
+        if (!bearerId) { req.resume(); return json(401, { ok: false, error: 'token required' }); }
+        const r = irl.take(bearerId); if (!r.ok) { req.resume(); return json(429, { ok: false, error: 'rate limited' }, { 'Retry-After': String(r.retryAfterSec) }); }
+        let body = '';
+        req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
+        req.on('end', () => guarded(() => {
+          if (res.writableEnded) return;
+          let parsed: { name?: unknown } | null = null;
+          try { parsed = JSON.parse(body) as { name?: unknown }; } catch { return json(400, { ok: false, error: 'bad request' }); }
+          try {
+            const out = verifier.claim(bearerId, parsed && typeof parsed === 'object' ? parsed.name : undefined, new Date((opts.now ?? Date.now)()));
+            if (!out.ok) return json(out.retryAfterSec ? 429 : 422, { ok: false, error: out.error }, out.retryAfterSec ? { 'Retry-After': String(out.retryAfterSec) } : {});
+            json(200, { ok: true, ...out.player });
+          } catch (e) { if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable; try again' }, { 'Retry-After': '5' }); json(500, { ok: false, error: 'internal error' }); }
+        }));
+        return;
+      }
+      if (url.pathname === '/me' && req.method === 'DELETE') {
+        if (!bearerId) return json(401, { ok: false, error: 'token required' });
+        try { const r = verifier.deletePlayer(bearerId); return json(200, { ok: true, anonymisedEntries: r.entries }); }
+        catch (e) { if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable; try again' }, { 'Retry-After': '5' }); return json(500, { ok: false, error: 'internal error' }); }
+      }
       if (req.method === 'POST' && url.pathname === '/verify') {
         if (rl) { const r = rl.take(ip); if (!r.ok) { req.resume(); return json(429, { ok: false, error: `rate limited: ${rl.limit} submissions per ${rl.windowMs / 1000}s` }, { 'Retry-After': String(r.retryAfterSec) }); } }
+        if (bearerId) { const r = prl.take(bearerId); if (!r.ok) { req.resume(); return json(429, { ok: false, error: `rate limited: ${prl.limit} submissions per minute per player` }, { 'Retry-After': String(r.retryAfterSec) }); } }
         let body = '';
         req.on('data', (c) => { body += c; if (body.length > MAX_BODY) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
         req.on('end', () => guarded(() => {
@@ -468,7 +556,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           try { parsed = JSON.parse(body) as { replay: unknown; player?: string }; } catch (e) { return json(400, { ok: false, error: `bad request: ${(e as Error).message}` }); }
           if (!parsed || typeof parsed !== 'object') return json(400, { ok: false, error: 'bad request: body is not an object' });
           try {
-            const result = verifier.submit(JSON.stringify(parsed.replay ?? null), typeof parsed.player === 'string' ? parsed.player : undefined);
+            const result = verifier.submit(JSON.stringify(parsed.replay ?? null), typeof parsed.player === 'string' ? parsed.player : undefined, bearerId);
             if (result.ok && result.entry) par?.request(result.entry.seed);
             json(result.ok ? 200 : 422, result);
           } catch (e) {
@@ -516,12 +604,13 @@ if (isMain) {
   const corsOrigin = flag('cors-origin') || process.env.CORS_ORIGIN || '*';
   const limit = Number(flag('rate-limit') || process.env.RATE_LIMIT || 60);
   const trustProxy = process.env.TRUST_PROXY === '1';
+  const playerRateLimit = Number(process.env.PLAYER_RATE_LIMIT || 2); // POST /verify per player id per minute (PLAN-v3 §1)
   // opt-in funnel events live next to the board (EVENTS_FILE overrides); retention is enforced at start and hourly
   const events = new EventStore(process.env.EVENTS_FILE || path.join(path.dirname(file), 'events.jsonl'), Number(process.env.EVENTS_RETENTION_DAYS || 30));
   const pruned = events.prune(); if (pruned) console.log(`events: pruned ${pruned} rows older than ${events.retentionDays} days`);
   setInterval(() => { try { events.prune(); } catch { /* next hour */ } }, 3_600_000).unref();
   const verifier = new Verifier(file);
   const par = process.env.BOT_PAR === '0' ? null : new ParService(verifier, (s) => computeParInWorker(s, Number(process.env.BOT_PAR_CAP_MS || 20_000)));
-  createServer(verifier, { rateLimit: { limit, windowMs: 60_000 }, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events, par })
-    .listen(port, host, () => console.log(`replay verifier v${VERSION} → http://${host}:${port}/  (board: ${file}, events: ${events.file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, CORS ${corsOrigin}${trustProxy ? ', trusting X-Forwarded-For' : ''})`));
+  createServer(verifier, { rateLimit: { limit, windowMs: 60_000 }, playerRateLimit, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events, par })
+    .listen(port, host, () => console.log(`replay verifier v${VERSION} → http://${host}:${port}/  (board: ${file}, events: ${events.file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, ${playerRateLimit}/min/player, CORS ${corsOrigin}${trustProxy ? ', trusting X-Forwarded-For' : ''})`));
 }

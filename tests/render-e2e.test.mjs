@@ -202,6 +202,29 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       await page.keyboard.press('Escape'); await wait(100);
       assert.equal(await page.evaluate(() => !!document.querySelector('[data-testid=dialog]')), false, 'Esc cancels');
       assert.equal(await page.getByTestId('player').textContent(), 'Player: Kbd Tester', 'cancel keeps the name');
+      // identity_recovery (PLAN-v3 0.6.0): the recovery code shown here restores the same device token in a fresh browser context
+      const identityBefore = JSON.parse(await page.evaluate(() => localStorage.getItem('jd.identity.v1')));
+      assert.match(identityBefore.token, /^[0-9a-f]{32}$/, 'a device token exists after the first use of the player dialog');
+      await page.getByTestId('player').click();
+      await page.getByTestId('dialog-recovery').click(); await wait(100);
+      const code = await page.getByTestId('dialog-input').inputValue();
+      assert.match(code, /^[0-9A-Z]{5}(-[0-9A-Z]{5}){3}-[0-9A-Z]{6}$/, `recovery code in base32 groups: ${code}`);
+      await page.getByTestId('dialog-ok').click(); await wait(100);
+      {
+        const fresh = await browser.newContext({ viewport: { width: 1120, height: 700 } });
+        const p2 = await fresh.newPage();
+        await p2.goto(`${URL}/?dev=1`);
+        await p2.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+        assert.equal(await p2.getByTestId('player').textContent(), 'Set player name…', 'a fresh context has no name');
+        await p2.getByTestId('player').click();
+        await p2.getByTestId('dialog-restore').click(); await wait(100);
+        await p2.getByTestId('dialog-input').fill(code.toLowerCase().replace(/-/g, ' '));
+        await p2.keyboard.press('Enter'); await wait(300);
+        const restored = JSON.parse(await p2.evaluate(() => localStorage.getItem('jd.identity.v1')));
+        assert.equal(restored.token, identityBefore.token, 'the restored device token equals the original (case, spaces and dashes ignored)');
+        assert.match(await p2.getByTestId('player-note').textContent(), /^Restored the player key/, 'no verifier here, so the name is fetched later');
+        await fresh.close();
+      }
       await page.getByTestId('import').click();
       await page.getByTestId('dialog-input').fill('{"not":"a replay"}');
       await page.getByTestId('dialog-ok').click(); await wait(150);

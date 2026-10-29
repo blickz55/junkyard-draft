@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +24,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
   const server = spawn(process.execPath, [path.join(ROOT, 'scripts/dev.mjs')], { env: { ...process.env, GAME_PORT: String(PORT) }, stdio: 'ignore' });
   const VPORT = 4499;
   const boardFile = path.join(fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-')), 'board.json');
-  const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), BOARD_FILE: boardFile }, stdio: 'ignore' });
+  const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), BOARD_FILE: boardFile, PLAYER_RATE_LIMIT: '100' }, stdio: 'ignore' });
   let browser, page;
   const errors = [];
   const api = (fn, ...args) => page.evaluate(({ fn, args }) => window.__jd[fn](...args), { fn, args });
@@ -253,7 +254,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     // 6) submit the replay to the spawned verifier via the Results button (Phaser button: click its canvas position)
     for (let i = 0; i < 20; i++) { try { if ((await fetch(`http://127.0.0.1:${VPORT}/health`)).ok) break; } catch {} await wait(300); }
     await page.getByTestId('submit').click();
-    await page.waitForFunction(() => /Verified by re-simulation: \$\d+ — #1 of 1 on the local verified board as e2e player/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
+    await page.waitForFunction(() => /Verified by re-simulation: \$\d+ — #1 of 1 on the local verified board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\./.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
     // histogram_first (PLAN-v1 0.4.1): the only verified run is highlighted and the text says so without inventing a population
     await page.waitForFunction(() => /^1 verified run so far · you are #1$/.test(document.querySelector('[data-testid=percentile]')?.textContent || ''), null, { timeout: 10000 });
     const hist = await page.evaluate(() => ({ bins: document.querySelectorAll('[data-testid=histogram] .jd-hist-bin').length, mine: document.querySelectorAll('[data-testid=histogram] .jd-hist-mine').length, mineCount: document.querySelector('[data-testid=histogram] .jd-hist-mine .jd-hist-count')?.textContent }));
@@ -263,7 +264,10 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     const board = await (await fetch(`http://127.0.0.1:${VPORT}/board?seed=e2e-seed`)).json();
     assert.ok(typeof board.botPar === 'number' && board.botPar > 0, 'the board carries a numeric bot par');
     assert.equal(board.entries.length, 1, 'one verified entry');
-    assert.equal(board.entries[0].player, 'e2e player', 'the stored player name is sent with the submission');
+    assert.match(board.entries[0].player, /^e2e player#[2-9A-HJKMNP-TV-Z]{4}$/, 'the local name was claimed on first submission and the entry carries name#tag (PLAN-v3 0.6.0)');
+    const identity = JSON.parse(await page.evaluate(() => localStorage.getItem('jd.identity.v1')));
+    assert.match(identity.token, /^[0-9a-f]{32}$/); assert.equal(board.entries[0].playerId, createHash('sha256').update(identity.token).digest('hex'), 'the entry is stamped with SHA-256(token) of the device token the page holds'); assert.equal(identity.playerId, board.entries[0].playerId, 'the page cached the player id the verifier confirmed');
+    assert.equal(`${identity.name}#${identity.tag}`, board.entries[0].player, 'the claimed name and tag are cached on the device');
     assert.equal(typeof board.entries[0].finalMachines, 'number', 'the verifier derived the tie-break field');
     assert.match(await page.evaluate(() => document.querySelector('[data-testid=tie-rule]')?.textContent ?? ''), /^Equal scores: fewer machines in round 6/, 'the tie rule is printed under the board (PLAN-v2 0.5.5)');
     // share text: copied to the clipboard with seed, score and verified rank
@@ -273,7 +277,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.waitForFunction(() => !!window.__jdGame.scene.getScene('Results').lastShareText, null, { timeout: 5000 }); // clipboard availability varies in headless runs; the text itself is what matters
     const shared = await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText); // headless clipboard contents are not reliably readable
     // spoiler_free_share (PLAN-v1 0.4.3): label · score, six glyphs, the standing, days played; no URL, no per-round dollars, no layout
-    assert.match(shared, /^Junkyard Draft · seed e2e-seed · \$\d+\n[░▒▓█]{6}\n#1 of 1 on the verified board as e2e player\n1 day played$/, `default share text: ${JSON.stringify(shared)}`);
+    assert.match(shared, /^Junkyard Draft · seed e2e-seed · \$\d+\n[░▒▓█]{6}\n#1 of 1 on the verified board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\n1 day played$/, `default share text: ${JSON.stringify(shared)}`);
     assert.doesNotMatch(shared, /https?:|rounds \$|hopper|conveyor|crusher/);
     await dismissCopyDialog();
     await page.getByTestId('share-link').check();
@@ -378,7 +382,20 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.evaluate(({ seed, s, v }) => localStorage.setItem('jd.submissions.v2', JSON.stringify({ byVersion: { [v]: { [seed]: s } } })), { v: V, seed: dailySeed(), s: { score: sub.score, replayHash: sub.entry.replayHash, verifiedAt: sub.entry.verifiedAt, player: 'e2e player' } });
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => { const t = document.querySelector('[data-testid=daily-board]')?.textContent || ''; return /^You: #1 of 1 \(\$\d+\)/.test(t) && /1\. \$\d+ e2e player/.test(t); }, null, { timeout: 15000 });
-    assert.equal(await page.getByTestId('player').textContent(), 'Player: e2e player');
+    assert.match(await page.getByTestId('player').textContent(), /^Player: e2e player#[2-9A-HJKMNP-TV-Z]{4}$/);
+    // keep_best_per_player (PLAN-v3 0.6.0): with the page's bearer, a better run on a seed replaces the entry, an equal one is verified but not recorded
+    {
+      const bearer = { Authorization: `Bearer ${identity.token}`, 'Content-Type': 'application/json' };
+      const park = [[6, 0], [6, 5]];
+      const mk = (extra, twist = false) => { const s = newRun('kb-e2e'); for (let r = 1; r <= RULES.rounds; r++) { apply(s, { t: 'pick', i: 0 }); if (r === RULES.rounds) for (let k = 0; k < extra; k++) apply(s, { t: 'place', id: s.bin[k].id, x: park[k][0], y: park[k][1], dir: 0 }); if (twist && r === 1) apply(s, { t: 'rotate', id: s.bin[0].id }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); } return s; };
+      const post = async (run) => (await fetch(`http://127.0.0.1:${VPORT}/verify`, { method: 'POST', headers: bearer, body: JSON.stringify({ replay: exportReplay(run) }) })).json();
+      const first = await post(mk(2)); assert.equal(first.recorded, true); assert.equal(first.player, board.entries[0].player);
+      await new Promise((r) => setTimeout(r, 1100)); // the per-player bucket is 2/min in production; the test verifier runs with PLAYER_RATE_LIMIT=100
+      const better = await post(mk(0)); assert.equal(better.recorded, true, 'fewer round-6 machines at the same score is better');
+      const equal = await post(mk(0, true)); assert.equal(equal.ok, true); assert.equal(equal.recorded, false, 'an equal run is verified but not recorded');
+      const kb = await (await fetch(`http://127.0.0.1:${VPORT}/board?seed=kb-e2e`)).json();
+      assert.equal(kb.entries.length, 1, 'one entry per player per seed'); assert.equal(kb.entries[0].replayHash, better.entry.replayHash);
+    }
     await page.waitForSelector('[data-testid=daily-hist] .jd-hist-bar', { timeout: 10000 });
     assert.ok((await page.locator('[data-testid=daily-hist] .jd-hist-bar').count()) >= 1, 'the daily strip shows a mini histogram once a verified run exists');
     // large_text_layout_fits (HUD): a maximum-length seed at 130 % keeps round, score and local-best on the canvas

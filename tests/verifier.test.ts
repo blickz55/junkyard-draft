@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, loadBoard, StorageError, EventStore, histogramOf, niceStep, computeParSync, computeParInWorker, ParService, finalMachinesOf, TIE_BREAK, type BoardEntry } from '../server/verify';
+import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, loadBoard, StorageError, EventStore, histogramOf, niceStep, computeParSync, computeParInWorker, ParService, finalMachinesOf, TIE_BREAK, playerIdFromToken, RENAME_COOLDOWN_MS, type BoardEntry } from '../server/verify';
+import { tagFor } from '../game/src/identity/identity';
 import { build as esbuild } from 'esbuild';
 import net from 'node:net';
 import { RULES_VERSION } from '../game/src/sim/types';
@@ -212,6 +213,7 @@ test('http: POST /verify is rate limited per client IP with Retry-After; GETs ar
     for (let i = 0; i < 5; i++) assert.equal((await fetch(`${base}/board?seed=rl-seed`)).status, 200, 'GETs are never limited');
     const pre = await fetch(`${base}/verify`, { method: 'OPTIONS' });
     assert.equal(pre.status, 204); assert.equal(pre.headers.get('access-control-allow-origin'), 'https://game.example');
+    assert.match(pre.headers.get('access-control-allow-headers') ?? '', /Authorization/, 'a cross-origin page may send the identity bearer (PLAN-v3 0.6.0)'); assert.match(pre.headers.get('access-control-allow-methods') ?? '', /DELETE/, 'DELETE /me is reachable cross-origin');
     assert.ok(logs.some((l) => / POST \/verify 429 /.test(l)), 'request log line for the limited call');
   } finally { server.closeAllConnections(); server.close(); }
   // without trustProxy the header is ignored
@@ -539,4 +541,90 @@ test('bot par (PLAN-v1 0.4.5): deterministic across runs and threads, computed o
   assert.equal(attempts, 1, 'no retry inside the cooldown');
   now += 6000; failing.request('f'); await new Promise((res) => setTimeout(res, 10));
   assert.equal(attempts, 2, 'retried after the cooldown');
+});
+
+// ---- identity without passwords (PLAN-v3 0.6.0) ----
+test('identity: claim, rename within the cooldown refused, same name idempotent, refusals, renames follow the player onto the board; legacy anonymous entries untouched', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-id-')), 'board.json');
+  const v = new Verifier(file);
+  const token = 'a'.repeat(32), other = 'b'.repeat(32);
+  const id = playerIdFromToken(token)!, id2 = playerIdFromToken(other)!;
+  assert.match(id, /^[0-9a-f]{64}$/); assert.notEqual(id, id2); assert.equal(playerIdFromToken('xyz'), null); assert.equal(playerIdFromToken(undefined), null);
+  assert.equal(tagFor(id), tagFor(id), 'tag is a pure function of the id');
+  const t0 = new Date('2026-10-30T10:00:00Z');
+  const c1 = v.claim(id, '  Jon  ', t0); assert.ok(c1.ok); if (c1.ok) { assert.equal(c1.player.name, 'Jon'); assert.equal(c1.player.tag, tagFor(id)); }
+  assert.deepEqual(v.claim(id, 'Jon', new Date(t0.getTime() + 1000)), c1, 'claiming the same name again is idempotent and never counts as a rename');
+  const early = v.claim(id, 'Jonathan', new Date(t0.getTime() + 60_000)); assert.equal(early.ok, false); if (!early.ok) { assert.match(early.error, /recently/); assert.ok(early.retryAfterSec! > 80_000); }
+  for (const bad of ['', 'J', 'adm1n', 'the Official one', 42]) { const r = v.claim(id2, bad, t0); assert.equal(r.ok, false, `refused: ${String(bad)}`); }
+  // a legacy anonymous entry and a claimed one on the same seed
+  const run = finishedRun('id-seed');
+  assert.equal(v.submit(JSON.stringify(exportReplay(run)), 'legacy name').ok, true);
+  const s = newRun('id-seed'); for (let r = 1; r <= RULES.rounds; r++) { apply(s, { t: 'pick', i: 0 }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); }
+  const mine = v.submit(JSON.stringify(exportReplay(s)), 'ignored when claimed', id);
+  assert.equal(mine.ok, true); assert.equal(mine.player, `Jon#${tagFor(id)}`); assert.equal(mine.entry!.playerId, id); assert.equal(mine.recorded, true);
+  const legacy = v.board('id-seed').find((e) => e.player === 'legacy name')!;
+  assert.equal(legacy.playerId, undefined, 'legacy entries carry no player id and are never claimable');
+  const late = v.claim(id, 'Jonathan', new Date(t0.getTime() + RENAME_COOLDOWN_MS + 1)); assert.ok(late.ok);
+  assert.deepEqual(new Verifier(file).board('id-seed').map((e) => e.player).sort(), [`Jonathan#${tagFor(id)}`, 'legacy name'], 'the rename followed the player onto the persisted board; the legacy entry kept its name');
+  // deletion: the name goes, the entries are anonymised, the replay is gone, the id is forgotten
+  assert.equal(v.deletePlayer(id).entries, 1);
+  assert.equal(v.player(id), null); assert.equal(v.replay(mine.entry!.replayHash), null);
+  assert.deepEqual(v.board('id-seed').map((e) => [e.player, e.playerId]).sort(), [['deleted', undefined], ['legacy name', undefined]]);
+});
+
+test('identity: keep-best per (seed, player): a better run replaces the entry and its replay, an equal or worse run is verified but not recorded; two players keep separate entries', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-kb-')), 'board.json');
+  const v = new Verifier(file);
+  const id = playerIdFromToken('c'.repeat(32))!, id2 = playerIdFromToken('d'.repeat(32))!;
+  v.claim(id, 'Ann'); v.claim(id2, 'Bob');
+  const park: [number, number][] = [[6, 0], [6, 5]];
+  const mk = (extra: number, twist = false) => { const s = newRun('kb-seed'); for (let r = 1; r <= RULES.rounds; r++) { apply(s, { t: 'pick', i: 0 }); if (r === RULES.rounds) for (let k = 0; k < extra; k++) apply(s, { t: 'place', id: s.bin[k].id, x: park[k][0], y: park[k][1], dir: 0 }); if (twist && r === 1) apply(s, { t: 'rotate', id: s.bin[0].id }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); } return s; };
+  const seven = mk(2), five = mk(0), six = mk(1), fiveAgain = mk(0, true);
+  const r1 = v.submit(JSON.stringify(exportReplay(seven)), 'x', id); assert.equal(r1.recorded, true);
+  const r2 = v.submit(JSON.stringify(exportReplay(five)), 'x', id); // same score, fewer machines: better under the tie rule
+  assert.equal(r2.recorded, true); assert.equal(v.board('kb-seed').length, 1); assert.equal(v.board('kb-seed')[0].replayHash, r2.entry!.replayHash);
+  assert.equal(v.replay(r1.entry!.replayHash), null, 'the replaced replay is gone'); assert.ok(v.replay(r2.entry!.replayHash));
+  const r3 = v.submit(JSON.stringify(exportReplay(six)), 'x', id); // worse: verified, not recorded, the kept entry is returned
+  assert.equal(r3.ok, true); assert.equal(r3.recorded, false); assert.equal(r3.entry!.replayHash, r2.entry!.replayHash); assert.equal(v.board('kb-seed').length, 1);
+  const r4 = v.submit(JSON.stringify(exportReplay(fiveAgain)), 'x', id); // equal: the earlier receipt stays
+  assert.equal(r4.ok, true); assert.equal(r4.recorded, false); assert.equal(v.board('kb-seed')[0].replayHash, r2.entry!.replayHash);
+  assert.equal(v.submit(JSON.stringify(exportReplay(fiveAgain)), 'x', id).ok, true, 'not recorded, so not a duplicate either');
+  const r5 = v.submit(JSON.stringify(exportReplay(six)), 'x', id2); assert.equal(r5.recorded, true);
+  assert.deepEqual(v.board('kb-seed').map((e) => e.player.split('#')[0]), ['Ann', 'Bob'], 'two players, two entries');
+  const anon = v.submit(JSON.stringify(exportReplay(seven)), 'anon'); assert.equal(anon.ok, true, 'a replaced replay is no longer on the board, so an anonymous resubmission is a new (anonymous) entry'); assert.equal(anon.entry!.playerId, undefined);
+});
+
+test('http identity: POST/GET /identity, bearer on /verify, DELETE /me, 401 on a malformed bearer, per-player bucket, protocol 2 in /health, the token never reaches the log', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-idhttp-')), 'board.json');
+  const logs: string[] = [];
+  let now = Date.parse('2026-10-30T10:00:00Z');
+  const { base, close } = await listen(new Verifier(file), { rateLimit: null, log: (l: string) => logs.push(l), now: () => now, playerRateLimit: 2 });
+  const token = 'e'.repeat(32);
+  const auth = { Authorization: `Bearer ${token}` };
+  const call = async (method: string, p: string, body?: unknown, headers: Record<string, string> = auth) => { const r = await fetch(`${base}${p}`, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: body === undefined ? undefined : JSON.stringify(body) }); return { status: r.status, json: await r.json() as Record<string, unknown>, retry: r.headers.get('retry-after') }; };
+  try {
+    assert.equal(((await call('GET', '/health', undefined, {})).json as { protocol: number }).protocol, 2);
+    assert.equal((await call('GET', '/identity', undefined, {})).status, 401, 'no bearer');
+    assert.equal((await call('GET', '/identity', undefined, { Authorization: 'Bearer nope' })).status, 401, 'malformed bearer');
+    const none = await call('GET', '/identity'); assert.equal(none.status, 404); assert.match(String(none.json.tag), /^[A-Z2-9]{4}$/, 'the tag is known before any claim');
+    const bad = await call('POST', '/identity', { name: 'adm1n' }); assert.equal(bad.status, 422);
+    const ok = await call('POST', '/identity', { name: 'Eve ' }); assert.equal(ok.status, 200); assert.equal(ok.json.name, 'Eve'); assert.equal(ok.json.playerId, playerIdFromToken(token));
+    const got = await call('GET', '/identity'); assert.equal(got.status, 200); assert.equal(got.json.name, 'Eve');
+    const soon = await call('POST', '/identity', { name: 'Evelyn' }); assert.equal(soon.status, 429); assert.ok(Number(soon.retry) > 0, 'rename cooldown with Retry-After');
+    // submissions with the bearer carry the label and the id; the per-player bucket is 2/min
+    const run = finishedRun('http-id');
+    const sub = await call('POST', '/verify', { replay: exportReplay(run), player: 'ignored' });
+    assert.equal(sub.status, 200); assert.equal(sub.json.player, `Eve#${ok.json.tag}`); assert.equal((sub.json.entry as { playerId: string }).playerId, playerIdFromToken(token)); assert.equal(sub.json.recorded, true);
+    assert.equal((await call('POST', '/verify', { replay: exportReplay(run) })).status, 422, 'duplicate (second call in the bucket)');
+    const limited = await call('POST', '/verify', { replay: exportReplay(run) }); assert.equal(limited.status, 429); assert.match(String(limited.json.error), /per player/);
+    now += 61_000;
+    assert.equal((await call('POST', '/verify', { replay: exportReplay(run) })).status, 422, 'bucket refilled after a minute');
+    const board = (await call('GET', '/board?seed=http-id', undefined, {})).json as { entries: BoardEntry[] };
+    assert.equal(board.entries.length, 1); assert.equal(board.entries[0].player, `Eve#${ok.json.tag}`);
+    // deletion
+    const del = await call('DELETE', '/me'); assert.equal(del.status, 200); assert.equal(del.json.anonymisedEntries, 1);
+    assert.equal((await call('GET', '/identity')).status, 404);
+    assert.equal(((await call('GET', '/board?seed=http-id', undefined, {})).json as { entries: BoardEntry[] }).entries[0].player, 'deleted');
+    assert.ok(logs.length > 5 && logs.every((l) => !l.includes(token) && !l.includes('Bearer')), 'the bearer token is absent from every log line');
+  } finally { close(); }
 });

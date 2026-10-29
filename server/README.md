@@ -4,14 +4,19 @@ The trusted side of scoring: it re-simulates submitted replays with the same rul
 keeps only verified scores. One Node process, a JSON file for storage, no database.
 
 ## Endpoints
+Protocol level 2 (PLAN-v3 §1, reported by `/health`): identity is additive. A client may send `Authorization: Bearer <32 hex>` (its random device token; the server only ever uses `player_id = SHA-256(token)` and never stores or logs the token; the game sends it only to https or loopback verifiers). Anonymous submissions keep working exactly as before and legacy entries are never claimable.
+
 | Method | Path | Returns |
 |---|---|---|
-| POST | `/verify` `{ replay, player? }` | `{ ok, score, entry }` or `{ ok: false, error }` (422 rejected, 429 rate-limited, 413 too large) |
+| POST | `/verify` `{ replay, player? }` (+ optional bearer) | `{ ok, score, entry, recorded, player }` or `{ ok: false, error }` (422 rejected, 429 rate-limited per IP and, with a bearer, `PLAYER_RATE_LIMIT` = 2/min per player, 413 too large). With a bearer the entry is stamped `playerId` and `name#tag`, and **one best entry per (seed, player)** is kept: a better run replaces the earlier entry and its replay, an equal or worse run is verified but answered with `recorded: false` and the kept entry |
+| POST | `/identity` `{ name }` (bearer required) | claim or rename the display name: normalised (NFKC, whitespace, control characters, ≤ 32), refused by a folded blocklist (422), renames at most once per 24 h (429 + Retry-After); `{ ok, playerId, name, tag, createdAt, renamedAt }`; the tag is 4 confusable-free characters derived from the player id; a rename follows the player onto the boards |
+| GET | `/identity` (bearer) | the claimed record, or 404 with `{ playerId, tag }` before any claim |
+| DELETE | `/me` (bearer) | forget the player: name removed, their entries anonymised as `deleted`, their replays dropped; `{ ok, anonymisedEntries }` |
 | GET | `/board?seed=…&limit=20` | verified entries for a seed |
 | GET | `/daily?limit=10` | today's UTC daily seed + its verified board |
 | GET | `/histogram?seed=…&hash=…` (also `/board`, `/daily`: `botPar`) | verified score distribution for a seed: `{ n, step, bins[{from,to,count}], mine{score,rank,bin,percentile}?, around[] }` — the player's own entry located by replay hash, never by name |
 | GET | `/replay?hash=…` | the stored actions of a **verified** entry `{ ok, hash, seed, player, score, rulesVersion, actions, verifiedAt }` (404 otherwise) |
-| GET | `/health` | `{ ok, rulesVersion, entries, uptimeSec }` |
+| GET | `/health` | `{ ok, version, rulesVersion, protocol, entries, entriesAllVersions, uptimeSec }` |
 | POST | `/events` `{ installId, consent: true, events[] }` | opt-in funnel events (PLAN-v1 0.3.7): only the fixed vocabulary in `game/src/telemetry/events.ts`, consent explicit, ≤ 100 events, 30 req/min/IP; appended to `events.jsonl` with a daily-salted IP hash (422 rejected, 429 limited, 503 storage) |
 | GET | `/funnel` | unique installs per first-session step and event counts (what `npm run funnel` prints from the file) |
 
@@ -47,6 +52,7 @@ The image was written without Docker available on the dev machine and has **not 
 - Bounded resources: body ≤ 512 KB, query limits are finite integers clamped to [1, 100] (`/board`) and [1, 50] (`/daily`), rate-limiter
   cardinality ≤ 10,000 keys, replays kept for each seed's top 100, entries ≤ 1,000 per seed, ≤ 5,000 seeds (least recently active dropped).
 - A damaged `board.json` loads as an empty board with bad rows dropped, rather than preventing startup.
+- Identity (PLAN-v3 0.6.0): the bearer token is hashed before any use and appears in no log line; tags are deterministic per player id; the rename cooldown, name refusals, keep-best replacement (entry and replay), the equal-run case, the per-player bucket and `DELETE /me` are each exercised over HTTP.
 
 ## Rules-version deployment and rollback (runbook, rehearsed by `tools/rehearse-rollback.ts`)
 A rules bump (`RULES_VERSION`) changes what the verifier accepts; entries and replays of every version stay in the board file and only the current version ranks.

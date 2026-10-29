@@ -3,6 +3,12 @@
 All notable changes to Junkyard Draft. Dates are UTC. Rules changes bump `RULES_VERSION`, which invalidates
 older replays and saves on purpose.
 
+## Unreleased (v0.6, PLAN-v3)
+
+### 0.6.0 Identity without passwords — 2026-10-30
+- **For players.** The title's player button now opens a player dialog. Your name is shown on verified boards as `Name#TAG`: the four-character tag comes from a random key this device created, so two players with the same name stay distinct and nobody can post as you without the key. The verified board keeps **one best entry per player per seed**: a better run replaces your earlier one, an equal or worse run is still verified but not recorded, and the results screen says which happened. "Show recovery code" prints the key as a 26-character code; "Restore from code" on another device takes over that player (name, tag, board entries). Keep the code private. A name you had set before 0.6.0 is claimed automatically on your next submission. Names are normalised and a short blocklist applies; a name can change once a day.
+- **For operators.** Protocol level 2 (additive, `/health` reports `protocol`): `POST /identity`, `GET /identity`, `DELETE /me`, bearer on `POST /verify`, per-player bucket (`PLAYER_RATE_LIMIT`, default 2/min) beside the IP limiter. The token is only ever hashed (`player_id = SHA-256(token)`), never stored or logged; the game sends it only to https or loopback verifiers. Legacy anonymous entries are untouched and never claimable. The Dockerfile copies the new shared `game/src/identity` module (the F06 layout test caught the omission). No rules change.
+
 ## 0.5.0 — 2026-10-29 (rules version 3)
 
 **For players.** Two new decisions and a fairer board. The **Tuner** is a one-cell machine with no input or output: any crusher, furnace or press touching it works one tick faster, so the slowest machine in your line can be sped up at the price of a cell and a draft slot (offered from round 3). **Reroll** redraws the three offers once per round for $40 from your running score; new offers come from their own stream, so a reroll never changes a later round. Equal scores on the verified board now rank by fewer machines in round 6, then by the earlier submission, and the rule is printed under every board. Rules changed, so **replays and saves from rules v2 no longer verify or resume**; your v2 bests stay on the title under "Under rules v2".

@@ -11,6 +11,7 @@ import { clearSave, dailySeed, hasUnusableSave, loadArchivedBests, loadBests, lo
 import { MAX_SEED_LENGTH, sanitizeSeed, TUTORIAL_SEED } from '../sim/run';
 import { decodeReplay, verifyReplay } from '../sim/replay';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
+import { identityDialog, playerLabel } from './identityDialog';
 
 export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const save = loadSave();
@@ -21,8 +22,9 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const restart = () => scene.scene.restart();
 
   // top bar: build, player, resolution, share stats
-  const playerLabel = () => (loadPlayer() ? `Player: ${loadPlayer()}` : 'Set player name…');
-  const playerBtn = btn(playerLabel(), 'player', () => { void promptText(scene, 'Player name', 'Name shown on verified boards (max 32 characters, leave empty to clear):', loadPlayer() || 'player', 32).then((typed) => { if (typed !== null) { savePlayer(typed); playerBtn.textContent = playerLabel(); } }); }, { small: true });
+  const verifierUrl = new URLSearchParams(location.search).get('verifier') || import.meta.env.VERIFIER_URL;
+  const playerBtn = btn(playerLabel(), 'player', () => { void identityDialog(scene, verifierUrl, (note) => { playerBtn.textContent = playerLabel(); if (note) { playerNote.textContent = note; playerNote.style.display = ''; playerNote.dataset.testid = 'player-note'; } }); }, { small: true });
+  const playerNote = h('div', { class: 'jd-mono jd-dim', style: 'font-size:0.6em; text-align:right; margin-top:-0.3em; display:none' }, ''); // shown (and given its test id) only after the identity dialog reports an outcome: the layout tests measure every [data-testid] against the overlay
   const quality = loadSettings().renderQuality;
   const qualityLabel = quality === 'low' ? 'Resolution: Standard' : quality === 'high' ? 'Resolution: High' : `Resolution: Auto (${DPR}×)`;
   const qualityBtn = btn(qualityLabel, 'quality', () => { telemetry.track('settings_changed', { key: 'renderQuality' }); updateSettings({ renderQuality: quality === 'low' ? 'high' : 'low' }); location.reload(); }, { small: true, title: 'High = device pixel ratio (crisper), Standard = 1× (smoother on weak machines); applies on reload' });
@@ -86,7 +88,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     h('div', { class: 'jd-row', style: 'margin-top:0.4em' }, h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, 'Motion'), motionBtn, h('span', { class: 'jd-dim', style: 'font-size:0.8125em; margin-left:0.5em' }, 'Text size'), textBtn));
 
   // today's verified board (optional verifier)
-  const url = new URLSearchParams(location.search).get('verifier') || import.meta.env.VERIFIER_URL;
+  const url = verifierUrl;
   const line = h('div', { class: 'jd-mono jd-dim', tid: 'daily-board', style: 'font-size:0.75em; margin-top:0.3em' }, 'Checking the local verifier…');
   const stripHead = h('div', { class: 'jd-row jd-between' }, h('div', { class: 'jd-row' }, h('div', { class: 'jd-head' }, "Today's verified board"), h('span', { class: 'jd-mono jd-dim', style: 'font-size:0.75em' }, `seed ${dailySeed()}`)));
   const strip = h('div', { class: 'jd-panel', tid: 'daily-strip', style: 'margin-top:auto; padding-top:0.4em; padding-bottom:0.4em' }, stripHead, line);
@@ -119,7 +121,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     }).catch(() => { /* board unavailable: keep the top list */ });
   }).catch(() => { if (alive()) line.textContent = 'Verifier offline (optional: npm run verifier). Daily board unavailable; local bests above are unverified.'; });
 
-  const screen = h('div', { class: 'jd-title' }, top, statsNote, hero, actions, h('div', { class: 'jd-grid2', style: 'margin-top:0.4em' }, howto, bestsPanel), strip);
+  const screen = h('div', { class: 'jd-title' }, top, playerNote, statsNote, hero, actions, h('div', { class: 'jd-grid2', style: 'margin-top:0.4em' }, howto, bestsPanel), strip);
   ui.mount(scene, screen, (e) => {
     if (e.key !== 'Enter' || tips.isOpen || ui.dialogOpen) return;
     const t = e.target as HTMLElement | null; if (t && (t.tagName === 'BUTTON' || t.tagName === 'INPUT')) return; // the focused control handles its own Enter

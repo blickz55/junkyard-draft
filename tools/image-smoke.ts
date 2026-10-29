@@ -8,6 +8,7 @@
 import { apply, newRun } from '../game/src/sim/run';
 import { exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
+import { randomBytes } from 'node:crypto';
 
 const args = process.argv.slice(2);
 const url = args.find((a) => /^https?:\/\//.test(a));
@@ -41,13 +42,22 @@ async function main() {
     console.log(`board for ${seed}: ${b.entries.length} entr${b.entries.length === 1 ? 'y' : 'ies'} after restart`);
     return;
   }
+  // identity (PLAN-v3 0.6.0): claim a name with a fresh device token, then submit with the bearer
+  const token = randomBytes(16).toString('hex');
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  const claim = await fetch(`${url}/identity`, { method: 'POST', headers, body: JSON.stringify({ name: 'image smoke' }) });
+  const who = await claim.json() as { ok: boolean; name?: string; tag?: string; error?: string };
+  if (claim.status !== 200 || !who.ok || !who.tag) fail(`/identity answered ${claim.status}: ${JSON.stringify(who)}`);
+  const label = `${who.name}#${who.tag}`;
+  console.log(`claimed ${label}`);
   const run = finishedRun(seed);
-  const res = await fetch(`${url}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(run), player: 'image smoke' }) });
-  const body = await res.json() as { ok: boolean; score?: number; error?: string };
+  const res = await fetch(`${url}/verify`, { method: 'POST', headers, body: JSON.stringify({ replay: exportReplay(run) }) });
+  const body = await res.json() as { ok: boolean; score?: number; error?: string; player?: string; recorded?: boolean };
   if (res.status !== 200 || !body.ok) fail(`/verify answered ${res.status}: ${JSON.stringify(body)}`);
   if (body.score !== run.score) fail(`verifier score ${body.score} differs from the local ${run.score}`);
+  if (body.player !== label || body.recorded !== true) fail(`submission not stamped with the claimed label: ${JSON.stringify(body)}`);
   const b = await board();
-  if (b.entries.length !== 1 || b.entries[0].player !== 'image smoke') fail(`board unexpected: ${JSON.stringify(b)}`);
+  if (b.entries.length !== 1 || b.entries[0].player !== label) fail(`board unexpected: ${JSON.stringify(b)}`);
   const dup = await fetch(`${url}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(run), player: 'again' }) });
   if (dup.status !== 422) fail(`a duplicate replay should be refused with 422, got ${dup.status}`);
   console.log(`verified $${body.score} for ${seed}; board has 1 entry; duplicate refused`);

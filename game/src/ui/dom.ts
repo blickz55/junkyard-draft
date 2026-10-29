@@ -186,7 +186,7 @@ export const ui = new UiLayer();
  * Keyboard events inside the dialog never reach the scenes (stopPropagation at the layer), focus goes to the field
  * and returns to the control that opened the dialog.
  */
-export interface DialogOptions { title: string; label?: string; value?: string; multiline?: boolean; readonly?: boolean; ok?: string; cancel?: string | null; maxLength?: number; placeholder?: string }
+export interface DialogOptions { title: string; label?: string; value?: string; multiline?: boolean; readonly?: boolean; ok?: string; cancel?: string | null; maxLength?: number; placeholder?: string; /** secondary actions (left of Cancel/OK): the dialog closes with null, then the handler runs */ extra?: { label: string; tid: string; onClick: () => void }[] }
 export function dialog(scene: Phaser.Scene, o: DialogOptions): Promise<string | null> {
   return new Promise((resolve) => {
     const prev = document.activeElement as HTMLElement | null;
@@ -200,18 +200,19 @@ export function dialog(scene: Phaser.Scene, o: DialogOptions): Promise<string | 
     const finish = (v: string | null) => { if (done) return; done = true; layer.remove(); prev?.focus?.(); resolve(v); };
     const okBtn = btn(o.ok ?? 'OK', 'dialog-ok', () => finish(field.value), { variant: 'primary', small: true });
     const cancelBtn = o.cancel === null ? null : btn(o.cancel ?? 'Cancel', 'dialog-cancel', () => finish(null), { small: true });
+    const extras = (o.extra ?? []).map((x) => btn(x.label, x.tid, () => { finish(null); x.onClick(); }, { small: true }));
     const box = h('div', { class: 'jd-dialog jd-panel', role: 'dialog', ariaLabel: o.title, tid: 'dialog' },
       h('div', { class: 'jd-head' }, o.title),
       o.label ? h('div', { class: 'jd-dim jd-dialog-label' }, o.label) : null,
       field,
-      h('div', { class: 'jd-row', style: 'justify-content:flex-end; gap:0.5em' }, cancelBtn, okBtn));
+      h('div', { class: 'jd-row', style: 'justify-content:flex-end; gap:0.5em; flex-wrap:wrap' }, ...extras, extras.length ? h('span', { style: 'flex:1' }) : null, cancelBtn, okBtn));
     const layer = h('div', { class: 'jd-modal', onClick: (e) => { if (e.target === layer) finish(null); } }, box);
     layer.addEventListener('keydown', (e) => {
       e.stopPropagation(); // the scenes' global shortcuts never see keys typed into a dialog
       if (e.key === 'Escape') { e.preventDefault(); finish(null); }
       else if (e.key === 'Enter' && (!o.multiline || e.ctrlKey || e.metaKey)) { e.preventDefault(); finish(field.value); }
       else if (e.key === 'Tab') { // keep focus inside the dialog
-        const f = ([field, cancelBtn, okBtn] as (HTMLElement | null)[]).filter((x): x is HTMLElement => x != null);
+        const f = ([field, ...extras, cancelBtn, okBtn] as (HTMLElement | null)[]).filter((x): x is HTMLElement => x != null);
         const i = f.indexOf(document.activeElement as HTMLElement);
         if (i >= 0) { e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length]?.focus(); }
       }

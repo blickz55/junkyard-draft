@@ -10,7 +10,7 @@
     "control-room": "node control-room/server.mjs",
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test tests/sim.test.ts tests/sieve-fixture.test.ts tests/golden.test.ts tests/a11y.test.ts tests/share.test.ts tests/badges.test.ts tests/mixer.test.ts tests/gif.test.ts tests/samples.test.ts tests/advice.test.ts tests/balance-tool.test.ts tests/perf-gate.test.ts tests/quality.test.ts tests/undo.test.ts tests/controller.test.ts tests/tips.test.ts tests/telemetry.test.ts tests/tutorial.test.ts tests/storage.test.ts tests/verifier.test.ts tests/collector.test.mjs tests/control-room-state.test.mjs tests/control-room-live.test.mjs tests/game-e2e.test.mjs tests/render-e2e.test.mjs tests/desktop-smoke.test.mjs",
+    "test": "node --import tsx --test tests/sim.test.ts tests/sieve-fixture.test.ts tests/golden.test.ts tests/a11y.test.ts tests/share.test.ts tests/badges.test.ts tests/mixer.test.ts tests/gif.test.ts tests/samples.test.ts tests/advice.test.ts tests/balance-tool.test.ts tests/perf-gate.test.ts tests/quality.test.ts tests/undo.test.ts tests/controller.test.ts tests/tips.test.ts tests/telemetry.test.ts tests/tutorial.test.ts tests/storage.test.ts tests/identity.test.ts tests/verifier.test.ts tests/collector.test.mjs tests/control-room-state.test.mjs tests/control-room-live.test.mjs tests/game-e2e.test.mjs tests/render-e2e.test.mjs tests/desktop-smoke.test.mjs",
     "sim": "node --import tsx tools/sim-cli.ts",
     "autoplay": "node --import tsx tools/autoplay.ts",
     "shots": "node tools/playwright-shots.mjs",

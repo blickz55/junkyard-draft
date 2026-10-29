@@ -10,6 +10,8 @@ import { shareText, type Rank } from '../render/share';
 import { badgesFor } from '../sim/badges';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { audio } from '../render/audio';
+import { authHeaders, bearerAllowed, claimName, loadIdentity } from '../render/identity';
+import { labelFor } from '../identity/identity';
 
 /** What the scene keeps so tests and later screens can read it. */
 export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string; lastPercentile: number | null; lastN: number; verifiedHash: string | null; matchesStoredSubmission(): Promise<boolean>; exportClip(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number }>; exportGif(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number; frames: number }> }
@@ -108,11 +110,17 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
 
   /** The display name for the board: the saved one, or a dialog on the first submission; null when the player cancels. */
   const ensurePlayer = async (): Promise<string | null> => {
-    const saved = loadPlayer(); if (saved) return saved;
-    const typed = await promptText(scene, 'Name for the verified board', 'Shown publicly next to your score (max 32 characters; empty = anonymous):', 'player', 32);
-    if (typed === null) return null;
-    const player = typed.trim() ? typed.trim().slice(0, 32) : 'anonymous';
-    if (player !== 'anonymous') savePlayer(player);
+    const id = loadIdentity();
+    if (id.name && id.tag) return labelFor(id.name, id.tag); // claimed: the verifier stamps the same label from the bearer
+    let player = loadPlayer();
+    if (!player) {
+      const typed = await promptText(scene, 'Name for the verified board', 'Shown publicly next to your score as Name#tag (max 32 characters; empty = anonymous):', 'player', 32);
+      if (typed === null) return null;
+      player = typed.trim() ? typed.trim().slice(0, 32) : 'anonymous';
+      if (player !== 'anonymous') savePlayer(player);
+    }
+    // PLAN-v3 0.6.0: the local name migrates into the first claim; offline or refused, the submission still goes out with the plain name
+    if (player !== 'anonymous' && bearerAllowed(verifierUrl)) { const c = await claimName(verifierUrl, player); if (c && 'name' in c) return labelFor(c.name, c.tag); }
     return player;
   };
   const rankOf = async (replayHash: string): Promise<Rank> => {
@@ -128,23 +136,29 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       const player = await ensurePlayer();
       if (player === null) { setStatus('Submission cancelled.'); return; }
       setStatus('Submitting replay to the local verifier…');
-      let body: { ok: boolean; score?: number; error?: string; entry?: { replayHash: string; verifiedAt: string } };
+      let body: { ok: boolean; score?: number; error?: string; entry?: { replayHash: string; verifiedAt: string; score?: number }; recorded?: boolean; player?: string };
       try {
-        const res = await fetch(`${verifierUrl}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(run, import.meta.env.BUILD), player }) });
+        const res = await fetch(`${verifierUrl}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders(verifierUrl) }, body: JSON.stringify({ replay: exportReplay(run, import.meta.env.BUILD), player }) });
         body = await res.json() as typeof body;
         if (res.status === 503 || res.status === 429) { telemetry.track('daily_submit_result', { result: 'busy' }); setStatus(`Verifier busy (${body.error || res.status}); nothing was recorded. Try again in a moment.`); return; }
       } catch { setStatus(`Verifier unreachable at ${verifierUrl} (start it with: npm run verifier). Score stays local/unverified.`); return; }
       if (!body.ok || !body.entry) { telemetry.track('daily_submit_result', { result: 'rejected' }); setStatus(`Verifier response: ${body.error || 'rejected'}`, 'jd-red'); return; }
       verified = true;
     telemetry.track('daily_submit_result', { result: 'verified' });
-    recordSubmission(run.seed, { score: body.score ?? run.score, replayHash: body.entry.replayHash, verifiedAt: body.entry.verifiedAt, player });
+    const label = body.player || player;
+    scene.lastPlayer = label;
+    if (body.recorded === false) { // keep-best (PLAN-v3 0.6.0): verified, but an earlier run of this player on this seed ranks at least as well
+      setStatus(`Verified by re-simulation: $${body.score} — not recorded: your earlier $${body.entry.score ?? '?'} on this seed ranks at least as well (one best entry per player per seed).`, 'jd-amber');
+      try { await loadBoard(true); } catch { /* decoration */ }
+      return;
+    }
+    recordSubmission(run.seed, { score: body.score ?? run.score, replayHash: body.entry.replayHash, verifiedAt: body.entry.verifiedAt, player: label });
     scene.verifiedHash = body.entry.replayHash; // this run, this replay: exports and standing may now say verified
-    scene.lastPlayer = player;
     try {
       scene.lastRank = await rankOf(body.entry.replayHash);
       const r = scene.lastRank;
-      setStatus(`Verified by re-simulation: $${body.score} — ${r.n != null ? `#${r.n} of ${r.of}` : `beyond the top ${r.of}`} on the local verified board as ${player}.`, 'jd-green');
-    } catch { setStatus(`Verified by re-simulation: $${body.score} as ${player} — recorded on the local verified board (rank unavailable right now).`, 'jd-green'); }
+      setStatus(`Verified by re-simulation: $${body.score} — ${r.n != null ? `#${r.n} of ${r.of}` : `beyond the top ${r.of}`} on the local verified board as ${label}.`, 'jd-green');
+    } catch { setStatus(`Verified by re-simulation: $${body.score} as ${label} — recorded on the local verified board (rank unavailable right now).`, 'jd-green'); }
     try { await loadBoard(true); } catch { /* the board list is decoration; the status line already says what happened */ }
     } finally { if (!verified) submitBtn.disabled = false; } // a cancelled, busy, unreachable or rejected attempt leaves the control usable (review F04)
   }, { disabled: o.replayed, small: true });
