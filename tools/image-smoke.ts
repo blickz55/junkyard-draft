@@ -58,6 +58,12 @@ async function main() {
   if (body.player !== label || body.recorded !== true) fail(`submission not stamped with the claimed label: ${JSON.stringify(body)}`);
   const b = await board();
   if (b.entries.length !== 1 || b.entries[0].player !== label) fail(`board unexpected: ${JSON.stringify(b)}`);
+  const d = await (await fetch(`${url}/daily`)).json() as { minted?: boolean; seed?: string; commitment?: string; date?: string };
+  if (d.minted !== true || !/^daily-\d{4}-\d{2}-\d{2}-[a-z2-7]{8}$/.test(d.seed ?? '') || !/^[0-9a-f]{64}$/.test(d.commitment ?? '')) fail(`/daily is not a minted daily: ${JSON.stringify(d)}`);
+  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  const early = await fetch(`${url}/daily?date=${tomorrow}`);
+  if (early.status !== 403) fail(`tomorrow's daily should be refused with 403, got ${early.status}`);
+  console.log(`daily ${d.date} minted as ${d.seed}; commitment published; tomorrow refused`);
   const dup = await fetch(`${url}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(run), player: 'again' }) });
   if (dup.status !== 422) fail(`a duplicate replay should be refused with 422, got ${dup.status}`);
   console.log(`verified $${body.score} for ${seed}; board has 1 entry; duplicate refused`);

@@ -2,7 +2,8 @@
  * Replay verifier + verified-only leaderboard (the trusted side of scoring).
  * - POST /verify   { replay: ReplayFile, player?: string } → re-simulates; stores ONLY verified scores.
  * - GET  /board?seed=<seed>&limit=20 → verified scores for a seed (never client-claimed scores).
- * - GET  /daily?limit=10 → today's UTC daily seed (same rule as the client) with its verified board.
+ * - GET  /daily?limit=10[&date=YYYY-MM-DD] → the minted daily seed for today (or an opened past day) with its verified board,
+ *   the commitment to the next day's seed and the previous day's record (PLAN-v3 0.6.1); a day that has not opened is 403.
  * - GET  /replay?hash=<replayHash> → the stored actions of a VERIFIED entry (for playback); 404 otherwise.
  * - GET  /health → { ok, version, rulesVersion, entries, uptimeSec }
  * - GET  /histogram?seed=<seed>&hash=<replayHash> → the verified score distribution for a seed (PLAN-v1 0.4.1): bins, N, and
@@ -46,7 +47,9 @@ import { Rng } from '../game/src/sim/rng';
 import { decodeReplay, verifyReplay, canonicalReplayJson, type ReplayFile } from '../game/src/sim/replay';
 import { replay as replayRun } from '../game/src/sim/run';
 import { RULES_VERSION } from '../game/src/sim/types';
-import { dailySeedFor } from '../game/src/sim/daily';
+import { dailySeedFor, isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
+import { mintSeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS } from './mint';
+export { mintSeed, commitmentFor, shiftDate, utcDate, isUtcDate, DAILY_WINDOW_MS } from './mint';
 import { validateBatch, FUNNEL, type EventBatch, type EventName, type Props } from '../game/src/telemetry/events';
 import pkg from '../package.json' with { type: 'json' };
 import { tagFor, labelFor, normaliseName, nameProblem, TOKEN_HEX } from '../game/src/identity/identity';
@@ -80,7 +83,9 @@ export function finalMachinesOf(r: Pick<ReplayFile, 'seed' | 'actions' | 'rulesV
 export interface StoredReplay { seed: string; rulesVersion: number; actions: ReplayFile['actions']; score: number; player: string; verifiedAt: string }
 /** The autoplayer's median score on a seed: a target that exists on day one without inventing competitors. */
 export interface BotPar { par: number; runs: number; tries: number; rulesVersion: number; computedAt: string }
-export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay>; pars?: Record<string, BotPar>; players?: Record<string, Player> }
+/** One issued daily (PLAN-v3 0.6.1): the seed minted from the secret for that UTC date, the commitment to the next day's seed, and the window. */
+export interface DailyRecord { date: string; seed: string; commitment: string; issuedAt: string; closesAt: string; rulesVersion: number; build: string }
+export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay>; pars?: Record<string, BotPar>; players?: Record<string, Player>; dailies?: Record<string, DailyRecord> }
 
 const MAX_BODY = 512 * 1024;
 export const MAX_BOARD_LIMIT = 100;
@@ -148,6 +153,8 @@ export interface VerifierOptions {
   maxEntriesPerSeed?: number;
   /** seeds kept in the file (least recently active seeds are dropped on write); default 5000 */
   maxSeeds?: number;
+  /** secret the daily seeds are minted from (DAILY_SECRET); a random per-process secret when absent (tests, ad-hoc runs) */
+  dailySecret?: string;
 }
 
 /** The one comparator (PLAN-v2 0.5.5): score desc, fewer final-round machines, earlier receipt, then the hash so the order is total. Boards, histogram ranks and neighbours, retention and the returned rank all use it. */
@@ -158,7 +165,9 @@ export class Verifier {
   readonly replaysPerSeed: number;
   readonly maxEntriesPerSeed: number;
   readonly maxSeeds: number;
+  private readonly dailySecret: string;
   constructor(private file: string, opts: VerifierOptions = {}) {
+    this.dailySecret = opts.dailySecret || randomBytes(32).toString('hex');
     this.replaysPerSeed = opts.replaysPerSeed ?? 100;
     this.maxEntriesPerSeed = opts.maxEntriesPerSeed ?? 1000;
     this.maxSeeds = opts.maxSeeds ?? 5000;
@@ -251,7 +260,7 @@ export class Verifier {
     return { entries: mine.length };
   }
 
-  submit(replayText: string, player = 'anonymous', playerId: string | null = null): { ok: boolean; score?: number; error?: string; entry?: BoardEntry; recorded?: boolean; player?: string } {
+  submit(replayText: string, player = 'anonymous', playerId: string | null = null, now = new Date()): { ok: boolean; score?: number; error?: string; entry?: BoardEntry; recorded?: boolean; player?: string } {
     let replay: ReplayFile;
     try { replay = decodeReplay(replayText); } catch (e) { return { ok: false, error: `rejected: ${(e as Error).message}` }; }
     if (replay.rulesVersion !== RULES_VERSION) return { ok: false, error: `rejected: rules version ${replay.rulesVersion} not accepted (server has ${RULES_VERSION})` };
@@ -259,6 +268,11 @@ export class Verifier {
     if (!v.ok) return { ok: false, error: v.error ? `rejected: ${v.error}` : `rejected: re-simulated score $${v.score} does not match claimed $${v.claimed}${v.finished ? '' : ' (run not finished)'}` };
     const replayHash = replayId(replay);
     if (this.data.entries.some((e) => e.replayHash === replayHash)) return { ok: false, error: 'rejected: duplicate replay' };
+    if (isMintedDailySeed(replay.seed)) { // a minted-looking seed counts only if this server issued it and its window is open (PLAN-v3 0.6.1)
+      const rec = this.data.dailies?.[dailyDateOf(replay.seed) ?? ''];
+      if (!rec || rec.seed !== replay.seed) return { ok: false, error: 'rejected: not an issued daily seed' };
+      if (now.getTime() >= Date.parse(rec.closesAt)) return { ok: false, error: `rejected: the daily for ${rec.date} closed at ${rec.closesAt}` };
+    }
     const claimed = playerId ? this.data.players?.[playerId] : undefined;
     const label = claimed ? labelFor(claimed.name, claimed.tag) : String(player).replace(/\s+/g, ' ').trim().slice(0, 32) || 'anonymous';
     const entry: BoardEntry = { seed: replay.seed, score: v.score, player: label, verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash, finalMachines: finalMachinesOf(replay) ?? undefined, ...(playerId ? { playerId } : {}) };
@@ -301,10 +315,22 @@ export class Verifier {
   get parCount() { return Object.keys(this.data.pars ?? {}).length; }
   /** Verified score distribution for a seed; `hash` locates the caller's own entry. */
   histogram(seed: string, hash?: string): Histogram { return { seed, ...histogramOf(this.rank(seed), hash) }; }
-  /** Today's challenge: the seed every client derives for this UTC date, plus its verified board. */
-  daily(limit = 10, now = new Date()): { seed: string; date: string; rulesVersion: number; verified: true; entries: BoardEntry[] } {
-    const seed = dailySeedFor(now);
-    return { seed, date: now.toISOString().slice(0, 10), rulesVersion: RULES_VERSION, verified: true, entries: this.board(seed, Math.min(MAX_DAILY_LIMIT, limit)) };
+  /** The issued daily for a UTC date, minting and persisting it on first request; null when that day has not opened yet (PLAN-v3 0.6.1). */
+  dailyRecord(date: string, now = new Date()): DailyRecord | null {
+    if (!isUtcDate(date) || date > utcDate(now)) return null;
+    const have = this.data.dailies?.[date]; if (have) return have;
+    const rec: DailyRecord = { date, seed: mintSeed(this.dailySecret, date), commitment: commitmentFor(mintSeed(this.dailySecret, shiftDate(date, 1))), issuedAt: now.toISOString(), closesAt: new Date(dayStartMs(date) + DAILY_WINDOW_MS).toISOString(), rulesVersion: RULES_VERSION, build: VERSION };
+    const next = { ...this.data, dailies: { ...(this.data.dailies ?? {}), [date]: rec } };
+    try { this.commit(next); } catch { this.data = next; } // storage trouble: serve the minted seed anyway; it is persisted with the next successful write
+    return rec;
+  }
+  /** Today's minted seed (the one bot par computes first). */
+  todaySeed(now = new Date()): string { return this.dailyRecord(utcDate(now), now)!.seed; }
+  /** Today's challenge (or an opened past day): the minted record, its verified board, and the previous day for commitment checks. */
+  daily(limit = 10, now = new Date(), date = utcDate(now)): (DailyRecord & { verified: true; minted: true; entries: BoardEntry[]; previous: { date: string; seed: string; commitment: string } | null }) | null {
+    const rec = this.dailyRecord(date, now); if (!rec) return null;
+    const prev = this.dailyRecord(shiftDate(date, -1), now);
+    return { ...rec, verified: true, minted: true, entries: this.board(rec.seed, Math.min(MAX_DAILY_LIMIT, limit)), previous: prev ? { date: prev.date, seed: prev.seed, commitment: prev.commitment } : null };
   }
 }
 
@@ -393,9 +419,12 @@ export function loadBoard(text: string): Board {
     if (raw.pars && typeof raw.pars === 'object') for (const [s, p] of Object.entries(raw.pars)) if (p && typeof p.par === 'number' && Number.isInteger(p.rulesVersion)) pars[s] = p;
     const players: Record<string, Player> = {};
     if (raw.players && typeof raw.players === 'object') for (const [id, p] of Object.entries(raw.players as Record<string, Player>)) if (p && typeof p.name === 'string' && typeof p.tag === 'string' && /^[0-9a-f]{64}$/.test(id)) players[id] = { name: p.name, tag: p.tag, createdAt: typeof p.createdAt === 'string' ? p.createdAt : '', renamedAt: typeof p.renamedAt === 'string' ? p.renamedAt : '' };
+    const dailies: Record<string, DailyRecord> = {};
+    if (raw.dailies && typeof raw.dailies === 'object') for (const [date, d] of Object.entries(raw.dailies as Record<string, DailyRecord>)) if (d && isUtcDate(date) && typeof d.seed === 'string' && isMintedDailySeed(d.seed) && typeof d.commitment === 'string') dailies[date] = { date, seed: d.seed, commitment: d.commitment, issuedAt: typeof d.issuedAt === 'string' ? d.issuedAt : '', closesAt: typeof d.closesAt === 'string' ? d.closesAt : new Date(dayStartMs(date) + DAILY_WINDOW_MS).toISOString(), rulesVersion: typeof d.rulesVersion === 'number' ? d.rulesVersion : RULES_VERSION, build: typeof d.build === 'string' ? d.build : '' };
     const out: Board = { entries, replays };
     if (Object.keys(pars).length) out.pars = pars;
     if (Object.keys(players).length) out.players = players;
+    if (Object.keys(dailies).length) out.dailies = dailies;
     return out;
   } catch { return { entries: [] }; }
 }
@@ -491,7 +520,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const rl = opts.rateLimit === null ? null : new RateLimiter(opts.rateLimit?.limit ?? 60, opts.rateLimit?.windowMs ?? 60_000, opts.now);
   const events = opts.events ?? null;
   const par = opts.par ?? null;
-  const withPar = (seed: string) => { par?.request(seed, seed === dailySeedFor(new Date())); return verifier.par(seed); }; // today's seed goes first; the answer never waits for the job
+  const withPar = (seed: string) => { par?.request(seed, seed === verifier.todaySeed(new Date((opts.now ?? Date.now)()))); return verifier.par(seed); }; // today's minted seed goes first; the answer never waits for the job
   const erl = events ? new RateLimiter(opts.eventsRateLimit ?? 30, 60_000, opts.now) : null;
   const prl = new RateLimiter(opts.playerRateLimit ?? 2, 60_000, opts.now); // per-player submissions (PLAN-v3 §1 abuse baseline)
   const irl = new RateLimiter(5, 60_000, opts.now); // per-player identity calls
@@ -516,7 +545,13 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
       if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, protocol: PROTOCOL, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, uptimeSec: Math.round((Date.now() - started) / 1000) });
       if (req.method === 'GET' && url.pathname === '/replay') { const r = verifier.replay(url.searchParams.get('hash') || ''); return r ? json(200, { ok: true, ...r }) : json(404, { ok: false, error: 'no verified replay with that hash' }); }
-      if (req.method === 'GET' && url.pathname === '/daily') { const d = verifier.daily(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT)); return json(200, { ...d, botPar: withPar(d.seed), tieBreak: TIE_BREAK }); }
+      if (req.method === 'GET' && url.pathname === '/daily') {
+        const now = new Date((opts.now ?? Date.now)()); const dateQ = url.searchParams.get('date');
+        if (dateQ !== null && !isUtcDate(dateQ)) return json(400, { ok: false, error: 'date must be YYYY-MM-DD' });
+        const d = verifier.daily(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT), now, dateQ ?? undefined);
+        if (!d) return json(403, { ok: false, error: `the daily for ${dateQ} has not opened yet (dailies open at 00:00 UTC)`, today: utcDate(now) });
+        return json(200, { ok: true, ...d, botPar: withPar(d.seed), tieBreak: TIE_BREAK });
+      }
       if (req.method === 'GET' && url.pathname === '/histogram') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { ok: true, ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined), botPar: withPar(seed), tieBreak: TIE_BREAK }); }
       if (req.method === 'GET' && url.pathname === '/board') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { seed, verified: true, entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT)), botPar: withPar(seed), tieBreak: TIE_BREAK }); }
       // identity (PLAN-v3 0.6.0): the bearer is a device token; only its hash is used or stored
@@ -556,7 +591,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           try { parsed = JSON.parse(body) as { replay: unknown; player?: string }; } catch (e) { return json(400, { ok: false, error: `bad request: ${(e as Error).message}` }); }
           if (!parsed || typeof parsed !== 'object') return json(400, { ok: false, error: 'bad request: body is not an object' });
           try {
-            const result = verifier.submit(JSON.stringify(parsed.replay ?? null), typeof parsed.player === 'string' ? parsed.player : undefined, bearerId);
+            const result = verifier.submit(JSON.stringify(parsed.replay ?? null), typeof parsed.player === 'string' ? parsed.player : undefined, bearerId, new Date((opts.now ?? Date.now)()));
             if (result.ok && result.entry) par?.request(result.entry.seed);
             json(result.ok ? 200 : 422, result);
           } catch (e) {
@@ -609,7 +644,12 @@ if (isMain) {
   const events = new EventStore(process.env.EVENTS_FILE || path.join(path.dirname(file), 'events.jsonl'), Number(process.env.EVENTS_RETENTION_DAYS || 30));
   const pruned = events.prune(); if (pruned) console.log(`events: pruned ${pruned} rows older than ${events.retentionDays} days`);
   setInterval(() => { try { events.prune(); } catch { /* next hour */ } }, 3_600_000).unref();
-  const verifier = new Verifier(file);
+  // daily secret (PLAN-v3 0.6.1): DAILY_SECRET / --daily-secret, else a generated one kept next to the board so restarts mint the same days
+  const secretFile = path.join(path.dirname(file), 'daily-secret');
+  let dailySecret = flag('daily-secret') || process.env.DAILY_SECRET || '';
+  if (!dailySecret) { try { dailySecret = fs.readFileSync(secretFile, 'utf8').trim(); } catch { /* none yet */ } }
+  if (!dailySecret) { dailySecret = randomBytes(32).toString('hex'); fs.mkdirSync(path.dirname(secretFile), { recursive: true }); fs.writeFileSync(secretFile, dailySecret + '\n', { mode: 0o600 }); console.log(`daily secret generated at ${secretFile}: back it up (DAILY_SECRET overrides it)`); }
+  const verifier = new Verifier(file, { dailySecret });
   const par = process.env.BOT_PAR === '0' ? null : new ParService(verifier, (s) => computeParInWorker(s, Number(process.env.BOT_PAR_CAP_MS || 20_000)));
   createServer(verifier, { rateLimit: { limit, windowMs: 60_000 }, playerRateLimit, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events, par })
     .listen(port, host, () => console.log(`replay verifier v${VERSION} → http://${host}:${port}/  (board: ${file}, events: ${events.file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, ${playerRateLimit}/min/player, CORS ${corsOrigin}${trustProxy ? ', trusting X-Forwarded-For' : ''})`));

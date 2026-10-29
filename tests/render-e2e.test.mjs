@@ -191,8 +191,10 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       const page = await context.newPage();
       await page.addInitScript(() => { window.prompt = () => { throw new Error('prompt() is not supported.'); }; window.alert = () => { throw new Error('alert() is not supported.'); }; });
       const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
-      await page.goto(`${URL}/?dev=1`);
+      await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:9`); // nothing listens on port 9: the daily must fall back to practice (PLAN-v3 0.6.1)
       await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+      await page.waitForFunction(() => /^practice \(unranked\): verifier unreachable$/.test(document.querySelector('[data-testid=daily-mode]')?.textContent || ''), null, { timeout: 10000 });
+      assert.match(await page.getByTestId('daily-seed').textContent(), /^seed daily-\d{4}-\d{2}-\d{2}$/, 'the practice seed is the plain date');
       await page.getByTestId('player').click();
       await page.getByTestId('dialog-input').fill('Kbd Tester');
       await page.keyboard.press('Enter'); await wait(100);

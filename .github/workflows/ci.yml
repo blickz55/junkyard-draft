@@ -40,8 +40,10 @@ jobs:
         run: docker build -t junkyard-verifier .
       - name: Start it on a named volume
         run: docker run -d --name verifier -p 4400:4400 -v jd-smoke-data:/data junkyard-verifier
-      - name: Health, legal replay accepted, board has one entry
-        run: node --import tsx tools/image-smoke.ts http://127.0.0.1:4400
+      - name: Health, legal replay accepted, board has one entry, daily minted
+        run: |
+          node --import tsx tools/image-smoke.ts http://127.0.0.1:4400
+          node --import tsx tools/mint-check.ts http://127.0.0.1:4400
       - name: Restart on the same volume keeps the entry
         run: |
           docker restart verifier

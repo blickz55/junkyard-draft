@@ -12,6 +12,7 @@ import { MAX_SEED_LENGTH, sanitizeSeed, TUTORIAL_SEED } from '../sim/run';
 import { decodeReplay, verifyReplay } from '../sim/replay';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { identityDialog, playerLabel } from './identityDialog';
+import { acceptDaily, cachedDaily, fetchDaily, practiceSeed, todaySeed } from '../render/daily';
 
 export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const save = loadSave();
@@ -51,7 +52,10 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     clearSave();
   }
   actions.append(h('div', { class: 'jd-row jd-center' },
-    btn("Today's challenge", 'daily', () => start(dailySeed(), true), { variant: 'primary' }),
+    btn("Today's challenge", 'daily', () => { // the minted seed when the verifier said so today; otherwise ask once, then practice (PLAN-v3 0.6.1)
+      const known = cachedDaily(); if (known) { start(known.seed, true); return; }
+      audio.unlock(); void fetchDaily(verifierUrl).then((d) => { if (scene.scene.isActive('Title')) start(d ? d.seed : practiceSeed(), true); });
+    }, { variant: 'primary' }),
     btn('Random seed', 'random', () => start(randomSeed(), true), { variant: 'steel' })));
   actions.append(h('div', { class: 'jd-row jd-center' },
     btn(fresh ? 'Learn to play (3 min)' : 'Learn (3 min)', 'learn', () => start(TUTORIAL_SEED, true), { variant: fresh ? 'primary' : 'dark' }),
@@ -65,7 +69,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
       .map((line, i) => h('div', { tid: `howto-${i + 1}`, style: 'font-size:0.9375em; margin-top:0.2em' }, line)));
 
   // bests + settings
-  const todayBest = bests.bySeed[dailySeed()];
+  const todayBest = bests.bySeed[todaySeed()];
   const volume = h('input', { type: 'range', min: '0', max: '1', step: '0.01', value: String(audio.volume), tid: 'volume', ariaLabel: 'Volume', onInput: (e) => audio.setVolume(Number((e.target as HTMLInputElement).value)) });
   const muteBtn = btn(audio.muted ? 'Unmute' : 'Mute', 'mute', () => { audio.setMuted(!audio.muted); muteBtn.textContent = audio.muted ? 'Unmute' : 'Mute'; }, { small: true });
   const motionBtn = btn(prefs.reducedMotion ? 'Reduced' : 'Full', 'motion', () => { telemetry.track('settings_changed', { key: 'reducedMotion' }); prefs.setReducedMotion(!prefs.reducedMotion); restart(); }, { small: true });
@@ -90,17 +94,22 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   // today's verified board (optional verifier)
   const url = verifierUrl;
   const line = h('div', { class: 'jd-mono jd-dim', tid: 'daily-board', style: 'font-size:0.75em; margin-top:0.3em' }, 'Checking the local verifier…');
-  const stripHead = h('div', { class: 'jd-row jd-between' }, h('div', { class: 'jd-row' }, h('div', { class: 'jd-head' }, "Today's verified board"), h('span', { class: 'jd-mono jd-dim', style: 'font-size:0.75em' }, `seed ${dailySeed()}`)));
+  const seedSpan = h('span', { class: 'jd-mono jd-dim', tid: 'daily-seed', style: 'font-size:0.75em' }, `seed ${todaySeed()}`);
+  const modeSpan = h('span', { class: 'jd-mono jd-dim', tid: 'daily-mode', style: 'font-size:0.75em; margin-left:0.75em' }, cachedDaily() ? 'minted by the verifier · ranked' : 'practice (unranked) until the verifier answers');
+  const stripHead = h('div', { class: 'jd-row jd-between' }, h('div', { class: 'jd-row' }, h('div', { class: 'jd-head' }, "Today's verified board"), seedSpan, modeSpan));
+  const practiceMode = (why: string) => { seedSpan.textContent = `seed ${practiceSeed()}`; modeSpan.textContent = `practice (unranked): ${why}`; };
   const strip = h('div', { class: 'jd-panel', tid: 'daily-strip', style: 'margin-top:auto; padding-top:0.4em; padding-bottom:0.4em' }, stripHead, line);
   const alive = () => line.isConnected && scene.scene.isActive('Title');
-  fetch(`${url}/daily?limit=5`).then((r) => r.json()).then((d: { seed: string; rulesVersion: number; entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[]; botPar?: number | null }) => {
+  fetch(`${url}/daily?limit=5`).then((r) => r.json()).then((d: { seed: string; date?: string; rulesVersion: number; entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[]; botPar?: number | null }) => {
     if (!alive()) return;
-    if (d.seed !== dailySeed()) { line.textContent = `Verifier day differs (${d.seed}); board hidden.`; return; }
+    const info = acceptDaily(d);
+    if (!info) { practiceMode(`the verifier's daily is for ${d.date ?? 'another day'}`); line.textContent = `Verifier day differs (${d.seed}); board hidden.`; return; }
+    const seed = info.seed; seedSpan.textContent = `seed ${seed}`; modeSpan.textContent = 'minted by the verifier · ranked';
     const top = d.entries.length ? d.entries.map((e, i) => `${i + 1}. $${e.score} ${e.player}`).join('   ·   ') + `   ·   re-simulated by the verifier (rules v${d.rulesVersion}) · ties: fewer round-6 machines first` : 'No verified scores yet today. Finish a run and submit the replay from the results screen.';
     if (d.botPar != null) stripHead.firstElementChild?.append(h('span', { class: 'jd-mono jd-dim', tid: 'daily-par', style: 'font-size:0.75em; margin-left:0.75em', title: 'the shipped autoplayer\'s median on today\'s seed: a target, never an entry' }, `bot par $${d.botPar}`));
     line.textContent = top; line.classList.toggle('jd-dim', !d.entries.length);
     if (d.entries.length) {
-      fetch(`${url}/histogram?seed=${encodeURIComponent(dailySeed())}`).then((r) => r.json()).then((hg: { n: number; bins: { count: number }[] }) => {
+      fetch(`${url}/histogram?seed=${encodeURIComponent(seed)}`).then((r) => r.json()).then((hg: { n: number; bins: { count: number }[] }) => {
         if (!alive() || !hg.n) return;
         const max = Math.max(1, ...hg.bins.map((b) => b.count));
         stripHead.firstElementChild?.append(h('span', { class: 'jd-hist-mini', tid: 'daily-hist', title: `${hg.n} verified runs today` }, ...hg.bins.map((b) => h('span', { class: 'jd-hist-bar', style: `height:${Math.max(8, Math.round((100 * b.count) / max))}%` }))));
@@ -112,20 +121,20 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
       const watch = btn(`Watch #${bestIdx + 1}`, 'daily-watch', () => { watch.disabled = true; fetchVerifiedReplay(url, best.replayHash).then((r) => playVerifiedReplay(scene, r)).catch((err: Error) => { line.textContent = err.message; line.className = 'jd-mono jd-red'; watch.disabled = false; }); }, { small: true });
       stripHead.append(watch);
     }
-    const mine = loadSubmissions()[dailySeed()];
+    const mine = loadSubmissions()[seed];
     if (!mine) return;
-    fetch(`${url}/board?seed=${encodeURIComponent(dailySeed())}&limit=100`).then((r) => r.json()).then((b: { entries: { replayHash: string }[] }) => {
+    fetch(`${url}/board?seed=${encodeURIComponent(seed)}&limit=100`).then((r) => r.json()).then((b: { entries: { replayHash: string }[] }) => {
       if (!alive()) return;
       const i = b.entries.findIndex((e) => e.replayHash === mine.replayHash);
       line.textContent = `You: ${i >= 0 ? `#${i + 1} of ${b.entries.length}` : `beyond the top ${b.entries.length}`} ($${mine.score})   ·   ${top}`; line.classList.remove('jd-dim');
     }).catch(() => { /* board unavailable: keep the top list */ });
-  }).catch(() => { if (alive()) line.textContent = 'Verifier offline (optional: npm run verifier). Daily board unavailable; local bests above are unverified.'; });
+  }).catch(() => { if (alive()) { practiceMode('verifier unreachable'); line.textContent = 'Verifier offline (optional: npm run verifier). Daily board unavailable; local bests above are unverified.'; } });
 
   const screen = h('div', { class: 'jd-title' }, top, playerNote, statsNote, hero, actions, h('div', { class: 'jd-grid2', style: 'margin-top:0.4em' }, howto, bestsPanel), strip);
   ui.mount(scene, screen, (e) => {
     if (e.key !== 'Enter' || tips.isOpen || ui.dialogOpen) return;
     const t = e.target as HTMLElement | null; if (t && (t.tagName === 'BUTTON' || t.tagName === 'INPUT')) return; // the focused control handles its own Enter
-    if (save) continueRun(); else start(fresh ? TUTORIAL_SEED : dailySeed(), true);
+    if (save) continueRun(); else start(fresh ? TUTORIAL_SEED : todaySeed(), true);
   });
 }
 

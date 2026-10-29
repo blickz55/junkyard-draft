@@ -24,7 +24,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
   const server = spawn(process.execPath, [path.join(ROOT, 'scripts/dev.mjs')], { env: { ...process.env, GAME_PORT: String(PORT) }, stdio: 'ignore' });
   const VPORT = 4499;
   const boardFile = path.join(fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-')), 'board.json');
-  const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), BOARD_FILE: boardFile, PLAYER_RATE_LIMIT: '100' }, stdio: 'ignore' });
+  const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), BOARD_FILE: boardFile, PLAYER_RATE_LIMIT: '100', DAILY_SECRET: 'e2e-daily-secret' }, stdio: 'ignore' });
   let browser, page;
   const errors = [];
   const api = (fn, ...args) => page.evaluate(({ fn, args }) => window.__jd[fn](...args), { fn, args });
@@ -375,13 +375,25 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     const { exportReplay } = await import('../game/src/sim/replay.ts');
     const { dailySeed } = await import('../game/src/sim/daily.ts');
     const { RULES } = await import('../game/src/sim/rules.ts');
-    const daily = newRun(dailySeed());
+    // minted daily (PLAN-v3 0.6.1): the ranked seed comes from the verifier, never from the client's date
+    const dinfo = await (await fetch(`http://127.0.0.1:${VPORT}/daily`)).json();
+    assert.match(dinfo.seed, /^daily-\d{4}-\d{2}-\d{2}-[a-z2-7]{8}$/, `minted seed: ${dinfo.seed}`); assert.equal(dinfo.minted, true); assert.match(dinfo.commitment, /^[0-9a-f]{64}$/, 'a commitment to tomorrow is published');
+    const daily = newRun(dinfo.seed);
     for (let r = 1; r <= RULES.rounds; r++) { const ci = daily.offers.indexOf('crusher'); apply(daily, { t: 'pick', i: ci >= 0 ? ci : 0 }); if (r === 1) { const cv = daily.layout.machines.find((m) => m.x === 2 && m.y === 2); apply(daily, { t: 'unplace', id: cv.id }); apply(daily, { t: 'place', id: daily.bin[0].id, x: 2, y: 2, dir: 0 }); } apply(daily, { t: 'run' }); apply(daily, { t: 'next' }); }
     const sub = await (await fetch(`http://127.0.0.1:${VPORT}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(daily), player: 'e2e player' }) })).json();
     assert.equal(sub.ok, true, 'daily replay verified');
-    await page.evaluate(({ seed, s, v }) => localStorage.setItem('jd.submissions.v2', JSON.stringify({ byVersion: { [v]: { [seed]: s } } })), { v: V, seed: dailySeed(), s: { score: sub.score, replayHash: sub.entry.replayHash, verifiedAt: sub.entry.verifiedAt, player: 'e2e player' } });
+    // a run on the practice seed verifies as an ordinary seed board and never reaches the daily board
+    const practice = newRun(dailySeed());
+    for (let r = 1; r <= RULES.rounds; r++) { const ci = practice.offers.indexOf('crusher'); apply(practice, { t: 'pick', i: ci >= 0 ? ci : 0 }); if (r === 1) { const cv = practice.layout.machines.find((m) => m.x === 2 && m.y === 2); apply(practice, { t: 'unplace', id: cv.id }); apply(practice, { t: 'place', id: practice.bin[0].id, x: 2, y: 2, dir: 0 }); } apply(practice, { t: 'run' }); apply(practice, { t: 'next' }); }
+    const psub = await (await fetch(`http://127.0.0.1:${VPORT}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(practice), player: 'practice player' }) })).json();
+    assert.equal(psub.ok, true, 'the practice seed is an ordinary seed board');
+    const dboard = await (await fetch(`http://127.0.0.1:${VPORT}/daily`)).json();
+    assert.deepEqual(dboard.entries.map((e) => e.replayHash), [sub.entry.replayHash], 'only the minted-seed run is on the daily board');
+    await page.evaluate(({ seed, s, v }) => localStorage.setItem('jd.submissions.v2', JSON.stringify({ byVersion: { [v]: { [seed]: s } } })), { v: V, seed: dinfo.seed, s: { score: sub.score, replayHash: sub.entry.replayHash, verifiedAt: sub.entry.verifiedAt, player: 'e2e player' } });
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => { const t = document.querySelector('[data-testid=daily-board]')?.textContent || ''; return /^You: #1 of 1 \(\$\d+\)/.test(t) && /1\. \$\d+ e2e player/.test(t); }, null, { timeout: 15000 });
+    assert.equal(await page.getByTestId('daily-mode').textContent(), 'minted by the verifier · ranked'); assert.equal(await page.getByTestId('daily-seed').textContent(), `seed ${dinfo.seed}`);
+    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.daily.v1'))).seed, dinfo.seed, 'the minted seed is cached for the day');
     assert.match(await page.getByTestId('player').textContent(), /^Player: e2e player#[2-9A-HJKMNP-TV-Z]{4}$/);
     // keep_best_per_player (PLAN-v3 0.6.0): with the page's bearer, a better run on a seed replaces the entry, an equal one is verified but not recorded
     {
@@ -398,6 +410,10 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     }
     await page.waitForSelector('[data-testid=daily-hist] .jd-hist-bar', { timeout: 10000 });
     assert.ok((await page.locator('[data-testid=daily-hist] .jd-hist-bar').count()) >= 1, 'the daily strip shows a mini histogram once a verified run exists');
+    // the title's button plays the minted seed, and the HUD names it (PLAN-v3 0.6.1)
+    await page.getByTestId('daily').click();
+    await page.waitForFunction((seed) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, dinfo.seed, { timeout: 15000 });
+    assert.equal(await page.getByTestId('hud-seed').textContent(), `seed ${dinfo.seed} · today's challenge`);
     // large_text_layout_fits (HUD): a maximum-length seed at 130 % keeps round, score and local-best on the canvas
     await page.evaluate(() => localStorage.setItem('jd.settings.v1', JSON.stringify({ volume: 0.7, muted: false, reducedMotion: true, textScale: 1.3 })));
     await page.goto(`${URL}/?dev=1&scene=game&seed=${'m'.repeat(64)}&verifier=http://127.0.0.1:${VPORT}`);

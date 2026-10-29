@@ -11,7 +11,8 @@ import { RULES_VERSION } from '../game/src/sim/types';
 import { apply, newRun } from '../game/src/sim/run';
 import { encodeReplay, exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
-import { dailySeedFor, isDailySeed } from '../game/src/sim/daily';
+import { dailySeedFor, isDailySeed, isMintedDailySeed } from '../game/src/sim/daily';
+import { mintSeed, commitmentFor } from '../server/mint';
 
 function finishedRun(seed: string) {
   const s = newRun(seed);
@@ -42,14 +43,15 @@ test('verifier accepts a legal finished replay, rejects tampering, duplicates, u
   assert.equal(v.replay('deadbeef'), null);
   // persisted
   assert.equal(new Verifier(file).board('board-seed').length, 1);
-  // daily: today's UTC seed, only entries for that seed
-  const today = dailySeedFor(new Date());
-  assert.ok(isDailySeed(today));
-  assert.deepEqual(v.daily().entries, []);
+  // daily: today's minted seed (PLAN-v3 0.6.1), only entries for that seed; the practice seed is an ordinary board
+  const today = v.daily()!.seed;
+  assert.ok(isMintedDailySeed(today) && !isDailySeed(today)); assert.ok(isDailySeed(dailySeedFor(new Date())));
+  assert.deepEqual(v.daily()!.entries, []);
   assert.equal(v.submit(encodeReplay(exportReplay(finishedRun(today))), 'dana').ok, true);
-  const daily = v.daily();
+  assert.equal(v.submit(encodeReplay(exportReplay(finishedRun(dailySeedFor(new Date())))), 'practice').ok, true);
+  const daily = v.daily()!;
   assert.equal(daily.seed, today); assert.equal(daily.entries.length, 1); assert.equal(daily.entries[0].player, 'dana');
-  assert.equal(v.daily(10, new Date('2030-01-02T03:04:05Z')).seed, 'daily-2030-01-02', 'daily seed follows the UTC date');
+  assert.match(v.daily(10, new Date('2030-01-02T03:04:05Z'))!.seed, /^daily-2030-01-02-[a-z2-7]{8}$/, 'daily seed follows the UTC date');
 });
 
 test('http: POST /verify and GET /board return verified data only', async () => {
@@ -68,8 +70,10 @@ test('http: POST /verify and GET /board return verified data only', async () => 
     assert.equal(board.verified, true); assert.equal(board.entries.length, 1); assert.equal(board.entries[0].score, run.score);
     assert.equal(board.tieBreak, TIE_BREAK, 'every board response states the tie rule'); assert.equal(typeof board.entries[0].finalMachines, 'number');
     assert.equal((await fetch(`${base}/health`)).status, 200);
-    const daily = await (await fetch(`${base}/daily`)).json() as { seed: string; verified: boolean; rulesVersion: number; entries: unknown[] };
-    assert.equal(daily.seed, dailySeedFor(new Date())); assert.equal(daily.verified, true); assert.deepEqual(daily.entries, []);
+    const daily = await (await fetch(`${base}/daily`)).json() as { seed: string; verified: boolean; minted: boolean; commitment: string; rulesVersion: number; entries: unknown[] };
+    assert.match(daily.seed, /^daily-\d{4}-\d{2}-\d{2}-[a-z2-7]{8}$/); assert.equal(daily.verified, true); assert.equal(daily.minted, true); assert.match(daily.commitment, /^[0-9a-f]{64}$/); assert.deepEqual(daily.entries, []);
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    assert.equal((await fetch(`${base}/daily?date=${tomorrow}`)).status, 403, 'tomorrow has not opened'); assert.equal((await fetch(`${base}/daily?date=nope`)).status, 400);
     const health = await (await fetch(`${base}/health`)).json() as { entries: number; uptimeSec: number; version: string };
     assert.equal(health.entries, 1, 'health reports the number of verified entries');
     assert.equal(health.version, JSON.parse(fs.readFileSync('package.json', 'utf8')).version, 'health reports the package version');
@@ -627,4 +631,41 @@ test('http identity: POST/GET /identity, bearer on /verify, DELETE /me, 401 on a
     assert.equal(((await call('GET', '/board?seed=http-id', undefined, {})).json as { entries: BoardEntry[] }).entries[0].player, 'deleted');
     assert.ok(logs.length > 5 && logs.every((l) => !l.includes(token) && !l.includes('Bearer')), 'the bearer token is absent from every log line');
   } finally { close(); }
+});
+
+// ---- minted daily with a published commitment (PLAN-v3 0.6.1) ----
+test('minted daily: seeds differ per date and per secret; the commitment published on D is the hash of the seed served on D+1; tomorrow is refused; forged, practice and closed submissions never reach the daily board; a secret rotation keeps issued days', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-mint-')), 'board.json');
+  const v = new Verifier(file, { dailySecret: 'secret-one' });
+  const d1 = new Date('2030-01-02T03:04:05Z'), d2 = new Date('2030-01-03T00:00:01Z');
+  const a = v.daily(10, d1)!;
+  assert.ok(isMintedDailySeed(a.seed)); assert.equal(a.date, '2030-01-02'); assert.equal(a.seed, mintSeed('secret-one', '2030-01-02'));
+  assert.equal(a.closesAt, '2030-01-04T00:00:00.000Z', '48 h window from 00:00 UTC'); assert.equal(a.issuedAt, d1.toISOString());
+  assert.notEqual(mintSeed('secret-one', '2030-01-03'), a.seed, 'per date'); assert.notEqual(mintSeed('secret-two', '2030-01-02'), a.seed, 'per secret');
+  assert.equal(mintSeed('secret-one', '2030-01-02'), a.seed, 'deterministic');
+  assert.throws(() => mintSeed('secret-one', '2030-13-45'), /bad date/); assert.throws(() => mintSeed('', '2030-01-02'));
+  assert.equal(v.daily(10, d1, '2030-01-03'), null, 'tomorrow has not opened'); assert.equal(v.daily(10, d1, 'junk'), null);
+  const b = v.daily(10, d2)!;
+  assert.equal(commitmentFor(b.seed), a.commitment, 'the commitment published on day D is the hash of the seed served on D+1');
+  assert.deepEqual(b.previous, { date: a.date, seed: a.seed, commitment: a.commitment }, 'yesterday travels with today for verification');
+  assert.equal(v.daily(10, d2, '2030-01-02')!.seed, a.seed, 'a past day is served from its stored record');
+  assert.equal(new Verifier(file, { dailySecret: 'secret-one' }).daily(10, d2, '2030-01-02')!.issuedAt, d1.toISOString(), 'records persist');
+  // submissions: minted counts, practice is an ordinary board, forged is refused, closed is refused
+  const twist = (seed: string) => { const s = newRun(seed); for (let r = 1; r <= RULES.rounds; r++) { const i = s.offers.indexOf('crusher'); apply(s, { t: 'pick', i: i >= 0 ? i : 0 }); if (r === 1) { const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!; apply(s, { t: 'unplace', id: conv.id }); apply(s, { t: 'place', id: s.bin[0].id, x: 2, y: 2, dir: 0 }); } if (r === 2) apply(s, { t: 'rotate', id: s.bin[0].id }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); } return s; };
+  assert.equal(v.submit(JSON.stringify(exportReplay(finishedRun(a.seed))), 'ranked', null, d1).ok, true);
+  assert.equal(v.submit(JSON.stringify(exportReplay(finishedRun(dailySeedFor(d1)))), 'practice', null, d1).ok, true, 'the practice seed verifies as an ordinary seed board');
+  assert.deepEqual(v.daily(10, d1)!.entries.map((e) => e.player), ['ranked'], 'the practice run never reaches the daily board');
+  assert.equal(v.board(dailySeedFor(d1)).length, 1, 'but it is on its own seed board');
+  const forged = v.submit(JSON.stringify(exportReplay(finishedRun('daily-2030-01-02-zzzzzzzz'))), 'forger', null, d1);
+  assert.equal(forged.ok, false); assert.match(forged.error!, /not an issued daily seed/);
+  const late = v.submit(JSON.stringify(exportReplay(twist(a.seed))), 'late', null, new Date('2030-01-04T00:00:00Z'));
+  assert.equal(late.ok, false); assert.match(late.error!, /closed at 2030-01-04T00:00:00/);
+  assert.equal(v.submit(JSON.stringify(exportReplay(twist(a.seed))), 'in time', null, new Date('2030-01-03T23:59:59Z')).ok, true, 'one second before the close is fine');
+  // rotation: issued days keep their stored seed; unissued days mint from the new secret
+  const rotated = new Verifier(file, { dailySecret: 'secret-two' });
+  assert.equal(rotated.daily(10, d2, '2030-01-02')!.seed, a.seed, 'issued days keep their stored seed across a secret rotation');
+  assert.equal(rotated.daily(10, d2)!.seed, b.seed, 'so does the current day');
+  const d4 = new Date('2030-01-05T01:00:00Z');
+  assert.equal(rotated.daily(10, d4)!.seed, mintSeed('secret-two', '2030-01-05'), 'new days mint from the new secret');
+  assert.notEqual(rotated.daily(10, d4)!.seed, mintSeed('secret-one', '2030-01-05'));
 });

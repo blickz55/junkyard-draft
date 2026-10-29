@@ -11,6 +11,9 @@ import path from 'node:path';
 import { execSync, spawn, type ChildProcess } from 'node:child_process';
 import { build } from 'esbuild';
 import net from 'node:net';
+import { apply, newRun } from '../game/src/sim/run';
+import { exportReplay } from '../game/src/sim/replay';
+import { RULES } from '../game/src/sim/rules';
 
 const args = process.argv.slice(2);
 const opt = (k: string, d: string) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i + 1] : d; };
@@ -22,14 +25,16 @@ const check = (step: string, ok: boolean, detail: unknown) => { steps.push({ ste
 
 async function freePort(): Promise<number> { return new Promise((res) => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = (s.address() as { port: number }).port; s.close(() => res(p)); }); }); }
 async function bundle(entryRoot: string, out: string) { await build({ entryPoints: [path.join(entryRoot, 'server', 'verify.ts')], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: out, logLevel: 'silent', absWorkingDir: entryRoot }); }
-async function start(bundleFile: string, dataDir: string, port: number): Promise<ChildProcess> {
-  const child = spawn(process.execPath, [bundleFile, '--host', '127.0.0.1', '--port', String(port), '--data-dir', dataDir], { env: { ...process.env, BOT_PAR: '0', VERIFIER_LOG: '0' }, stdio: 'ignore' });
+async function start(bundleFile: string, dataDir: string, port: number, env: Record<string, string> = {}): Promise<ChildProcess> {
+  const child = spawn(process.execPath, [bundleFile, '--host', '127.0.0.1', '--port', String(port), '--data-dir', dataDir], { env: { ...process.env, BOT_PAR: '0', VERIFIER_LOG: '0', ...env }, stdio: 'ignore' });
   for (let i = 0; i < 60; i++) { try { const r = await fetch(`http://127.0.0.1:${port}/health`); if (r.ok) return child; } catch { /* starting */ } await new Promise((r) => setTimeout(r, 150)); }
   child.kill(); throw new Error(`verifier at ${bundleFile} did not start`);
 }
 const stop = (c: ChildProcess) => new Promise<void>((res) => { c.once('exit', () => res()); c.kill(); setTimeout(res, 2000); });
 const health = async (port: number) => (await (await fetch(`http://127.0.0.1:${port}/health`)).json()) as { rulesVersion: number; entries: number; entriesAllVersions: number };
 const board = async (port: number, seed: string) => (await (await fetch(`http://127.0.0.1:${port}/board?seed=${encodeURIComponent(seed)}`)).json()) as { entries: { score: number; player: string }[] };
+const daily = async (port: number) => (await (await fetch(`http://127.0.0.1:${port}/daily`)).json()) as { seed: string; commitment: string; entries: { player: string }[] };
+function finishedRun(seed: string) { const s = newRun(seed); for (let r = 1; r <= RULES.rounds; r++) { const i = s.offers.indexOf('crusher'); apply(s, { t: 'pick', i: i >= 0 ? i : 0 }); if (r === 1) { const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!; apply(s, { t: 'unplace', id: conv.id }); apply(s, { t: 'place', id: s.bin[0].id, x: 2, y: 2, dir: 0 }); } apply(s, { t: 'run' }); apply(s, { t: 'next' }); } return s; }
 const submit = async (port: number, replay: unknown, player: string) => { const r = await fetch(`http://127.0.0.1:${port}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay, player }) }); return { status: r.status, body: await r.json() as { ok: boolean; error?: string; score?: number } }; };
 
 async function main() {
@@ -67,6 +72,15 @@ async function main() {
   // 4. forward again: nothing lost
   srv = await start(v3bundle, data, port);
   h = await health(port); check('re-deploy v3: both entries still stored, v3 ranks', h.rulesVersion === 3 && h.entries === 1 && h.entriesAllVersions === 2, h);
+  await stop(srv);
+  // 5. rotate the daily secret (PLAN-v3 0.6.1): an issued day keeps its stored seed and still accepts submissions; only unissued days mint anew
+  srv = await start(v3bundle, data, port, { DAILY_SECRET: 'rehearsal-secret-A' });
+  const dA = await daily(port); check('daily minted under secret A with a commitment', /^daily-\d{4}-\d{2}-\d{2}-[a-z2-7]{8}$/.test(dA.seed) && /^[0-9a-f]{64}$/.test(dA.commitment), { seed: dA.seed });
+  await stop(srv);
+  srv = await start(v3bundle, data, port, { DAILY_SECRET: 'rehearsal-secret-B' });
+  const dB = await daily(port); check('after rotating the secret the issued day keeps its stored seed and commitment', dB.seed === dA.seed && dB.commitment === dA.commitment, { before: dA.seed, after: dB.seed });
+  s = await submit(port, exportReplay(finishedRun(dA.seed)), 'rotated'); check('a run on the stored daily seed still verifies after rotation', s.status === 200 && s.body.ok === true, s);
+  const dC = await daily(port); check('and reaches the daily board', dC.entries.length === 1 && dC.entries[0].player === 'rotated', dC.entries);
   await stop(srv);
   const ok = steps.every((x) => x.ok);
   fs.mkdirSync(path.dirname(OUT), { recursive: true });

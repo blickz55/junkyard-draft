@@ -13,7 +13,7 @@ Protocol level 2 (PLAN-v3 §1, reported by `/health`): identity is additive. A c
 | GET | `/identity` (bearer) | the claimed record, or 404 with `{ playerId, tag }` before any claim |
 | DELETE | `/me` (bearer) | forget the player: name removed, their entries anonymised as `deleted`, their replays dropped; `{ ok, anonymisedEntries }` |
 | GET | `/board?seed=…&limit=20` | verified entries for a seed |
-| GET | `/daily?limit=10` | today's UTC daily seed + its verified board |
+| GET | `/daily?limit=10[&date=YYYY-MM-DD]` | the **minted** daily (PLAN-v3 0.6.1): `{ ok, date, seed, commitment, issuedAt, closesAt, minted: true, verified: true, entries, previous: { date, seed, commitment }, botPar, tieBreak }`. `seed = daily-<date>-base32(HMAC-SHA256(DAILY_SECRET, date))[0:8]`, issued on the first request on or after 00:00 UTC and stored; `commitment = SHA-256(seed(date+1))`, so tomorrow's seed is fixed before anyone can play it (`tools/mint-check.ts` verifies yesterday's commitment against today's seed). A `date` that has not opened is **403**; a malformed one 400. Submissions on a minted seed are accepted only if this server issued it and `now < closesAt` (48 h after 00:00 UTC; 0.6.2 adds freeze and archive). The client's `daily-YYYY-MM-DD` is the unranked practice seed: an ordinary seed board that never reaches `/daily` |
 | GET | `/histogram?seed=…&hash=…` (also `/board`, `/daily`: `botPar`) | verified score distribution for a seed: `{ n, step, bins[{from,to,count}], mine{score,rank,bin,percentile}?, around[] }` — the player's own entry located by replay hash, never by name |
 | GET | `/replay?hash=…` | the stored actions of a **verified** entry `{ ok, hash, seed, player, score, rulesVersion, actions, verifiedAt }` (404 otherwise) |
 | GET | `/health` | `{ ok, version, rulesVersion, protocol, entries, entriesAllVersions, uptimeSec }` |
@@ -28,7 +28,7 @@ node server/dist/verify.mjs --host 0.0.0.0 --port 4400 --data-dir /data --cors-o
 ```
 Bot par (PLAN-v1 0.4.5): the first request about a seed starts the shipped autoplayer in a worker thread (5 searches × 40 tries, fixed rng streams, so the same number on every machine); the median is stored as `botPar` and returned by `/board`, `/histogram` and `/daily` (null while computing). `BOT_PAR=0` disables it, `BOT_PAR_CAP_MS` (20000) caps a job; a failed or capped job backs off ten minutes. It is a target labelled as a bot, never an entry.
 
-Env vars with the same meaning: `HOST`, `PORT`, `DATA_DIR` (or `BOARD_FILE`), `EVENTS_FILE` (default next to the board), `EVENTS_RETENTION_DAYS` (30), `CORS_ORIGIN`, `RATE_LIMIT`
+Env vars with the same meaning: `HOST`, `PORT`, `DATA_DIR` (or `BOARD_FILE`), `EVENTS_FILE` (default next to the board), `EVENTS_RETENTION_DAYS` (30), `CORS_ORIGIN`, `RATE_LIMIT`, `PLAYER_RATE_LIMIT` (2), `DAILY_SECRET` (or `--daily-secret`; without it the verifier generates one into `<data dir>/daily-secret` with mode 0600 and says so: **back it up**, the ranked daily seeds derive from it). Rotating the secret keeps every issued day (their seeds are stored) but the commitment published on the last day under the old secret will not match the first day under the new one; `tools/rehearse-rollback.ts` rehearses the rotation
 (POST /verify per client IP per minute), `TRUST_PROXY=1` (use `X-Forwarded-For` behind a reverse proxy you
 control), `VERIFIER_LOG=0` (silence the one-line-per-request log).
 
