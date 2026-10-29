@@ -108,7 +108,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       const seen = await page.waitForFunction(() => { const s = window.__jd.stall(); return s.text ? s : false; }, null, { timeout: 15000 });
       const stall = await seen.jsonValue();
       assert.match(stall.text, /^Stalled: [A-Za-z ]+ at \d,\d is (waiting|blocked) — nothing shipped for 8 ticks$/, stall.text);
-      assert.ok(stall.tick <= 10, `flagged by tick ${stall.tick}`);
+      assert.ok(stall.flaggedAt > 0 && stall.flaggedAt <= 10, `flagged by tick ${stall.flaggedAt} (read at tick ${stall.tick})`); // the flag tick, not the poll's: at 4x on a loaded CI runner the sim advances several ticks per frame
       assert.ok([2 * 8 + 1, 2 * 8 + 2].includes(stall.cell), `first blocking cell is the hopper (1,2) or the conveyor in front of the head-on belt (2,2): got ${stall.cell}`);
       const hud = await page.evaluate(() => ({ score: document.querySelector('[data-testid=hud-score]')?.textContent, mark: !!window.__jdGame.scene.getScene('Game').children.getByName('stall-mark')?.visible }));
       assert.deepEqual(hud, { score: '$0', mark: true }, 'nothing shipped and the marker is visible');

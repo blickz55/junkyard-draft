@@ -28,8 +28,8 @@ export interface DevApi {
   /** build-phase undo / redo (Ctrl+Z / Ctrl+Y); false when nothing could be undone or redone */
   undo: () => boolean;
   redo: () => boolean;
-  /** stall indicator: HUD text (empty when none), flagged cell index, current sim tick */
-  stall: () => { text: string; cell: number | null; tick: number };
+  /** stall indicator: HUD text (empty when none), flagged cell index, current sim tick, and the sim tick the stall was flagged at (-1 when none) */
+  stall: () => { text: string; cell: number | null; tick: number; flaggedAt: number };
   /** tips panel: open state, the tip suggested by the last draft (unread), read ids, demo progress */
   tips: () => { open: boolean; current: string | null; suggested: string | null; read: string[]; demo: { tip: string | null; tick: number; shipped: Record<string, number> } | null };
   openTips: (id?: string) => void;

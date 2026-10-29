@@ -84,6 +84,7 @@ export class GameScene extends Phaser.Scene {
   /** stall indicator (PLAN-v1 0.3.5): tick of the last ship this round, the cell currently flagged, its frame */
   static readonly STALL_TICKS = 8;
   private lastShipTick = 0;
+  private stallTick = -1; // sim tick at which the current stall was flagged; read by the dev API so a test's answer never depends on how late it polls
   private stallCell: number | null = null;
   private stallMark!: Phaser.GameObjects.Image;
   /** money heartbeat: the HUD total is re-rasterised at most every HUD_MS (a Text update is a canvas draw + texture upload; at 4x it would be one per frame) */
@@ -660,6 +661,7 @@ export class GameScene extends Phaser.Scene {
     let cell = Infinity; for (const c of jammedNow) if (c < cell) cell = c;
     if (cell === this.stallCell) return;
     this.stallCell = cell;
+    this.stallTick = sim.tick;
     const m = sim.grid[cell];
     const x = cell % RULES.gridWidth, y = Math.floor(cell / RULES.gridWidth);
     const what = m ? MACHINE_INFO[m.kind].name : 'Item';
@@ -670,9 +672,9 @@ export class GameScene extends Phaser.Scene {
     this.tweens.killTweensOf(this.stallMark);
     if (!prefs.reducedMotion) this.tweens.add({ targets: this.stallMark, alpha: 0.35, duration: 450, yoyo: true, repeat: -1 });
   }
-  private clearStall() { this.stallCell = null; this.panel?.setStall(''); if (this.stallMark) { this.tweens.killTweensOf(this.stallMark); this.stallMark.setVisible(false); } }
-  /** Stall indicator state (dev API / tests): the HUD text and the flagged cell (null when none). */
-  stallInfo() { return { text: this.panel?.stallText ?? '', cell: this.stallCell, tick: this.sim?.tick ?? -1 }; }
+  private clearStall() { this.stallCell = null; this.stallTick = -1; this.panel?.setStall(''); if (this.stallMark) { this.tweens.killTweensOf(this.stallMark); this.stallMark.setVisible(false); } }
+  /** Stall indicator state (dev API / tests): the HUD text, the flagged cell (null when none), the current sim tick and the tick the stall was flagged at (-1 when none). */
+  stallInfo() { return { text: this.panel?.stallText ?? '', cell: this.stallCell, tick: this.sim?.tick ?? -1, flaggedAt: this.stallTick }; }
   /** Show "+$value" at a cell using a pooled Text; when all POP_POOL pops are busy the visual is skipped (the counter still ticks). */
   private popAt(x: number, y: number, value: number) {
     let txt = this.popPool.find((t) => !t.visible);

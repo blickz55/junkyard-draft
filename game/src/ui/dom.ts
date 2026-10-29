@@ -3,7 +3,10 @@
  * the canvas instead of hand-positioned Phaser Text: text reflows at every text size, buttons are focusable and
  * readable by assistive tech, and layout is CSS. The overlay tracks the canvas rectangle (Phaser FIT scaling) and
  * exposes it as `--k` (overlay width ÷ logical width) so sizes in `em` follow the canvas scale; `--text-scale`
- * carries the player's text-size preference. One screen is mounted at a time; a Phaser panel (tips) can hide it.
+ * carries the player's text-size preference, and `--fit` (1 unless the title would need to scroll) shrinks the title just
+ * enough to keep its bottom strip on the canvas when the platform's fallback font runs wider than the one it was laid out
+ * with (DejaVu Sans on the Linux CI runner wraps the how-to lines at 130 %). One screen is mounted at a time; a Phaser
+ * panel (tips) can hide it.
  * Every interactive element carries `data-testid`, which the e2e uses instead of Phaser object names.
  */
 import type Phaser from 'phaser';
@@ -51,7 +54,7 @@ export function btn(text: string, tid: string, onClick: () => void, o: { variant
 const STYLE = `
 #game { position: relative; }
 #ui { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 5; font-family: ${FONT}; color: ${CSS.text}; --px: calc(1px * var(--k, 1));
-  font-size: calc(16px * var(--k, 1) * var(--text-scale, 1)); line-height: 1.3; }
+  font-size: calc(16px * var(--k, 1) * var(--text-scale, 1) * var(--fit, 1)); line-height: 1.3; }
 #ui.jd-hidden { display: none; }
 #ui * { box-sizing: border-box; }
 #ui .jd-screen { position: absolute; inset: 0; pointer-events: auto; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; padding: 0.5em 1.25em; gap: 0.35em; }
@@ -147,6 +150,24 @@ class UiLayer {
     root.style.setProperty('--k', String(r.width / W || 1));
     root.style.setProperty('--text-scale', String(prefs.textScale));
     root.classList.toggle('jd-reduced-motion', prefs.reducedMotion);
+    this.fit();
+  }
+  /**
+   * Title only: when the mounted title needs to scroll (a wider fallback font wrapped lines the layout assumed were one
+   * line), lower `--fit` in 2 % steps until it fits, down to 0.8; if even that does not fit, keep the chosen text size and
+   * let the screen scroll. Synchronous (each step reads layout once), idempotent, run on mount and on every resize.
+   */
+  private fit() {
+    const root = this.root, screen = this.screen; if (!root) return;
+    root.style.setProperty('--fit', '1');
+    if (!screen || !screen.classList.contains('jd-title') || screen.clientHeight < 50) return;
+    const fits = () => screen.scrollHeight <= screen.clientHeight + 1;
+    if (fits()) return;
+    for (let f = 0.98; f >= 0.8 - 1e-9; f = Math.round((f - 0.02) * 100) / 100) {
+      root.style.setProperty('--fit', String(f));
+      if (fits()) return;
+    }
+    root.style.setProperty('--fit', '1');
   }
   /** Show one screen (replacing any other). `onKey` receives document keydowns while it is mounted. */
   mount(scene: Phaser.Scene, screen: HTMLElement, onKey?: (e: KeyboardEvent) => void) {
@@ -156,10 +177,11 @@ class UiLayer {
     this.sync();
     screen.classList.add('jd-screen');
     this.root.append(screen); this.screen = screen;
+    this.fit();
     if (onKey) { this.keyHandler = onKey; document.addEventListener('keydown', onKey); }
   }
   unmount() {
-    if (this.screen) { this.screen.remove(); this.screen = null; }
+    if (this.screen) { this.screen.remove(); this.screen = null; this.root?.style.setProperty('--fit', '1'); }
     if (this.keyHandler) { document.removeEventListener('keydown', this.keyHandler); this.keyHandler = null; }
     this.setHidden(false);
   }
