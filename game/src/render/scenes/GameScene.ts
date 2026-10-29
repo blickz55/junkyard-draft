@@ -2,9 +2,9 @@ import Phaser from 'phaser';
 import { applyDpr, DPR } from '../dpr';
 import { decideQuality, QUALITY_PROBE_FRAMES } from '../quality';
 import { explainRunError, inputTravelDirs, outputDirs, placementWarning } from '../../sim/advice';
-import { apply, newRun, replay as replayRun, RunError, type Action, type RunState } from '../../sim/run';
-import { canUndo, undo as undoEdit } from '../../sim/undo';
-import { createSim, step, cellIndex, type SimState } from '../../sim/sim';
+import type { Action, RoundRecord, RunState } from '../../sim/run';
+import { cellIndex, type SimState } from '../../sim/sim';
+import { RoundController, type Mode } from '../RoundController';
 import { DIR_DX, DIR_DY, MACHINE_INFO, RULES } from '../../sim/rules';
 import type { Machine, Material, SimEvent } from '../../sim/types';
 import { CELL, itemTexture, machineTexture } from '../textures';
@@ -12,22 +12,23 @@ import { Button, label, mono, panel } from '../ui';
 import { CSS, FONT, P } from '../palette';
 import { audio } from '../audio';
 import { clearSave, isOnboarded, loadBests, loadSettings, setOnboarded, updateSettings, writeSave } from '../storage';
-import { RULES_VERSION } from '../../sim/types';
 import { BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y, H, SIDE_W, SIDE_X, W } from '../layout';
 import { installDevApi } from '../devapi';
 import { prefs, px as fpx } from '../prefs';
 
-type Mode = 'build' | 'running' | 'paused' | 'summary';
 interface MachineView { c: Phaser.GameObjects.Container; img: Phaser.GameObjects.Image; belt?: Phaser.GameObjects.Image; m: Machine; inBin: boolean }
 
 export class GameScene extends Phaser.Scene {
-  run!: RunState;
-  mode: Mode = 'build';
-  sim: SimState | null = null;
-  private acc = 0;
+  /** authoritative run state, mode machine, sim pacing, undo/redo and playback live in the controller; the scene renders and routes input */
+  ctl!: RoundController;
+  get run(): RunState { return this.ctl.run; }
+  get mode(): Mode { return this.ctl.mode; }
+  get sim(): SimState | null { return this.ctl.sim; }
+  private get speed() { return this.ctl.speed; }
+  private get replayQueue() { return this.ctl.replayQueue; }
+  private get replayLabel() { return this.ctl.replayLabel; }
+  private get replayRounds() { return this.ctl.replayRounds; }
   private lastFrame = 0;
-  private tickMs = 170;
-  private speed = 1;
   private beltFrame = 0;
   private views = new Map<number, MachineView>();
   private itemSprites = new Map<number, Phaser.GameObjects.Image>();
@@ -43,10 +44,6 @@ export class GameScene extends Phaser.Scene {
   private hintBg!: Phaser.GameObjects.Rectangle;
   private overlay: Phaser.GameObjects.Container | null = null;
   private jamMarks = new Map<number, Phaser.GameObjects.Image>();
-  private replayQueue: Action[] | null = null;
-  private replayLabel: string | null = null;
-  /** per-round earnings of the watched run (re-simulated at init), shown next to the live total */
-  private replayRounds: number[] | null = null;
   private tutorial = false;
   private tutorialStep = 0;
   private dragging: MachineView | null = null;
@@ -56,8 +53,6 @@ export class GameScene extends Phaser.Scene {
   private cursor: { x: number; y: number } | null = null;
   private cursorImg!: Phaser.GameObjects.Image;
   private heldId: number | null = null;
-  /** shown once in the hint strip when a save could not be resumed */
-  private resumeNotice: string | null = null;
   /** reused per frame / per tick to avoid allocating sets in the hot path */
   private readonly aliveIds = new Set<number>();
   private readonly jammedNow = new Set<number>();
@@ -70,9 +65,6 @@ export class GameScene extends Phaser.Scene {
   private readonly shipsThisTick = new Map<number, number>();
   /** inputs of the last side-panel build; renderSide() is a no-op while they are unchanged */
   private sideKey = '';
-  /** undone build edits, re-applied by Ctrl+Y; any new edit clears it (PLAN-v1 0.3.3) */
-  private redoStack: Action[] = [];
-  private redoing = false;
   private lastShortcutAt = -1000;
   /** stall indicator (PLAN-v1 0.3.5): tick of the last ship this round, the cell currently flagged, its frame */
   static readonly STALL_TICKS = 8;
@@ -91,24 +83,22 @@ export class GameScene extends Phaser.Scene {
   constructor() { super('Game'); }
 
   init(data: { seed: string; fresh: boolean; replay?: Action[]; actions?: Action[]; replayLabel?: string }) {
-    this.replayLabel = data.replay ? data.replayLabel ?? 'replay playback' : null;
-    this.replayRounds = null;
-    if (data.replay) { try { this.replayRounds = replayRun(data.seed, data.replay, RULES_VERSION).rounds.map((r) => r.earned); } catch { this.replayRounds = null; } }
-    this.run = newRun(data.seed);
-    this.resumeNotice = null;
-    if (!data.fresh && data.actions) {
-      try { this.run = replayRun(data.seed, data.actions, RULES_VERSION); }
-      catch (e) {
-        // a damaged save must not silently start over: say so, and drop it so the title stops offering it
-        this.run = newRun(data.seed); clearSave();
-        this.resumeNotice = `Saved run could not be resumed (${(e as Error).message}); starting this seed fresh.`;
-      }
-    }
-    this.replayQueue = data.replay ? data.replay.slice() : null;
+    this.ctl = new RoundController(data, {
+      onTick: (evs) => this.onTickEvents(evs),
+      onRunStart: () => this.onRunStart(),
+      onPause: (p) => this.onPause(p),
+      onRoundEnd: (rec, visual) => this.onRoundEnd(rec, visual),
+      onNextRound: () => { this.heldId = null; this.syncMachines(); this.renderSide(); this.updateHint(); },
+      onFinished: () => this.scene.start('Results', { run: this.run, replayed: this.replayLabel != null, replayLabel: this.replayLabel ?? undefined }),
+      onStateChange: (a) => this.onStateChange(a),
+      onReject: (a, message) => { if (a.t === 'place') this.showReject(explainRunError(message)); },
+      onPlaybackDone: () => { this.syncMachines(); this.renderSide(); },
+      persist: (seed, actions) => writeSave(seed, actions),
+      schedule: (ms, fn) => { this.time.delayedCall(ms, fn); },
+    });
+    if (this.ctl.resumeNotice) clearSave(); // a damaged save is dropped so the title stops offering it; the notice is shown once
     this.tutorial = !isOnboarded() && !this.replayQueue;
     this.tutorialStep = 0;
-    this.mode = 'build';
-    this.sim = null;
     this.views.clear(); this.itemSprites.clear(); this.jamMarks.clear();
     this.selectedId = null; this.overlay = null; this.dragging = null;
     this.cursor = null; this.heldId = null;
@@ -116,7 +106,7 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     // the scene instance is reused across scene.start(): anything cached on it from the previous life was destroyed at shutdown
-    this.legendC = null; this.sideKey = ''; this.popPool = []; this.redoStack = []; this.popsAlive = 0; this.popsPeak = 0; this.popsSkipped = 0;
+    this.legendC = null; this.sideKey = ''; this.popPool = []; this.popsAlive = 0; this.popsPeak = 0; this.popsSkipped = 0;
     this.cameras.main.setBackgroundColor(P.bg);
     applyDpr(this);
     this.input.mouse?.disableContextMenu();
@@ -137,8 +127,8 @@ export class GameScene extends Phaser.Scene {
     if (this.replayLabel) this.buildReplayBanner();
     installDevApi(this);
     this.events.on('shutdown', () => { this.views.clear(); this.itemSprites.clear(); });
-    if (this.replayQueue) this.time.delayedCall(600, () => this.advanceReplay());
-    if (this.run.phase === 'result') this.showSummary();
+    if (this.replayQueue) this.time.delayedCall(600, () => this.ctl.advanceReplay());
+    if (this.mode === 'summary') this.showSummary();
   }
 
   // ---------- static scenery ----------
@@ -187,7 +177,7 @@ export class GameScene extends Phaser.Scene {
   /** Leave a watched replay at any point: nothing was recorded, nothing to save. */
   stopReplay() {
     if (!this.replayLabel) return;
-    this.replayQueue = null; this.sim = null; audio.resume();
+    this.ctl.stopReplay(); audio.resume();
     this.scene.start('Title');
   }
   private updateHud() {
@@ -311,8 +301,6 @@ export class GameScene extends Phaser.Scene {
     this.dragging = null; this.dragFrom = null; this.hover.setVisible(false); this.hideGhost(); v.c.setDepth(2);
     this.syncMachines();
   }
-  /** Layout edits are only legal while building; once a round starts the authoritative layout is frozen. */
-  private static readonly LAYOUT_EDITS = new Set(['place', 'unplace', 'rotate', 'sell', 'pick']);
   /** Refusal reason in the hint strip for ~2 s; it pre-empts every other hint (tips never interrupt it). */
   private showReject(text: string) {
     this.lastReject = text;
@@ -427,16 +415,14 @@ export class GameScene extends Phaser.Scene {
     this.cursor = null; this.updateCursor();
   }
 
-  /** Apply an action to the run; returns false (and keeps state) if the rules reject it. */
-  act(a: Action): boolean {
-    if (GameScene.LAYOUT_EDITS.has(a.t) && this.mode !== 'build') return false; // frozen: a drop, key or dev-API call during a run changes nothing
-    try { apply(this.run, a); } catch (e) { if (e instanceof RunError) { if (a.t === 'place') this.showReject(explainRunError(e.message)); return false; } throw e; }
-    if (!this.replayLabel) writeSave(this.run.seed, this.run.actions); // playback is never saved: it is someone else's run
-    if (!this.redoing) this.redoStack.length = 0; // a new edit forks history: stale redos are dropped
+  /** Apply an action to the run through the controller; false (state unchanged) if the rules reject it or the layout is frozen. */
+  act(a: Action): boolean { return this.ctl.act(a); }
+  /** Controller hook: the run changed (an accepted action, or null for undo/redo/speed): refresh HUD, hints and the panel. */
+  private onStateChange(a: Action | null) {
+    if (!this.hud.round) return; // init() runs before create(): nothing to draw yet
     this.updateHud();
-    if (a.t === 'place' || a.t === 'pick' || a.t === 'rotate') this.updateHint();
-    if (a.t !== 'rotate') this.renderSide();
-    return true;
+    if (!a || a.t === 'place' || a.t === 'pick' || a.t === 'rotate') this.updateHint();
+    if (!a || a.t !== 'rotate') this.renderSide();
   }
   pick(i: number) {
     if (this.run.phase !== 'draft') return;
@@ -445,28 +431,16 @@ export class GameScene extends Phaser.Scene {
 
   // ---------- undo / redo (build phase only; the replay stays a flat list of final actions) ----------
   /** Ctrl+Z: remove the last layout edit of this build phase (never across a run). Returns false when there is nothing to undo. */
-  undo(): boolean {
-    if (this.mode !== 'build' || this.replayQueue) return false;
-    const u = undoEdit(this.run); if (!u) { audio.invalid(); return false; }
-    this.run = u.state; this.redoStack.push(u.undone);
-    if (!this.replayLabel) writeSave(this.run.seed, this.run.actions);
-    this.afterHistoryChange(); return true;
-  }
+  undo(): boolean { if (!this.ctl.undo()) { audio.invalid(); return false; } this.afterHistoryChange(); return true; }
   /** Ctrl+Y / Ctrl+Shift+Z: re-apply the last undone edit if the rules still accept it. */
-  redo(): boolean {
-    if (this.mode !== 'build' || this.replayQueue) return false;
-    const a = this.redoStack.pop(); if (!a) { audio.invalid(); return false; }
-    this.redoing = true; const ok = this.act(a); this.redoing = false;
-    if (!ok) { this.redoStack.length = 0; audio.invalid(); return false; }
-    this.afterHistoryChange(); return true;
-  }
-  canRedo(): boolean { return this.redoStack.length > 0; }
+  redo(): boolean { if (!this.ctl.redo()) { audio.invalid(); return false; } this.afterHistoryChange(); return true; }
+  canRedo(): boolean { return this.ctl.canRedo(); }
   private afterHistoryChange() {
     audio.click();
     const exists = (id: number | null) => id != null && (this.run.layout.machines.some((m) => m.id === id) || this.run.bin.some((m) => m.id === id));
     if (!exists(this.heldId)) this.heldId = null;
     if (!exists(this.selectedId)) this.selectedId = null;
-    this.updateHud(); this.syncMachines(); this.renderSide(); this.updateHint();
+    this.syncMachines(); this.renderSide();
   }
 
   // ---------- side panel ----------
@@ -474,7 +448,7 @@ export class GameScene extends Phaser.Scene {
   private sideInputs(): string {
     const r = this.run;
     const sel = this.selectedId != null ? r.layout.machines.find((m) => m.id === this.selectedId) ?? r.bin.find((m) => m.id === this.selectedId) : undefined;
-    return JSON.stringify([this.mode, r.phase, r.round, r.offers, r.bin.length, r.layout.machines.length, this.speed, this.replayLabel, !!this.replayRounds, sel ? [sel.id, sel.kind, sel.dir, sel.x >= 0] : null, !!this.replayQueue, canUndo(r), this.redoStack.length]);
+    return JSON.stringify([this.mode, r.phase, r.round, r.offers, r.bin.length, r.layout.machines.length, this.speed, this.replayLabel, !!this.replayRounds, sel ? [sel.id, sel.kind, sel.dir, sel.x >= 0] : null, !!this.replayQueue, this.ctl.canUndo(), this.ctl.canRedo()]);
   }
   renderSide() {
     const key = this.sideInputs();
@@ -496,7 +470,7 @@ export class GameScene extends Phaser.Scene {
         t(16, 126, `Original run: $${orig} this round · $${total} after round ${r.round} · $${this.replayRounds.reduce((a, b) => a + b, 0)} final`, 11, CSS.blue).setName('replay-original');
       }
       t(16, 140, 'Speed', 12, CSS.dim);
-      [1, 2, 4].forEach((s, i) => add(new Button(this, 90 + i * 70, 148, `${s}×`, () => { this.speed = s; this.renderSide(); }, { w: 60, h: 28, color: this.speed === s ? P.amber : P.steelDark, textColor: this.speed === s ? '#1a1612' : CSS.text, size: 13, name: `speed-${s}` })));
+      [1, 2, 4].forEach((s, i) => add(new Button(this, 90 + i * 70, 148, `${s}×`, () => this.ctl.setSpeed(s), { w: 60, h: 28, color: this.speed === s ? P.amber : P.steelDark, textColor: this.speed === s ? '#1a1612' : CSS.text, size: 13, name: `speed-${s}` })));
       add(new Button(this, SIDE_W / 2, 200, this.mode === 'paused' ? 'Resume' : this.replayLabel ? 'Pause' : 'Pause (Esc)', () => this.setPaused(this.mode !== 'paused'), { w: 200, h: 36, color: P.steelDark, textColor: CSS.text, size: 14, name: 'pause' }));
       add(new Button(this, SIDE_W / 2, 246, 'Skip to result', () => this.finishRun(), { w: 200, h: 32, color: P.steelDark, textColor: CSS.text, size: 13, name: 'skip' }));
       if (this.replayLabel) {
@@ -538,8 +512,8 @@ export class GameScene extends Phaser.Scene {
       }
       const placedCount = r.layout.machines.length;
       t(16, 176, `${placedCount} machines placed · ${r.bin.length} in bin`, 12, CSS.dim);
-      add(new Button(this, SIDE_W - 124, 184, 'Undo (Ctrl+Z)', () => this.undo(), { w: 104, h: 24, color: P.steelDark, textColor: CSS.text, size: 11, name: 'undo', disabled: !canUndo(r) }));
-      add(new Button(this, SIDE_W - 36, 184, 'Redo', () => this.redo(), { w: 56, h: 24, color: P.steelDark, textColor: CSS.text, size: 11, name: 'redo', disabled: !this.redoStack.length }));
+      add(new Button(this, SIDE_W - 124, 184, 'Undo (Ctrl+Z)', () => this.undo(), { w: 104, h: 24, color: P.steelDark, textColor: CSS.text, size: 11, name: 'undo', disabled: !this.ctl.canUndo() }));
+      add(new Button(this, SIDE_W - 36, 184, 'Redo', () => this.redo(), { w: 56, h: 24, color: P.steelDark, textColor: CSS.text, size: 11, name: 'redo', disabled: !this.ctl.canRedo() }));
       this.runBtn = add(new Button(this, SIDE_W / 2, 230, `RUN ROUND ${r.round}  (Space)`, () => this.startRun(), { w: SIDE_W - 48, h: 52, size: 18, name: 'run' })) as Button;
       let legendY = 300;
       if (r.bin.length > 0) { const note = t(16, 262, `Parts left in the bin do nothing this round. Select one to sell it for $${RULES.sellValue}.`, 12, CSS.dim); legendY = Math.max(300, note.y + note.height + 14); }
@@ -577,7 +551,7 @@ export class GameScene extends Phaser.Scene {
       else text = '';
       if (r.round >= 3) { this.tutorial = false; setOnboarded(); }
     }
-    if (this.resumeNotice) { text = this.resumeNotice; this.resumeNotice = null; }
+    if (this.ctl.resumeNotice) { text = this.ctl.resumeNotice; this.ctl.resumeNotice = null; }
     if (!text) {
       const tips = ['Scrap $1 → crusher → shards $3 → furnace → ingot $12.', 'Conveyors accept from behind or the side; crushers, furnaces and splitters only from behind.', 'A splitter alternates left and right. Two furnaces beat one.', 'Docks take items from any side. A second hopper doubles raw supply.', 'Right-click or R rotates. Drop a machine on the bin to remove it.', `A press squeezes ${RULES.pressShards} shards into one $${RULES.value.plate} plate: less than a furnace, but it never backs a line up.`, 'Keyboard: arrows move the cursor, Enter places or picks up, Tab cycles bin parts.'];
       text = tips[(r.round + r.layout.machines.length) % tips.length];
@@ -598,22 +572,21 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ---------- simulation playback ----------
-  startRun() {
-    if (this.mode !== 'build' || this.run.phase !== 'build') return;
+  startRun() { this.ctl.startRun(); }
+  /** Controller hook: the layout is frozen and the live sim exists; reset the per-round visuals. */
+  private onRunStart() {
     this.cancelDrag(); // a machine still under the pointer snaps back; nothing can change the layout from here on
     this.selectedId = null; this.heldId = null; this.cursor = null; this.updateSelection(); this.updateCursor(); this.hover.setVisible(false);
-    const layout = { width: this.run.layout.width, height: this.run.layout.height, machines: this.run.layout.machines.map((m) => ({ ...m })) };
-    this.sim = createSim(layout);
-    this.acc = 0; this.mode = 'running';
     this.lastShipTick = 0; this.hudDirty = false; this.lastHudAt = 0; this.clearStall();
     if (DPR > 1 && !this.dprProbe && loadSettings().renderQuality === 'auto') this.dprProbe = [];
     audio.run();
     this.renderSide();
     this.setHint(this.replayLabel ? 'Watching a verified replay: 1/2/4× change the speed, Skip jumps to the round result, Esc stops and returns to the title.' : 'Running… Jams glow red: an item waits for a free cell or a slow machine.');
   }
-  setPaused(p: boolean) {
-    if (p && this.mode === 'running') { this.mode = 'paused'; audio.suspend(); this.renderSide(); this.showPauseOverlay(); }
-    else if (!p && this.mode === 'paused') { this.mode = 'running'; audio.resume(); this.overlay?.destroy(); this.overlay = null; this.renderSide(); }
+  setPaused(p: boolean) { this.ctl.setPaused(p); }
+  private onPause(paused: boolean) {
+    if (paused) { audio.suspend(); this.renderSide(); this.showPauseOverlay(); }
+    else { audio.resume(); this.overlay?.destroy(); this.overlay = null; this.renderSide(); }
   }
   private showPauseOverlay() {
     this.overlay?.destroy();
@@ -623,22 +596,14 @@ export class GameScene extends Phaser.Scene {
     this.overlay = c;
   }
   /** Complete the round instantly (authoritative result comes from the run orchestrator). */
-  finishRun() {
-    if (this.mode !== 'running' && this.mode !== 'paused') return;
-    audio.resume();
-    while (this.sim && this.sim.tick < RULES.ticksPerRound) step(this.sim);
-    this.endRun();
-  }
-  private endRun() {
-    const visual = this.sim?.earned ?? 0;
-    this.act({ t: 'run' });
-    const rec = this.run.rounds[this.run.rounds.length - 1];
+  finishRun() { if (this.ctl.finishRun()) audio.resume(); }
+  /** Controller hook: the round is recorded; tear down the live visuals and show the summary. */
+  private onRoundEnd(rec: RoundRecord, visual: number) {
     if (import.meta.env.DEV && rec.earned !== visual) console.error(`DETERMINISM MISMATCH: visual ${visual} vs authoritative ${rec.earned}`);
     for (const s of this.itemSprites.values()) s.destroy();
     this.itemSprites.clear();
     for (const j of this.jamMarks.values()) j.destroy();
     this.jamMarks.clear();
-    this.sim = null;
     this.clearStall();
     for (const v of this.views.values()) { v.img.setScale(1).setTint(0xffffff).setAngle(v.m.dir * 90); }
     this.showSummary();
@@ -658,20 +623,14 @@ export class GameScene extends Phaser.Scene {
         if (quality === 'low') this.setHint('This device struggles at high resolution: from the next start the game runs at standard resolution (change it on the title screen).');
       }
     }
-    this.acc += delta * this.speed;
-    let guard = 0;
-    while (this.acc >= this.tickMs && guard++ < 10) {
-      this.acc -= this.tickMs;
-      const evs = step(this.sim);
-      this.onTickEvents(evs);
-      if (this.sim.tick >= RULES.ticksPerRound) { this.endRun(); return; }
-    }
-    if (this.hudDirty && this.sim && now - this.lastHudAt >= GameScene.HUD_MS) {
+    if (this.ctl.advance(delta)) return; // the round ended: onRoundEnd tore the live visuals down
+    const sim = this.sim; if (!sim) return;
+    if (this.hudDirty && now - this.lastHudAt >= GameScene.HUD_MS) {
       this.hudDirty = false; this.lastHudAt = now;
-      this.hud.score.setText(`$${this.run.score + this.sim.earned}`);
+      this.hud.score.setText(`$${this.run.score + sim.earned}`);
       if (!prefs.reducedMotion) { this.hud.score.setScale(1.08); this.tweens.add({ targets: this.hud.score, scale: 1, duration: 140, ease: 'Quad.out' }); }
     }
-    const phase = Math.min(1, this.acc / this.tickMs);
+    const phase = this.ctl.tickPhase;
     this.beltFrame = (this.beltFrame + delta * this.speed * 0.012) % 3;
     const bf = `belt-${Math.floor(this.beltFrame)}`;
     for (const v of this.views.values()) {
@@ -679,22 +638,22 @@ export class GameScene extends Phaser.Scene {
       if (prefs.reducedMotion) continue; // belts stay on frame 0, machines do not wobble
       if (v.belt) v.belt.setTexture(bf);
       const cell = cellIndex(v.m.x, v.m.y, RULES.gridWidth);
-      const held = this.sim.itemAt[cell];
+      const held = sim.itemAt[cell];
       if (v.m.kind === 'crusher') { v.img.setScale(held && held.hold > 0 ? 1 + 0.06 * Math.abs(Math.sin(_time / 45)) : 1); v.img.setAngle(v.m.dir * 90 + (held && held.hold > 0 ? Math.sin(_time / 30) * 2 : 0)); }
       else if (v.m.kind === 'furnace') { v.img.setTint(held && held.hold > 0 ? 0xffd9a0 : 0xffffff); v.img.setScale(held && held.hold > 0 ? 1 + 0.04 * Math.abs(Math.sin(_time / 90)) : 1); }
-      else if (v.m.kind === 'press') { const busy = held && held.hold > 0; v.img.setScale(1, busy ? 0.9 + 0.08 * Math.abs(Math.sin(_time / 40)) : 1); v.img.setTint(!busy && (this.sim.pressStore[cell] ?? 0) > 0 ? 0xcfe3ff : 0xffffff); }
-      else if (v.m.kind === 'hopper') { v.img.setScale(this.sim.tick % RULES.hopperPeriod === 0 && phase < 0.3 ? 1.05 : 1); }
-      else if (v.m.kind === 'splitter') { v.img.setAngle(v.m.dir * 90 + ((this.sim.splitterToggle[cell] ?? 0) === 0 ? -4 : 4)); }
+      else if (v.m.kind === 'press') { const busy = held && held.hold > 0; v.img.setScale(1, busy ? 0.9 + 0.08 * Math.abs(Math.sin(_time / 40)) : 1); v.img.setTint(!busy && (sim.pressStore[cell] ?? 0) > 0 ? 0xcfe3ff : 0xffffff); }
+      else if (v.m.kind === 'hopper') { v.img.setScale(sim.tick % RULES.hopperPeriod === 0 && phase < 0.3 ? 1.05 : 1); }
+      else if (v.m.kind === 'splitter') { v.img.setAngle(v.m.dir * 90 + ((sim.splitterToggle[cell] ?? 0) === 0 ? -4 : 4)); }
     }
     // item positions
     const alive = this.aliveIds; alive.clear();
-    for (const it of this.sim.items) {
+    for (const it of sim.items) {
       alive.add(it.id);
       let s = this.itemSprites.get(it.id);
       if (!s) { s = this.add.image(0, 0, itemTexture(it.mat)).setDepth(4); this.itemSprites.set(it.id, s); }
       if (s.texture.key !== itemTexture(it.mat)) s.setTexture(itemTexture(it.mat));
       const to = this.centerOfCell(it.cell);
-      if (!prefs.reducedMotion && it.movedAt === this.sim.tick && it.from >= 0) {
+      if (!prefs.reducedMotion && it.movedAt === sim.tick && it.from >= 0) {
         const from = this.centerOfCell(it.from);
         const e = Phaser.Math.Easing.Quadratic.InOut(phase);
         s.setPosition(from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e);
@@ -703,9 +662,9 @@ export class GameScene extends Phaser.Scene {
     }
     for (const [id, s] of this.itemSprites) if (!alive.has(id)) { this.itemSprites.delete(id); if (prefs.reducedMotion) s.destroy(); else this.tweens.add({ targets: s, scale: 1.6, alpha: 0, duration: 200, onComplete: () => s.destroy() }); }
     const fill = this.side.getByName('progress') as Phaser.GameObjects.Rectangle | null;
-    if (fill) fill.width = (SIDE_W - 32) * (this.sim.tick / RULES.ticksPerRound);
+    if (fill) fill.width = (SIDE_W - 32) * (sim.tick / RULES.ticksPerRound);
     const earned = this.side.getByName('earned') as Phaser.GameObjects.Text | null;
-    if (earned) earned.setText(`Earned this round: $${this.sim.earned}`);
+    if (earned) earned.setText(`Earned this round: $${sim.earned}`);
   }
   private centerOfCell(cell: number) { const x = cell % RULES.gridWidth, y = Math.floor(cell / RULES.gridWidth); return { x: GRID_X + x * CELL + CELL / 2, y: GRID_Y + y * CELL + CELL / 2 }; }
   private onTickEvents(evs: SimEvent[]) {
@@ -790,7 +749,6 @@ export class GameScene extends Phaser.Scene {
 
   // ---------- round summary / results ----------
   private showSummary() {
-    this.mode = 'summary';
     const rec = this.run.rounds[this.run.rounds.length - 1];
     const res = rec.result;
     audio.roundEnd(rec.earned > 38);
@@ -830,7 +788,6 @@ export class GameScene extends Phaser.Scene {
     c.add(this.add.text(GRID_X + 120, GRID_Y + 36, `this round · total $${this.run.score}`, { fontFamily: FONT, fontSize: fpx(13), color: CSS.dim }));
     c.add(new Button(this, GRID_X + GRID_W - 130, GRID_Y + 32, last ? 'Final score (Space)' : 'Next round (Space)', () => this.nextRound(), { w: 230, h: 40, size: 15, name: 'next' }));
     this.overlay = c;
-    if (this.replayQueue) this.time.delayedCall(1200, () => this.advanceReplay());
     this.renderSideSummary(notes);
     this.setHint(last ? 'Final round complete. Badges show what each machine did.' : 'Badges show what each machine did. Study the waits, then draft and rearrange.');
   }
@@ -863,23 +820,6 @@ export class GameScene extends Phaser.Scene {
   nextRound() {
     if (this.mode !== 'summary') return;
     this.overlay?.destroy(); this.overlay = null;
-    const last = this.run.round >= RULES.rounds;
-    this.act({ t: 'next' });
-    if (last || this.run.phase === 'finished') { this.scene.start('Results', { run: this.run, replayed: this.replayLabel != null, replayLabel: this.replayLabel ?? undefined }); return; }
-    this.mode = 'build'; this.heldId = null;
-    this.syncMachines(); this.renderSide(); this.updateHint();
-    if (this.replayQueue) this.time.delayedCall(400, () => this.advanceReplay());
-  }
-
-  // ---------- replay playback ----------
-  private advanceReplay() {
-    const q = this.replayQueue; if (!q) return;
-    while (q.length) {
-      const a = q[0];
-      if (a.t === 'run') { q.shift(); this.startRun(); this.time.delayedCall(200, () => { this.speed = 4; this.renderSide(); }); return; }
-      if (a.t === 'next') { q.shift(); if (this.mode === 'summary') this.nextRound(); else this.time.delayedCall(300, () => this.advanceReplay()); return; }
-      q.shift(); this.act(a);
-    }
-    this.replayQueue = null; this.syncMachines(); this.renderSide();
+    this.ctl.nextRound(); // onNextRound / onFinished hooks redraw or hand over to the results screen
   }
 }
