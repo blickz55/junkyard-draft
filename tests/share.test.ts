@@ -32,6 +32,10 @@ test('share text: days played and the opt-in permalink append lines; the detaile
   assert.match(shareText({ ...base, daysPlayed: 1 }), /\n1 day played$/);
   assert.match(shareText({ ...base, daysPlayed: 12 }), /\n12 days played$/);
   assert.doesNotMatch(shareText({ ...base, daysPlayed: 0 }), /played/);
+  // medal (PLAN-v3 0.6.4): detailed variant, verified entry only
+  assert.match(shareText({ ...base, rank: { n: 3, of: 40 }, medal: 'silver', variant: 'detailed' }), /\nmedal: silver \(final board\)(\n|$)/);
+  assert.doesNotMatch(shareText({ ...base, rank: { n: 3, of: 40 }, medal: 'silver' }), /medal/, 'the grid never carries it');
+  assert.doesNotMatch(shareText({ ...base, medal: 'silver', variant: 'detailed' }), /medal/, 'no verified entry, no medal');
   // streak (PLAN-v3 0.6.3): only the detailed variant, only from two in a row
   assert.match(shareText({ ...base, daysPlayed: 17, streak: 5, variant: 'detailed' }), /\n17 days · 5 in a row(\n|$)/);
   assert.match(shareText({ ...base, daysPlayed: 17, streak: 5 }), /\n17 days played(\n|$)/, 'the spoiler-free grid keeps the plain line');

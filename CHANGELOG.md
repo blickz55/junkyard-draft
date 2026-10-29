@@ -5,6 +5,10 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.6, PLAN-v3)
 
+### 0.6.4 Medals after close — 2026-10-30
+- **For players.** When a daily closes and has at least five verified runs, its final board sets three medal thresholds: bronze at the 50th percentile, silver at the 80th, gold at the 95th. The Archive shows the thresholds for each closed day and names the medal your own verified run earned; the results histogram and the detailed share text do the same for a closed day. Bot par stays the day-of target; medals are the after-close one. Nothing is shown until the server has computed them.
+- **For operators.** `medals` on the day record, computed once at freeze (nearest-rank percentiles, documented in `game/src/daily/medals.ts`), returned by `/daily`, `/archive` and `/histogram` (frozen daily seeds only). The Dockerfile copies `game/src/daily`. Protocol stays 2 (additive). No rules change.
+
 ### 0.6.3 Days played and streak, with grace — 2026-10-30
 - **For players.** The title now says "17 days played · 5 in a row". The streak counts consecutive dailies you submitted and had verified, by the daily's date: yesterday's daily is open until midnight UTC tonight, so playing it today keeps the chain whole. When a chain ends the line simply shows the plain count again, with no loss message, colour or notification. The detailed share text says "17 days · 5 in a row" once you are at two or more. Everything is UTC, so travelling never changes the count.
 - **For operators.** Client-only: `jd.dailystreak.v1` holds the dates (distinct, validated, bounded), recorded when a run on a minted daily seed is verified (recorded or keep-best; late runs do not count). No protocol or rules change.

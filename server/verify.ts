@@ -6,7 +6,9 @@
  *   the commitment to the next day's seed and the previous day's record (PLAN-v3 0.6.1); a day that has not opened is 403.
  *   Each day closes 48 h after 00:00 UTC (`closesAt`); from then on `final`/`frozenAt` are set and the board never changes;
  *   a later submission is verified and answered `{ ok, score, late: true, recorded: false }` (PLAN-v3 0.6.2).
- * - GET  /archive?from=&to=&limit=30 → closed days newest first with N, bot par and the top five; `nextTo` pages older.
+ * - GET  /archive?from=&to=&limit=30 → closed days newest first with N, bot par, medals and the top five; `nextTo` pages older.
+ * - Medals (PLAN-v3 0.6.4): at freeze the day's verified scores set bronze/silver/gold at the 50th/80th/95th nearest-rank
+ *   percentiles (null below 5 runs); stored on the day, returned by /daily, /archive and /histogram (frozen daily seeds only).
  * - GET  /replay?hash=<replayHash> → the stored actions of a VERIFIED entry (for playback); 404 otherwise.
  * - GET  /health → { ok, version, rulesVersion, entries, uptimeSec }
  * - GET  /histogram?seed=<seed>&hash=<replayHash> → the verified score distribution for a seed (PLAN-v1 0.4.1): bins, N, and
@@ -52,6 +54,8 @@ import { replay as replayRun } from '../game/src/sim/run';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { dailySeedFor, isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
 import { mintSeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS } from './mint';
+import { medalThresholds, type Medals } from '../game/src/daily/medals';
+export { medalThresholds, medalFor, MEDAL_PERCENTILES, MEDAL_MIN_N, type Medals } from '../game/src/daily/medals';
 export { mintSeed, commitmentFor, shiftDate, utcDate, isUtcDate, DAILY_WINDOW_MS } from './mint';
 import { validateBatch, FUNNEL, type EventBatch, type EventName, type Props } from '../game/src/telemetry/events';
 import pkg from '../package.json' with { type: 'json' };
@@ -87,9 +91,9 @@ export interface StoredReplay { seed: string; rulesVersion: number; actions: Rep
 /** The autoplayer's median score on a seed: a target that exists on day one without inventing competitors. */
 export interface BotPar { par: number; runs: number; tries: number; rulesVersion: number; computedAt: string }
 /** One issued daily (PLAN-v3 0.6.1): the seed minted from the secret for that UTC date, the commitment to the next day's seed, and the window. */
-export interface DailyRecord { date: string; seed: string; commitment: string; issuedAt: string; closesAt: string; rulesVersion: number; build: string; /** set once the window closed (= closesAt); the board is final from then on (PLAN-v3 0.6.2) */ frozenAt?: string }
+export interface DailyRecord { date: string; seed: string; commitment: string; issuedAt: string; closesAt: string; rulesVersion: number; build: string; /** set once the window closed (= closesAt); the board is final from then on (PLAN-v3 0.6.2) */ frozenAt?: string; /** computed once at freeze from the final board (PLAN-v3 0.6.4): thresholds, or null when fewer than MEDAL_MIN_N runs; absent while open */ medals?: Medals | null }
 /** One closed day in GET /archive. */
-export interface ArchiveDay { date: string; seed: string; closesAt: string; frozenAt: string; n: number; botPar: number | null; top: BoardEntry[] }
+export interface ArchiveDay { date: string; seed: string; closesAt: string; frozenAt: string; n: number; botPar: number | null; medals: Medals | null; top: BoardEntry[] }
 export const MAX_ARCHIVE_LIMIT = 100;
 export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay>; pars?: Record<string, BotPar>; players?: Record<string, Player>; dailies?: Record<string, DailyRecord> }
 
@@ -330,7 +334,11 @@ export class Verifier {
   private observeFreeze(now: Date) {
     const ds = this.data.dailies; if (!ds) return;
     let changed = false; const next: Record<string, DailyRecord> = {};
-    for (const [k, r] of Object.entries(ds)) { if (!r.frozenAt && Date.parse(r.closesAt) <= now.getTime()) { next[k] = { ...r, frozenAt: r.closesAt }; changed = true; } else next[k] = r; }
+    for (const [k, r] of Object.entries(ds)) {
+      if (!r.frozenAt && Date.parse(r.closesAt) <= now.getTime()) { next[k] = { ...r, frozenAt: r.closesAt, medals: medalThresholds(this.rank(r.seed).map((e) => e.score)) }; changed = true; } // the final board sets the medals (PLAN-v3 0.6.4)
+      else if (r.frozenAt && r.medals === undefined) { next[k] = { ...r, medals: medalThresholds(this.rank(r.seed).map((e) => e.score)) }; changed = true; } // a day frozen before medals existed
+      else next[k] = r;
+    }
     if (!changed) return;
     const d = { ...this.data, dailies: next }; try { this.commit(d); } catch { this.data = d; }
   }
@@ -348,8 +356,15 @@ export class Verifier {
     this.observeFreeze(now);
     const limit = Math.min(MAX_ARCHIVE_LIMIT, Math.max(1, Math.floor(o.limit ?? 30)));
     const frozen = Object.values(this.data.dailies ?? {}).filter((r) => r.frozenAt && (!o.from || r.date >= o.from) && (!o.to || r.date <= o.to)).sort((a, b) => b.date.localeCompare(a.date));
-    const days = frozen.slice(0, limit).map((r) => ({ date: r.date, seed: r.seed, closesAt: r.closesAt, frozenAt: r.frozenAt!, n: this.rank(r.seed).length, botPar: this.par(r.seed), top: this.board(r.seed, 5) }));
+    const days = frozen.slice(0, limit).map((r) => ({ date: r.date, seed: r.seed, closesAt: r.closesAt, frozenAt: r.frozenAt!, n: this.rank(r.seed).length, botPar: this.par(r.seed), medals: r.medals ?? null, top: this.board(r.seed, 5) }));
     return { days, nextTo: frozen.length > limit ? frozen[limit].date : null };
+  }
+  /** Medal thresholds for a seed that is a frozen daily; null otherwise (open days, ordinary seeds, too few runs). */
+  medalsForSeed(seed: string, now = new Date()): Medals | null {
+    if (!isMintedDailySeed(seed)) return null;
+    this.observeFreeze(now);
+    const rec = this.data.dailies?.[dailyDateOf(seed) ?? ''];
+    return rec && rec.seed === seed && rec.frozenAt ? rec.medals ?? null : null;
   }
   /** Today's minted seed (the one bot par computes first). */
   todaySeed(now = new Date()): string { return this.dailyRecord(utcDate(now), now)!.seed; }
@@ -447,7 +462,7 @@ export function loadBoard(text: string): Board {
     const players: Record<string, Player> = {};
     if (raw.players && typeof raw.players === 'object') for (const [id, p] of Object.entries(raw.players as Record<string, Player>)) if (p && typeof p.name === 'string' && typeof p.tag === 'string' && /^[0-9a-f]{64}$/.test(id)) players[id] = { name: p.name, tag: p.tag, createdAt: typeof p.createdAt === 'string' ? p.createdAt : '', renamedAt: typeof p.renamedAt === 'string' ? p.renamedAt : '' };
     const dailies: Record<string, DailyRecord> = {};
-    if (raw.dailies && typeof raw.dailies === 'object') for (const [date, d] of Object.entries(raw.dailies as Record<string, DailyRecord>)) if (d && isUtcDate(date) && typeof d.seed === 'string' && isMintedDailySeed(d.seed) && typeof d.commitment === 'string') dailies[date] = { date, seed: d.seed, commitment: d.commitment, issuedAt: typeof d.issuedAt === 'string' ? d.issuedAt : '', closesAt: typeof d.closesAt === 'string' ? d.closesAt : new Date(dayStartMs(date) + DAILY_WINDOW_MS).toISOString(), rulesVersion: typeof d.rulesVersion === 'number' ? d.rulesVersion : RULES_VERSION, build: typeof d.build === 'string' ? d.build : '', ...(typeof d.frozenAt === 'string' ? { frozenAt: d.frozenAt } : {}) };
+    if (raw.dailies && typeof raw.dailies === 'object') for (const [date, d] of Object.entries(raw.dailies as Record<string, DailyRecord>)) if (d && isUtcDate(date) && typeof d.seed === 'string' && isMintedDailySeed(d.seed) && typeof d.commitment === 'string') dailies[date] = { date, seed: d.seed, commitment: d.commitment, issuedAt: typeof d.issuedAt === 'string' ? d.issuedAt : '', closesAt: typeof d.closesAt === 'string' ? d.closesAt : new Date(dayStartMs(date) + DAILY_WINDOW_MS).toISOString(), rulesVersion: typeof d.rulesVersion === 'number' ? d.rulesVersion : RULES_VERSION, build: typeof d.build === 'string' ? d.build : '', ...(typeof d.frozenAt === 'string' ? { frozenAt: d.frozenAt } : {}), ...(d.medals === null ? { medals: null } : d.medals && typeof d.medals === 'object' && typeof d.medals.gold === 'number' && typeof d.medals.silver === 'number' && typeof d.medals.bronze === 'number' && typeof d.medals.n === 'number' ? { medals: { n: d.medals.n, bronze: d.medals.bronze, silver: d.medals.silver, gold: d.medals.gold } } : {}) };
     const out: Board = { entries, replays };
     if (Object.keys(pars).length) out.pars = pars;
     if (Object.keys(players).length) out.players = players;
@@ -584,7 +599,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         if ((from !== null && !isUtcDate(from)) || (to !== null && !isUtcDate(to))) return json(400, { ok: false, error: 'from/to must be YYYY-MM-DD' });
         return json(200, { ok: true, ...verifier.archive({ from: from ?? undefined, to: to ?? undefined, limit: clampInt(url.searchParams.get('limit'), 30, MAX_ARCHIVE_LIMIT) }, now), tieBreak: TIE_BREAK });
       }
-      if (req.method === 'GET' && url.pathname === '/histogram') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { ok: true, ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined), botPar: withPar(seed), tieBreak: TIE_BREAK }); }
+      if (req.method === 'GET' && url.pathname === '/histogram') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { ok: true, ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined), botPar: withPar(seed), medals: verifier.medalsForSeed(seed, new Date((opts.now ?? Date.now)())), tieBreak: TIE_BREAK }); }
       if (req.method === 'GET' && url.pathname === '/board') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { seed, verified: true, entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT)), botPar: withPar(seed), tieBreak: TIE_BREAK }); }
       // identity (PLAN-v3 0.6.0): the bearer is a device token; only its hash is used or stored
       const bearerId = playerIdFromToken(bearerOf(req));

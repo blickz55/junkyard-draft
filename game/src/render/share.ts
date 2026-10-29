@@ -15,6 +15,8 @@ export interface ShareInput {
   daysPlayed?: number;
   /** consecutive verified dailies (PLAN-v3 0.6.3); the detailed variant says "17 days · 5 in a row" from two */
   streak?: number;
+  /** medal of this run's verified entry on a frozen daily (PLAN-v3 0.6.4); detailed variant only, only when the server sent thresholds */
+  medal?: string;
   /** appended only when the player opts in */
   permalink?: string;
   variant?: 'grid' | 'detailed';
@@ -63,6 +65,7 @@ export function shareText(s: ShareInput): string {
     if (s.rerolls) lines.push(`rerolls: ${s.rerolls} (−$${s.rerolls * RULES.rerollCost})`);
     lines.push(s.rank ? `replay re-simulated by the verifier, rules v${s.rulesVersion}` : `rules v${s.rulesVersion}`);
     if (s.rank && s.badges?.length) lines.push(`badges: ${s.badges.join(' · ')}`);
+    if (s.rank && s.medal) lines.push(`medal: ${s.medal} (final board)`);
   }
   if (s.daysPlayed && s.daysPlayed > 0) lines.push(s.variant === 'detailed' && s.streak && s.streak >= 2 ? `${s.daysPlayed} day${s.daysPlayed === 1 ? '' : 's'} · ${s.streak} in a row` : `${s.daysPlayed} day${s.daysPlayed === 1 ? '' : 's'} played`);
   if (s.permalink) lines.push(s.permalink);

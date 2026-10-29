@@ -20,6 +20,7 @@ export class ResultsScene extends Phaser.Scene {
   /** verified standing from the histogram (for the share text): percentile and population */
   lastPercentile: number | null = null;
   lastN = 0;
+  lastMedal: string | null = null;
   /** last exported clip (size, duration, container) for the e2e; the blob itself is not kept */
   lastClip: { size: number; ms: number; mime: string; frames: number; round: number; width: number; height: number; filename: string; savedTo: string; elapsedMs: number; footer: string } | null = null;
   /** this exact run's replay hash once a verifier accepted it (set by a submission here, or found among this device's stored submissions); null = unverified (review F11) */
@@ -72,7 +73,7 @@ export class ResultsScene extends Phaser.Scene {
     const rec = data.replayed ? { newOverall: false, newSeed: false } : recordBest(run.seed, run.score);
     if (!data.replayed) recordDayPlayed();
     audio.roundEnd(true);
-    this.lastRank = null; this.lastPlayer = ''; this.lastShareText = ''; this.lastPercentile = null; this.lastN = 0;
+    this.lastRank = null; this.lastPlayer = ''; this.lastShareText = ''; this.lastPercentile = null; this.lastN = 0; this.lastMedal = null;
     mountResults(this, run, { replayed: !!data.replayed, replayLabel: data.replayLabel, newOverall: rec.newOverall, newSeed: rec.newSeed });
     this.events.once('shutdown', () => ui.unmount());
   }

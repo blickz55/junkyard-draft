@@ -13,6 +13,7 @@ import { encodeReplay, exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
 import { dailySeedFor, isDailySeed, isMintedDailySeed } from '../game/src/sim/daily';
 import { mintSeed, commitmentFor } from '../server/mint';
+import { medalThresholds, type Medals } from '../game/src/daily/medals';
 
 function finishedRun(seed: string) {
   const s = newRun(seed);
@@ -712,4 +713,42 @@ test('daily window: closes 48 h after 00:00 UTC; freeze flips exactly at the bou
   const small = new Verifier(path.join(path.dirname(file), 'small.json'), { dailySecret: 's', maxSeeds: 2 });
   const day = small.daily(10, later)!.seed; small.setPar(day, 100, 5, 40); small.setPar('x-1', 101, 5, 40); small.setPar('x-2', 102, 5, 40);
   assert.equal(small.par(day), 100, 'the daily keeps its par'); assert.equal(small.parCount, 2); assert.equal([small.par('x-1'), small.par('x-2')].filter((p) => p == null).length, 1, 'an ordinary seed was dropped instead');
+});
+
+// ---- medals after close (PLAN-v3 0.6.4) ----
+test('medals: absent while a day is open, set once at freeze from the final board (null below five runs), persisted, untouched by late runs, backfilled for days frozen before medals existed, returned by /histogram only for the frozen daily', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-medal-')), 'board.json');
+  const v = new Verifier(file, { dailySecret: 'medal-secret' });
+  const D = '2030-05-10'; const open = new Date('2030-05-11T12:00:00Z'), closed = new Date('2030-05-12T00:00:00Z');
+  const rec = v.daily(10, open, D)!; assert.equal(rec.medals, undefined, 'no medals while the day is open');
+  // five distinct runs on the day: the park trick gives the same score with more machines, so use five players with keep-best off (anonymous)
+  const park: [number, number][] = [[6, 0], [6, 5], [0, 5], [6, 2], [0, 0]];
+  const mk = (extra: number) => { const s = newRun(rec.seed); for (let r = 1; r <= RULES.rounds; r++) { apply(s, { t: 'pick', i: 0 }); if (r === RULES.rounds) for (let k = 0; k < extra; k++) { const cell = park[k]; apply(s, { t: 'place', id: s.bin[k].id, x: cell[0], y: cell[1], dir: 0 }); } apply(s, { t: 'run' }); apply(s, { t: 'next' }); } return s; };
+  const runs = [mk(0), mk(1), mk(2), finishedRun(rec.seed), twistRun(rec.seed)];
+  for (const [i, r] of runs.entries()) { const out = v.submit(JSON.stringify(exportReplay(r)), `p${i}`, null, open); assert.equal(out.ok, true, out.error); }
+  const scores = v.board(rec.seed).map((e) => e.score).sort((a, b) => a - b); assert.equal(scores.length, 5);
+  assert.equal(v.daily(10, new Date(closed.getTime() - 1), D)!.medals, undefined, 'still none one millisecond before the close');
+  const frozen = v.daily(10, closed, D)!;
+  assert.deepEqual(frozen.medals, medalThresholds(scores), 'set at freeze from the final board');
+  assert.deepEqual(frozen.medals, { n: 5, bronze: scores[2], silver: scores[3], gold: scores[4] }, 'ranks ceil(2.5)=3, ceil(4)=4, ceil(4.75)=5');
+  assert.deepEqual(new Verifier(file, { dailySecret: 'medal-secret' }).daily(10, closed, D)!.medals, frozen.medals, 'persisted');
+  const late = v.submit(JSON.stringify(exportReplay(mk(3))), 'late', null, new Date('2030-05-13T00:00:00Z')); assert.equal(late.late, true);
+  assert.deepEqual(v.daily(10, new Date('2030-05-13T00:00:00Z'), D)!.medals, frozen.medals, 'a late run changes nothing');
+  assert.deepEqual(v.archive({}, closed).days.find((d) => d.date === D)!.medals, frozen.medals, 'the archive carries them');
+  assert.equal(v.medalsForSeed(rec.seed, closed)!.gold, frozen.medals!.gold); assert.equal(v.medalsForSeed('ordinary-seed', closed), null); assert.equal(v.medalsForSeed(v.daily(10, closed)!.seed, closed), null, 'today is open: no medals');
+  // too few runs: null, not thresholds
+  const D2 = '2030-05-09'; const r2 = v.daily(10, open, D2)!; assert.equal(v.submit(JSON.stringify(exportReplay(finishedRun(r2.seed))), 'solo', null, open).ok, true);
+  assert.equal(v.daily(10, closed, D2)!.medals, null, 'one run: no medals, explicitly null');
+  // a day frozen before medals existed (simulated by stripping the field from the file) gets them on the next observation
+  const raw = JSON.parse(fs.readFileSync(file, 'utf8')) as { dailies: Record<string, { medals?: unknown }> }; delete raw.dailies[D].medals; fs.writeFileSync(file, JSON.stringify(raw));
+  const again = new Verifier(file, { dailySecret: 'medal-secret' });
+  assert.deepEqual(again.daily(10, closed, D)!.medals, frozen.medals, 'backfilled from the stored final board');
+  // over HTTP: /histogram carries medals for the frozen daily only
+  const { base, close } = await listen(again, { rateLimit: null, now: () => closed.getTime() });
+  try {
+    const hg = await (await fetch(`${base}/histogram?seed=${encodeURIComponent(rec.seed)}`)).json() as { n: number; medals: Medals | null };
+    assert.equal(hg.n, 5); assert.deepEqual(hg.medals, frozen.medals);
+    assert.equal(((await (await fetch(`${base}/histogram?seed=ordinary-seed`)).json()) as { medals: unknown }).medals, null);
+    const d = await (await fetch(`${base}/daily?date=${D}`)).json() as { medals: Medals | null; final: boolean }; assert.equal(d.final, true); assert.deepEqual(d.medals, frozen.medals);
+  } finally { close(); }
 });

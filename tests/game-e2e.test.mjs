@@ -416,6 +416,8 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.getByTestId('archive').click();
     await page.waitForFunction((d) => [...document.querySelectorAll('[data-testid=archive-row]')].some((r) => r.dataset.date === d && /final/.test(r.textContent)), twoBack, { timeout: 10000 });
     assert.match(await page.getByTestId('archive-row').first().textContent(), new RegExp(`^${twoBack} · final · 0 verified runs`));
+    assert.equal(arch.days[0].medals, null, 'fewer than five runs: no medals on the day');
+    assert.equal(await page.locator('[data-testid=archive-medals]').count(), 0, 'the client draws medals only when the server sent thresholds (PLAN-v3 0.6.4)');
     await page.getByTestId('archive-play').first().click();
     await page.waitForFunction((seed) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, old.seed, { timeout: 15000 });
     assert.equal(await page.getByTestId('hud-seed').textContent(), `seed ${old.seed} · archived daily (practice)`);

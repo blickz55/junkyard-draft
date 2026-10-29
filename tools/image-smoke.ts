@@ -27,7 +27,8 @@ function finishedRun(s: string) {
   }
   return run;
 }
-const fail = (msg: string): never => { console.error(`FAIL ${msg}`); process.exit(1); };
+class CheckFailed extends Error {}
+const fail = (msg: string): never => { throw new CheckFailed(msg); }; // the exit code is set in main(): process.exit() during an open fetch trips a libuv assertion on Windows
 
 async function main() {
   interface Health { ok?: boolean; rulesVersion?: number }
@@ -67,11 +68,15 @@ async function main() {
   const twoBack = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
   const old = await (await fetch(`${url}/daily?date=${twoBack}`)).json() as { final?: boolean; frozenAt?: string | null };
   if (old.final !== true || !old.frozenAt) fail(`a day two days back should be final: ${JSON.stringify(old)}`);
-  const arch = await (await fetch(`${url}/archive`)).json() as { ok?: boolean; days?: { date: string }[] };
+  const arch = await (await fetch(`${url}/archive`)).json() as { ok?: boolean; days?: { date: string; n: number; medals?: { n: number; bronze: number; silver: number; gold: number } | null }[] };
   if (!arch.ok || arch.days?.[0]?.date !== twoBack) fail(`/archive should list ${twoBack} first: ${JSON.stringify(arch)}`);
+  const day = arch.days![0];
+  if (!('medals' in day)) fail(`a frozen day carries a medals field (PLAN-v3 0.6.4): ${JSON.stringify(day)}`);
+  if (day.n < 5 ? day.medals !== null : !(day.medals && day.medals.n === day.n && day.medals.bronze <= day.medals.silver && day.medals.silver <= day.medals.gold)) fail(`medals must be null below five runs and ordered thresholds from five: ${JSON.stringify(day)}`);
+  console.log(`medals for ${twoBack}: ${day.medals ? `gold ≥ $${day.medals.gold} · silver ≥ $${day.medals.silver} · bronze ≥ $${day.medals.bronze}` : 'none (fewer than five runs)'}`);
   console.log(`archive lists ${twoBack} as final`);
   const dup = await fetch(`${url}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(run), player: 'again' }) });
   if (dup.status !== 422) fail(`a duplicate replay should be refused with 422, got ${dup.status}`);
   console.log(`verified $${body.score} for ${seed}; board has 1 entry; duplicate refused`);
 }
-main().catch((e) => fail(String(e)));
+main().then(() => { process.exitCode = 0; }, (e: unknown) => { console.error(e instanceof CheckFailed ? `FAIL ${e.message}` : `FAIL ${String(e)}`); process.exitCode = 1; });

@@ -7,9 +7,10 @@ import type Phaser from 'phaser';
 import { h, btn, ui } from './dom';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { audio } from '../render/audio';
-import { clearSave } from '../render/storage';
+import { clearSave, loadSubmissions } from '../render/storage';
+import { medalFor, medalsLine, type Medals } from '../daily/medals';
 
-export interface ArchiveDay { date: string; seed: string; closesAt: string; frozenAt: string; n: number; botPar: number | null; top: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[] }
+export interface ArchiveDay { date: string; seed: string; closesAt: string; frozenAt: string; n: number; botPar: number | null; medals?: Medals | null; top: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[] }
 
 export function openArchive(scene: Phaser.Scene, verifierUrl: string): void {
   const prev = document.activeElement as HTMLElement | null;
@@ -31,8 +32,11 @@ export function openArchive(scene: Phaser.Scene, verifierUrl: string): void {
     for (const d of a.days) {
       const top = d.top[0];
       const text = `${d.date} · final · ${d.n} verified run${d.n === 1 ? '' : 's'}${top ? ` · #1 $${top.score} ${top.player}` : ''}${d.botPar != null ? ` · bot par $${d.botPar}` : ''}`;
+      // medals only when the server sent thresholds (PLAN-v3 0.6.4); this device's own verified run on that day gets its medal named
+      const mine = loadSubmissions()[d.seed];
+      const medalText = d.medals ? ` · medals: ${medalsLine(d.medals)}${mine ? ` · yours ($${mine.score}): ${medalFor(mine.score, d.medals) ?? 'none'}` : ''}` : '';
       const row = h('div', { class: 'jd-row jd-between', tid: 'archive-row', title: `seed ${d.seed} · closed ${d.closesAt}` },
-        h('span', {}, text),
+        h('span', {}, text, medalText ? h('span', { tid: 'archive-medals', class: 'jd-amber' }, medalText) : null),
         h('span', { class: 'jd-row', style: 'gap:0.4em' },
           btn('Play as practice', 'archive-play', () => play(d.seed), { small: true }),
           top?.replayAvailable ? btn('Watch #1', 'archive-watch', () => { close(); fetchVerifiedReplay(verifierUrl, top.replayHash).then((r) => playVerifiedReplay(scene, r)).catch(() => { /* the title strip reports verifier trouble */ }); }, { small: true }) : null));
