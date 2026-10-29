@@ -53,7 +53,7 @@ function exportPricing(l: Layout): number {
   return earned;
 }
 
-const draw = (l: Layout) => { const g: string[][] = Array.from({ length: l.height }, () => Array(l.width).fill('.')); const sym: Record<MachineKind, string> = { hopper: 'H', conveyor: '>', splitter: 'S', crusher: 'C', furnace: 'F', press: 'P', dock: 'D', sieve: 'V' }; const arrow = ['>', 'v', '<', '^']; for (const x of l.machines) g[x.y][x.x] = x.kind === 'conveyor' ? arrow[x.dir] : sym[x.kind] + ''; return g.map((r) => r.join('')).join('\n'); };
+const draw = (l: Layout) => { const g: string[][] = Array.from({ length: l.height }, () => Array(l.width).fill('.')); const sym: Record<MachineKind, string> = { hopper: 'H', conveyor: '>', splitter: 'S', crusher: 'C', furnace: 'F', press: 'P', dock: 'D', sieve: 'V', tuner: 'T' }; const arrow = ['>', 'v', '<', '^']; for (const x of l.machines) g[x.y][x.x] = x.kind === 'conveyor' ? arrow[x.dir] : sym[x.kind] + ''; return g.map((r) => r.join('')).join('\n'); };
 
 // hand-authored Sieve line: hopper B → crusher side-loads shards onto hopper A's belt; the Sieve sends scrap on to dock 1 and shards right into a furnace that ships ingots into dock 2
 const hand = lay(m('hopper', 0, 2, 0), m('conveyor', 1, 2, 0), m('sieve', 2, 2, 0), m('conveyor', 3, 2, 0), m('dock', 4, 2), m('hopper', 1, 0, 1), m('crusher', 1, 1, 1), m('furnace', 2, 3, 1), m('dock', 2, 4), m('conveyor', 6, 5, 0), m('conveyor', 7, 5, 0));

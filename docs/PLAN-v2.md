@@ -45,8 +45,9 @@ Shipped: everything PLAN-v1 lists for v0.3 and v0.4 (0.4.0, rules version 2) plu
 | Rule | Value | Notes |
 | --- | --- | --- |
 | `RULES_VERSION` | 3 | first commit of `rules-v3` |
-| Sieve | 1 cell, input from behind, no hold, raw scrap forward, processed materials to the oriented side, blocked exit waits | weight 10, offered from round 3; in the pool only if 0.5.2 says go |
-| Offer tiers | rounds 1–2: conveyor, hopper, crusher, furnace, splitter, press, dock (round 1 includes a crusher); round 3+: plus Sieve | table in `rules.ts`, seed-fair |
+| Sieve | experimental only (0.5.2 said no-go) | weight 0, never offered |
+| Tuner | 1 cell, no input/output; adjacent crusher/furnace/press hold −1 tick (min 1); no stacking | weight 10, offered from round 3 |
+| Offer tiers | rounds 1–2: conveyor, hopper, crusher, furnace, splitter, press, dock (round 1 includes a crusher); round 3+: plus Tuner | `RULES.offerFromRound` in `rules.ts`, seed-fair |
 | Reroll | `{ t: 'reroll' }`, cost $40, once per round, draft phase only, refused below the cost, stream `${seed}:draft:${round}:reroll:1`, not on `tutorial-*` | accounting: production + sales − rerolls |
 | Tie-breaker | score desc, final-round machines asc, server receipt asc, replay hash asc | derived by the verifier, printed under boards |
 

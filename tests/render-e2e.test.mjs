@@ -425,8 +425,8 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
       await page.goto(`${URL}/?dev=1&scene=game&seed=atlas-seed`);
       await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
-      const art = await page.evaluate(() => { const tm = window.__jdGame.textures; const keys = ['tile', 'tile-ok', 'tile-bad', 'tile-sel', 'tile-cursor', 'm-conveyor', 'm-hopper', 'm-crusher', 'm-crusher-1', 'm-furnace', 'm-press', 'm-press-1', 'm-press-2', 'm-splitter', 'm-dock', 'belt-0', 'belt-1', 'belt-2', 'belt-3', 'belt-4', 'belt-5', 'belt-6', 'belt-7', 'i-scrap', 'i-shards', 'i-plate', 'i-ingot', 'i-slag', 'dot', 'px']; const atlasSrc = tm.get('art').source[0]; return { status: window.__jdArt, allExist: keys.every((k) => tm.exists(k)), shared: keys.filter((k) => k !== 'dot' && k !== 'px').every((k) => tm.get(k).source[0] === atlasSrc), crusherCut: (() => { const f = tm.getFrame('m-crusher'); return [f.cutWidth, f.cutHeight]; })(), plateCut: (() => { const f = tm.getFrame('i-plate'); return [f.cutWidth, f.cutHeight]; })(), base64: tm.getBase64('m-crusher').slice(0, 22) }; });
-      assert.deepEqual({ built: art.status.built, packed: art.status.packed.length, missing: art.status.missing, allExist: art.allExist, shared: art.shared, crusherCut: art.crusherCut, plateCut: art.plateCut }, { built: true, packed: 28, missing: [], allExist: true, shared: true, crusherCut: [72, 72], plateCut: [24, 24] }, JSON.stringify(art));
+      const art = await page.evaluate(() => { const tm = window.__jdGame.textures; const keys = ['tile', 'tile-ok', 'tile-bad', 'tile-sel', 'tile-cursor', 'm-conveyor', 'm-hopper', 'm-crusher', 'm-crusher-1', 'm-furnace', 'm-press', 'm-press-1', 'm-press-2', 'm-splitter', 'm-dock', 'm-tuner', 'belt-0', 'belt-1', 'belt-2', 'belt-3', 'belt-4', 'belt-5', 'belt-6', 'belt-7', 'i-scrap', 'i-shards', 'i-plate', 'i-ingot', 'i-slag', 'dot', 'px']; const atlasSrc = tm.get('art').source[0]; return { status: window.__jdArt, allExist: keys.every((k) => tm.exists(k)), shared: keys.filter((k) => k !== 'dot' && k !== 'px').every((k) => tm.get(k).source[0] === atlasSrc), crusherCut: (() => { const f = tm.getFrame('m-crusher'); return [f.cutWidth, f.cutHeight]; })(), plateCut: (() => { const f = tm.getFrame('i-plate'); return [f.cutWidth, f.cutHeight]; })(), base64: tm.getBase64('m-crusher').slice(0, 22) }; });
+      assert.deepEqual({ built: art.status.built, packed: art.status.packed.length, missing: art.status.missing, allExist: art.allExist, shared: art.shared, crusherCut: art.crusherCut, plateCut: art.plateCut }, { built: true, packed: 29, missing: [], allExist: true, shared: true, crusherCut: [72, 72], plateCut: [24, 24] }, JSON.stringify(art));
       assert.equal(art.base64, 'data:image/png;base64,', 'frame-aware base64 export still works for the DOM');
       assert.deepEqual(errors, [], 'no page errors with the atlas');
       await context.close();
@@ -437,7 +437,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       await p2.goto(`${URL}/?dev=1&scene=game&seed=atlas-seed`);
       await p2.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
       const fb = await p2.evaluate(() => ({ status: window.__jdArt, pressExists: window.__jdGame.textures.exists('m-press'), pressShared: window.__jdGame.textures.get('m-press').source[0] === window.__jdGame.textures.get('art').source[0] }));
-      assert.deepEqual({ built: fb.status.built, packed: fb.status.packed.length, missing: fb.status.missing, pressExists: fb.pressExists, pressShared: fb.pressShared }, { built: true, packed: 27, missing: ['m-press'], pressExists: true, pressShared: false }, JSON.stringify(fb));
+      assert.deepEqual({ built: fb.status.built, packed: fb.status.packed.length, missing: fb.status.missing, pressExists: fb.pressExists, pressShared: fb.pressShared }, { built: true, packed: 28, missing: ['m-press'], pressExists: true, pressShared: false }, JSON.stringify(fb));
       await c2.close();
       // 8b) hidpi_atlas_keeps_logical_size (DOSSIER-v1 0.4.8b): at ?dpr=2 the atlas is twice the 1x snapshot and every packed
       //     frame is cut at 2x, yet machines, items and tiles display at their logical 72 / 24 px; a procedural fallback stays 1x
@@ -457,7 +457,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
           machine: m && [m.texture.key, m.displayWidth, m.displayHeight], tile: tile && [tile.displayWidth, tile.displayHeight], dockCut: dock && dock.cutWidth, dockShared: tm.get('m-dock').source[0] === tm.get('art').source[0] };
       });
       assert.deepEqual({ built: hi.status.built, scale: hi.status.scale, packed: hi.status.packed.length, atlas: hi.status.atlas, crusherCut: hi.crusherCut, plateCut: hi.plateCut, machine: hi.machine && hi.machine.slice(1), tile: hi.tile, dockCut: hi.dockCut, dockShared: hi.dockShared },
-        { built: true, scale: 2, packed: 27, atlas: { width: art.status.atlas.width * 2, height: art.status.atlas.height * 2 }, crusherCut: [144, 144], plateCut: 48, machine: [72, 72], tile: [72, 72], dockCut: 72, dockShared: false }, JSON.stringify(hi));
+        { built: true, scale: 2, packed: 28, atlas: { width: art.status.atlas.width * 2, height: art.status.atlas.height * 2 }, crusherCut: [144, 144], plateCut: 48, machine: [72, 72], tile: [72, 72], dockCut: 72, dockShared: false }, JSON.stringify(hi));
       assert.ok(hi.machine && hi.machine[0].startsWith('m-'), 'a machine sprite is on screen');
       await c3.close();
     }

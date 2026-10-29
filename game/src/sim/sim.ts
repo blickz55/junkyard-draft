@@ -45,7 +45,7 @@ export function createSim(layout: Layout): SimState {
 }
 
 function stats(s: SimState, cell: number): CellStats {
-  return (s.cellStats[cell] ||= { processed: 0, shipped: 0, earned: 0, jammedTicks: 0, spawned: 0, blockedTicks: 0, passed: 0, stored: 0 });
+  return (s.cellStats[cell] ||= { processed: 0, shipped: 0, earned: 0, jammedTicks: 0, spawned: 0, blockedTicks: 0, passed: 0, stored: 0, tuned: 0 });
 }
 
 function neighbor(s: SimState, cell: number, dir: Dir): number {
@@ -60,7 +60,7 @@ function accepts(s: SimState, cell: number, travel: Dir): boolean {
   const m = s.grid[cell];
   if (!m) return false;
   switch (m.kind) {
-    case 'hopper': return false;
+    case 'hopper': case 'tuner': return false; // a tuner has no input: it works on its neighbours
     case 'dock': return true;
     case 'conveyor': return travel !== opposite(m.dir); // not head-on into its output
     case 'splitter': case 'crusher': case 'furnace': case 'press': case 'sieve': return travel === m.dir; // only from behind
@@ -79,7 +79,13 @@ function outputDirs(s: SimState, m: Machine, cell: number, item?: Item): Dir[] {
   return [m.dir];
 }
 
-/** An item has just entered processing machine `m` at `cell`: transform it and start its hold timer.
+/** The cell of a Tuner orthogonally adjacent to `cell`, or -1 (the first in direction order: one credit per item, so two tuners never stack). */
+function adjacentTuner(s: SimState, cell: number): number {
+  for (let d = 0; d < 4; d++) { const n = neighbor(s, cell, d as Dir); if (n >= 0 && s.grid[n]?.kind === 'tuner') return n; }
+  return -1;
+}
+
+/** An item has just entered processing machine `m` at `cell`: transform it and start its hold timer (shortened by an adjacent Tuner, rules v3).
  *  A press stores shards until it has RULES.pressShards; each stored shard is absorbed (the item ends).
  *  Returns false when the item was absorbed. */
 function enterProcessor(s: SimState, kind: ProcessorKind, cell: number, item: Item): boolean {
@@ -96,7 +102,10 @@ function enterProcessor(s: SimState, kind: ProcessorKind, cell: number, item: It
     s.pressStore[cell] = 0;
   }
   const to = transform(kind, item.mat);
-  item.hold = RULES.process[kind];
+  let hold: number = RULES.process[kind];
+  const tuner = adjacentTuner(s, cell);
+  if (tuner >= 0 && hold > 1 && hold >= RULES.tunerMinHold) { hold = Math.max(1, hold - RULES.tunerBonus); stats(s, tuner).tuned++; }
+  item.hold = hold;
   if (to !== item.mat) { s.tickEvents.push({ tick: s.tick, kind: 'transform', cell, itemId: item.id, from: item.mat, to }); stats(s, cell).processed++; }
   item.mat = to;
   return true;

@@ -61,6 +61,12 @@ export const TIPS: readonly Tip[] = [
     ticks: 30, check: (r) => r.shipped.plate >= 1 && r.absorbed >= 1, watch: 'Two shards go in, one plate comes out.',
   },
   {
+    id: 'tuner', machine: 'tuner', title: 'A tuner speeds up its neighbours',
+    text: `A tuner takes nothing in and puts nothing out. Every crusher, furnace or press touching one of its four sides works ${RULES.tunerBonus} tick faster (never under one tick), and two tuners do not stack. A furnace next to a tuner takes ${RULES.process.furnace - RULES.tunerBonus} ticks instead of ${RULES.process.furnace}: more ingots from the same line, for one cell and one draft.`,
+    layout: lay(5, 3, m('hopper', 0, 1), m('crusher', 1, 1), m('furnace', 2, 1), m('dock', 3, 1), m('tuner', 2, 0)),
+    ticks: 30, check: (r) => r.shipped.ingot >= 11 && (r.cellStats[cell(2, 0, 5)]?.tuned ?? 0) >= 11, watch: 'The furnace under the tuner releases an ingot every 2 ticks.',
+  },
+  {
     id: 'sell', machine: null, title: 'Sell the parts you cannot use',
     text: `A part left in the bin does nothing during the round. Select it and press Sell to add $${RULES.sellValue} to your score instead: a draft that does not fit your line is still worth taking for the money. Parts on the grid cannot be sold; send them back to the bin first.`,
     layout: null, ticks: 0, check: () => true, watch: '',

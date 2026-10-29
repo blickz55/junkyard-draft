@@ -201,6 +201,7 @@ export class GamePanel {
       const st = res.cellStats[cellIndex(m.x, m.y, g.width)];
       if (m.kind === 'hopper') { if (st && st.blockedTicks > 5) notes.push(`Hopper ${m.x + 1},${m.y + 1} blocked ${st.blockedTicks} ticks: line ahead full or facing wrong.`); if (!st) notes.push(`Hopper ${m.x + 1},${m.y + 1} never emitted: nothing accepts items ahead of it.`); }
       else if (m.kind === 'crusher' || m.kind === 'furnace' || m.kind === 'press') { if (st && st.jammedTicks > 8) notes.push(`${MACHINE_INFO[m.kind].name} ${m.x + 1},${m.y + 1}: output blocked ${st.jammedTicks} ticks.`); }
+      else if (m.kind === 'tuner') { if (!st || !st.tuned) notes.push(`Tuner ${m.x + 1},${m.y + 1} sped nothing up: no crusher, furnace or press touches it.`); }
     }
     const inTransit = res.spawned - res.absorbed - Object.values(res.shipped).reduce((a, b) => a + b, 0);
     if (inTransit > 6) notes.push(`${inTransit} items were still in transit or stuck when time ran out.`);
@@ -221,7 +222,8 @@ export class GamePanel {
       else if (m.kind === 'crusher' || m.kind === 'furnace' || m.kind === 'press') {
         line1 = st && st.passed ? `${st.processed} made` : 'unused'; if (!st || !st.processed) cls = 'jd-dim';
         if (st && st.jammedTicks > 8) line2 = `waited ${st.jammedTicks}`; else if (m.kind === 'press' && st && st.stored) { line2 = `${st.stored} shard held`; warn = false; }
-      } else { if (st && st.jammedTicks > 8) line2 = `waited ${st.jammedTicks}`; else if (!st || !st.passed) { line1 = 'unused'; cls = 'jd-dim'; } }
+      } else if (m.kind === 'tuner') { if (st && st.tuned) { line1 = `${st.tuned} sped up`; cls = 'jd-green'; warn = false; } else { line1 = 'nothing to tune'; cls = 'jd-dim'; } }
+      else { if (st && st.jammedTicks > 8) line2 = `waited ${st.jammedTicks}`; else if (!st || !st.passed) { line1 = 'unused'; cls = 'jd-dim'; } }
       if (!line1 && !line2) continue;
       layer.append(h('div', { class: 'jd-badge', style: `left:${em(m.x * CELL + CELL / 2)}; top:${em((m.y + 1) * CELL - 2)}` },
         line1 ? h('div', { class: cls }, line1) : null, line2 ? h('div', { class: warn ? 'jd-red' : 'jd-dim' }, line2) : null));

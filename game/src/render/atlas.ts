@@ -21,7 +21,7 @@ export const ART_SCALE = DPR;
 const ITEM = 24;
 export const ART: readonly { key: string; size: number }[] = [
   ...['tile', 'tile-ok', 'tile-bad', 'tile-sel', 'tile-cursor'].map((key) => ({ key, size: CELL })),
-  ...['m-conveyor', 'm-hopper', 'm-crusher', 'm-crusher-1', 'm-furnace', 'm-press', 'm-press-1', 'm-press-2', 'm-splitter', 'm-dock'].map((key) => ({ key, size: CELL })),
+  ...['m-conveyor', 'm-hopper', 'm-crusher', 'm-crusher-1', 'm-furnace', 'm-press', 'm-press-1', 'm-press-2', 'm-splitter', 'm-dock', 'm-tuner'].map((key) => ({ key, size: CELL })),
   ...Array.from({ length: BELT_FRAMES }, (_, f) => ({ key: `belt-${f}`, size: CELL })),
   ...['i-scrap', 'i-shards', 'i-plate', 'i-ingot', 'i-slag'].map((key) => ({ key, size: ITEM })),
 ];

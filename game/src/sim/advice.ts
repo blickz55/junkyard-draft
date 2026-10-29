@@ -4,7 +4,7 @@ import type { Dir, Layout, Machine, MachineKind } from './types';
 /** Directions (as travel directions into the machine) that a machine accepts items from; mirrors `accepts` in sim.ts. */
 export function inputTravelDirs(kind: MachineKind, dir: Dir): Dir[] {
   switch (kind) {
-    case 'hopper': return [];
+    case 'hopper': case 'tuner': return [];
     case 'conveyor': return [dir, leftOf(dir), rightOf(dir)];
     case 'dock': return [0, 1, 2, 3];
     default: return [dir]; // splitter, crusher, furnace, press: only from behind
@@ -12,7 +12,7 @@ export function inputTravelDirs(kind: MachineKind, dir: Dir): Dir[] {
 }
 /** Directions a machine pushes items out in (a splitter alternates left and right). */
 export function outputDirs(kind: MachineKind, dir: Dir): Dir[] {
-  if (kind === 'dock') return [];
+  if (kind === 'dock' || kind === 'tuner') return [];
   return kind === 'splitter' ? [leftOf(dir), rightOf(dir)] : [dir];
 }
 
@@ -41,6 +41,10 @@ const at = (layout: Layout, x: number, y: number, ignoreId: number): Machine | u
  */
 export function placementWarning(layout: Layout, kind: MachineKind, x: number, y: number, dir: Dir, id: number): string | null {
   const name = MACHINE_INFO[kind].name;
+  if (kind === 'tuner') {
+    const touching = [[1, 0], [0, 1], [-1, 0], [0, -1]].some(([dx, dy]) => { const o = at(layout, x + dx, y + dy, id); return !!o && (o.kind === 'crusher' || o.kind === 'furnace' || o.kind === 'press'); });
+    return touching ? null : 'A tuner only speeds up the crushers, furnaces and presses touching it; nothing here to tune yet.';
+  }
   const ins = inputTravelDirs(kind, dir);
   if (ins.length && kind !== 'dock') {
     const fed = ins.some((t) => {

@@ -19,7 +19,13 @@ export const RULES = {
   /** money for selling an unwanted drafted part from the bin (never a placed machine) */
   sellValue: 10,
   /** Draft offer weights (relative). */
-  draftWeights: { conveyor: 30, crusher: 18, furnace: 15, splitter: 15, hopper: 10, press: 10, dock: 8, sieve: 0 } as Record<MachineKind, number>,
+  draftWeights: { conveyor: 30, crusher: 18, furnace: 15, splitter: 15, hopper: 10, press: 10, dock: 8, sieve: 0, tuner: 10 } as Record<MachineKind, number>,
+  /** Round-tiered offers (PLAN-v2 0.5.3): a kind listed here is offered only from that round on; everything else from round 1. Seed-fair: depends on (seed, round) only. */
+  offerFromRound: { tuner: 3 } as Partial<Record<MachineKind, number>>,
+  /** A Tuner shortens the hold of every orthogonally adjacent processor by this many ticks (never below one tick; two Tuners do not stack). */
+  tunerBonus: 1,
+  /** A Tuner only affects processors whose normal hold is at least this many ticks (2 = every processor; 3 = the furnace alone today). */
+  tunerMinHold: 2,
   /**
    * Experimental machines (PLAN-v2 0.5.2): present in the simulation so fixtures and tests can measure them, but with draft
    * weight 0 and no card until a written go/no-go in docs/DESIGN.md admits them (0.5.3 flips the weight and the tier table).
@@ -43,6 +49,7 @@ export const MACHINE_INFO: Record<MachineKind, { name: string; blurb: string }> 
   furnace: { name: 'Furnace', blurb: 'Shards → Ingot ($12). Raw scrap melts to Slag ($1). Takes 3 ticks.' },
   press: { name: 'Plate Press', blurb: 'Two Shards → one Plate ($8). Takes 2 ticks and halves the traffic behind it. Other materials pass through.' },
   dock: { name: 'Shipping Dock', blurb: 'Accepts items from any side and sells them for their value.' },
+  tuner: { name: 'Tuner', blurb: 'No input, no output. Every crusher, furnace or press touching it works one tick faster (never under one tick). Two tuners do not stack.' },
   sieve: { name: 'Sieve', blurb: 'Takes from behind. Raw scrap passes forward; shards, plates, ingots and slag turn right. A blocked exit waits.' },
 };
 
