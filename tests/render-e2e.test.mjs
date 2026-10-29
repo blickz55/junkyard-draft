@@ -157,7 +157,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
       await page.goto(`${URL}/?dev=1`);
       await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
-      const learn = await page.evaluate(() => { const b = window.__jdGame.scene.getScene('Title').children.getByName('learn'); return { text: b?.label.text, amber: b?.bg.fillColor === 0xf0a030 || b?.bg.fillColor === window.__jdGame.scene.getScene('Title').children.getByName('daily').bg.fillColor }; });
+      const learn = await page.evaluate(() => { const b = document.querySelector('[data-testid=learn]'); return { text: b?.textContent, amber: !!b && b.classList.contains('jd-btn-primary') }; });
       assert.deepEqual(learn, { text: 'Learn to play (3 min)', amber: true }, 'a fresh profile gets the lesson as the highlighted secondary action');
       await page.goto(`${URL}/?dev=1&scene=game&seed=${TUTORIAL_SEED}`);
       await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
@@ -209,8 +209,23 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       assert.equal((await api('tips')).open, false, 'no modal or panel interrupted the lesson');
       await page.goto(`${URL}/?dev=1`);
       await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
-      assert.equal(await page.evaluate(() => window.__jdGame.scene.getScene('Title').children.getByName('learn')?.label.text), 'Learn (3 min)', 'afterwards the lesson stays offered, unhighlighted');
+      assert.equal(await page.getByTestId('learn').textContent(), 'Learn (3 min)', 'afterwards the lesson stays offered, unhighlighted');
       assert.deepEqual(errors, [], 'no page errors');
+      await context.close();
+    }
+    // 7) dom_overlay_tracks_the_canvas (DOSSIER-v1 0.4.0): at 1280x800 and 1920x1080 the DOM title covers exactly the
+    //    FIT-scaled canvas and no control leaves it; the results screen does the same
+    for (const vp of [{ width: 1280, height: 800 }, { width: 1920, height: 1080 }]) {
+      const context = await browser.newContext({ viewport: vp });
+      const page = await context.newPage();
+      await page.goto(`${URL}/?dev=1`);
+      await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title') && document.querySelector('#ui .jd-screen'), null, { timeout: 15000 });
+      await wait(300);
+      const geo = await page.evaluate(() => { const c = document.querySelector('canvas').getBoundingClientRect(); const u = document.getElementById('ui').getBoundingClientRect(); const s = document.querySelector('#ui .jd-screen'); const outside = [...document.querySelectorAll('#ui [data-testid]')].filter((el) => { const r = el.getBoundingClientRect(); return r.left < u.left - 1 || r.right > u.right + 1 || r.top < u.top - 1 || r.bottom > u.bottom + 1; }).map((el) => el.dataset.testid); return { dx: Math.abs(c.left - u.left) + Math.abs(c.top - u.top), dw: Math.abs(c.width - u.width) + Math.abs(c.height - u.height), k: getComputedStyle(document.getElementById('ui')).getPropertyValue('--k').trim(), outside, scroll: s.scrollHeight - s.clientHeight }; });
+      assert.ok(geo.dx < 1.5 && geo.dw < 1.5, `overlay matches the canvas at ${vp.width}x${vp.height}: ${JSON.stringify(geo)}`);
+      assert.ok(Math.abs(Number(geo.k) - Math.min(vp.width / 1120, vp.height / 700)) < 0.01, `--k follows the FIT scale (${geo.k})`);
+      assert.deepEqual(geo.outside, [], 'no title control leaves the overlay');
+      assert.ok(geo.scroll <= 1, 'the title does not scroll');
       await context.close();
     }
   } finally {

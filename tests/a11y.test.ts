@@ -38,3 +38,14 @@ test('colour math sanity: black/white contrast is 21:1, identity simulation is a
   const c = hexToRgb('#f0a830');
   assert.ok(deltaE(simulate(c, 'normal'), c) < 0.5);
 });
+
+test('dom_ui_uses_audited_colours: every colour literal in the DOM stylesheet is a palette colour the audit covers', async () => {
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('../game/src/ui/dom.ts', import.meta.url), 'utf8');
+  const { CSS, P } = await import('../game/src/render/palette');
+  const literals = [...src.matchAll(/#([0-9a-f]{6})\b/gi)].map((m) => m[1].toLowerCase());
+  assert.ok(literals.length >= 6, 'the stylesheet names colours');
+  const known = new Set([...Object.values(CSS).map((c) => c.replace('#', '').toLowerCase()), ...Object.values(P).map((v) => v.toString(16).padStart(6, '0'))]);
+  const unknown = literals.filter((c) => !known.has(c));
+  assert.deepEqual([...new Set(unknown)], [], 'colours outside the palette: ' + unknown.join(','));
+});

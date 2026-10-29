@@ -3,6 +3,13 @@
 All notable changes to Junkyard Draft. Dates are UTC. Rules changes bump `RULES_VERSION`, which invalidates
 older replays and saves on purpose.
 
+## Unreleased — 2026-10-29 (v0.4 begins: DOM UI shell, DOSSIER-v1 0.4.0, slice 1)
+
+### DOM UI shell (title and results)
+- The title and results screens are now real HTML laid over the canvas (`game/src/ui/dom.ts`, `TitleScreen.ts`, `ResultsScreen.ts`): text reflows at every text size (the title fits at 130 % with a saved run, which the hand-positioned version could not), buttons are focusable and screen-reader readable, layout is CSS. The overlay tracks the FIT-scaled canvas (`--k`) so sizes in em follow the canvas scale; `--text-scale` carries the text-size setting; reduced motion disables the score pop. The Phaser scenes keep the decorative belt, the tips panel (the DOM hides while it is open) and the bookkeeping. Material icons in the results come from the generated textures (`getBase64`), so DOM and canvas can never disagree.
+- Every control carries `data-testid`; the e2e uses Playwright's DOM locators instead of Phaser object names. New checks: the overlay covers exactly the canvas at 1280×800 and 1920×1080 with no control outside it and no scrolling; the stylesheet's colour literals are all audited palette colours.
+- Not yet moved: the game scene's side panel, HUD and hint strip (slice 2).
+
 ## Unreleased — 2026-10-29 (worst-machine foundation, DOSSIER-v1 0.3.8–0.3.10; PLAN-v1 0.3.2 merged)
 
 ### Onboarding (PLAN-v1 0.3.2, routine PR #1)
