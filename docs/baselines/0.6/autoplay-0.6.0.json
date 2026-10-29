@@ -1,0 +1,1575 @@
+{
+ "summary": {
+  "seeds": 20,
+  "triesPerRound": 120,
+  "ms": 15078,
+  "policy": "greedy",
+  "rulesVersion": 3,
+  "sanityBound": 20220,
+  "starterOnlyScore": 228,
+  "min": 1138,
+  "p25": 1594,
+  "median": 1748,
+  "p75": 2058,
+  "max": 2470,
+  "deadEndSeeds": [],
+  "mostlyFlatSeeds": [
+   "auto-1"
+  ],
+  "flatRoundsTotal": 29,
+  "noIngotSeeds": [
+   "auto-6"
+  ],
+  "pickFrequency": {
+   "crusher": 32,
+   "furnace": 21,
+   "tuner": 10,
+   "hopper": 27,
+   "press": 10,
+   "splitter": 4,
+   "conveyor": 7,
+   "dock": 9
+  },
+  "suspicious": [],
+  "top": [
+   {
+    "seed": "auto-0",
+    "score": 2470,
+    "rounds": [
+     117,
+     300,
+     444,
+     484,
+     524,
+     601
+    ],
+    "picks": [
+     "crusher",
+     "furnace",
+     "tuner",
+     "hopper",
+     "hopper",
+     "crusher"
+    ],
+    "offers": [
+     [
+      "crusher",
+      "hopper",
+      "conveyor"
+     ],
+     [
+      "conveyor",
+      "furnace",
+      "hopper"
+     ],
+     [
+      "tuner",
+      "conveyor",
+      "dock"
+     ],
+     [
+      "splitter",
+      "hopper",
+      "crusher"
+     ],
+     [
+      "conveyor",
+      "hopper",
+      "tuner"
+     ],
+     [
+      "crusher",
+      "splitter",
+      "conveyor"
+     ]
+    ],
+    "deadEnd": false,
+    "mostlyFlat": false,
+    "flatRounds": 0,
+    "ingots": 173,
+    "peakRound": 6,
+    "policy": "greedy",
+    "rerolls": 0
+   },
+   {
+    "seed": "auto-14",
+    "score": 2361,
+    "rounds": [
+     117,
+     300,
+     456,
+     456,
+     496,
+     536
+    ],
+    "picks": [
+     "crusher",
+     "furnace",
+     "tuner",
+     "press",
+     "hopper",
+     "hopper"
+    ],
+    "offers": [
+     [
+      "conveyor",
+      "crusher",
+      "splitter"
+     ],
+     [
+      "crusher",
+      "conveyor",
+      "furnace"
+     ],
+     [
+      "dock",
+      "conveyor",
+      "tuner"
+     ],
+     [
+      "press",
+      "conveyor",
+      "dock"
+     ],
+     [
+      "crusher",
+      "conveyor",
+      "hopper"
+     ],
+     [
+      "furnace",
+      "hopper",
+      "conveyor"
+     ]
+    ],
+    "deadEnd": false,
+    "mostlyFlat": false,
+    "flatRounds": 1,
+    "ingots": 177,
+    "peakRound": 6,
+    "policy": "greedy",
+    "rerolls": 0
+   },
+   {
+    "seed": "auto-10",
+    "score": 2282,
+    "rounds": [
+     117,
+     300,
+     300,
+     456,
+     496,
+     613
+    ],
+    "picks": [
+     "crusher",
+     "furnace",
+     "crusher",
+     "tuner",
+     "hopper",
+     "hopper"
+    ],
+    "offers": [
+     [
+      "splitter",
+      "crusher",
+      "conveyor"
+     ],
+     [
+      "hopper",
+      "furnace",
+      "conveyor"
+     ],
+     [
+      "crusher",
+      "conveyor",
+      "furnace"
+     ],
+     [
+      "tuner",
+      "crusher",
+      "furnace"
+     ],
+     [
+      "hopper",
+      "splitter",
+      "conveyor"
+     ],
+     [
+      "tuner",
+      "hopper",
+      "dock"
+     ]
+    ],
+    "deadEnd": false,
+    "mostlyFlat": false,
+    "flatRounds": 1,
+    "ingots": 164,
+    "peakRound": 6,
+    "policy": "greedy",
+    "rerolls": 0
+   }
+  ],
+  "bottom": [
+   {
+    "seed": "auto-7",
+    "score": 1138,
+    "rounds": [
+     117,
+     117,
+     152,
+     152,
+     300,
+     300
+    ],
+    "picks": [
+     "crusher",
+     "dock",
+     "press",
+     "conveyor",
+     "furnace",
+     "conveyor"
+    ],
+    "offers": [
+     [
+      "crusher",
+      "splitter",
+      "furnace"
+     ],
+     [
+      "dock",
+      "conveyor",
+      "crusher"
+     ],
+     [
+      "press",
+      "conveyor",
+      "splitter"
+     ],
+     [
+      "conveyor",
+      "crusher",
+      "tuner"
+     ],
+     [
+      "splitter",
+      "conveyor",
+      "furnace"
+     ],
+     [
+      "conveyor",
+      "crusher",
+      "furnace"
+     ]
+    ],
+    "deadEnd": false,
+    "mostlyFlat": false,
+    "flatRounds": 3,
+    "ingots": 50,
+    "peakRound": 5,
+    "policy": "greedy",
+    "rerolls": 0
+   },
+   {
+    "seed": "auto-6",
+    "score": 1210,
+    "rounds": [
+     117,
+     157,
+     234,
+     234,
+     234,
+     234
+    ],
+    "picks": [
+     "crusher",
+     "hopper",
+     "crusher",
+     "conveyor",
+     "splitter",
+     "crusher"
+    ],
+    "offers": [
+     [
+      "hopper",
+      "crusher",
+      "conveyor"
+     ],
+     [
+      "hopper",
+      "press",
+      "crusher"
+     ],
+     [
+      "press",
+      "dock",
+      "crusher"
+     ],
+     [
+      "conveyor",
+      "dock",
+      "tuner"
+     ],
+     [
+      "splitter",
+      "conveyor",
+      "tuner"
+     ],
+     [
+      "crusher",
+      "tuner",
+      "conveyor"
+     ]
+    ],
+    "deadEnd": false,
+    "mostlyFlat": false,
+    "flatRounds": 3,
+    "ingots": 0,
+    "peakRound": 3,
+    "policy": "greedy",
+    "rerolls": 0
+   },
+   {
+    "seed": "auto-9",
+    "score": 1305,
+    "rounds": [
+     117,
+     157,
+     157,
+     157,
+     300,
+     417
+    ],
+    "picks": [
+     "crusher",
+     "hopper",
+     "conveyor",
+     "dock",
+     "furnace",
+     "crusher"
+    ],
+    "offers": [
+     [
+      "furnace",
+      "crusher",
+      "conveyor"
+     ],
+     [
+      "hopper",
+      "conveyor",
+      "dock"
+     ],
+     [
+      "conveyor",
+      "splitter",
+      "dock"
+     ],
+     [
+      "dock",
+      "splitter",
+      "tuner"
+     ],
+     [
+      "conveyor",
+      "crusher",
+      "furnace"
+     ],
+     [
+      "conveyor",
+      "press",
+      "crusher"
+     ]
+    ],
+    "deadEnd": false,
+    "mostlyFlat": false,
+    "flatRounds": 2,
+    "ingots": 50,
+    "peakRound": 6,
+    "policy": "greedy",
+    "rerolls": 0
+   }
+  ]
+ },
+ "reports": [
+  {
+   "seed": "auto-0",
+   "score": 2470,
+   "rounds": [
+    117,
+    300,
+    444,
+    484,
+    524,
+    601
+   ],
+   "picks": [
+    "crusher",
+    "furnace",
+    "tuner",
+    "hopper",
+    "hopper",
+    "crusher"
+   ],
+   "offers": [
+    [
+     "crusher",
+     "hopper",
+     "conveyor"
+    ],
+    [
+     "conveyor",
+     "furnace",
+     "hopper"
+    ],
+    [
+     "tuner",
+     "conveyor",
+     "dock"
+    ],
+    [
+     "splitter",
+     "hopper",
+     "crusher"
+    ],
+    [
+     "conveyor",
+     "hopper",
+     "tuner"
+    ],
+    [
+     "crusher",
+     "splitter",
+     "conveyor"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 0,
+   "ingots": 173,
+   "peakRound": 6,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-1",
+   "score": 1617,
+   "rounds": [
+    117,
+    300,
+    300,
+    300,
+    300,
+    300
+   ],
+   "picks": [
+    "crusher",
+    "furnace",
+    "press",
+    "press",
+    "splitter",
+    "crusher"
+   ],
+   "offers": [
+    [
+     "crusher",
+     "splitter",
+     "dock"
+    ],
+    [
+     "furnace",
+     "conveyor",
+     "hopper"
+    ],
+    [
+     "press",
+     "furnace",
+     "conveyor"
+    ],
+    [
+     "press",
+     "furnace",
+     "conveyor"
+    ],
+    [
+     "splitter",
+     "crusher",
+     "press"
+    ],
+    [
+     "crusher",
+     "conveyor",
+     "press"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": true,
+   "flatRounds": 4,
+   "ingots": 125,
+   "peakRound": 2,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-2",
+   "score": 1748,
+   "rounds": [
+    117,
+    157,
+    300,
+    340,
+    417,
+    417
+   ],
+   "picks": [
+    "crusher",
+    "hopper",
+    "furnace",
+    "conveyor",
+    "crusher",
+    "crusher"
+   ],
+   "offers": [
+    [
+     "splitter",
+     "furnace",
+     "crusher"
+    ],
+    [
+     "splitter",
+     "conveyor",
+     "hopper"
+    ],
+    [
+     "splitter",
+     "conveyor",
+     "furnace"
+    ],
+    [
+     "conveyor",
+     "press",
+     "furnace"
+    ],
+    [
+     "crusher",
+     "conveyor",
+     "hopper"
+    ],
+    [
+     "crusher",
+     "furnace",
+     "conveyor"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 1,
+   "ingots": 100,
+   "peakRound": 5,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-3",
+   "score": 1800,
+   "rounds": [
+    117,
+    157,
+    234,
+    300,
+    496,
+    496
+   ],
+   "picks": [
+    "crusher",
+    "hopper",
+    "crusher",
+    "furnace",
+    "tuner",
+    "press"
+   ],
+   "offers": [
+    [
+     "furnace",
+     "crusher",
+     "splitter"
+    ],
+    [
+     "hopper",
+     "press",
+     "splitter"
+    ],
+    [
+     "crusher",
+     "conveyor",
+     "tuner"
+    ],
+    [
+     "furnace",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "splitter",
+     "hopper",
+     "tuner"
+    ],
+    [
+     "press",
+     "conveyor",
+     "tuner"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 1,
+   "ingots": 101,
+   "peakRound": 5,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-4",
+   "score": 2058,
+   "rounds": [
+    117,
+    157,
+    328,
+    368,
+    524,
+    564
+   ],
+   "picks": [
+    "crusher",
+    "hopper",
+    "furnace",
+    "hopper",
+    "tuner",
+    "hopper"
+   ],
+   "offers": [
+    [
+     "crusher",
+     "press",
+     "conveyor"
+    ],
+    [
+     "conveyor",
+     "hopper",
+     "splitter"
+    ],
+    [
+     "conveyor",
+     "crusher",
+     "furnace"
+    ],
+    [
+     "hopper",
+     "dock",
+     "conveyor"
+    ],
+    [
+     "furnace",
+     "tuner",
+     "splitter"
+    ],
+    [
+     "conveyor",
+     "hopper",
+     "dock"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 0,
+   "ingots": 122,
+   "peakRound": 6,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-5",
+   "score": 1431,
+   "rounds": [
+    114,
+    117,
+    300,
+    300,
+    300,
+    300
+   ],
+   "picks": [
+    "crusher",
+    "dock",
+    "furnace",
+    "dock",
+    "furnace",
+    "dock"
+   ],
+   "offers": [
+    [
+     "conveyor",
+     "dock",
+     "crusher"
+    ],
+    [
+     "dock",
+     "conveyor",
+     "crusher"
+    ],
+    [
+     "furnace",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "dock",
+     "furnace",
+     "press"
+    ],
+    [
+     "furnace",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "dock",
+     "crusher",
+     "splitter"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 3,
+   "ingots": 100,
+   "peakRound": 3,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-6",
+   "score": 1210,
+   "rounds": [
+    117,
+    157,
+    234,
+    234,
+    234,
+    234
+   ],
+   "picks": [
+    "crusher",
+    "hopper",
+    "crusher",
+    "conveyor",
+    "splitter",
+    "crusher"
+   ],
+   "offers": [
+    [
+     "hopper",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "hopper",
+     "press",
+     "crusher"
+    ],
+    [
+     "press",
+     "dock",
+     "crusher"
+    ],
+    [
+     "conveyor",
+     "dock",
+     "tuner"
+    ],
+    [
+     "splitter",
+     "conveyor",
+     "tuner"
+    ],
+    [
+     "crusher",
+     "tuner",
+     "conveyor"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 3,
+   "ingots": 0,
+   "peakRound": 3,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-7",
+   "score": 1138,
+   "rounds": [
+    117,
+    117,
+    152,
+    152,
+    300,
+    300
+   ],
+   "picks": [
+    "crusher",
+    "dock",
+    "press",
+    "conveyor",
+    "furnace",
+    "conveyor"
+   ],
+   "offers": [
+    [
+     "crusher",
+     "splitter",
+     "furnace"
+    ],
+    [
+     "dock",
+     "conveyor",
+     "crusher"
+    ],
+    [
+     "press",
+     "conveyor",
+     "splitter"
+    ],
+    [
+     "conveyor",
+     "crusher",
+     "tuner"
+    ],
+    [
+     "splitter",
+     "conveyor",
+     "furnace"
+    ],
+    [
+     "conveyor",
+     "crusher",
+     "furnace"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 3,
+   "ingots": 50,
+   "peakRound": 5,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-8",
+   "score": 1670,
+   "rounds": [
+    117,
+    117,
+    300,
+    300,
+    340,
+    496
+   ],
+   "picks": [
+    "crusher",
+    "dock",
+    "furnace",
+    "splitter",
+    "hopper",
+    "tuner"
+   ],
+   "offers": [
+    [
+     "splitter",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "dock",
+     "splitter",
+     "crusher"
+    ],
+    [
+     "hopper",
+     "furnace",
+     "splitter"
+    ],
+    [
+     "splitter",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "hopper",
+     "dock",
+     "crusher"
+    ],
+    [
+     "crusher",
+     "splitter",
+     "tuner"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 2,
+   "ingots": 113,
+   "peakRound": 6,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-9",
+   "score": 1305,
+   "rounds": [
+    117,
+    157,
+    157,
+    157,
+    300,
+    417
+   ],
+   "picks": [
+    "crusher",
+    "hopper",
+    "conveyor",
+    "dock",
+    "furnace",
+    "crusher"
+   ],
+   "offers": [
+    [
+     "furnace",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "hopper",
+     "conveyor",
+     "dock"
+    ],
+    [
+     "conveyor",
+     "splitter",
+     "dock"
+    ],
+    [
+     "dock",
+     "splitter",
+     "tuner"
+    ],
+    [
+     "conveyor",
+     "crusher",
+     "furnace"
+    ],
+    [
+     "conveyor",
+     "press",
+     "crusher"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 2,
+   "ingots": 50,
+   "peakRound": 6,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-10",
+   "score": 2282,
+   "rounds": [
+    117,
+    300,
+    300,
+    456,
+    496,
+    613
+   ],
+   "picks": [
+    "crusher",
+    "furnace",
+    "crusher",
+    "tuner",
+    "hopper",
+    "hopper"
+   ],
+   "offers": [
+    [
+     "splitter",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "hopper",
+     "furnace",
+     "conveyor"
+    ],
+    [
+     "crusher",
+     "conveyor",
+     "furnace"
+    ],
+    [
+     "tuner",
+     "crusher",
+     "furnace"
+    ],
+    [
+     "hopper",
+     "splitter",
+     "conveyor"
+    ],
+    [
+     "tuner",
+     "hopper",
+     "dock"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 1,
+   "ingots": 164,
+   "peakRound": 6,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-11",
+   "score": 1598,
+   "rounds": [
+    114,
+    144,
+    152,
+    300,
+    444,
+    444
+   ],
+   "picks": [
+    "crusher",
+    "press",
+    "tuner",
+    "furnace",
+    "splitter",
+    "press"
+   ],
+   "offers": [
+    [
+     "crusher",
+     "hopper",
+     "splitter"
+    ],
+    [
+     "conveyor",
+     "press",
+     "crusher"
+    ],
+    [
+     "press",
+     "tuner",
+     "conveyor"
+    ],
+    [
+     "furnace",
+     "splitter",
+     "crusher"
+    ],
+    [
+     "splitter",
+     "furnace",
+     "crusher"
+    ],
+    [
+     "press",
+     "conveyor",
+     "splitter"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 0,
+   "ingots": 99,
+   "peakRound": 5,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-12",
+   "score": 2273,
+   "rounds": [
+    117,
+    300,
+    340,
+    484,
+    496,
+    536
+   ],
+   "picks": [
+    "crusher",
+    "furnace",
+    "hopper",
+    "tuner",
+    "dock",
+    "hopper"
+   ],
+   "offers": [
+    [
+     "crusher",
+     "press",
+     "conveyor"
+    ],
+    [
+     "furnace",
+     "hopper",
+     "conveyor"
+    ],
+    [
+     "splitter",
+     "hopper",
+     "furnace"
+    ],
+    [
+     "splitter",
+     "tuner",
+     "crusher"
+    ],
+    [
+     "dock",
+     "furnace",
+     "press"
+    ],
+    [
+     "conveyor",
+     "splitter",
+     "hopper"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 0,
+   "ingots": 163,
+   "peakRound": 6,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-13",
+   "score": 1822,
+   "rounds": [
+    117,
+    157,
+    328,
+    328,
+    368,
+    524
+   ],
+   "picks": [
+    "crusher",
+    "hopper",
+    "furnace",
+    "conveyor",
+    "hopper",
+    "tuner"
+   ],
+   "offers": [
+    [
+     "crusher",
+     "furnace",
+     "splitter"
+    ],
+    [
+     "dock",
+     "conveyor",
+     "hopper"
+    ],
+    [
+     "conveyor",
+     "furnace",
+     "crusher"
+    ],
+    [
+     "conveyor",
+     "press",
+     "splitter"
+    ],
+    [
+     "conveyor",
+     "splitter",
+     "hopper"
+    ],
+    [
+     "splitter",
+     "tuner",
+     "conveyor"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 1,
+   "ingots": 109,
+   "peakRound": 6,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-14",
+   "score": 2361,
+   "rounds": [
+    117,
+    300,
+    456,
+    456,
+    496,
+    536
+   ],
+   "picks": [
+    "crusher",
+    "furnace",
+    "tuner",
+    "press",
+    "hopper",
+    "hopper"
+   ],
+   "offers": [
+    [
+     "conveyor",
+     "crusher",
+     "splitter"
+    ],
+    [
+     "crusher",
+     "conveyor",
+     "furnace"
+    ],
+    [
+     "dock",
+     "conveyor",
+     "tuner"
+    ],
+    [
+     "press",
+     "conveyor",
+     "dock"
+    ],
+    [
+     "crusher",
+     "conveyor",
+     "hopper"
+    ],
+    [
+     "furnace",
+     "hopper",
+     "conveyor"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 1,
+   "ingots": 177,
+   "peakRound": 6,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-15",
+   "score": 1594,
+   "rounds": [
+    117,
+    157,
+    300,
+    340,
+    340,
+    340
+   ],
+   "picks": [
+    "crusher",
+    "hopper",
+    "furnace",
+    "dock",
+    "crusher",
+    "crusher"
+   ],
+   "offers": [
+    [
+     "conveyor",
+     "splitter",
+     "crusher"
+    ],
+    [
+     "hopper",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "furnace",
+     "hopper",
+     "splitter"
+    ],
+    [
+     "dock",
+     "press",
+     "crusher"
+    ],
+    [
+     "crusher",
+     "conveyor",
+     "furnace"
+    ],
+    [
+     "crusher",
+     "press",
+     "conveyor"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 2,
+   "ingots": 100,
+   "peakRound": 4,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-16",
+   "score": 1937,
+   "rounds": [
+    117,
+    300,
+    340,
+    380,
+    380,
+    420
+   ],
+   "picks": [
+    "crusher",
+    "furnace",
+    "hopper",
+    "hopper",
+    "conveyor",
+    "hopper"
+   ],
+   "offers": [
+    [
+     "conveyor",
+     "press",
+     "crusher"
+    ],
+    [
+     "press",
+     "crusher",
+     "furnace"
+    ],
+    [
+     "crusher",
+     "splitter",
+     "hopper"
+    ],
+    [
+     "hopper",
+     "furnace",
+     "splitter"
+    ],
+    [
+     "conveyor",
+     "press",
+     "splitter"
+    ],
+    [
+     "furnace",
+     "conveyor",
+     "hopper"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 1,
+   "ingots": 125,
+   "peakRound": 6,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-17",
+   "score": 1657,
+   "rounds": [
+    117,
+    300,
+    300,
+    300,
+    300,
+    340
+   ],
+   "picks": [
+    "crusher",
+    "furnace",
+    "press",
+    "press",
+    "furnace",
+    "hopper"
+   ],
+   "offers": [
+    [
+     "hopper",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "press",
+     "furnace",
+     "conveyor"
+    ],
+    [
+     "press",
+     "conveyor",
+     "splitter"
+    ],
+    [
+     "press",
+     "crusher",
+     "conveyor"
+    ],
+    [
+     "furnace",
+     "splitter",
+     "crusher"
+    ],
+    [
+     "crusher",
+     "press",
+     "hopper"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 3,
+   "ingots": 125,
+   "peakRound": 6,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-18",
+   "score": 1946,
+   "rounds": [
+    117,
+    157,
+    300,
+    340,
+    496,
+    536
+   ],
+   "picks": [
+    "crusher",
+    "hopper",
+    "furnace",
+    "dock",
+    "tuner",
+    "hopper"
+   ],
+   "offers": [
+    [
+     "crusher",
+     "dock",
+     "conveyor"
+    ],
+    [
+     "hopper",
+     "press",
+     "dock"
+    ],
+    [
+     "crusher",
+     "conveyor",
+     "furnace"
+    ],
+    [
+     "dock",
+     "crusher",
+     "splitter"
+    ],
+    [
+     "tuner",
+     "conveyor",
+     "press"
+    ],
+    [
+     "hopper",
+     "conveyor",
+     "press"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 0,
+   "ingots": 126,
+   "peakRound": 6,
+   "policy": "greedy",
+   "rerolls": 0
+  },
+  {
+   "seed": "auto-19",
+   "score": 1344,
+   "rounds": [
+    117,
+    117,
+    152,
+    192,
+    309,
+    457
+   ],
+   "picks": [
+    "crusher",
+    "crusher",
+    "press",
+    "hopper",
+    "hopper",
+    "furnace"
+   ],
+   "offers": [
+    [
+     "furnace",
+     "crusher",
+     "dock"
+    ],
+    [
+     "crusher",
+     "splitter",
+     "conveyor"
+    ],
+    [
+     "dock",
+     "splitter",
+     "press"
+    ],
+    [
+     "conveyor",
+     "splitter",
+     "hopper"
+    ],
+    [
+     "hopper",
+     "splitter",
+     "conveyor"
+    ],
+    [
+     "furnace",
+     "conveyor",
+     "crusher"
+    ]
+   ],
+   "deadEnd": false,
+   "mostlyFlat": false,
+   "flatRounds": 1,
+   "ingots": 25,
+   "peakRound": 6,
+   "policy": "greedy",
+   "rerolls": 0
+  }
+ ]
+}

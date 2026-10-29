@@ -85,6 +85,18 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [ ] ⚑ Commit the CI perf baseline to `docs/baselines/ci/perf-ci.json` from the perf workflow's artifact to arm the strict gate
 - [ ] ⚑ First green run of `ci.yml` on GitHub (the image job needs the hosted runner's Docker; nothing can build the image on the dev PC)
 
+## M9 — v0.6 The daily, done right (PLAN-v3, released as 0.6.0, protocol 2, rules version 3 unchanged)
+- [x] 0.6.0 identity without passwords: device token, `player_id = SHA-256(token)`, `Name#TAG`, recovery code, `POST/GET /identity`, `DELETE /me`, keep-best per (seed, player), per-player bucket (`tests/identity.test.ts`, verifier +3, e2e claim/keep-best/recovery)
+- [x] 0.6.1 server-minted daily seed with a published commitment (`server/mint.ts`, `DAILY_SECRET`, `/daily?date=`, practice seed fallback, `tools/mint-check.ts`, rehearsal step for secret rotation)
+- [x] 0.6.2 48-hour window, freeze, late submissions verified but unranked, `GET /archive`, Archive dialog, provisional/final strip
+- [x] 0.6.3 days played and streak with grace (`game/src/daily/streak.ts`, `tests/streak.test.ts`), detailed share line
+- [x] 0.6.4 medals at freeze from the final board, nearest-rank 50/80/95, null below five (`tests/medals.test.ts`), on `/daily`, `/archive`, `/histogram`, archive rows and the detailed share
+- [x] 0.6.5 fairness and verification policy generated from the code (`tools/make-policy.ts` → `game/public/policy.json`, `docs/POLICY.md`; `tests/policy.test.ts` diffs them), in-game panel
+- [x] 0.6.6 reveal gate: other players' daily replays after you submit or the day closes, enforced on `GET /replay`; title-strip layout made deterministic at 130 % (instrumented e2e found two load-dependent flakes)
+- [x] 0.6.7 storage measurement against the 5 MB / 50 ms trigger (`tools/storage-measure.ts`, `docs/baselines/0.6/storage*.json`); decision in `server/README.md`
+- [x] 0.6.0 released: version bump, 20-seed sweep and rollback rehearsal as evidence (`docs/baselines/0.6/`), one-release rules notice retired from the title
+- [ ] ⚑ 0.6.8 host the verifier and open the web beta (domain, VPS + Caddy + Docker image with `DAILY_SECRET` backed up, `VERIFIER_URL` in the builds, Cloudflare Pages, the e2e daily submission against the hosted URL recorded in STATUS)
+
 ## M8 — v0.5 Decisions (PLAN-v2, released as 0.5.0, rules version 3)
 - [x] 0.5.0 local records partitioned by rules version with a one-time migration (`tests/fixtures/profile-v2.json`, render-e2e 5e)
 - [x] 0.5.1 measurement tools generalised: any machine, variants by rules path, two search policies, paired deltas, replay-verified actions, executable gates (`tests/balance-tool.test.ts`)
