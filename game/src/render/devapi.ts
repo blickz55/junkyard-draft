@@ -28,6 +28,10 @@ export interface DevApi {
   redo: () => boolean;
   /** stall indicator: HUD text (empty when none), flagged cell index, current sim tick */
   stall: () => { text: string; cell: number | null; tick: number };
+  /** tips panel: open state, the tip suggested by the last draft (unread), read ids, demo progress */
+  tips: () => { open: boolean; current: string | null; suggested: string | null; read: string[]; demo: { tip: string | null; tick: number; shipped: Record<string, number> } | null };
+  openTips: (id?: string) => void;
+  closeTips: () => void;
 }
 
 export const devEnabled = () => import.meta.env.DEV || new URLSearchParams(location.search).get('dev') === '1';
@@ -51,6 +55,9 @@ export function installDevApi(scene: GameScene) {
     undo: () => scene.undo(),
     redo: () => scene.redo(),
     stall: () => scene.stallInfo(),
+    tips: () => scene.tipsInfo(),
+    openTips: (id) => scene.openTips(id),
+    closeTips: () => scene.closeTips(),
   };
   (window as unknown as { __jd: DevApi }).__jd = api;
 }

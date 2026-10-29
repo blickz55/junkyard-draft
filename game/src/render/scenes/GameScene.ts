@@ -5,13 +5,15 @@ import { explainRunError, inputTravelDirs, outputDirs, placementWarning } from '
 import type { Action, RoundRecord, RunState } from '../../sim/run';
 import { cellIndex, type SimState } from '../../sim/sim';
 import { RoundController, type Mode } from '../RoundController';
+import { TipsPanel } from '../TipsPanel';
+import { tipForMachine } from '../../sim/tips';
 import { DIR_DX, DIR_DY, MACHINE_INFO, RULES } from '../../sim/rules';
 import type { Machine, Material, SimEvent } from '../../sim/types';
 import { CELL, itemTexture, machineTexture } from '../textures';
 import { Button, label, mono, panel } from '../ui';
 import { CSS, FONT, P } from '../palette';
 import { audio } from '../audio';
-import { clearSave, isOnboarded, loadBests, loadSettings, setOnboarded, updateSettings, writeSave } from '../storage';
+import { clearSave, isOnboarded, loadBests, loadReadTips, loadSettings, setOnboarded, updateSettings, writeSave } from '../storage';
 import { BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y, H, SIDE_W, SIDE_X, W } from '../layout';
 import { installDevApi } from '../devapi';
 import { prefs, px as fpx } from '../prefs';
@@ -66,6 +68,9 @@ export class GameScene extends Phaser.Scene {
   /** inputs of the last side-panel build; renderSide() is a no-op while they are unchanged */
   private sideKey = '';
   private lastShortcutAt = -1000;
+  /** tips (PLAN-v1 0.3.6): the panel and the tip suggested by the most recent first-time draft (badge on the Tips button) */
+  private tips!: TipsPanel;
+  private suggestedTip: string | null = null;
   /** stall indicator (PLAN-v1 0.3.5): tick of the last ship this round, the cell currently flagged, its frame */
   static readonly STALL_TICKS = 8;
   private lastShipTick = 0;
@@ -118,6 +123,8 @@ export class GameScene extends Phaser.Scene {
     this.selection = this.add.image(0, 0, 'tile-sel').setOrigin(0).setVisible(false).setDepth(6);
     this.cursorImg = this.add.image(0, 0, 'tile-cursor').setOrigin(0).setVisible(false).setDepth(6);
     this.side = this.add.container(SIDE_X, GRID_Y);
+    this.tips = new TipsPanel(this, () => this.renderSide());
+    this.suggestedTip = null;
     this.syncMachines();
     this.renderSide();
     this.setupInput();
@@ -281,7 +288,7 @@ export class GameScene extends Phaser.Scene {
     kb?.on('keydown-Z', (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && once(e)) { e.preventDefault(); if (e.shiftKey) this.redo(); else this.undo(); } });
     kb?.on('keydown-Y', (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && once(e)) { e.preventDefault(); this.redo(); } });
     kb?.on('keydown-SPACE', () => { if (this.mode === 'build' && this.run.phase === 'build') this.startRun(); else if (this.mode === 'summary') this.nextRound(); });
-    kb?.on('keydown-ESC', () => { if (this.replayLabel) this.stopReplay(); else if (this.mode === 'running') this.setPaused(true); else if (this.mode === 'paused') this.setPaused(false); else this.keyEscape(); });
+    kb?.on('keydown-ESC', () => { if (this.tips.isOpen) this.closeTips(); else if (this.replayLabel) this.stopReplay(); else if (this.mode === 'running') this.setPaused(true); else if (this.mode === 'paused') this.setPaused(false); else this.keyEscape(); });
     kb?.on('keydown-M', () => audio.setMuted(!audio.muted));
     kb?.on('keydown-DELETE', () => this.keyDelete());
     kb?.on('keydown-BACKSPACE', () => this.keyDelete());
@@ -420,6 +427,7 @@ export class GameScene extends Phaser.Scene {
   /** Controller hook: the run changed (an accepted action, or null for undo/redo/speed): refresh HUD, hints and the panel. */
   private onStateChange(a: Action | null) {
     if (!this.hud.round) return; // init() runs before create(): nothing to draw yet
+    if (a?.t === 'pick' && !this.replayLabel) { const kind = this.run.picks[this.run.picks.length - 1]; const tip = kind ? tipForMachine(kind, loadReadTips()) : null; if (tip) this.suggestedTip = tip.id; }
     this.updateHud();
     if (!a || a.t === 'place' || a.t === 'pick' || a.t === 'rotate') this.updateHint();
     if (!a || a.t !== 'rotate') this.renderSide();
@@ -448,7 +456,7 @@ export class GameScene extends Phaser.Scene {
   private sideInputs(): string {
     const r = this.run;
     const sel = this.selectedId != null ? r.layout.machines.find((m) => m.id === this.selectedId) ?? r.bin.find((m) => m.id === this.selectedId) : undefined;
-    return JSON.stringify([this.mode, r.phase, r.round, r.offers, r.bin.length, r.layout.machines.length, this.speed, this.replayLabel, !!this.replayRounds, sel ? [sel.id, sel.kind, sel.dir, sel.x >= 0] : null, !!this.replayQueue, this.ctl.canUndo(), this.ctl.canRedo()]);
+    return JSON.stringify([this.mode, r.phase, r.round, r.offers, r.bin.length, r.layout.machines.length, this.speed, this.replayLabel, !!this.replayRounds, sel ? [sel.id, sel.kind, sel.dir, sel.x >= 0] : null, !!this.replayQueue, this.ctl.canUndo(), this.ctl.canRedo(), this.suggestedTip, this.tips?.isOpen]);
   }
   renderSide() {
     const key = this.sideInputs();
@@ -482,6 +490,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (r.phase === 'draft') {
       t(16, 12, `ROUND ${r.round} DRAFT — pick one part`, 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
+      this.tipsButton(add);
       r.offers.forEach((kind, i) => {
         const y = 44 + i * 112;
         const card = add(this.add.rectangle(16, y, SIDE_W - 32, 100, P.floor).setOrigin(0).setStrokeStyle(2, P.panelLine).setInteractive({ useHandCursor: true })) as Phaser.GameObjects.Rectangle;
@@ -498,6 +507,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (r.phase === 'build') {
       t(16, 12, `ROUND ${r.round} — ARRANGE THE WORKSHOP`, 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
+      this.tipsButton(add);
       const sel = this.selectedId != null ? this.run.layout.machines.find((m) => m.id === this.selectedId) || this.run.bin.find((m) => m.id === this.selectedId) : undefined;
       if (sel) {
         add(this.add.rectangle(16, 40, SIDE_W - 32, 118, P.floor).setOrigin(0).setStrokeStyle(1, P.panelLine));
@@ -521,6 +531,15 @@ export class GameScene extends Phaser.Scene {
       return;
     }
   }
+  /** "Tips" at the right end of the panel header; a dot badge while a first-time draft has an unread tip. Never during playback. */
+  private tipsButton(add: (o: Phaser.GameObjects.GameObject) => Phaser.GameObjects.GameObject) {
+    if (this.replayLabel) return;
+    const badge = this.suggestedTip != null && !loadReadTips().includes(this.suggestedTip);
+    add(new Button(this, SIDE_W - 52, 18, badge ? 'Tips ●' : 'Tips', () => this.openTips(this.suggestedTip ?? undefined), { w: 72, h: 24, color: badge ? P.amber : P.steelDark, textColor: badge ? '#1a1612' : CSS.text, size: 11, name: 'tips' }));
+  }
+  openTips(id?: string) { this.tips.open(id ?? this.suggestedTip ?? undefined); if (this.suggestedTip && loadReadTips().includes(this.suggestedTip)) this.suggestedTip = null; this.renderSide(); }
+  closeTips() { this.tips.close(); }
+  tipsInfo() { return { open: this.tips.isOpen, current: this.tips.currentId, suggested: this.suggestedTip != null && !loadReadTips().includes(this.suggestedTip) ? this.suggestedTip : null, read: loadReadTips(), demo: this.tips.demoState() }; }
   private legend(x: number, y: number) {
     if (this.legendC) return this.legendC.setPosition(x, y);
     const c = this.add.container(x, y);

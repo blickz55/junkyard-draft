@@ -15,6 +15,12 @@ older replays and saves on purpose.
 - **Money heartbeat**: the HUD total counts up as items ship (re-rasterised at most every 100 ms, with a small pulse unless reduced motion).
 - **Stall marker**: when nothing has shipped for 8 ticks while an item is jammed or a hopper is blocked, the HUD names the first blocking cell ("Stalled: Conveyor at 3,3 is waiting — nothing shipped for 8 ticks") and a red frame marks it (static under reduced motion). Clears when items flow again or the round ends. Dev API `stall()`.
 
+### Tips (PLAN-v1 0.3.6)
+- **Tips panel with live mini-simulations**: six tips (crusher orientation, side-loading merge, splitter alternation, raw scrap in a furnace makes slag, a press needs two shards, sell unused parts), each demo a tiny real layout stepped by the real simulation and drawn with the real textures, looping every 24–30 ticks. Reachable from the title ("Tips & demos") and from the draft/build panel ("Tips"). Drafting a machine for the first time badges the button ("Tips ●"); opening the tip marks it read (`jd.tips.v1`) and it is never suggested again. Tips never write to the hint strip. `game/src/sim/tips.ts`, `game/src/render/TipsPanel.ts`.
+
+### Architecture
+- **RoundController** extracted from GameScene (review follow-up): the mode machine, authoritative run state, tick pacing, frozen-layout rule, undo/redo and replay playback live in `game/src/render/RoundController.ts` (no Phaser or storage imports) behind hooks; the scene renders and routes input. Unit-tested in Node.
+
 ### Rendering and performance
 - **HiDPI**: the canvas is now device-pixel-ratio sized (capped at 2×) and each scene's camera zooms the fixed 1120×700 layout onto it; Text objects rasterise at the same resolution. Pointer handlers read world coordinates. `?dpr=` overrides.
 - **Adaptive resolution**: the first run at high resolution samples 120 frames; a p95 over 20 ms stores `renderQuality: 'low'` so later starts render at 1×, with a hint and a title-screen "Resolution" button to switch back (applies on reload).
@@ -22,8 +28,8 @@ older replays and saves on purpose.
 - **Pooled +$ pops**: one pop per dock per tick from a 16-slot pool (same-tick ships coalesce); the side panel is rebuilt only when its inputs change and the VALUES legend is built once. Text objects created per busy round 208 → 68; script time at 4× CPU throttle −13 to −17 %.
 - **Measurement**: `tools/perf.ts` reports draw calls, texture binds, display-list peak, Text objects created and heap, has `--device A|B|C|D` presets and `--renderer webgl|canvas|both`; `tools/perf-gate.ts` compares a report with a baseline; `.github/workflows/perf.yml` measures preset B on every push and PR (arms once `docs/baselines/<v>/perf-ci.json` is committed). Baselines under `docs/baselines/0.3.0/`.
 
-### Tests (44 → 52, plus a fourth render-e2e step)
-advice (3); perf-gate; quality (adaptive decision); undo (2: place→rotate→undo→undo restores the pre-place state and the exported replay verifies; sell refund, run boundary, stale redo); render-e2e: hidpi_canvas_keeps_logical_coordinates, canvas_renderer_completes_a_round, webgl_context_loss_keeps_the_run, stall_marker_names_the_blocking_cell; game-e2e: pooled_pops_never_exceed_the_pool, undo_restores_facing (Ctrl+Z / Ctrl+Y with the panel buttons' enabled state).
+### Tests (44 → 58)
+advice (3); perf-gate; quality (adaptive decision); undo (2: place→rotate→undo→undo restores the pre-place state and the exported replay verifies; sell refund, run boundary, stale redo); render-e2e: hidpi_canvas_keeps_logical_coordinates, canvas_renderer_completes_a_round, webgl_context_loss_keeps_the_run, stall_marker_names_the_blocking_cell; game-e2e: pooled_pops_never_exceed_the_pool, undo_restores_facing (Ctrl+Z / Ctrl+Y with the panel buttons' enabled state); controller (4: full round through advance() with the layout frozen, pause/speed/undo/redo/reject, a watched replay driving itself to finished without persisting, damaged and mid-result saves); tips (2: every demo layout proves its claim, suggestion-once); render-e2e step first_draft_suggests_its_tip_once.
 
 ## Unreleased — 2026-10-26 (external code review response)
 

@@ -5,7 +5,7 @@ import { cleanPlayer } from './share';
 
 export { dailySeed };
 
-const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v1' };
+const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v1', tips: 'jd.tips.v1' };
 
 export type RenderQuality = 'auto' | 'high' | 'low';
 /** renderQuality: 'auto' until the first run measures frame times at high resolution, then 'high' or 'low' (DPR 1); the title button sets it too. */
@@ -93,6 +93,10 @@ export const savePlayer = (name: string) => { try { const n = cleanPlayer(name);
 /** Verified submissions this device made, by seed: lets the title screen look up its own rank without trusting names. */
 export const loadSubmissions = (): Record<string, Submission> => validateSubmissions(readRaw(K.submissions));
 export const recordSubmission = (seed: string, s: Submission) => { const all = loadSubmissions(); if (!all[seed] || s.score >= all[seed].score) { all[seed] = s; write(K.submissions, all); } };
+
+/** Tips the player has opened (PLAN-v1 0.3.6); anything but an array of strings reads as none. */
+export const loadReadTips = (): string[] => { const raw = readRaw(K.tips); return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : []; };
+export const markTipRead = (id: string) => { const all = loadReadTips(); if (!all.includes(id)) { all.push(id); write(K.tips, all); } };
 
 export const isOnboarded = () => { try { return localStorage.getItem(K.onboarded) === '1'; } catch { return true; } };
 export const setOnboarded = () => { try { localStorage.setItem(K.onboarded, '1'); } catch { /* ignore */ } };

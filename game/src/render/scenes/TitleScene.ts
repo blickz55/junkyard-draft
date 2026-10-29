@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { applyDpr, DPR, MAX_DPR } from '../dpr';
+import { TipsPanel } from '../TipsPanel';
 import { Button, label, mono, panel, slider } from '../ui';
 import { CSS, P } from '../palette';
 import { audio } from '../audio';
@@ -50,6 +51,9 @@ export class TitleScene extends Phaser.Scene {
     // how to play
     const howto = panel(this, 60, y, 560, 180, 0.9);
     label(this, 76, y + 12, 'HOW TO PLAY', 13, CSS.amber, { fontStyle: 'bold', letterSpacing: 2 });
+    const tips = new TipsPanel(this);
+    new Button(this, 60 + 560 - 70, y + 20, 'Tips & demos', () => tips.open(), { w: 110, h: 26, color: P.steelDark, textColor: CSS.text, size: 12, name: 'tips' });
+    this.input.keyboard?.on('keydown-ESC', () => tips.close());
     const lines = [
       '1. Each round, pick one of three salvaged machines.',
       '2. Drag parts onto the grid; R or right-click rotates.',

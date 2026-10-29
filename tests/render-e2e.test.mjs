@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync('/opt/pw-browsers')) process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/pw-browsers';
 const { chromium } = await import('playwright');
+const { draftOffers } = await import('../game/src/sim/run.ts');
 const PORT = 5198;
 const URL = `http://127.0.0.1:${PORT}`;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -18,7 +19,7 @@ const cell = (x, y) => ({ x: GX + x * CELL + CELL / 2, y: GY + y * CELL + CELL /
 
 async function waitServer() { for (let i = 0; i < 60; i++) { try { const r = await fetch(`${URL}/main.js`); if (r.ok) return; } catch {} await wait(500); } throw new Error('dev server did not start'); }
 
-test('renderer and run HUD: HiDPI canvas, Canvas renderer, WebGL context loss, stall marker', { timeout: 180000 }, async () => {
+test('renderer, run HUD and tips: HiDPI canvas, Canvas renderer, WebGL context loss, stall marker, tips badge', { timeout: 240000 }, async () => {
   const server = spawn(process.execPath, [path.join(ROOT, 'scripts/dev.mjs')], { env: { ...process.env, GAME_PORT: String(PORT) }, stdio: 'ignore' });
   let browser;
   try {
@@ -113,6 +114,38 @@ test('renderer and run HUD: HiDPI canvas, Canvas renderer, WebGL context loss, s
       await api('finishRun');
       await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 15000 });
       assert.equal((await api('stall')).text, '', 'the marker clears when the round ends');
+      assert.deepEqual(errors, [], 'no page errors');
+      await context.close();
+    }
+    // 5) first_draft_suggests_its_tip_once (PLAN-v1 0.3.6): drafting a press for the first time badges the Tips button;
+    //    opening marks the tip read, its live demo ships a plate, Esc closes, and after a reload the badge is gone
+    {
+      let seed = ''; for (let i = 0; i < 500 && !seed; i++) if (draftOffers(`tips-${i}`, 1).includes('press')) seed = `tips-${i}`;
+      assert.ok(seed, 'found a seed whose round-1 offers include a press');
+      const { context, page, api, errors } = await open(`seed=${seed}`);
+      const btnText = () => page.evaluate(() => window.__jdGame.scene.getScene('Game').side.getByName('tips')?.label.text ?? null);
+      assert.equal(await btnText(), 'Tips', 'no badge before any draft');
+      assert.equal((await api('tips')).suggested, null);
+      const idx = (await api('state')).offers.indexOf('press');
+      await api('pick', idx);
+      assert.equal((await api('tips')).suggested, 'press', 'the first press draft suggests the press tip');
+      assert.equal(await btnText(), 'Tips ●', 'the Tips button carries a badge');
+      await api('openTips');
+      let t = await api('tips');
+      assert.deepEqual({ open: t.open, current: t.current, readHasPress: t.read.includes('press'), suggested: t.suggested }, { open: true, current: 'press', readHasPress: true, suggested: null }, 'opening shows and marks the suggested tip');
+      const demo = await page.waitForFunction(() => { const d = window.__jd.tips().demo; return d && d.shipped.plate >= 1 ? d : false; }, null, { timeout: 20000 });
+      const d = await demo.jsonValue();
+      assert.equal(d.tip, 'press'); assert.ok(d.shipped.plate >= 1, `the live demo pressed a plate by tick ${d.tick}`);
+      assert.equal(await api('hint'), await api('hint'), 'sanity'); // tips never touch the hint strip: it still shows the build hint
+      assert.doesNotMatch(await api('hint'), /press needs two shards/i, 'the tip text did not leak into the hint strip');
+      await page.keyboard.press('Escape'); await wait(150);
+      t = await api('tips'); assert.equal(t.open, false, 'Esc closes the panel');
+      assert.equal(await btnText(), 'Tips', 'badge gone once read');
+      await page.reload();
+      await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
+      await api('pick', idx);
+      assert.equal((await api('tips')).suggested, null, 'a read tip is never suggested again');
+      assert.equal(await btnText(), 'Tips');
       assert.deepEqual(errors, [], 'no page errors');
       await context.close();
     }
