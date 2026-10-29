@@ -1004,3 +1004,100 @@ test('weekly: minted from the same secret under its own domain, opens exactly Fr
     clock = mid.getTime(); const h = await (await fetch(`${base}/histogram?seed=${encodeURIComponent(rec.seed)}`)).json() as { medals?: Medals | null }; assert.deepEqual(h.medals, frozen.medals, 'the frozen weekly carries its medals on /histogram');
   } finally { stop(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+// ---- Discord webhook (PLAN-v4 0.7.6) ----
+test('discord webhook: seed openings, a new #1 and freezes post once each with a mocked webhook; a 429 waits Retry-After and retries; a 500 or a network error is logged and dropped; retries exhaust; dry run prints; a submission never waits for the post', async () => {
+  const { Announcer, formatAnnouncement, retryAfterMs } = await import('../server/webhook');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-hook-')); const file = path.join(dir, 'board.json');
+  const calls: { url: string; body: { content: string; allowed_mentions: { parse: string[] } } }[] = []; const delays: number[] = []; const logs: string[] = [];
+  let responses: (() => Response)[] = [];
+  const f = (async (url: string | URL | Request, init?: RequestInit) => { calls.push({ url: String(url), body: JSON.parse(String(init!.body)) }); const r = responses.shift(); return r ? r() : new Response(null, { status: 204 }); }) as typeof fetch;
+  const a = new Announcer({ url: 'https://discord.test/hook', fetch: f, sleep: async (ms) => { delays.push(ms); }, log: (l) => logs.push(l) });
+  const v = new Verifier(file, { dailySecret: 'hook-secret', announce: (ev) => a.announce(ev) });
+  // 2030-05-10 is a Friday (ISO 2030-W19): at 19:00 UTC the daily and the weekly are both open
+  const D = '2030-05-10', t1 = new Date('2030-05-10T19:00:00Z');
+  const day = v.daily(10, t1)!; v.daily(10, t1); v.dailyRecord('2030-05-09', t1);
+  const wk = v.weekly(10, t1)!; v.weekly(10, t1); assert.equal(wk.week, '2030-W19');
+  await a.idle();
+  assert.deepEqual(calls.map((c) => c.body.content), [
+    `Daily ${D} is open — seed \`${day.seed}\` · closes 2030-05-12 00:00 UTC · commitment to the next day: ${day.commitment.slice(0, 16)}…`,
+    `Weekly 2030-W19 is open — seed \`${wk.seed}\` · closes 2030-05-17 18:00 UTC · commitment to the next week: ${wk.commitment.slice(0, 16)}…`,
+  ], 'today and this week once each; the previous day and week minted for the chain are not announced');
+  assert.ok(calls.every((c) => c.url === 'https://discord.test/hook' && c.body.allowed_mentions.parse.length === 0), 'no mentions ever');
+  assert.equal(a.stats.deduped, 0, 'the verifier only announces at mint time, so no duplicate reached the announcer'); a.announce({ kind: 'seed', record: v.dailyRecord(D, t1)! }); await a.idle(); assert.equal(calls.length, 2); assert.equal(a.stats.deduped, 1, 'the announcer itself refuses a second message for the same key');
+  // a new #1 on the daily: one message per leader change, none for a run that does not lead; an ordinary seed is never announced
+  const park: [number, number][] = [[6, 0], [6, 5], [0, 5], [6, 2], [0, 0]];
+  const mk = (seed: string, extra: number) => { const s = newRun(seed); for (let r = 1; r <= RULES.rounds; r++) { apply(s, { t: 'pick', i: 0 }); if (r === RULES.rounds) for (let k = 0; k < extra; k++) { const cell = park[k]; apply(s, { t: 'place', id: s.bin[k].id, x: cell[0], y: cell[1], dir: 0 }); } apply(s, { t: 'run' }); apply(s, { t: 'next' }); } return s; };
+  const runs = [mk(day.seed, 0), mk(day.seed, 1), mk(day.seed, 2), finishedRun(day.seed), twistRun(day.seed)];
+  let leader: string | undefined; const changes: string[] = [];
+  for (const [i, r] of runs.entries()) { const out = v.submit(JSON.stringify(exportReplay(r)), `p${i}`, null, t1); assert.equal(out.ok, true, out.error); const top = v.board(day.seed, 1)[0]; if (top.replayHash !== leader) { leader = top.replayHash; changes.push(`New #1 on Daily ${D}: ${top.player} with $${top.score}`); } }
+  assert.equal(v.submit(JSON.stringify(exportReplay(finishedRun('plain-seed'))), 'plain', null, t1).ok, true);
+  await a.idle();
+  const leadMsgs = calls.slice(2).map((c) => c.body.content);
+  assert.equal(leadMsgs.length, changes.length, 'one message per change of leader'); assert.ok(changes.length >= 1);
+  leadMsgs.forEach((m, k) => { assert.ok(m.startsWith(changes[k]), `${m} starts with ${changes[k]}`); if (k > 0) assert.match(m, / \(was p\d, \$\d+\)$/); else assert.ok(!m.includes('(was')); });
+  // a claimed player improving their own leading run is not news
+  const pid = playerIdFromToken('b'.repeat(32))!; assert.ok(v.claim(pid, 'Hook Player', t1).ok);
+  const [lo, hi] = [mk(wk.seed, 0), finishedRun(wk.seed)].sort((x, y) => x.score - y.score); assert.ok(lo.score < hi.score, 'two distinct scores on the weekly');
+  const n0 = calls.length;
+  assert.equal(v.submit(JSON.stringify(exportReplay(lo)), 'x', pid, t1).recorded, true); assert.equal(v.submit(JSON.stringify(exportReplay(hi)), 'x', pid, t1).recorded, true);
+  await a.idle();
+  assert.equal(calls.length, n0 + 1); assert.match(calls[n0].body.content, new RegExp(`^New #1 on Weekly 2030-W19: Hook Player#[A-Z2-9]{4} with \\$${lo.score}$`));
+  // freeze: the daily closes 2030-05-12 00:00 UTC with five runs → medals; the chain-minted 2030-05-09 closes too with no runs and is not announced; observing again posts nothing
+  const t2 = new Date('2030-05-12T00:00:00Z'); const n1 = calls.length;
+  const frozen = v.daily(10, t2, D)!; assert.equal(frozen.final, true); v.daily(10, t2, D); v.archive({}, t2);
+  await a.idle();
+  assert.equal(calls.length, n1 + 1);
+  const top = v.board(day.seed, 1)[0]; const m = frozen.medals!;
+  assert.equal(calls[n1].body.content, `Daily ${D} is final: 5 verified runs · #1 ${top.player} $${top.score} · medals: gold ≥ $${m.gold} · silver ≥ $${m.silver} · bronze ≥ $${m.bronze}`);
+  // 429 with Retry-After: wait exactly that long, retry once, deliver; the weekly closes 2030-05-17 18:00 UTC with two runs
+  responses = [() => new Response('{"retry_after":1.5}', { status: 429, headers: { 'retry-after': '2' } })];
+  const t3 = new Date('2030-05-17T18:00:00Z'); const n2 = calls.length;
+  assert.equal(v.weekly(10, t3, '2030-W19')!.final, true);
+  await a.idle();
+  assert.deepEqual(delays, [2000]); assert.equal(calls.length, n2 + 2); assert.equal(calls[n2].body.content, calls[n2 + 1].body.content);
+  assert.match(calls[n2].body.content, /^Weekly 2030-W19 is final: 1 verified run · #1 Hook Player#[A-Z2-9]{4} \$\d+ · fewer than five runs: no medals$/);
+  assert.equal(a.stats.retried, 1); assert.match(logs.at(-1)!, /rate limited, retrying in 2000 ms \(1\/3\)/);
+  // a 500 is dropped and logged; the queue goes on with the next message
+  responses = [() => new Response('', { status: 500 })]; const n3 = calls.length;
+  const d17 = v.daily(10, t3)!; const w20 = v.weekly(10, t3)!; assert.equal(w20.week, '2030-W20');
+  await a.idle();
+  assert.equal(calls.length, n3 + 2); assert.equal(a.stats.dropped, 1); assert.match(logs.at(-1)!, new RegExp(`^discord seed:${D.slice(0, 8)}17: dropped, HTTP 500$`));
+  assert.match(calls[n3].body.content, new RegExp(`^Daily 2030-05-17 is open — seed \`${d17.seed}\``)); assert.match(calls[n3 + 1].body.content, /^Weekly 2030-W20 is open/);
+  // a network error is dropped and logged
+  responses = [() => { throw new Error('ECONNRESET'); }];
+  v.daily(10, new Date('2030-05-18T01:00:00Z'));
+  await a.idle(); assert.equal(a.stats.dropped, 2); assert.match(logs.at(-1)!, /^discord seed:2030-05-18: dropped, request failed: ECONNRESET$/);
+  // retries exhaust after maxRetries 429s (default 3): three waits, then dropped
+  responses = [1, 2, 3, 4].map(() => () => new Response('', { status: 429, headers: { 'retry-after': '1' } })); const n4 = calls.length;
+  v.daily(10, new Date('2030-05-19T01:00:00Z'));
+  await a.idle(); assert.deepEqual(delays, [2000, 1000, 1000, 1000]); assert.equal(calls.length, n4 + 4); assert.equal(a.stats.dropped, 3); assert.match(logs.at(-1)!, /dropped, HTTP 429 after retries$/);
+  assert.equal(a.stats.posted + a.stats.dropped, calls.length - a.stats.retried, 'posted + dropped = distinct messages that reached the queue');
+  // Retry-After forms
+  assert.equal(await retryAfterMs(new Response('', { status: 429, headers: { 'retry-after': '2' } })), 2000);
+  assert.equal(await retryAfterMs(new Response('', { status: 429, headers: { 'retry-after': new Date(5_000_000).toUTCString() } }), 2_000_000), 3_000_000);
+  assert.equal(await retryAfterMs(new Response('{"retry_after":0.25}', { status: 429 })), 250);
+  assert.equal(await retryAfterMs(new Response('', { status: 429 })), 1000);
+  // wording pins
+  assert.equal(formatAnnouncement({ kind: 'freeze', record: { ...v.dailyRecord(D, t2)!, medals: null }, n: 1, top: [top] }), `Daily ${D} is final: 1 verified run · #1 ${top.player} $${top.score} · fewer than five runs: no medals`);
+  assert.equal(formatAnnouncement({ kind: 'lead', record: v.dailyRecord(D, t2)!, entry: top, previous: { ...top, player: 'old', score: 1 } }), `New #1 on Daily ${D}: ${top.player} with $${top.score} (was old, $1)`);
+  // dry run prints and never fetches; a disabled announcer does nothing
+  const dryLogs: string[] = []; const dry = new Announcer({ url: null, dryRun: true, fetch: (() => { throw new Error('must not fetch'); }) as unknown as typeof fetch, log: (l) => dryLogs.push(l) });
+  const v2 = new Verifier(path.join(dir, 'dry.json'), { dailySecret: 'hook-secret', announce: (ev) => dry.announce(ev) }); v2.daily(10, t1); await dry.idle();
+  assert.deepEqual(dryLogs, [`discord (dry run) seed:${D}: ${calls[0].body.content}`]); assert.equal(dry.stats.posted, 1);
+  const off = new Announcer({ url: null }); assert.equal(off.enabled, false); off.announce({ kind: 'seed', record: v.dailyRecord(D, t2)! }); await off.idle(); assert.deepEqual(off.stats, { posted: 0, dropped: 0, deduped: 0, retried: 0 });
+  // a submission over HTTP answers before the webhook does; /health counts the announcer
+  let release!: () => void; const gate = new Promise<void>((r) => { release = r; });
+  const slow = new Announcer({ url: 'https://discord.test/slow', fetch: (async () => { await gate; return new Response(null, { status: 204 }); }) as typeof fetch, log: null });
+  const v3 = new Verifier(path.join(dir, 'slow.json'), { dailySecret: 'slow-secret', announce: (ev) => slow.announce(ev) });
+  const { base, close } = await listen(v3, { rateLimit: null, now: () => t1.getTime(), announcer: slow });
+  try {
+    const seed = v3.daily(10, t1)!.seed; // the opening message is now stuck behind the gate
+    const t0 = Date.now();
+    const res = await fetch(`${base}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(finishedRun(seed)), player: 'quick' }) });
+    assert.equal(res.status, 200); assert.equal((await res.json() as { recorded: boolean }).recorded, true); assert.ok(Date.now() - t0 < 5000, 'answered while the webhook is still pending');
+    assert.deepEqual(slow.stats, { posted: 0, dropped: 0, deduped: 0, retried: 0 }, 'nothing posted yet');
+    release(); await slow.idle(); assert.deepEqual(slow.stats, { posted: 2, dropped: 0, deduped: 0, retried: 0 }, 'the opening and the new #1 both went out afterwards');
+    const h = await (await fetch(`${base}/health`)).json() as { discord?: { posted: number } }; assert.equal(h.discord?.posted, 2);
+  } finally { close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});

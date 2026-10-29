@@ -9,6 +9,8 @@
  * - GET  /archive?from=&to=&limit=30 → closed days newest first with N, bot par, medals and the top five; `nextTo` pages older.
  * - GET  /weekly?limit=10[&week=YYYY-Www] → this week's seed (opens Friday 18:00 UTC, closes 7 days later; PLAN-v4 0.7.5) with its board,
  *   commitment to the next week and the previous week; a Friday's daily carries weeklyCommitment for the weekly opening that evening.
+ * - Discord (PLAN-v4 0.7.6): with DISCORD_WEBHOOK_URL the verifier posts one message when a daily or weekly opens, when an open event gets a new #1
+ *   and when an event freezes (medal thresholds); one per event type per seed, 429 honoured, other failures logged and dropped, never awaited by a request.
  * - Groups (PLAN-v4 0.7.2): POST /groups { name } (bearer, filtered name, 8-char code), POST /groups/join|leave|rename|disband, GET /groups;
  *   ?group=<code> on /board, /histogram, /daily and /archive (bearer of a member) scopes entries to members' player ids.
  * - GET  /entry?hash=…[&seed=…] → one verified entry's seed, score, label, per-round earnings, frozen flag and medals (PLAN-v4 0.7.1):
@@ -65,6 +67,8 @@ import { RULES_VERSION } from '../game/src/sim/types';
 import { dailySeedFor, isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
 import { mintSeed, mintWeeklySeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS, base32Lower } from './mint';
 import { isWeekId, isWeeklySeed, weeklyIdOf, weeklyWindow, currentWeekId, nextWeekId, prevWeekId, isoWeekId } from '../game/src/sim/weekly';
+import { Announcer, type AnnounceEvent } from './webhook';
+export { Announcer, formatAnnouncement, announceKey, retryAfterMs, type AnnounceEvent } from './webhook';
 export { mintWeeklySeed } from './mint';
 export { currentWeekId, weeklyWindow, isWeeklySeed, weeklyIdOf } from '../game/src/sim/weekly';
 import { medalThresholds, type Medals } from '../game/src/daily/medals';
@@ -194,6 +198,8 @@ export interface VerifierOptions {
   maxSeeds?: number;
   /** secret the daily seeds are minted from (DAILY_SECRET); a random per-process secret when absent (tests, ad-hoc runs) */
   dailySecret?: string;
+  /** announcements (PLAN-v4 0.7.6): called when a daily or weekly opens, an open event gets a new #1, or an event freezes; must never throw into the caller (the verifier swallows) */
+  announce?: (ev: AnnounceEvent) => void;
 }
 
 /** The one comparator (PLAN-v2 0.5.5): score desc, fewer final-round machines, earlier receipt, then the hash so the order is total. Boards, histogram ranks and neighbours, retention and the returned rank all use it. */
@@ -205,10 +211,12 @@ export class Verifier {
   readonly maxEntriesPerSeed: number;
   readonly maxSeeds: number;
   private readonly dailySecret: string;
+  private readonly announceFn: ((ev: AnnounceEvent) => void) | null;
   /** Closed dailies older than HOT_DAYS live here (PLAN-v4 0.7.0): read-only, final, loaded lazily. */
   readonly cold: ColdStore;
   constructor(private file: string, opts: VerifierOptions = {}) {
     this.dailySecret = opts.dailySecret || randomBytes(32).toString('hex');
+    this.announceFn = opts.announce ?? null;
     this.cold = new ColdStore(path.join(path.dirname(file), 'cold'));
     this.replaysPerSeed = opts.replaysPerSeed ?? DEFAULT_REPLAYS_PER_SEED;
     this.maxEntriesPerSeed = opts.maxEntriesPerSeed ?? DEFAULT_MAX_ENTRIES_PER_SEED;
@@ -267,6 +275,7 @@ export class Verifier {
     const next = { ...this.data, dailies: { ...(this.data.dailies ?? {}), [week]: rec } };
     try { this.commit(next); } catch { this.data = next; }
     this.observeFreeze(now);
+    if (week === currentWeekId(now)) this.announce({ kind: 'seed', record: this.data.dailies![week] });
     return this.data.dailies![week];
   }
   /** This week's seed (or an opened past week): record, board, previous week for the commitment chain. */
@@ -451,6 +460,7 @@ export class Verifier {
       if (mine && byRank(mine, entry) <= 0) return { ok: true, score: v.score, entry: mine, recorded: false, player: label };
       if (mine) { entries = entries.filter((e) => e !== mine); delete replays[mine.replayHash]; }
     }
+    const event = isMintedDailySeed(replay.seed) || isWeeklySeed(replay.seed) ? this.issuedRecordForSeed(replay.seed) : null; const prevTop = event ? this.rank(replay.seed)[0] ?? null : null;
     replays[replayHash] = { seed: replay.seed, rulesVersion: replay.rulesVersion, actions: replay.actions, score: v.score, player: entry.player, verifiedAt: entry.verifiedAt };
     const candidate: Board = {
       ...this.data, // never rebuild the board from a subset of its fields: cached pars were lost that way (review F08)
@@ -459,6 +469,7 @@ export class Verifier {
     };
     this.prune(candidate, replay.seed);
     this.commit(candidate); // throws StorageError: nothing recorded, caller answers 503
+    if (event) { const top = this.rank(replay.seed)[0]; if (top && top.replayHash === replayHash && !(prevTop && playerId && prevTop.playerId === playerId)) this.announce({ kind: 'lead', record: event, entry: top, previous: prevTop }); } // a new #1 on an open event (PLAN-v4 0.7.6); a leader improving their own run is not news
     return { ok: true, score: v.score, entry, recorded: true, player: label };
   }
   board(seed: string, limit = 20, members?: ReadonlySet<string> | null): BoardEntry[] {
@@ -514,17 +525,20 @@ export class Verifier {
   /** Verified score distribution for a seed; `hash` locates the caller's own entry. */
   histogram(seed: string, hash?: string, members?: ReadonlySet<string> | null): Histogram { return { seed, ...histogramOf(this.rank(seed, this.data, members), hash) }; }
   /** The issued daily for a UTC date, minting and persisting it on first request; null when that day has not opened yet (PLAN-v3 0.6.1). */
+  /** Hand an event to the announcer (PLAN-v4 0.7.6); announcing never affects the operation that caused it. */
+  private announce(ev: AnnounceEvent) { if (!this.announceFn) return; try { this.announceFn(ev); } catch { /* the announcer logs its own trouble */ } }
   /** Mark every issued day whose window has closed as frozen at its close time: idempotent, persisted, derived from the clock alone (PLAN-v3 0.6.2). */
   private observeFreeze(now: Date) {
     const ds = this.data.dailies; if (!ds) return;
-    let changed = false; const next: Record<string, DailyRecord> = {};
+    let changed = false; const next: Record<string, DailyRecord> = {}; const frozenNow: DailyRecord[] = [];
     for (const [k, r] of Object.entries(ds)) {
-      if (!r.frozenAt && Date.parse(r.closesAt) <= now.getTime()) { next[k] = { ...r, frozenAt: r.closesAt, medals: medalThresholds(this.rank(r.seed).map((e) => e.score)) }; changed = true; } // the final board sets the medals (PLAN-v3 0.6.4)
+      if (!r.frozenAt && Date.parse(r.closesAt) <= now.getTime()) { next[k] = { ...r, frozenAt: r.closesAt, medals: medalThresholds(this.rank(r.seed).map((e) => e.score)) }; changed = true; if (Date.parse(r.issuedAt) < Date.parse(r.closesAt)) frozenNow.push(next[k]); } // the final board sets the medals (PLAN-v3 0.6.4); a day issued after its own close (an archive lookup) is not announced
       else if (r.frozenAt && r.medals === undefined) { next[k] = { ...r, medals: medalThresholds(this.rank(r.seed).map((e) => e.score)) }; changed = true; } // a day frozen before medals existed
       else next[k] = r;
     }
     if (!changed) return;
     const d = { ...this.data, dailies: next }; try { this.commit(d); } catch { this.data = d; }
+    for (const r of frozenNow) { const n = this.rank(r.seed).length; if (n) this.announce({ kind: 'freeze', record: r, n, top: this.board(r.seed, 3) }); } // a day nobody played is not news
   }
   dailyRecord(date: string, now = new Date()): DailyRecord | null {
     if (!isUtcDate(date) || date > utcDate(now)) return null;
@@ -535,6 +549,7 @@ export class Verifier {
     const next = { ...this.data, dailies: { ...(this.data.dailies ?? {}), [date]: rec } };
     try { this.commit(next); } catch { this.data = next; } // storage trouble: serve the minted seed anyway; it is persisted with the next successful write
     this.observeFreeze(now); // a day issued after its own close (an archive lookup) is frozen at once
+    if (date === utcDate(now)) this.announce({ kind: 'seed', record: this.data.dailies![date] }); // today's seed opening, not the previous day minted for the chain nor an archive lookup
     return this.data.dailies![date];
   }
   /** Closed days, newest first, paged by `limit` with `nextTo` = the next older date to pass as `to` (PLAN-v3 0.6.2). */
@@ -732,6 +747,8 @@ export class RateLimiter {
 }
 
 export interface ServerOptions {
+  /** announcement counters for /health (PLAN-v4 0.7.6) */
+  announcer?: Announcer | null;
   /** POST /verify limit per client IP per window (default 60 per 60 s); null disables */
   rateLimit?: { limit: number; windowMs: number } | null;
   /** honour X-Forwarded-For (only behind a proxy you control) */
@@ -784,7 +801,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     try { url = new URL(req.url || '/', 'http://localhost'); } catch { req.resume(); return json(400, { ok: false, error: 'bad request: malformed URL' }, {}, '(malformed)'); }
     const route = () => {
       if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
-      if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, protocol: PROTOCOL, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, cold: { days: verifier.cold.dayCount, replays: verifier.cold.replayCount }, uptimeSec: Math.round((Date.now() - started) / 1000) });
+      if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, protocol: PROTOCOL, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, cold: { days: verifier.cold.dayCount, replays: verifier.cold.replayCount }, ...(opts.announcer?.enabled ? { discord: opts.announcer.stats } : {}), uptimeSec: Math.round((Date.now() - started) / 1000) });
       if (req.method === 'GET' && url.pathname === '/replay') {
         const r = verifier.replay(url.searchParams.get('hash') || '');
         if (!r) { const why = verifier.replayMissingReason(url.searchParams.get('hash') || '', url.searchParams.get('seed')); return json(404, why === 'compacted' ? { ok: false, reason: 'compacted', error: `replay compacted: only the top ${COLD_REPLAYS_PER_DAY} replays of a day older than ${HOT_DAYS} days are kept; the entry and its score stay on the final board` } : { ok: false, error: 'no verified replay with that hash' }); }
@@ -945,11 +962,15 @@ if (isMain) {
   let dailySecret = flag('daily-secret') || process.env.DAILY_SECRET || '';
   if (!dailySecret) { try { dailySecret = fs.readFileSync(secretFile, 'utf8').trim(); } catch { /* none yet */ } }
   if (!dailySecret) { dailySecret = randomBytes(32).toString('hex'); fs.mkdirSync(path.dirname(secretFile), { recursive: true }); fs.writeFileSync(secretFile, dailySecret + '\n', { mode: 0o600 }); console.log(`daily secret generated at ${secretFile}: back it up (DAILY_SECRET overrides it)`); }
-  const verifier = new Verifier(file, { dailySecret });
+  // Discord announcements (PLAN-v4 0.7.6): DISCORD_WEBHOOK_URL / --discord-webhook; DISCORD_DRY_RUN=1 / --discord-dry-run prints instead of posting
+  const webhookUrl = flag('discord-webhook') || process.env.DISCORD_WEBHOOK_URL || null; const dryRun = args.includes('--discord-dry-run') || process.env.DISCORD_DRY_RUN === '1';
+  const announcer = new Announcer({ url: webhookUrl, dryRun });
+  if (announcer.enabled) console.log(`discord announcements ${dryRun ? 'in dry run (printed, not posted)' : 'on'}: seed openings, new #1 on open events, freezes with medals`);
+  const verifier = new Verifier(file, { dailySecret, announce: (ev) => announcer.announce(ev) });
   // cold storage (PLAN-v4 0.7.0): closed dailies older than HOT_DAYS leave the hot board at startup and once an hour
   try { const { moved } = verifier.splitCold(new Date()); if (moved.length) console.log(`cold: moved ${moved.length} closed day(s) to ${path.join(path.dirname(file), 'cold')}`); } catch (e) { console.error(`cold split failed: ${(e as Error).message}`); }
   setInterval(() => { try { verifier.splitCold(new Date()); } catch { /* next hour */ } }, 3_600_000).unref();
   const par = process.env.BOT_PAR === '0' ? null : new ParService(verifier, (s) => computeParInWorker(s, Number(process.env.BOT_PAR_CAP_MS || 20_000)));
-  createServer(verifier, { rateLimit: { limit, windowMs: 60_000 }, playerRateLimit, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events, par })
+  createServer(verifier, { rateLimit: { limit, windowMs: 60_000 }, playerRateLimit, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events, par, announcer })
     .listen(port, host, () => console.log(`replay verifier v${VERSION} → http://${host}:${port}/  (board: ${file}, events: ${events.file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, ${playerRateLimit}/min/player, CORS ${corsOrigin}${trustProxy ? ', trusting X-Forwarded-For' : ''})`));
 }
