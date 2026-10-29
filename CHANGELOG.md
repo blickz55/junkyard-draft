@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased — 2026-10-29 (v0.4: histogram-first results, PLAN-v1 0.4.1)
 
+### GIF clip format (PLAN-v1 0.4.11)
+- "Save GIF" on the results screen beside "Export clip": the same best round, drawn offline by the clip painter at 1× and 10 fps as one pass plus a hold, encoded in the browser by a dependency-free GIF89a writer (`game/src/render/gif.ts`: one global 256-colour palette quantised from every frame, LZW, NETSCAPE2.0 loop). It needs no MediaRecorder, so it also works where video capture is unavailable, and posts where a video will not autoplay. Electron saves it to Downloads through the same bridge as the WebM. Measured on seed gif-seed (a 5-machine line, 80 ticks at 4×): 624×536, 38 frames, 3.8 s loop, 256 colours, 580 KB, drawn and encoded in 0.3–0.6 s; looked at in Chromium: belts, items, dock pops and the strip animate as in the video.
+
 ### HiDPI art atlas (DOSSIER-v1 0.4.8b)
 - The SVG atlas is rasterised and packed at `min(DPR, 2)` times the logical size, so on HiDPI screens the WebGL batch samples sharp pixels instead of upscaling 1× frames. Scenes keep their logical geometry through a per-key base scale (`baseScale`, `fit`, `setArt` in `atlas.ts`) applied at every image site in the game, title and tips panel; scale tweens multiply by it. A procedural fallback texture stays at 1× and is drawn at scale 1. The clip exporter, the DOM item images and the audit sheet already draw frames into logical-size rectangles, so their output is unchanged at 1× and sharper at 2×.
 

@@ -7,7 +7,7 @@ import { clearSave, recordBest, recordDayPlayed } from '../storage';
 import type { Rank } from '../share';
 import { mountResults } from '../../ui/ResultsScreen';
 import { ui } from '../../ui/dom';
-import { recordClip, saveClip, type ClipResult } from '../clip';
+import { recordClip, renderGif, saveClip, type ClipResult } from '../clip';
 import { loadPlayer } from '../storage';
 
 /** Results: bookkeeping (bests, save) happens here; the screen itself is DOM (ui/ResultsScreen.ts). */
@@ -21,6 +21,8 @@ export class ResultsScene extends Phaser.Scene {
   lastN = 0;
   /** last exported clip (size, duration, container) for the e2e; the blob itself is not kept */
   lastClip: { size: number; ms: number; mime: string; frames: number; round: number; width: number; height: number; filename: string; savedTo: string; elapsedMs: number } | null = null;
+  /** last exported GIF (size, frames, palette size, magic) for the e2e */
+  lastGif: { size: number; ms: number; frames: number; round: number; width: number; height: number; colours: number; magic: string; filename: string; savedTo: string; elapsedMs: number } | null = null;
   private exporting = false;
   private run!: RunState;
   constructor() { super('Results'); }
@@ -34,6 +36,19 @@ export class ResultsScene extends Phaser.Scene {
       const savedTo = await saveClip(clip);
       this.lastClip = { size: clip.blob.size, ms: clip.ms, mime: clip.mime, frames: clip.frames, round: clip.round, width: clip.width, height: clip.height, filename: clip.filename, savedTo, elapsedMs: Math.round(performance.now() - t0) };
       return this.lastClip;
+    } finally { this.exporting = false; }
+  }
+
+  /** Render and save a looping GIF of one round (default the best); offline, so it works without MediaRecorder. */
+  async exportGif(round?: number, onProgress?: (f: number) => void): Promise<NonNullable<ResultsScene['lastGif']>> {
+    if (this.exporting) throw new Error('already exporting');
+    this.exporting = true;
+    const t0 = performance.now();
+    try {
+      const gif = await renderGif(this.game, this.run, { round, player: loadPlayer() || undefined, onProgress });
+      const savedTo = await saveClip(gif);
+      this.lastGif = { size: gif.blob.size, ms: gif.ms, frames: gif.frames, round: gif.round, width: gif.width, height: gif.height, colours: gif.colours, magic: gif.magic, filename: gif.filename, savedTo, elapsedMs: Math.round(performance.now() - t0) };
+      return this.lastGif;
     } finally { this.exporting = false; }
   }
 

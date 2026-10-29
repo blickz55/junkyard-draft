@@ -12,7 +12,7 @@ import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { audio } from '../render/audio';
 
 /** What the scene keeps so tests and later screens can read it. */
-export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string; lastPercentile: number | null; lastN: number; exportClip(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number }> }
+export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string; lastPercentile: number | null; lastN: number; exportClip(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number }>; exportGif(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number; frames: number }> }
 
 export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: boolean; replayLabel?: string; newOverall: boolean; newSeed: boolean }) {
   const bests = loadBests();
@@ -164,6 +164,15 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     } catch (e) { setStatus((e as Error).message, 'jd-red'); }
     finally { clipBtn.textContent = label; clipBtn.disabled = false; }
   }, { small: true, title: 'a short looping video of the round, drawn from the real simulation; always full motion' });
+  const gifBtn = btn('Save GIF', 'export-gif', async () => {
+    gifBtn.disabled = true; const label = gifBtn.textContent ?? '';
+    setStatus('Drawing a looping GIF of your best round…');
+    try {
+      const g = await scene.exportGif(undefined, (f) => { gifBtn.textContent = `GIF… ${Math.round(f * 100)} %`; });
+      setStatus(`GIF saved: ${g.savedTo} (${Math.round(g.size / 1024)} KB, ${g.frames} frames, ${(g.ms / 1000).toFixed(1)} s loop). Posts anywhere a video will not autoplay.`, 'jd-green');
+    } catch (e) { setStatus((e as Error).message, 'jd-red'); }
+    finally { gifBtn.textContent = label; gifBtn.disabled = false; }
+  }, { small: true, title: 'the same round as a looping GIF (1×, 10 fps); larger than the video, plays everywhere' });
   const downloadBtn = btn('Download replay', 'download', () => {
     const text = encodeReplay(exportReplay(run, import.meta.env.BUILD));
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = `junkyard-draft-${run.seed}-${run.score}.replay.json`; a.click();
@@ -178,7 +187,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       btn('Retry this seed', 'retry', () => go(run.seed), { variant: 'primary' }),
       btn('New random seed', 'newseed', () => go(randomSeed()), { variant: 'steel' }),
       btn("Today's challenge", 'daily', () => go(dailySeed()), { variant: 'steel' })),
-    h('div', { class: 'jd-row jd-center' }, submitBtn, shareBtn, detailedBtn, shareLinkLabel, clipBtn, exportBtn, downloadBtn, btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
+    h('div', { class: 'jd-row jd-center' }, submitBtn, shareBtn, detailedBtn, shareLinkLabel, clipBtn, gifBtn, exportBtn, downloadBtn, btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
     status);
   ui.mount(scene, screen, (e) => { if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) go(run.seed); });
   void loadBoard();

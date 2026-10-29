@@ -291,6 +291,17 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.match(clip.mime, /^video\/(webm|mp4)/); assert.match(clip.filename, /^junkyard-e2e-seed-\$\d+-r\d\.(webm|mp4)$/);
     assert.ok(clip.frames >= 60 && clip.width >= 624 && clip.height >= 536, `frames ${clip.frames}, ${clip.width}x${clip.height}`);
     assert.equal(await page.evaluate(() => document.querySelector('[data-testid=export-clip]')?.disabled), false, 'the export button is usable again');
+    // gif_clip_exports (PLAN-v1 0.4.11): the same round as a GIF89a drawn offline at 1x and 10 fps: real header, logical size,
+    // a one-pass loop with a hold, ≤ 256 colours, under the 2 MB budget, in a few seconds
+    const gif = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportGif().then((g) => ({ ...g })));
+    assert.equal(gif.magic, 'GIF89a');
+    assert.ok(gif.size > 10_000 && gif.size <= 2 * 1024 * 1024, `GIF size within budget (${gif.size} bytes)`);
+    assert.ok(gif.frames >= 30 && gif.frames <= 60 && gif.ms >= 3000, `${gif.frames} frames over ${gif.ms} ms`);
+    assert.ok(gif.colours > 8 && gif.colours <= 256, `palette of ${gif.colours} colours`);
+    assert.ok(gif.width >= 624 && gif.height >= 536, `${gif.width}x${gif.height}`);
+    assert.ok(gif.elapsedMs <= 15000, `GIF drawn and encoded in under 15 s (${gif.elapsedMs} ms)`);
+    assert.match(gif.filename, /^junkyard-e2e-seed-\$\d+-r\d\.gif$/);
+    assert.equal(await page.evaluate(() => document.querySelector('[data-testid=export-gif]')?.disabled), false, 'the GIF button is usable again');
     // 7) watch the verified replay from the board: fetched by hash, re-verified locally, played back labelled, never recorded as a best
     const bestsBefore = await page.evaluate(() => localStorage.getItem('jd.bests.v1'));
     // watched_replay_preserves_existing_save: plant an unrelated unfinished run; it must survive playback byte for byte

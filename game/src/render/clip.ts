@@ -4,6 +4,8 @@
  * (seed or date, round earnings, player, wordmark) on every frame; two passes with a short hold so the file loops cleanly;
  * recorded live through canvas.captureStream + MediaRecorder (VP9 → VP8 → MP4 by support). Always full motion: the
  * viewer's motion setting, not the exporter's, decides how a clip is watched. Nothing here touches scores or saves.
+ * `renderGif` (0.4.11) draws the same round offline at 1× and 10 fps, one pass plus a hold, and encodes it with the
+ * dependency-free GIF89a writer in gif.ts (one global palette quantised from every frame); GIFs loop natively.
  */
 import type Phaser from 'phaser';
 import { createSim, step, cellIndex, type SimState } from '../sim/sim';
@@ -12,6 +14,7 @@ import type { Layout, Material, SimEvent } from '../sim/types';
 import { BELT_FRAMES, CELL, itemTexture, machineTexture } from './textures';
 import { CSS, FONT, MONO, P } from './palette';
 import { artFrame } from './atlas';
+import { encodeGif, quantize } from './gif';
 
 export interface ClipOptions {
   /** 1-based round to export; default the highest-earning round */
@@ -26,6 +29,8 @@ export interface ClipOptions {
   onProgress?: (fraction: number) => void;
 }
 export interface ClipResult { blob: Blob; mime: string; ms: number; frames: number; round: number; width: number; height: number; filename: string }
+export interface GifOptions { round?: number; speed?: number; holdMs?: number; fps?: number; player?: string; onProgress?: (fraction: number) => void }
+export interface GifResult extends ClipResult { colours: number; magic: string }
 
 const MARGIN = 24;
 const STRIP = 56;
@@ -38,7 +43,7 @@ export function pickClipMime(): string | null {
   for (const m of ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4;codecs=avc1', 'video/mp4']) if (MediaRecorder.isTypeSupported(m)) return m;
   return null;
 }
-export const clipFilename = (seed: string, score: number, round: number, mime: string) => `junkyard-${seed.replace(/[^a-z0-9-]+/gi, '_').slice(0, 40)}-$${score}-r${round}.${mime.includes('mp4') ? 'mp4' : 'webm'}`;
+export const clipFilename = (seed: string, score: number, round: number, mime: string) => `junkyard-${seed.replace(/[^a-z0-9-]+/gi, '_').slice(0, 40)}-$${score}-r${round}.${mime.includes('gif') ? 'gif' : mime.includes('mp4') ? 'mp4' : 'webm'}`;
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
 const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
@@ -52,9 +57,9 @@ export class ClipPainter {
   private img = new Map<string, { image: CanvasImageSource; x: number; y: number; w: number; h: number } | null>();
   private pops: { x: number; y: number; value: number; at: number }[] = [];
   private jammed = new Set<number>();
-  constructor(private readonly game: Phaser.Game, private readonly layout: Layout, private readonly label: { title: string; seed: string; player: string; round: number; totalBefore: number }, maxHeight = 720) {
+  constructor(private readonly game: Phaser.Game, private readonly layout: Layout, private readonly label: { title: string; seed: string; player: string; round: number; totalBefore: number }, maxHeight = 720, scaleCap = Infinity) {
     const w0 = layout.width * CELL + MARGIN * 2, h0 = layout.height * CELL + MARGIN * 2 + STRIP;
-    this.scale = Math.min(Math.max(1, window.devicePixelRatio || 1), maxHeight / h0);
+    this.scale = Math.min(Math.max(1, window.devicePixelRatio || 1), maxHeight / h0, scaleCap);
     this.width = Math.round(w0 * this.scale); this.height = Math.round(h0 * this.scale);
     this.canvas = document.createElement('canvas'); this.canvas.width = this.width; this.canvas.height = this.height;
     const ctx = this.canvas.getContext('2d'); if (!ctx) throw new Error('2D canvas unavailable');
@@ -171,6 +176,74 @@ export function recordClip(game: Phaser.Game, run: { seed: string; score: number
     recorder.start(250);
     requestAnimationFrame(frame);
   });
+}
+
+/** Which round a clip shows and its labels; shared by the video and GIF exporters. */
+function pickRound(run: { seed: string; rounds: { round: number; earned: number; layout: Layout }[] }, round?: number) {
+  const best = run.rounds.reduce((b, r) => (r.earned > b.earned ? r : b), run.rounds[0]);
+  const rec = round ? run.rounds.find((r) => r.round === round) ?? best : best;
+  if (!rec) return null;
+  const totalBefore = run.rounds.filter((r) => r.round < rec.round).reduce((a, r) => a + r.earned, 0);
+  const seedLabel = /^daily-(\d{4}-\d{2}-\d{2})$/.test(run.seed) ? `Daily ${run.seed.slice(6)}` : `seed ${run.seed}`;
+  return { rec, totalBefore, seedLabel };
+}
+
+/**
+ * Render one round as a looping GIF, offline (no real-time capture): one pass of the round at `speed` plus a short hold,
+ * `fps` frames per second at 1× pixels. Two drawing passes over a deterministic clock — the first only gathers the
+ * palette, the second indexes each frame as it is drawn, so memory stays at one byte per pixel per frame.
+ */
+export async function renderGif(game: Phaser.Game, run: { seed: string; score: number; rounds: { round: number; earned: number; layout: Layout }[] }, o: GifOptions = {}): Promise<GifResult> {
+  const picked = pickRound(run, o.round);
+  if (!picked) throw new Error('No finished round to export.');
+  const { rec, totalBefore, seedLabel } = picked;
+  const painter = new ClipPainter(game, rec.layout, { title: 'JUNKYARD DRAFT', seed: seedLabel, player: o.player || 'anonymous', round: rec.round, totalBefore }, Infinity, 1);
+  const speed = o.speed ?? 4, holdMs = o.holdMs ?? 400, fps = o.fps ?? 10;
+  const tickMs = TICK_MS / speed, frameMs = 1000 / fps;
+  const totalMs = RULES.ticksPerRound * tickMs + holdMs;
+  const frameCount = Math.ceil(totalMs / frameMs);
+  const t0 = performance.now();
+  const yieldNow = () => new Promise<void>((r) => setTimeout(r, 0));
+  const drawAll = async (each: (data: Uint8ClampedArray, i: number) => void, progressBase: number) => {
+    let sim: SimState = createSim(rec.layout); painter.reset();
+    let acc = 0, belt = 0, now = 0;
+    for (let i = 0; i < frameCount; i++) {
+      if (sim.tick < RULES.ticksPerRound) {
+        acc += frameMs;
+        while (acc >= tickMs && sim.tick < RULES.ticksPerRound) { acc -= tickMs; const evs = step(sim); painter.onTick(evs, now); }
+      }
+      belt = (belt + frameMs * speed * 0.012 * (BELT_FRAMES / 3)) % BELT_FRAMES;
+      painter.draw(sim, sim.tick < RULES.ticksPerRound ? Math.min(1, acc / tickMs) : 1, now, Math.floor(belt));
+      each(painter.ctx.getImageData(0, 0, painter.width, painter.height).data, i);
+      now += frameMs;
+      if (i % 8 === 7) { o.onProgress?.(progressBase + (0.5 * (i + 1)) / frameCount); await yieldNow(); }
+    }
+  };
+  // pass 1: palette from every frame
+  const seen: Uint8ClampedArray[] = [];
+  await drawAll((d) => { seen.push(d); }, 0);
+  const q = quantize(seen, painter.width, painter.height);
+  seen.length = 0;
+  // pass 2: index each frame against it
+  const frames: { indices: Uint8Array; delayCs: number }[] = [];
+  await drawAll((d) => { frames.push({ indices: quantizeWith(q.palette, q.colours, d, painter.width * painter.height), delayCs: Math.round(frameMs / 10) }); }, 0.5);
+  const bytes = encodeGif(painter.width, painter.height, q.palette, frames, 0);
+  const blob = new Blob([bytes as unknown as BlobPart], { type: 'image/gif' });
+  o.onProgress?.(1);
+  return { blob, mime: 'image/gif', ms: Math.round(totalMs), frames: frames.length, round: rec.round, width: painter.width, height: painter.height, filename: clipFilename(run.seed, run.score, rec.round, 'image/gif'), colours: q.colours, magic: String.fromCharCode(...bytes.subarray(0, 6)), elapsed: Math.round(performance.now() - t0) } as GifResult & { elapsed: number };
+}
+/** Index one RGBA frame against a fixed palette (nearest colour, cached per 15-bit bin). */
+function quantizeWith(palette: Uint8Array, colours: number, data: Uint8ClampedArray, n: number): Uint8Array {
+  const cache = new Int16Array(32768).fill(-1);
+  const out = new Uint8Array(n);
+  for (let i = 0, p = 0; i < n; i++, p += 4) {
+    const r = data[p], g = data[p + 1], b = data[p + 2];
+    const k = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+    let c = cache[k];
+    if (c < 0) { let best = 0, bd = Infinity; for (let j = 0; j < colours; j++) { const dr = palette[j * 3] - r, dg = palette[j * 3 + 1] - g, db = palette[j * 3 + 2] - b; const d = dr * dr + dg * dg + db * db; if (d < bd) { bd = d; best = j; } } c = best; cache[k] = c; }
+    out[i] = c;
+  }
+  return out;
 }
 
 /** Save a finished clip: through the Electron bridge when present (no dialog), else a browser download. Returns where it went. */
