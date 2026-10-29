@@ -266,8 +266,15 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.getByTestId('share').click();
     await page.waitForFunction(() => !!window.__jdGame.scene.getScene('Results').lastShareText, null, { timeout: 5000 }); // clipboard availability varies in headless runs; the text itself is what matters
     const shared = await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText); // headless clipboard contents are not reliably readable
-    assert.match(shared, /^Junkyard Draft — seed e2e-seed: \$\d+\n/);
-    assert.match(shared, /#1 of 1 on the verified board as e2e player \(replay re-simulated, rules v2\)/);
+    // spoiler_free_share (PLAN-v1 0.4.3): label · score, six glyphs, the standing, days played; no URL, no per-round dollars, no layout
+    assert.match(shared, /^Junkyard Draft · seed e2e-seed · \$\d+\n[░▒▓█]{6}\n#1 of 1 on the verified board as e2e player\n1 day played$/, `default share text: ${JSON.stringify(shared)}`);
+    assert.doesNotMatch(shared, /https?:|rounds \$|hopper|conveyor|crusher/);
+    await page.getByTestId('share-link').check();
+    await page.getByTestId('share-detailed').click();
+    await page.waitForFunction(() => /rounds \$/.test(window.__jdGame.scene.getScene('Results').lastShareText), null, { timeout: 5000 });
+    const detailed = await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText);
+    assert.match(detailed, /\nrounds \$\d+ · \$\d+ · \$\d+ · \$\d+ · \$\d+ · \$\d+\nreplay re-simulated by the verifier, rules v2\n1 day played\nhttp:\/\/127\.0\.0\.1:\d+\/\?scene=game&seed=e2e-seed$/, `detailed share text with link: ${JSON.stringify(detailed)}`);
+    await page.getByTestId('share-link').uncheck();
     const subs = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.submissions.v1')));
     assert.equal(subs['e2e-seed'].replayHash, board.entries[0].replayHash, 'submission recorded locally by replay hash');
     // loop_clip_exports (PLAN-v1 0.4.2): the best round is re-simulated and recorded live in Chromium; the clip is non-empty, at least 3 s, and takes under 10 s to make

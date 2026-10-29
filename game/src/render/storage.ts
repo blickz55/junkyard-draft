@@ -5,7 +5,7 @@ import { cleanPlayer } from './share';
 
 export { dailySeed };
 
-const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v1', tips: 'jd.tips.v1', telemetry: 'jd.telemetry.v1' };
+const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v1', tips: 'jd.tips.v1', telemetry: 'jd.telemetry.v1', days: 'jd.days.v1' };
 
 export type RenderQuality = 'auto' | 'high' | 'low';
 /** renderQuality: 'auto' until the first run measures frame times at high resolution, then 'high' or 'low' (DPR 1); the title button sets it too. */
@@ -105,6 +105,11 @@ export const loadTelemetryState = (): TelemetryState => {
 };
 export const saveTelemetryState = (s: TelemetryState) => write(K.telemetry, s);
 export const clearTelemetryState = () => { try { localStorage.removeItem(K.telemetry); } catch { /* ignore */ } };
+
+/** UTC dates with at least one finished run on this device (PLAN-v1 0.4.3 share line; the streak of 0.6.4 builds on it). Bounded, validated. */
+export const loadDaysPlayed = (): string[] => { const raw = readRaw(K.days); return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x)).slice(-400) : []; };
+export const recordDayPlayed = (now = new Date()): number => { const d = now.toISOString().slice(0, 10); const all = loadDaysPlayed(); if (!all.includes(d)) { all.push(d); write(K.days, all.slice(-400)); } return all.length; };
+export const daysPlayed = (): number => loadDaysPlayed().length;
 
 /** Tips the player has opened (PLAN-v1 0.3.6); anything but an array of strings reads as none. */
 export const loadReadTips = (): string[] => { const raw = readRaw(K.tips); return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : []; };

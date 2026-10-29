@@ -4,14 +4,14 @@ import { h, btn, ui, textureImg } from './dom';
 import type { RunState } from '../sim/run';
 import { encodeReplay, exportReplay } from '../sim/replay';
 import { RULES } from '../sim/rules';
-import { dailySeed, loadBests, loadPlayer, loadSubmissions, randomSeed, recordSubmission, savePlayer } from '../render/storage';
+import { dailySeed, daysPlayed, loadBests, loadPlayer, loadSubmissions, randomSeed, recordSubmission, savePlayer } from '../render/storage';
 import { telemetry } from '../render/telemetry';
 import { shareText, type Rank } from '../render/share';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { audio } from '../render/audio';
 
 /** What the scene keeps so tests and later screens can read it. */
-export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string; exportClip(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number }> }
+export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string; lastPercentile: number | null; lastN: number; exportClip(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number }> }
 
 export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: boolean; replayLabel?: string; newOverall: boolean; newSeed: boolean }) {
   const bests = loadBests();
@@ -56,6 +56,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       // the par is computed off the request path by the verifier the first time a seed is seen: poll a few times while it is pending
       if (hg.botPar == null && attempt < 6) setTimeout(() => { if (histBox.isConnected) void loadHistogram(attempt + 1); }, 4000);
       const parLine = hg.botPar != null ? h('div', { class: 'jd-mono jd-dim', tid: 'bot-par', style: 'font-size:0.75em; margin-top:0.3em' }, `Bot par $${hg.botPar} · the shipped autoplayer's median on this seed (a target, never ranked)${run.score > hg.botPar ? ' — you beat it' : run.score === hg.botPar ? ' — matched' : ''}`) : null;
+      if (hg.mine) { scene.lastPercentile = hg.mine.percentile; scene.lastN = hg.n; }
       if (!hg.n) { if (parLine) histBox.append(parLine); return; }
       const max = Math.max(1, ...hg.bins.map((b) => b.count));
       histBox.append(h('div', { class: 'jd-hist', role: 'img', ariaLabel: `distribution of ${hg.n} verified scores` }, ...hg.bins.map((b, i) => h('div', { class: `jd-hist-bin${hg.mine && hg.mine.bin === i ? ' jd-hist-mine' : ''}`, tid: `hist-bin-${i}`, title: `$${b.from}–$${b.to}: ${b.count}` }, h('div', { class: 'jd-hist-count' }, b.count ? String(b.count) : ''), h('div', { class: 'jd-hist-bar', style: `height:${Math.max(2, Math.round((100 * b.count) / max))}%` })))));
@@ -125,12 +126,21 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     const fallback = () => { try { window.prompt(title, text); } catch { b.textContent = 'Clipboard blocked'; setTimeout(() => { b.textContent = label; }, 2000); } };
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
   };
+  // share (PLAN-v1 0.4.3): spoiler-free glyph grid by default, per-round dollars in the detailed variant, link only on request
+  const linkToggle = h('input', { type: 'checkbox', tid: 'share-link', ariaLabel: 'append a link to this seed' });
+  const permalink = () => (linkToggle.checked ? `${location.origin}${location.pathname}?scene=game&seed=${encodeURIComponent(run.seed)}` : undefined);
+  const buildShare = (variant: 'grid' | 'detailed') => shareText({ seed: run.seed, score: run.score, rulesVersion: run.rulesVersion, rounds: run.rounds.map((r) => r.earned), player: scene.lastPlayer || undefined, rank: scene.lastRank, percentile: scene.lastPercentile, n: scene.lastN, daysPlayed: daysPlayed(), permalink: permalink(), variant });
   const shareBtn = btn('Copy share text', 'share', () => {
-    const text = shareText({ seed: run.seed, score: run.score, rulesVersion: run.rulesVersion, rounds: run.rounds.map((r) => r.earned), player: scene.lastPlayer || undefined, rank: scene.lastRank });
-    scene.lastShareText = text;
-    telemetry.track('share_copied', { variant: 'text' });
+    const text = buildShare('grid'); scene.lastShareText = text;
+    telemetry.track('share_copied', { variant: 'grid' });
     copyWith(shareBtn, 'Copy share text', text, 'Share text:');
-  }, { small: true });
+  }, { small: true, title: 'label, score, six glyphs for the rounds, your verified standing; no URL unless ticked' });
+  const detailedBtn = btn('Copy detailed', 'share-detailed', () => {
+    const text = buildShare('detailed'); scene.lastShareText = text;
+    telemetry.track('share_copied', { variant: 'detailed' });
+    copyWith(detailedBtn, 'Copy detailed', text, 'Detailed share text:');
+  }, { small: true, title: 'adds the per-round earnings and the rules version' });
+  const shareLinkLabel = h('label', { class: 'jd-dim', style: 'font-size:0.75em; display:inline-flex; align-items:center; gap:0.3em' }, linkToggle, 'add link');
   const exportBtn = btn('Copy replay JSON', 'export', () => copyWith(exportBtn, 'Copy replay JSON', encodeReplay(exportReplay(run, import.meta.env.BUILD)), 'Copy replay JSON:'), { small: true });
   const best = run.rounds.reduce((b, r) => (r.earned > b.earned ? r : b), run.rounds[0]);
   const clipBtn = btn(`Export clip (round ${best?.round ?? 1})`, 'export-clip', async () => {
@@ -156,7 +166,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       btn('Retry this seed', 'retry', () => go(run.seed), { variant: 'primary' }),
       btn('New random seed', 'newseed', () => go(randomSeed()), { variant: 'steel' }),
       btn("Today's challenge", 'daily', () => go(dailySeed()), { variant: 'steel' })),
-    h('div', { class: 'jd-row jd-center' }, submitBtn, shareBtn, clipBtn, exportBtn, downloadBtn, btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
+    h('div', { class: 'jd-row jd-center' }, submitBtn, shareBtn, detailedBtn, shareLinkLabel, clipBtn, exportBtn, downloadBtn, btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
     status);
   ui.mount(scene, screen, (e) => { if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) go(run.seed); });
   void loadBoard();

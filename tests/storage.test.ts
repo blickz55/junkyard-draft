@@ -66,3 +66,15 @@ test('submissions and player name: junk entries are dropped, names are cleaned',
   storage.savePlayer('  Jon   Flynn  ');
   assert.equal(storage.loadPlayer(), 'Jon Flynn');
 });
+
+test('days played: one entry per UTC date, malformed rows dropped, bounded', () => {
+  store.delete('jd.days.v1');
+  assert.equal(storage.daysPlayed(), 0);
+  assert.equal(storage.recordDayPlayed(new Date('2026-10-29T23:59:00Z')), 1);
+  assert.equal(storage.recordDayPlayed(new Date('2026-10-29T01:00:00Z')), 1, 'the same UTC day counts once');
+  assert.equal(storage.recordDayPlayed(new Date('2026-10-30T00:00:01Z')), 2);
+  store.set('jd.days.v1', JSON.stringify(['2026-01-01', 5, 'nope', null, '2026-01-02']));
+  assert.deepEqual(storage.loadDaysPlayed(), ['2026-01-01', '2026-01-02']);
+  store.set('jd.days.v1', '"junk"');
+  assert.equal(storage.daysPlayed(), 0);
+});

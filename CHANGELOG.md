@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased — 2026-10-29 (v0.4: histogram-first results, PLAN-v1 0.4.1)
 
+### Spoiler-free share grid (PLAN-v1 0.4.3)
+- The default share text is now `Junkyard Draft · Daily 2026-10-29 · $1234`, a line of six glyphs (one per round: ░ ≤ $100, ▒ ≤ $250, ▓ ≤ $400, █ above), your verified standing ("better than 61 % of 38 verified runs" once five runs exist, else the rank, else "local score, not yet verified") and "N days played". No URL unless "add link" is ticked, no per-round dollars, no layout. "Copy detailed" adds the per-round earnings and the rules version. Days played are counted per UTC date with a finished run (`jd.days.v1`).
+
 ### Loop clip export (PLAN-v1 0.4.2)
 - "Export clip" on the results screen re-simulates the best round with the real simulation and draws it with the real generated textures onto an offscreen canvas at 4× (grid plus a 24 px margin, a 56 px strip with seed or date, round earnings, running total, player and wordmark on every frame, capped at 720 p), two passes with a 300 ms hold so it loops, recorded live at 30 fps through `canvas.captureStream` + `MediaRecorder` (VP9 → VP8 → MP4 by support). Always full motion. Saved as `junkyard-<seed>-$<score>-r<round>.webm`: a browser download on the web, and straight into Downloads through the Electron bridge (`jdDesktop.saveClip`, no dialog; `JD_CLIP_DIR` overrides). Measured in headless Chromium on this PC: 690 KB VP9 WebM, 7.45 s, 446 frames at 624×536, exported in 7.5 s.
 

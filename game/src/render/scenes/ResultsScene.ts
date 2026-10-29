@@ -3,7 +3,7 @@ import { applyDpr } from '../dpr';
 import type { RunState } from '../../sim/run';
 import { P } from '../palette';
 import { audio } from '../audio';
-import { clearSave, recordBest } from '../storage';
+import { clearSave, recordBest, recordDayPlayed } from '../storage';
 import type { Rank } from '../share';
 import { mountResults } from '../../ui/ResultsScreen';
 import { ui } from '../../ui/dom';
@@ -16,6 +16,9 @@ export class ResultsScene extends Phaser.Scene {
   lastPlayer = '';
   /** last share text produced (read by the e2e; the clipboard itself is not observable in headless runs) */
   lastShareText = '';
+  /** verified standing from the histogram (for the share text): percentile and population */
+  lastPercentile: number | null = null;
+  lastN = 0;
   /** last exported clip (size, duration, container) for the e2e; the blob itself is not kept */
   lastClip: { size: number; ms: number; mime: string; frames: number; round: number; width: number; height: number; filename: string; savedTo: string; elapsedMs: number } | null = null;
   private exporting = false;
@@ -41,8 +44,9 @@ export class ResultsScene extends Phaser.Scene {
     applyDpr(this);
     if (!data.replayed) clearSave(); // a watched replay is someone else's run: the player's own unfinished save stays untouched
     const rec = data.replayed ? { newOverall: false, newSeed: false } : recordBest(run.seed, run.score);
+    if (!data.replayed) recordDayPlayed();
     audio.roundEnd(true);
-    this.lastRank = null; this.lastPlayer = ''; this.lastShareText = '';
+    this.lastRank = null; this.lastPlayer = ''; this.lastShareText = ''; this.lastPercentile = null; this.lastN = 0;
     mountResults(this, run, { replayed: !!data.replayed, replayLabel: data.replayLabel, newOverall: rec.newOverall, newSeed: rec.newSeed });
     this.events.once('shutdown', () => ui.unmount());
   }
