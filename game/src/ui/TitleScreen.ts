@@ -94,7 +94,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   fetch(`${url}/daily?limit=5`).then((r) => r.json()).then((d: { seed: string; rulesVersion: number; entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[]; botPar?: number | null }) => {
     if (!alive()) return;
     if (d.seed !== dailySeed()) { line.textContent = `Verifier day differs (${d.seed}); board hidden.`; return; }
-    const top = d.entries.length ? d.entries.map((e, i) => `${i + 1}. $${e.score} ${e.player}`).join('   ·   ') + `   ·   re-simulated by the verifier (rules v${d.rulesVersion})` : 'No verified scores yet today. Finish a run and submit the replay from the results screen.';
+    const top = d.entries.length ? d.entries.map((e, i) => `${i + 1}. $${e.score} ${e.player}`).join('   ·   ') + `   ·   re-simulated by the verifier (rules v${d.rulesVersion}) · ties: fewer round-6 machines first` : 'No verified scores yet today. Finish a run and submit the replay from the results screen.';
     if (d.botPar != null) stripHead.firstElementChild?.append(h('span', { class: 'jd-mono jd-dim', tid: 'daily-par', style: 'font-size:0.75em; margin-left:0.75em', title: 'the shipped autoplayer\'s median on today\'s seed: a target, never an entry' }, `bot par $${d.botPar}`));
     line.textContent = top; line.classList.toggle('jd-dim', !d.entries.length);
     if (d.entries.length) {

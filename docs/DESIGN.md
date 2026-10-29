@@ -133,3 +133,7 @@ A reroll is a rule-checked replay action: draft phase only, once per round, refu
 | seeds better / worse / equal | — | 31 / 7 / 2 |
 | rerolls per round | 0 | 32.9 % (79 of 240) |
 | worst loss | — | −$80 (two fruitless rerolls) |
+
+## Decision: one tie-breaker, derived server-side (PLAN-v2 0.5.5, rules-v3 branch, 2026-10-29)
+
+Equal scores rank by fewer machines on the grid in round 6, then by the earlier verified submission, then by replay hash. The verifier derives the machine count from the re-simulated replay (a payload cannot set it), every ranked view uses the same comparator, legacy entries derive from their stored replay or rank last among equals, and the rule is printed under every board. Score stays the single headline axis; the machine count is a secondary objective only where scores tie, and the Minimalist badge text says so.

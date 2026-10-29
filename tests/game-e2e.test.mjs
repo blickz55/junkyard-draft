@@ -264,6 +264,8 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.ok(typeof board.botPar === 'number' && board.botPar > 0, 'the board carries a numeric bot par');
     assert.equal(board.entries.length, 1, 'one verified entry');
     assert.equal(board.entries[0].player, 'e2e player', 'the stored player name is sent with the submission');
+    assert.equal(typeof board.entries[0].finalMachines, 'number', 'the verifier derived the tie-break field');
+    assert.match(await page.evaluate(() => document.querySelector('[data-testid=tie-rule]')?.textContent ?? ''), /^Equal scores: fewer machines in round 6/, 'the tie rule is printed under the board (PLAN-v2 0.5.5)');
     // share text: copied to the clipboard with seed, score and verified rank
     // without a clipboard (headless), copying opens the select-and-copy dialog (review F04): close it like a player would
     const dismissCopyDialog = async () => { await wait(400); /* the clipboard promise rejects asynchronously before the dialog opens */ if (await page.locator('[data-testid=dialog]').count()) { await page.getByTestId('dialog-ok').click(); await wait(100); } };

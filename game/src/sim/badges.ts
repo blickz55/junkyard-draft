@@ -17,7 +17,7 @@ export const MINIMALIST_MACHINES = 8;
 
 export const BADGE_INFO: Record<BadgeId, Badge> = {
   clean: { id: 'clean', title: 'Clean', text: 'Nothing waited and no hopper was blocked, in any round.' },
-  minimalist: { id: 'minimalist', title: 'Minimalist', text: `At most ${MINIMALIST_MACHINES} machines in the final round, and still at or above the bot par.` },
+  minimalist: { id: 'minimalist', title: 'Minimalist', text: `At most ${MINIMALIST_MACHINES} machines in the final round, and still at or above the bot par. Fewer final-round machines also break score ties on the verified board.` },
   'all-hands': { id: 'all-hands', title: 'All Hands', text: 'Every machine you owned was on the grid at the end: nothing left in the bin, nothing sold.' },
 };
 
