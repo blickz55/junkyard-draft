@@ -1,0 +1,72 @@
+{
+ "at": "2026-10-29T21:53:27.399Z",
+ "node": "v24.14.0",
+ "platform": "win32 10.0.26300",
+ "cpu": "AMD Ryzen 9 9950X3D 16-Core Processor          ",
+ "trigger": {
+  "bytes": 5242880,
+  "commitMs": 50
+ },
+ "caps": {
+  "entriesPerSeed": 1000,
+  "replaysPerSeed": 100,
+  "seeds": 5000
+ },
+ "days": 365,
+ "scenarios": [
+  {
+   "players": 10,
+   "days": 365,
+   "entries": 3650,
+   "replays": 3650,
+   "bytes": 3304723,
+   "mb": 3.15,
+   "loadMs": 14.4,
+   "constructMs": 14.6,
+   "commitMs": {
+    "median": 12.76,
+    "max": 16.1,
+    "samples": [
+     16.1,
+     15.88,
+     12.76,
+     12.38,
+     12.23,
+     12.76,
+     11.85
+    ]
+   },
+   "boardReadMs": 0.29,
+   "archiveMs": 6.61,
+   "overTrigger": false
+  },
+  {
+   "players": 100,
+   "days": 365,
+   "entries": 36500,
+   "replays": 36500,
+   "bytes": 31621473,
+   "mb": 30.16,
+   "loadMs": 164.8,
+   "constructMs": 152.5,
+   "commitMs": {
+    "median": 127.53,
+    "max": 173.48,
+    "samples": [
+     133.82,
+     127.53,
+     127.56,
+     126.85,
+     125.17,
+     124.75,
+     173.48
+    ]
+   },
+   "boardReadMs": 0.82,
+   "archiveMs": 13.98,
+   "overTrigger": true
+  }
+ ],
+ "anyOverTrigger": true,
+ "elapsedSec": 2.2
+}

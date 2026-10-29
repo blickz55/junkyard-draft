@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.6, PLAN-v3)
 
+### 0.6.7 Storage measurement and the SQLite trigger — 2026-10-30
+- **For operators.** `tools/storage-measure.ts` builds boards in the post-retention shape and times the real commit path against the policy trigger (5 MB on disk or 50 ms per commit). Measured on the dev PC: 100 players × 30 days 2.5 MB / 9 ms (within); 1,000 × 30 days 10.9 MB / 30 ms (size crossed); 100 × 365 days 30 MB / 128 ms (both crossed). Every daily is a new seed, so the file grows ~85 KB per day per 100 players. Decision: JSON stays for the beta; SQLite or archive compaction is the first v0.7 storage item (`server/README.md` has the table and the reasoning). No behaviour change; a test keeps the tool and the committed baseline honest.
+
 ### 0.6.6 Replays on an open daily are revealed after you submit — 2026-10-30
 - **For players.** On today's (or yesterday's still-open) daily, "Watch #1" and the board's replay buttons stay off until you have submitted a verified run for that day, and say so; once you have, or once the day closes, they open up. Archive days are always watchable. Unlimited attempts plus visible replays was the fairness leak; this closes it without touching your own replays.
 - **For operators.** `GET /replay` enforces the same rule: 403 with the reason and the close time on an open minted daily unless the bearer's player has a verified entry on that seed. The game sends its bearer on replay fetches. Policy text updated and regenerated. No protocol or rules change.

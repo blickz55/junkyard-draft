@@ -44,6 +44,19 @@ The image was written without Docker available on the dev machine and has **not 
 `VERIFIER_URL=https://verifier.your.site npm run build` bakes the URL into `dist/` (default
 `http://127.0.0.1:4400`). A `?verifier=` query parameter still overrides it at runtime (used by tests).
 
+## Storage: measured headroom and the SQLite trigger (PLAN-v3 0.6.7)
+The board is one JSON file rewritten atomically on every commit. The policy trigger for moving to SQLite is **5 MB on disk or 50 ms per commit**. `tools/storage-measure.ts` synthesises boards in the post-retention shape (≤ 1000 entries and ≤ 100 stored replays per seed, one identity per player, one record and one par per day) and times the real commit path; baselines on the dev PC (Ryzen 9 9950X3D, Node 24, Windows) in `docs/baselines/0.6/`:
+
+| players × days | entries | replays | file | load | commit (median) | status |
+|---|---|---|---|---|---|---|
+| 100 × 30 | 3,000 | 3,000 | 2.5 MB | 12 ms | 9 ms | within |
+| 1,000 × 30 | 30,000 | 3,000 | 10.9 MB | 31 ms | 30 ms | **size trigger crossed** |
+| 10,000 × 30 | 30,000 (capped) | 3,000 | 12.5 MB | 43 ms | 33 ms | **size trigger crossed** |
+| 10 × 365 | 3,650 | 3,650 | 3.2 MB | 14 ms | 13 ms | within |
+| 100 × 365 | 36,500 | 36,500 | 30.2 MB | 165 ms | 128 ms | **both triggers crossed** |
+
+What the numbers say: an entry costs ~310 bytes and a stored replay ~700 bytes; the per-seed caps bound each day, but every daily is a new seed, so the file grows without bound in *days* (about 85 KB per day per 100 players). A web beta of up to ~100 daily players stays under the trigger for roughly two months; 1,000 players cross the size trigger inside a month while commit latency is still fine (~30 ms at 11 MB on this machine, slower on a small VPS). Decision recorded here, not guessed: **storage stays JSON for the 0.6.8 beta; the first v0.7 storage item is either SQLite or archive compaction** (keep every frozen day's entries, drop stored replays below the top 10 once a day is older than ~30 days: replays are two thirds of the year-long file), to be chosen with the beta's real numbers. Re-run the tool after any change to retention or the entry shape.
+
 ## Policy
 The fairness and verification policy players see in the game (title and results: "Fairness policy") is generated from this code by `npm run policy` into `game/public/policy.json` and `docs/POLICY.md` (PLAN-v3 0.6.5). The limits above are the exported `DEFAULT_*` constants; changing one regenerates the policy or fails `tests/policy.test.ts`.
 
