@@ -76,3 +76,11 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] 0.4.9 Audio buses, voice caps, chords, ducking, reduced audio (`tests/mixer.test.ts`, e2e) · 0.4.10 Throughput hum · 0.4.13 Impact samples under the synth (`tests/samples.test.ts`, e2e)
 - [x] 0.4.12 Tips panel in the DOM with a canvas demo; the last Phaser text panel removed (e2e incl. 130 % fit)
 - [ ] ⚑ 0.4.7 Host the verifier (deployable bundle + Dockerfile exist; nothing deployed — see M4)
+
+## M7 — Pre-v0.5 stabilization (independent review 2026-10-29, docs/reviews/)
+- [x] A: verifier/collector integrity — total telemetry validation + guarded async handlers, redaction removes tokens, canonical replay identity, pars kept on submit, consent-generation telemetry sends (`tests/verifier.test.ts`, `tests/collector.test.mjs`, `tests/telemetry.test.ts`)
+- [x] B: desktop/input/provenance — DOM dialogs replace prompt/alert (packaged smoke exercises them), grid-owned keyboard with no global capture and Tips focus management, playback-owned advancement, provenance-honest clip footers, run-bound results standing, null-prototype seed dictionaries, DPR-aware dock pulse, All Hands badge (`tests/render-e2e` 5c/5d, `tests/game-e2e`, `tests/controller.test.ts`, `tests/storage.test.ts`, `tests/badges.test.ts`)
+- [x] C: deployment readiness — Dockerfile covers the verifier's source graph (layout-bundle test), bounded bot-par admission, `ci.yml` with a real image smoke and a Windows packaging job, strict perf gate with an explicit baseline path, Control Room bounds/containment, Electron IPC validation
+- [x] D: compatibility — golden replay corpus pinned in `npm test`; the 0.4.0 compatibility claim corrected; scenario namespaces versioned with `RULES_VERSION` (`docs/DESIGN.md`)
+- [ ] ⚑ Commit the CI perf baseline to `docs/baselines/ci/perf-ci.json` from the perf workflow's artifact to arm the strict gate
+- [ ] ⚑ First green run of `ci.yml` on GitHub (the image job needs the hosted runner's Docker; nothing can build the image on the dev PC)
