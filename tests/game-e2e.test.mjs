@@ -366,6 +366,31 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.equal(await page.evaluate(() => Number(document.querySelector('[data-testid=score]').textContent.slice(1))), board.entries[0].score, 'playback reproduces the verified score');
     const finalScore = await page.evaluate(() => Number(document.querySelector('[data-testid=score]').textContent.slice(1)));
     assert.equal(board.entries[0].score, finalScore, 'board score equals the displayed final score');
+    // fork from round N (PLAN-v4 0.7.3): the watched replay's results offer forks; a fork is labelled, plays on from the next round, and never gets submit/export controls or touches the bests
+    assert.equal(await page.locator('[data-testid=fork-row] button').count(), 5, 'one fork button per non-final round');
+    await page.getByTestId('fork-2').click();
+    await page.waitForFunction(() => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.phase() === 'draft' && window.__jd.state().round === 3 && window.__jd.state().rounds.length === 2, null, { timeout: 15000 });
+    assert.match(await page.getByTestId('hud-seed').textContent(), /^seed e2e-seed · forked from e2e player(#[A-Z2-9]{4})? after round 2 · practice$/);
+    assert.equal(await page.locator('[data-testid=replay-banner]').count(), 0, 'a fork is live play, not playback');
+    assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), plantedSave, 'a fork never becomes the player\'s save');
+    for (let r = 0; r < 4; r++) {
+      await page.evaluate(() => { const j = window.__jd; const st = j.state(); j.pick(st.offers.length - 1); j.run(); });
+      await page.waitForFunction(() => window.__jd.mode() === 'running', null, { timeout: 10000 });
+      await page.evaluate(() => window.__jd.finishRun());
+      await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 10000 });
+      await page.evaluate(() => window.__jd.next());
+      await wait(150);
+    }
+    await page.waitForFunction(() => window.__jdGame.scene.isActive('Results'), null, { timeout: 10000 });
+    assert.match(await page.getByTestId('results-subtitle').textContent(), /forked from e2e player(#[A-Z2-9]{4})? after round 2 · practice \(never submitted, not your own best\)/);
+    assert.equal(await page.locator('[data-testid=submit]').count(), 0, 'no submit control on a fork'); assert.equal(await page.locator('[data-testid=export]').count(), 0); assert.equal(await page.locator('[data-testid=download]').count(), 0);
+    assert.match(await page.getByTestId('fork-best').textContent(), /^New fork best for this seed: \$\d+$/);
+    assert.equal(await page.evaluate(() => localStorage.getItem('jd.bests.v2')), bestsBefore, 'a fork never touches the local bests');
+    assert.ok(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.forkbests.v1')))['e2e-seed'], 'fork bests live in their own bucket');
+    await page.getByTestId('share').click();
+    await page.waitForFunction(() => !!window.__jdGame.scene.getScene('Results').lastShareText, null, { timeout: 5000 });
+    assert.match(await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText), /\npractice fork of e2e player(#[A-Z2-9]{4})?'s run from round 3 · not a ranked score\n/);
+    await dismissCopyDialog();
     // Esc stops a watched replay mid-run and returns to the title (instead of pausing)
     await page.waitForSelector('[data-testid=board-entry-0]:not([disabled])', { timeout: 10000 });
     await page.getByTestId('board-entry-0').click();

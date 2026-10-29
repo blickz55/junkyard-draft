@@ -8,7 +8,7 @@ export { dailySeed };
 
 /** Every record written before 0.5.0 was made under rules version 2; the one-time migration files them there, whatever version runs now. */
 const LEGACY_RECORDS_VERSION = 2;
-const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v2', bestsLegacy: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v2', submissionsLegacy: 'jd.submissions.v1', tips: 'jd.tips.v1', telemetry: 'jd.telemetry.v1', days: 'jd.days.v1', dailyStreak: 'jd.dailystreak.v1' };
+const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v2', bestsLegacy: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v2', submissionsLegacy: 'jd.submissions.v1', tips: 'jd.tips.v1', telemetry: 'jd.telemetry.v1', days: 'jd.days.v1', dailyStreak: 'jd.dailystreak.v1', forkBests: 'jd.forkbests.v1' };
 /**
  * Score records are partitioned by rules version (PLAN-v2 0.5.0): `jd.bests.v2` / `jd.submissions.v2` hold
  * `{ byVersion: { "2": …, "3": … } }`. Readers take the current RULES_VERSION; the other versions are archived for the
@@ -166,6 +166,9 @@ export const loadTelemetryState = (): TelemetryState => {
 export const saveTelemetryState = (s: TelemetryState) => write(K.telemetry, s);
 export const clearTelemetryState = () => { try { localStorage.removeItem(K.telemetry); } catch { /* ignore */ } };
 
+/** Best score per seed among practice forks (PLAN-v4 0.7.3): kept apart so a fork never masquerades as the player's own run. */
+export const loadForkBests = (): Record<string, { score: number; at: string }> => { const raw = readRaw(K.forkBests); const out = dict<{ score: number; at: string }>(); if (isObj(raw)) for (const [seed, v] of Object.entries(raw)) if (isObj(v) && isFiniteNum(v.score) && isValidSeed(seed)) out[seed] = { score: v.score, at: isStr(v.at) ? v.at : '' }; return out; };
+export const recordForkBest = (seed: string, score: number): { newFork: boolean } => { const all = loadForkBests(); const newFork = !own(all, seed) || score > all[seed].score; if (newFork) { all[seed] = { score, at: new Date().toISOString() }; write(K.forkBests, all); } return { newFork }; };
 /** UTC dates with at least one finished run on this device (PLAN-v1 0.4.3 share line; the streak of 0.6.4 builds on it). Bounded, validated. */
 export const loadDaysPlayed = (): string[] => { const raw = readRaw(K.days); return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x)).slice(-400) : []; };
 export const recordDayPlayed = (now = new Date()): number => { const d = now.toISOString().slice(0, 10); const all = loadDaysPlayed(); if (!all.includes(d)) { all.push(d); write(K.days, all.slice(-400)); } return all.length; };

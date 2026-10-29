@@ -18,11 +18,14 @@ import { medalFor, medalsLine, type Medals } from '../daily/medals';
 import { openPolicy } from './PolicyPanel';
 import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
 import { groupHeaders, groupParam, loadGroup } from '../render/groups';
+import { forkLabelOf } from '../sim/fork';
+import { loadForkBests } from '../render/storage';
 
 /** What the scene keeps so tests and later screens can read it. */
 export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string; lastPercentile: number | null; lastN: number; lastMedal: string | null; verifiedHash: string | null; matchesStoredSubmission(): Promise<boolean>; exportClip(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number }>; exportGif(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number; frames: number }> }
 
-export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: boolean; replayLabel?: string; newOverall: boolean; newSeed: boolean; challenge?: Challenge }) {
+export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: boolean; replayLabel?: string; newOverall: boolean; newSeed: boolean; challenge?: Challenge; replayHash?: string; replayPlayer?: string; newFork?: boolean }) {
+  const fork = run.forkedFrom ?? null; // PLAN-v4 0.7.3
   const bests = loadBests();
   const go = (seed: string) => { audio.unlock(); scene.scene.start('Game', { seed, fresh: true, challenge: o.challenge && o.challenge.seed === seed ? o.challenge : undefined }); }; // a retry keeps the challenge; another seed drops it (PLAN-v4 0.7.1)
   const verifierUrl = new URLSearchParams(location.search).get('verifier') || import.meta.env.VERIFIER_URL;
@@ -30,8 +33,9 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
   const header = h('div', { style: 'text-align:center' },
     h('div', { class: 'jd-head' }, 'Run complete'),
     h('div', { class: 'jd-gold jd-pop', tid: 'score', style: 'font-size:4.25em; font-weight:700; line-height:1.05' }, `$${run.score}`),
-    h('div', { class: `jd-mono ${o.replayed ? 'jd-blue' : 'jd-dim'}`, tid: 'results-subtitle', style: 'font-size:0.8125em; margin-top:0.25em; overflow-wrap:anywhere' }, `seed ${run.seed} · rules v${run.rulesVersion}${o.replayed ? ` · ${o.replayLabel ?? 'replay playback'} (not recorded as a best)` : ''}`),
-    o.newOverall ? h('div', { class: 'jd-green', style: 'font-weight:700; letter-spacing:0.1em; margin-top:0.25em' }, 'NEW LOCAL PERSONAL BEST')
+    h('div', { class: `jd-mono ${o.replayed ? 'jd-blue' : 'jd-dim'}`, tid: 'results-subtitle', style: 'font-size:0.8125em; margin-top:0.25em; overflow-wrap:anywhere' }, `seed ${run.seed} · rules v${run.rulesVersion}${o.replayed ? ` · ${o.replayLabel ?? 'replay playback'} (not recorded as a best)` : ''}${fork ? ` · ${forkLabelOf(fork)} (never submitted, not your own best)` : ''}`),
+    fork ? h('div', { class: o.newFork ? 'jd-green' : 'jd-dim', tid: 'fork-best', style: 'margin-top:0.25em; font-size:0.875em' }, o.newFork ? `New fork best for this seed: $${run.score}` : `Fork best for this seed: $${loadForkBests()[run.seed]?.score ?? run.score}`)
+    : o.newOverall ? h('div', { class: 'jd-green', style: 'font-weight:700; letter-spacing:0.1em; margin-top:0.25em' }, 'NEW LOCAL PERSONAL BEST')
       : o.newSeed ? h('div', { class: 'jd-green', style: 'margin-top:0.25em' }, 'New local best for this seed')
         : h('div', { class: 'jd-dim', style: 'font-size:0.875em; margin-top:0.25em' }, bests.overall ? `Local best: $${bests.overall.score} (${bests.overall.seed})` : ''),
     o.challenge && !o.replayed ? h('div', { class: 'jd-mono jd-amber', tid: 'challenge-result', style: 'font-size:0.8125em; margin-top:0.3em' }, `Challenge · you $${run.score} · ${o.challenge.player} $${o.challenge.score} · ${challengeOutcome(run.score, o.challenge).text}`) : null);
@@ -192,7 +196,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
   // share (PLAN-v1 0.4.3): spoiler-free glyph grid by default, per-round dollars in the detailed variant, link only on request
   const linkToggle = h('input', { type: 'checkbox', tid: 'share-link', ariaLabel: 'append a link to this seed' });
   const permalink = () => (linkToggle.checked ? `${location.origin}${location.pathname}?scene=game&seed=${encodeURIComponent(run.seed)}` : undefined);
-  const buildShare = (variant: 'grid' | 'detailed') => shareText({ seed: run.seed, score: run.score, rulesVersion: run.rulesVersion, rounds: run.rounds.map((r) => r.earned), player: scene.lastPlayer || undefined, rank: scene.lastRank, percentile: scene.lastPercentile, n: scene.lastN, daysPlayed: daysPlayed(), streak: currentStreak(), medal: scene.lastMedal ?? undefined, challenge: o.challenge && !o.replayed ? { player: o.challenge.player, score: o.challenge.score } : undefined, permalink: permalink(), variant, rerolls: run.rerolls, badges: badgesFor(run, botPar).map((b) => b.title) });
+  const buildShare = (variant: 'grid' | 'detailed') => shareText({ seed: run.seed, score: run.score, rulesVersion: run.rulesVersion, rounds: run.rounds.map((r) => r.earned), player: scene.lastPlayer || undefined, rank: scene.lastRank, percentile: scene.lastPercentile, n: scene.lastN, daysPlayed: daysPlayed(), streak: currentStreak(), medal: scene.lastMedal ?? undefined, fork: fork ? { player: fork.player, round: fork.round } : undefined, challenge: o.challenge && !o.replayed ? { player: o.challenge.player, score: o.challenge.score } : undefined, permalink: permalink(), variant, rerolls: run.rerolls, badges: badgesFor(run, botPar).map((b) => b.title) });
   const shareBtn = btn('Copy share text', 'share', () => {
     const text = buildShare('grid'); scene.lastShareText = text;
     telemetry.track('share_copied', { variant: 'grid' });
@@ -235,11 +239,12 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     header,
     h('div', { class: 'jd-grid2', style: 'margin-top:0.5em' }, rounds, shippedPanel),
     boardPanel,
+    o.replayed && run.rounds.length === RULES.rounds ? h('div', { class: 'jd-row jd-center', tid: 'fork-row', style: 'margin-top:0.25em; gap:0.4em' }, h('span', { class: 'jd-mono jd-dim', style: 'font-size:0.75em' }, 'Continue as practice from after round'), ...Array.from({ length: RULES.rounds - 1 }, (_, i) => btn(String(i + 1), `fork-${i + 1}`, () => { audio.unlock(); scene.scene.start('Game', { seed: run.seed, fresh: false, fork: { origin: { hash: o.replayHash ?? null, player: o.replayPlayer ?? (o.replayLabel?.replace(/^verified replay by /, '') ?? 'replay') }, actions: run.actions, round: i + 1 } }); }, { small: true, title: `take over this run's layout and bin after round ${i + 1}; a fork is labelled, never submitted and never your own best` }))) : null,
     h('div', { class: 'jd-row jd-center', style: 'margin-top:0.25em' },
       btn('Retry this seed', 'retry', () => go(run.seed), { variant: 'primary' }),
       btn('New random seed', 'newseed', () => go(randomSeed()), { variant: 'steel' }),
       btn("Today's challenge", 'daily', () => go(todaySeed()), { variant: 'steel' })),
-    h('div', { class: 'jd-row jd-center' }, submitBtn, shareBtn, detailedBtn, shareLinkLabel, challengeBtn, clipBtn, gifBtn, exportBtn, downloadBtn, btn('Policy', 'policy', () => openPolicy(scene), { small: true, title: 'fairness and verification policy' }), btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
+    h('div', { class: 'jd-row jd-center' }, fork ? null : submitBtn, shareBtn, detailedBtn, shareLinkLabel, fork ? null : challengeBtn, clipBtn, gifBtn, fork ? null : exportBtn, fork ? null : downloadBtn, btn('Policy', 'policy', () => openPolicy(scene), { small: true, title: 'fairness and verification policy' }), btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
     status);
   ui.mount(scene, screen, (e) => { if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) go(run.seed); });
   void loadBoard();

@@ -5,6 +5,10 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.7, PLAN-v4)
 
+### 0.7.3 Fork from round N into practice — 2026-10-30
+- **For players.** After watching a replay, the results offer "Continue as practice from after round 1…5", and the replay's round summaries offer "Continue from here". A fork takes over that layout and bin on the same seed from the next round. It is labelled everywhere ("forked from Jon#7Q2M after round 3 · practice"), has no submit, export or download controls, never becomes your save, never touches your bests or days played, and keeps its own "fork best" per seed. Its share text says it is a practice fork, not a ranked score.
+- **For operators.** Client only; a fork's replay file is refused at export, so nothing a fork does can reach the verifier. No protocol or rules change: the run state gained an optional marker with no effect on the simulation.
+
 ### 0.7.2 Groups: a code that scopes the board — 2026-10-30
 - **For players.** A "Groups" button on the title opens a panel: create a group by name and get an 8-character code, join with a code someone gave you, leave, and choose "Use for boards". With a group in use, the daily strip, the histogram and the boards show only its members' verified runs, with your rank and percentile recomputed over the group ("You: #2 of 5"); the strip says "· group Lunch Crew" and the results board head names it. Up to 5 groups per player and 50 members per group; no chat; the code is the whole invitation.
 - **For operators.** `POST /groups` and `/groups/join|leave|rename|disband`, `GET /groups`, and `?group=<code>` on `/board`, `/histogram`, `/daily` and `/archive` for a member's bearer. Memberships are keyed by player id; a deleted player leaves every group. Protocol stays 2 (additive). No rules change.

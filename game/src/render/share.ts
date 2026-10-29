@@ -17,6 +17,8 @@ export interface ShareInput {
   streak?: number;
   /** medal of this run's verified entry on a frozen daily (PLAN-v3 0.6.4); detailed variant only, only when the server sent thresholds */
   medal?: string;
+  /** a practice fork of someone's run (PLAN-v4 0.7.3): the standing line says so in every variant, never a score to rank */
+  fork?: { player: string; round: number };
   /** the challenge this run answered (PLAN-v4 0.7.1): the detailed variant says how it went */
   challenge?: { player: string; score: number };
   /** appended only when the player opts in */
@@ -61,7 +63,7 @@ export function standingText(s: Pick<ShareInput, 'rank' | 'percentile' | 'n' | '
 export function shareText(s: ShareInput): string {
   const lines: string[] = [`Junkyard Draft · ${seedLabel(s.seed)} · $${s.score}`, roundGrid(s.rounds)];
   const standing = standingText(s);
-  lines.push(standing || `local score, not yet verified`);
+  lines.push(s.fork ? `practice fork of ${s.fork.player}'s run from round ${s.fork.round + 1} · not a ranked score` : standing || `local score, not yet verified`);
   if (s.variant === 'detailed') {
     lines.push(`rounds ${s.rounds.map((r) => `$${r}`).join(' · ')}`);
     if (s.rerolls) lines.push(`rerolls: ${s.rerolls} (−$${s.rerolls * RULES.rerollCost})`);

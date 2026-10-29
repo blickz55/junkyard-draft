@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import { applyDpr, DPR } from '../dpr';
 import type { Challenge } from '../challenge';
+import { forkFrom, forkLabelOf } from '../../sim/fork';
+import type { ForkOrigin } from '../../sim/run';
+import { RULES_VERSION } from '../../sim/types';
 import { decideQuality, QUALITY_PROBE_FRAMES } from '../quality';
 import { explainRunError, inputTravelDirs, outputDirs, placementWarning } from '../../sim/advice';
 import { isTutorialSeed, type Action, type RoundRecord, type RunState } from '../../sim/run';
@@ -35,6 +38,13 @@ export class GameScene extends Phaser.Scene {
   private get speed() { return this.ctl.speed; }
   private get replayQueue() { return this.ctl.replayQueue; }
   private get replayLabel() { return this.ctl.replayLabel; }
+  /** Continue the watched replay from the round just finished as a practice fork (PLAN-v4 0.7.3). */
+  private forkHere() {
+    const o = this.replayOrigin; const n = this.run.rounds.length;
+    if (!o || n < 1 || n >= RULES.rounds) return;
+    audio.unlock();
+    this.scene.start('Game', { seed: this.run.seed, fresh: false, fork: { origin: { hash: o.hash, player: o.player }, actions: o.actions, round: n } });
+  }
   private get replayRounds() { return this.ctl.replayRounds; }
   private lastFrame = 0;
   private beltFrame = 0;
@@ -87,21 +97,31 @@ export class GameScene extends Phaser.Scene {
 
   /** A challenge being played (PLAN-v4 0.7.1); only when it names this very seed, so an overlay never appears on another seed. */
   private challenge: Challenge | null = null;
-  init(data: { seed: string; fresh: boolean; replay?: Action[]; actions?: Action[]; replayLabel?: string; challenge?: Challenge }) {
-    this.challenge = data.challenge && data.challenge.seed === data.seed && !data.replay ? data.challenge : null;
+  /** the watched replay's identity, so a fork can name its origin (PLAN-v4 0.7.3) */
+  private replayOrigin: { hash: string | null; player: string; actions: Action[] } | null = null;
+  init(data: { seed: string; fresh: boolean; replay?: Action[]; actions?: Action[]; replayLabel?: string; challenge?: Challenge; replayHash?: string; replayPlayer?: string; fork?: { origin: Omit<ForkOrigin, 'round'>; actions: Action[]; round: number } }) {
+    this.challenge = data.challenge && data.challenge.seed === data.seed && !data.replay && !data.fork ? data.challenge : null;
+    this.replayOrigin = data.replay ? { hash: data.replayHash ?? null, player: data.replayPlayer ?? 'replay', actions: data.replay } : null;
+    let forked: ForkOrigin | null = null;
+    if (data.fork) { // PLAN-v4 0.7.3: resume from the forked state's action prefix (deterministic), then mark the run as a fork
+      const f = forkFrom(data.seed, data.fork.actions, RULES_VERSION, data.fork.round, data.fork.origin);
+      data = { seed: data.seed, fresh: false, actions: f.actions.slice() };
+      forked = f.forkedFrom!;
+    }
     this.ctl = new RoundController(data, {
       onTick: (evs) => this.onTickEvents(evs),
       onRunStart: () => this.onRunStart(),
       onPause: (p) => this.onPause(p),
       onRoundEnd: (rec, visual) => this.onRoundEnd(rec, visual),
       onNextRound: () => { this.heldId = null; this.syncMachines(); this.renderSide(); this.updateHint(); },
-      onFinished: () => { telemetry.track('game_complete', { mode: this.replayLabel ? 'replay' : this.run.seed.startsWith('daily-') ? 'daily' : 'seed' }); this.scene.start('Results', { run: this.run, replayed: this.replayLabel != null, replayLabel: this.replayLabel ?? undefined, challenge: this.challenge ?? undefined }); },
+      onFinished: () => { telemetry.track('game_complete', { mode: this.replayLabel ? 'replay' : this.run.seed.startsWith('daily-') ? 'daily' : 'seed' }); this.scene.start('Results', { run: this.run, replayed: this.replayLabel != null, replayLabel: this.replayLabel ?? undefined, challenge: this.challenge ?? undefined, replayHash: this.replayOrigin?.hash ?? undefined, replayPlayer: this.replayOrigin?.player }); },
       onStateChange: (a) => this.onStateChange(a),
       onReject: (a, message) => { if (a.t === 'place') { this.showReject(explainRunError(message)); telemetry.track('first_place_attempt'); telemetry.track('first_place_rejected', { reason: /occupied/i.test(message) ? 'occupied' : /bounds/i.test(message) ? 'out_of_bounds' : 'other' }); } },
       onPlaybackDone: () => { this.syncMachines(); this.renderSide(); },
-      persist: (seed, actions) => writeSave(seed, actions),
+      persist: (seed, actions) => { if (!this.run.forkedFrom) writeSave(seed, actions); }, // a fork is never the player's save: resuming it would lose the mark and make it submittable
       schedule: (ms, fn) => { this.time.delayedCall(ms, fn); },
     });
+    if (forked) this.run.forkedFrom = forked; // PLAN-v4 0.7.3: the resumed state is now a labelled practice fork
     if (data.fresh && !data.replay) telemetry.gameStart(data.seed);
     if (this.ctl.resumeNotice) clearSave(); // a damaged save is dropped so the title stops offering it; the notice is shown once
     this.tutorial = isTutorialSeed(data.seed) && !this.replayQueue; // the tutorial seed carries the lesson; other seeds get one pointer to it
@@ -130,7 +150,8 @@ export class GameScene extends Phaser.Scene {
       sell: (id) => { if (this.act({ t: 'sell', id })) { audio.ship(RULES.sellValue); this.selectedId = null; this.syncMachines(); this.renderSide(); } },
       nextRound: () => this.nextRound(), toTitle: () => this.scene.start('Title'), toggleMute: () => { audio.setMuted(!audio.muted); return audio.muted; },
       reroll: () => { if (this.replayQueue) return; if (this.act({ t: 'reroll' })) { audio.lockIn(); if (!this.replayLabel) telemetry.track('reroll_used', { n: this.run.round }); this.renderSide(); } },
-    }, this.run.seed, this.replayLabel, audio.muted);
+      forkHere: () => this.forkHere(),
+    }, this.run.seed, this.replayLabel, audio.muted, this.run.forkedFrom ? forkLabelOf(this.run.forkedFrom) : null);
     this.tips = new TipsPanel(this, () => this.renderSide());
     this.suggestedTip = null;
     this.updateHud();

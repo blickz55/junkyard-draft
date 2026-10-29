@@ -16,6 +16,8 @@ export type Action =
   | { t: 'next' }
   | { t: 'reroll' };
 
+/** Where a fork came from: the verified replay's hash (null for an imported file), its player label, and the round it continues after. */
+export interface ForkOrigin { hash: string | null; player: string; round: number }
 export interface RoundRecord { round: number; earned: number; layout: Layout; result: RunResult }
 
 export interface RunState {
@@ -34,6 +36,8 @@ export interface RunState {
   /** rerolls bought this run (each cost RULES.rerollCost, already deducted from score) and the round of the last one (0 = none) */
   rerolls: number;
   rerolledRound: number;
+  /** set on a practice fork of someone's replay (PLAN-v4 0.7.3): never exported, submitted or recorded as the player's own run; no effect on the simulation */
+  forkedFrom?: ForkOrigin;
   nextId: number;
   actions: Action[];
 }

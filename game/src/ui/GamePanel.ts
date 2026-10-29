@@ -35,6 +35,8 @@ export interface PanelActions {
   undo(): void; redo(): void; openTips(): void; rotateSelected(): void; toBin(id: number): void; sell(id: number): void; nextRound(): void; toTitle(): void; toggleMute(): boolean;
   /** buy new offers (rules v3): the scene applies { t: 'reroll' } through the controller */
   reroll(): void;
+  /** continue the watched replay from the round just finished as a practice fork (PLAN-v4 0.7.3) */
+  forkHere(): void;
 }
 
 /** Canvas-logical pixels → CSS length that follows the canvas scale and ignores local font-size (em would shrink inside small-text elements). */
@@ -48,6 +50,8 @@ export class GamePanel {
   private hintEl: HTMLElement;
   private gridLayer: HTMLElement;
   private key = '';
+  /** whether the last rendered state was replay playback (the summary overlay offers a fork then, PLAN-v4 0.7.3) */
+  private replayMode = false;
   private progress: HTMLElement | null = null;
   private earned: HTMLElement | null = null;
   private lastEarned = -1; private lastTick = -1;
@@ -55,8 +59,8 @@ export class GamePanel {
   hintText = '';
   stallText = '';
 
-  constructor(private readonly scene: Phaser.Scene, private readonly actions: PanelActions, seed: string, replayLabel: string | null, muted: boolean) {
-    const suffix = replayLabel ? ` · ${replayLabel}` : isMintedDailySeed(seed) ? (dailyDateOf(seed) === new Date().toISOString().slice(0, 10) ? " · today's challenge" : ' · archived daily (practice)') : isDailySeed(seed) ? ' · practice (unranked)' : ''; // PLAN-v3 0.6.1/0.6.2: the HUD says which daily this is
+  constructor(private readonly scene: Phaser.Scene, private readonly actions: PanelActions, seed: string, replayLabel: string | null, muted: boolean, forkLabel: string | null = null) {
+    const suffix = forkLabel ? ` · ${forkLabel}` : replayLabel ? ` · ${replayLabel}` : isMintedDailySeed(seed) ? (dailyDateOf(seed) === new Date().toISOString().slice(0, 10) ? " · today's challenge" : ' · archived daily (practice)') : isDailySeed(seed) ? ' · practice (unranked)' : ''; // PLAN-v3 0.6.1/0.6.2: the HUD says which daily this is
     this.hud = {
       seed: h('span', { class: `jd-mono jd-hud-seed ${replayLabel ? 'jd-blue' : 'jd-dim'}`, tid: 'hud-seed', title: seed }, `seed ${seed}${suffix}`),
       round: h('span', { class: 'jd-hud-round', tid: 'hud-round' }, ''),
@@ -111,6 +115,7 @@ export class GamePanel {
     const key = this.keyOf(s);
     if (key === this.key && this.side.childElementCount > 0) return;
     this.key = key;
+    this.replayMode = !!s.replayLabel;
     this.side.replaceChildren();
     this.progress = null; this.earned = null; this.lastEarned = -1; this.lastTick = -1;
     const r = s.run;
@@ -247,7 +252,8 @@ export class GamePanel {
     }
     layer.append(h('div', { class: 'jd-banner' },
       h('div', {}, h('div', { class: 'jd-head' }, `Round ${rec.round} result`), h('div', { class: 'jd-row', style: 'gap:0.6em; align-items:baseline' }, h('span', { class: 'jd-gold', style: 'font-size:1.875em; font-weight:700; line-height:1' }, `$${rec.earned}`), h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, `this round · total $${r.score}`))),
-      btn(last ? 'Final score (Space)' : 'Next round (Space)', 'next', () => this.actions.nextRound(), { variant: 'primary' })));
+      btn(last ? 'Final score (Space)' : 'Next round (Space)', 'next', () => this.actions.nextRound(), { variant: 'primary' }),
+      this.replayMode && !last ? btn(`Continue from here as practice (after round ${r.rounds.length})`, 'fork-here', () => this.actions.forkHere(), { small: true, title: 'take over this layout and bin from the next round; a fork is labelled, never submitted and never your own best (PLAN-v4 0.7.3)' }) : null)); // PLAN-v4 0.7.3
   }
   showPauseVeil(on: boolean) {
     this.gridLayer.replaceChildren();

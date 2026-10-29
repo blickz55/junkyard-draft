@@ -3,7 +3,7 @@ import { applyDpr } from '../dpr';
 import type { RunState } from '../../sim/run';
 import { P } from '../palette';
 import { audio } from '../audio';
-import { clearSave, recordBest, recordDayPlayed } from '../storage';
+import { clearSave, recordBest, recordDayPlayed, recordForkBest } from '../storage';
 import type { Challenge } from '../challenge';
 import type { Rank } from '../share';
 import { mountResults } from '../../ui/ResultsScreen';
@@ -65,17 +65,19 @@ export class ResultsScene extends Phaser.Scene {
     } finally { this.exporting = false; }
   }
 
-  create(data: { run: RunState; replayed?: boolean; replayLabel?: string; challenge?: Challenge }) {
+  create(data: { run: RunState; replayed?: boolean; replayLabel?: string; challenge?: Challenge; replayHash?: string; replayPlayer?: string }) {
     const run = data.run;
     this.run = run; this.verifiedHash = null; this.hashPromise = null;
     this.cameras.main.setBackgroundColor(P.bg);
     applyDpr(this);
-    if (!data.replayed) clearSave(); // a watched replay is someone else's run: the player's own unfinished save stays untouched
-    const rec = data.replayed ? { newOverall: false, newSeed: false } : recordBest(run.seed, run.score);
-    if (!data.replayed) recordDayPlayed();
+    const fork = !!run.forkedFrom; // PLAN-v4 0.7.3: a fork is practice: it never touches the save, the bests or the days played
+    if (!data.replayed && !fork) clearSave(); // a watched replay is someone else's run: the player's own unfinished save stays untouched
+    const rec = data.replayed || fork ? { newOverall: false, newSeed: false } : recordBest(run.seed, run.score);
+    const forkRec = fork ? recordForkBest(run.seed, run.score) : { newFork: false };
+    if (!data.replayed && !fork) recordDayPlayed();
     audio.roundEnd(true);
     this.lastRank = null; this.lastPlayer = ''; this.lastShareText = ''; this.lastPercentile = null; this.lastN = 0; this.lastMedal = null;
-    mountResults(this, run, { replayed: !!data.replayed, replayLabel: data.replayLabel, newOverall: rec.newOverall, newSeed: rec.newSeed, challenge: data.challenge });
+    mountResults(this, run, { replayed: !!data.replayed, replayLabel: data.replayLabel, newOverall: rec.newOverall, newSeed: rec.newSeed, challenge: data.challenge, replayHash: data.replayHash, replayPlayer: data.replayPlayer, newFork: forkRec.newFork });
     this.events.once('shutdown', () => ui.unmount());
   }
 }

@@ -26,5 +26,5 @@ export const replayLabel = (r: Pick<VerifiedReplay, 'player' | 'score'>) => `ver
 
 /** Start playback. Playback never records bests or submits (the Game/Results scenes check `replay`). */
 export function playVerifiedReplay(scene: Phaser.Scene, r: VerifiedReplay) {
-  scene.scene.start('Game', { seed: r.seed, fresh: true, replay: r.actions, replayLabel: replayLabel(r) });
+  scene.scene.start('Game', { seed: r.seed, fresh: true, replay: r.actions, replayLabel: replayLabel(r), replayHash: r.hash, replayPlayer: r.player });
 }
