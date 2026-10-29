@@ -228,6 +228,29 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       assert.ok(geo.scroll <= 1, 'the title does not scroll');
       await context.close();
     }
+    // 8) art_atlas_aliases_every_key (DOSSIER-v1 0.4.8): the SVG set loads, packs into one texture, every scene key is an
+    //    alias into it, the texture-key snapshot is unchanged, and a missing file falls back to the procedural generator
+    {
+      const context = await browser.newContext({ viewport: { width: 1120, height: 700 } });
+      const page = await context.newPage();
+      const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
+      await page.goto(`${URL}/?dev=1&scene=game&seed=atlas-seed`);
+      await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
+      const art = await page.evaluate(() => { const tm = window.__jdGame.textures; const keys = ['tile', 'tile-ok', 'tile-bad', 'tile-sel', 'tile-cursor', 'm-conveyor', 'm-hopper', 'm-crusher', 'm-furnace', 'm-press', 'm-splitter', 'm-dock', 'belt-0', 'belt-1', 'belt-2', 'i-scrap', 'i-shards', 'i-plate', 'i-ingot', 'i-slag', 'dot', 'px']; const atlasSrc = tm.get('art').source[0]; return { status: window.__jdArt, allExist: keys.every((k) => tm.exists(k)), shared: keys.filter((k) => k !== 'dot' && k !== 'px').every((k) => tm.get(k).source[0] === atlasSrc), crusherCut: (() => { const f = tm.getFrame('m-crusher'); return [f.cutWidth, f.cutHeight]; })(), plateCut: (() => { const f = tm.getFrame('i-plate'); return [f.cutWidth, f.cutHeight]; })(), base64: tm.getBase64('m-crusher').slice(0, 22) }; });
+      assert.deepEqual({ built: art.status.built, packed: art.status.packed.length, missing: art.status.missing, allExist: art.allExist, shared: art.shared, crusherCut: art.crusherCut, plateCut: art.plateCut }, { built: true, packed: 20, missing: [], allExist: true, shared: true, crusherCut: [72, 72], plateCut: [24, 24] }, JSON.stringify(art));
+      assert.equal(art.base64, 'data:image/png;base64,', 'frame-aware base64 export still works for the DOM');
+      assert.deepEqual(errors, [], 'no page errors with the atlas');
+      await context.close();
+      // fallback: block one SVG; the key still exists (generated) and the rest still pack
+      const c2 = await browser.newContext({ viewport: { width: 1120, height: 700 } });
+      const p2 = await c2.newPage();
+      await p2.route('**/art/m-press.svg', (route) => route.fulfill({ status: 404, body: 'gone' }));
+      await p2.goto(`${URL}/?dev=1&scene=game&seed=atlas-seed`);
+      await p2.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
+      const fb = await p2.evaluate(() => ({ status: window.__jdArt, pressExists: window.__jdGame.textures.exists('m-press'), pressShared: window.__jdGame.textures.get('m-press').source[0] === window.__jdGame.textures.get('art').source[0] }));
+      assert.deepEqual({ built: fb.status.built, packed: fb.status.packed.length, missing: fb.status.missing, pressExists: fb.pressExists, pressShared: fb.pressShared }, { built: true, packed: 19, missing: ['m-press'], pressExists: true, pressShared: false }, JSON.stringify(fb));
+      await c2.close();
+    }
   } finally {
     if (browser) await browser.close();
     server.kill();

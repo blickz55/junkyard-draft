@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72" shape-rendering="geometricPrecision">
+  <rect x="9" y="10" width="58" height="58" rx="8" fill="#000000" fill-opacity="0.35"/>
+  <rect x="7" y="7" width="58" height="58" rx="8" fill="#5c6a52"/>
+  <rect x="7" y="7" width="58" height="58" rx="8" fill="none" stroke="#000000" stroke-width="2" stroke-opacity="0.35"/>
+  <rect x="10" y="10" width="52" height="8" rx="4" fill="#ffffff" fill-opacity="0.08"/>
+  <rect x="14" y="14" width="44" height="44" rx="8" fill="#2f3a2a"/>
+  <path d="M16 36 L36 36 L36 16" fill="none" stroke="#f0a830" stroke-width="5" stroke-opacity="0.95" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M36 36 L36 56" fill="none" stroke="#f0a830" stroke-width="5" stroke-opacity="0.95" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="30,18 42,18 36,8" fill="#f0a830"/>
+  <polygon points="30,54 42,54 36,64" fill="#f0a830"/>
+  <circle cx="12" cy="12" r="2.5" fill="#000000" fill-opacity="0.4"/>
+  <circle cx="11.3" cy="11.3" r="1.2" fill="#ffffff" fill-opacity="0.25"/>
+  <circle cx="60" cy="12" r="2.5" fill="#000000" fill-opacity="0.4"/>
+  <circle cx="59.3" cy="11.3" r="1.2" fill="#ffffff" fill-opacity="0.25"/>
+  <circle cx="12" cy="60" r="2.5" fill="#000000" fill-opacity="0.4"/>
+  <circle cx="11.3" cy="59.3" r="1.2" fill="#ffffff" fill-opacity="0.25"/>
+  <circle cx="60" cy="60" r="2.5" fill="#000000" fill-opacity="0.4"/>
+  <circle cx="59.3" cy="59.3" r="1.2" fill="#ffffff" fill-opacity="0.25"/>
+</svg>

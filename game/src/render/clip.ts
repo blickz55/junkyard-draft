@@ -11,6 +11,7 @@ import { RULES } from '../sim/rules';
 import type { Layout, Material, SimEvent } from '../sim/types';
 import { CELL, itemTexture, machineTexture } from './textures';
 import { CSS, FONT, MONO, P } from './palette';
+import { artFrame } from './atlas';
 
 export interface ClipOptions {
   /** 1-based round to export; default the highest-earning round */
@@ -48,7 +49,7 @@ export class ClipPainter {
   readonly scale: number;
   readonly width: number;
   readonly height: number;
-  private img = new Map<string, CanvasImageSource>();
+  private img = new Map<string, { image: CanvasImageSource; x: number; y: number; w: number; h: number } | null>();
   private pops: { x: number; y: number; value: number; at: number }[] = [];
   private jammed = new Set<number>();
   constructor(private readonly game: Phaser.Game, private readonly layout: Layout, private readonly label: { title: string; seed: string; player: string; round: number; totalBefore: number }, maxHeight = 720) {
@@ -59,10 +60,11 @@ export class ClipPainter {
     const ctx = this.canvas.getContext('2d'); if (!ctx) throw new Error('2D canvas unavailable');
     this.ctx = ctx;
   }
-  private texture(key: string): CanvasImageSource | null {
-    let i = this.img.get(key);
-    if (!i) { try { i = this.game.textures.get(key).getSourceImage() as CanvasImageSource; this.img.set(key, i); } catch { return null; } }
-    return i ?? null;
+  /** Draw a texture key at dx,dy,dw,dh using its atlas cut (frame-aware, so aliases into the shared atlas draw only their region). */
+  private blit(key: string, dx: number, dy: number, dw: number, dh: number) {
+    if (!this.img.has(key)) this.img.set(key, artFrame(this.game, key));
+    const f = this.img.get(key); if (!f) return;
+    this.ctx.drawImage(f.image, f.x, f.y, f.w, f.h, dx, dy, dw, dh);
   }
   private cellXY(cell: number) { const x = cell % this.layout.width, y = Math.floor(cell / this.layout.width); return { x: MARGIN + x * CELL + CELL / 2, y: MARGIN + y * CELL + CELL / 2 }; }
   /** Record this tick's events (pops and jams) before drawing the frame. */
@@ -78,15 +80,14 @@ export class ClipPainter {
     const { ctx, scale } = this;
     ctx.save(); ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.fillStyle = hex(P.bg); ctx.fillRect(0, 0, this.width / scale, this.height / scale);
-    const tile = this.texture('tile');
-    for (let y = 0; y < this.layout.height; y++) for (let x = 0; x < this.layout.width; x++) { if (tile) ctx.drawImage(tile, MARGIN + x * CELL, MARGIN + y * CELL, CELL, CELL); }
+    for (let y = 0; y < this.layout.height; y++) for (let x = 0; x < this.layout.width; x++) this.blit('tile', MARGIN + x * CELL, MARGIN + y * CELL, CELL, CELL);
     ctx.strokeStyle = hex(P.panelLine); ctx.lineWidth = 2; ctx.strokeRect(MARGIN, MARGIN, this.layout.width * CELL, this.layout.height * CELL);
     for (const cell of this.jammed) { const c = this.cellXY(cell); ctx.fillStyle = 'rgba(235,103,87,0.28)'; ctx.fillRect(c.x - CELL / 2, c.y - CELL / 2, CELL, CELL); }
     for (const m of this.layout.machines) {
       const c = this.cellXY(cellIndex(m.x, m.y, this.layout.width));
       ctx.save(); ctx.translate(c.x, c.y); ctx.rotate((m.dir * Math.PI) / 2);
-      const img = this.texture(machineTexture(m.kind)); if (img) ctx.drawImage(img, -CELL / 2, -CELL / 2, CELL, CELL);
-      if (m.kind === 'conveyor') { const belt = this.texture(`belt-${beltFrame}`); if (belt) ctx.drawImage(belt, -CELL / 2, -CELL / 2, CELL, CELL); }
+      this.blit(machineTexture(m.kind), -CELL / 2, -CELL / 2, CELL, CELL);
+      if (m.kind === 'conveyor') this.blit(`belt-${beltFrame}`, -CELL / 2, -CELL / 2, CELL, CELL);
       ctx.restore();
     }
     for (const it of sim.items) {
@@ -94,7 +95,7 @@ export class ClipPainter {
       let x = to.x, y = to.y;
       if (it.movedAt === sim.tick && it.from >= 0) { const from = this.cellXY(it.from); const e = easeInOut(phase); x = from.x + (to.x - from.x) * e; y = from.y + (to.y - from.y) * e; }
       const s = it.hold > 0 ? 0.85 : 1;
-      const img = this.texture(itemTexture(it.mat as Material)); if (img) ctx.drawImage(img, x - 12 * s, y - 12 * s, 24 * s, 24 * s);
+      this.blit(itemTexture(it.mat as Material), x - 12 * s, y - 12 * s, 24 * s, 24 * s);
     }
     ctx.font = `bold 15px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     this.pops = this.pops.filter((p) => nowMs - p.at < POP_MS);

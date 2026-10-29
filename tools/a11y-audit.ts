@@ -126,10 +126,10 @@ if (isMain) {
         g.fillStyle = '#f1e8d8'; g.fillText(kind, 8, y + cell / 2 + 4);
         keys.forEach((k, col) => {
           const x = labelW + col * (cell + pad);
-          const src = window.__jdGame.textures.get(k).getSourceImage();
+          const f = window.__jdGame.textures.getFrame(k); const src = f.source.image; // frame-aware: keys live in one atlas
           const t = document.createElement('canvas'); t.width = cell; t.height = cell; const tg = t.getContext('2d');
           tg.fillStyle = '#2a241d'; tg.fillRect(0, 0, cell, cell);
-          const s = Math.min(cell / src.width, cell / src.height); tg.drawImage(src, (cell - src.width * s) / 2, (cell - src.height * s) / 2, src.width * s, src.height * s);
+          const s = Math.min(cell / f.cutWidth, cell / f.cutHeight); tg.drawImage(src, f.cutX, f.cutY, f.cutWidth, f.cutHeight, (cell - f.cutWidth * s) / 2, (cell - f.cutHeight * s) / 2, f.cutWidth * s, f.cutHeight * s);
           const img = tg.getImageData(0, 0, cell, cell); const d = img.data; const m = CVD[kind];
           for (let p = 0; p < d.length; p += 4) { const r = lin(d[p] / 255), gg = lin(d[p + 1] / 255), b = lin(d[p + 2] / 255);
             const o = [0, 1, 2].map((i) => Math.max(0, Math.min(1, m[i][0] * r + m[i][1] * gg + m[i][2] * b)));

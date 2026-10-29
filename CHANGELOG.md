@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased — 2026-10-29 (v0.4: histogram-first results, PLAN-v1 0.4.1)
 
+### Authored art pipeline and runtime atlas (DOSSIER-v1 0.4.8)
+- The art now lives as 22 SVG files under `game/public/art/`, exported losslessly from the procedural generator by `tools/export-svg.ts` (a Phaser-Graphics-shaped recorder that emits SVG) and editable in any vector tool. At boot the SVGs load, pack into one 456×304 canvas texture, and every scene-facing key (`m-crusher`, `i-plate`, `belt-0`, `tile`…) becomes an alias whose single frame points into that shared texture: no scene code changed, and the factory draws with **1 draw call and ~3 texture binds per frame (was ~59 binds)**. A file that fails to load falls back to the procedural drawing for that key. The clip exporter and the colour-vision contact sheet read frames by their atlas cut. Frames stay at logical size; a HiDPI atlas needs a base-scale factor in the scenes and is a follow-up.
+
 ### Non-ranked run badges (PLAN-v1 0.4.6)
 - Clean (no item waited and no hopper was blocked for a tick in any round), Minimalist (at most 8 machines in the final round while still at or above the bot par) and Full Grid (every cell used in a round), computed from the finished run's own records in `game/src/sim/badges.ts`. Shown as pills on the results screen marked "not ranked", refreshed when the bot par arrives, and listed only in the detailed share text of a verified run. Never a board, never a ladder.
 
