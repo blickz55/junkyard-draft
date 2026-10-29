@@ -64,6 +64,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await drag({ x: binX, y: binY }, cell(2, 2));
     st = await api('state');
     assert.equal(st.bin.length, 1, 'occupied cell rejected the drop');
+    assert.match(await api('hint'), /^Cell occupied/, 'a refused drop explains why in the hint strip');
     // move the conveyor at (2,2) into the bin, then drop the crusher there
     await drag(cell(2, 2), { x: GX + 200, y: BIN_Y + 60 });
     st = await api('state');
@@ -101,7 +102,10 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.keyboard.press('ArrowUp'); await wait(150);
     await page.keyboard.press('Enter'); await wait(150);
     assert.equal((await cur()).held, kbConv.id, 'dropping onto the occupied crusher cell is refused and the part stays in hand');
-    await page.keyboard.press('ArrowDown'); await wait(150); await page.keyboard.press('ArrowRight'); await wait(150);
+    assert.match(await api('hint'), /^Cell occupied/, 'keyboard refusal shows the reason');
+    await page.keyboard.press('ArrowDown'); await wait(150); await page.keyboard.press('ArrowRight'); await wait(2400);
+    assert.match(await api('hint'), /^Heads up: .*feeding/, 'a legal but unfed spot warns instead of refusing');
+    await page.screenshot({ path: path.join(SHOTS, `e2e-ghost-arrows-${Date.now()}.png`) });
     await page.keyboard.press('Enter'); await wait(150);
     st = await api('state');
     kbConv = st.layout.machines.find((mm) => mm.id === kbConv.id);
