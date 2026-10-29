@@ -1,7 +1,7 @@
 /** Title screen as DOM (DOSSIER-v1 0.4.0). The Phaser TitleScene keeps the decorative belt and the tips panel; everything else lives here. */
 import type Phaser from 'phaser';
 import { h, btn, ui } from './dom';
-import type { TipsPanel } from '../render/TipsPanel';
+import type { TipsPanel } from './TipsPanel';
 import { telemetry } from '../render/telemetry';
 import { audio } from '../render/audio';
 import { prefs } from '../render/prefs';
@@ -57,7 +57,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
 
   // how to play + tips
   const howto = h('div', { class: 'jd-panel' },
-    h('div', { class: 'jd-row jd-between' }, h('div', { class: 'jd-head' }, 'How to play'), btn('Tips & demos', 'tips', () => { ui.setHidden(true); tips.open(); }, { small: true })),
+    h('div', { class: 'jd-row jd-between' }, h('div', { class: 'jd-head' }, 'How to play'), btn('Tips & demos', 'tips', () => tips.open(), { small: true })),
     ...['1. Each round, pick one of three salvaged machines.', '2. Drag parts onto the grid; R or right-click rotates.', '3. RUN: machines transform scrap; the dock sells it.', '4. Scrap $1 → Crusher → Shards $3 → Furnace → Ingot $12.', '5. Six rounds. Score = total money shipped. Try again.']
       .map((line, i) => h('div', { tid: `howto-${i + 1}`, style: 'font-size:0.9375em; margin-top:0.2em' }, line)));
 

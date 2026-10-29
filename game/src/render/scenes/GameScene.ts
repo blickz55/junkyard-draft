@@ -6,9 +6,8 @@ import { isTutorialSeed, type Action, type RoundRecord, type RunState } from '..
 import { runLayout } from '../../sim/sim';
 import { cellIndex, type SimState } from '../../sim/sim';
 import { RoundController, type Mode } from '../RoundController';
-import { TipsPanel } from '../TipsPanel';
+import { TipsPanel } from '../../ui/TipsPanel';
 import { GamePanel, type PanelState } from '../../ui/GamePanel';
-import { ui } from '../../ui/dom';
 import { tipForMachine } from '../../sim/tips';
 import { telemetry } from '../telemetry';
 import { DIR_DX, DIR_DY, MACHINE_INFO, RULES } from '../../sim/rules';
@@ -126,7 +125,7 @@ export class GameScene extends Phaser.Scene {
       sell: (id) => { if (this.act({ t: 'sell', id })) { audio.ship(RULES.sellValue); this.selectedId = null; this.syncMachines(); this.renderSide(); } },
       nextRound: () => this.nextRound(), toTitle: () => this.scene.start('Title'), toggleMute: () => { audio.setMuted(!audio.muted); return audio.muted; },
     }, this.run.seed, this.replayLabel, audio.muted);
-    this.tips = new TipsPanel(this, () => { ui.setHidden(false); this.renderSide(); });
+    this.tips = new TipsPanel(this, () => this.renderSide());
     this.suggestedTip = null;
     this.updateHud();
     this.syncMachines();
@@ -421,7 +420,7 @@ export class GameScene extends Phaser.Scene {
     return { run: r, mode: this.mode, speed: this.speed, replayLabel: this.replayLabel, replayRounds: this.replayRounds, playbackPending: !!this.replayQueue, canUndo: this.ctl.canUndo(), canRedo: this.ctl.canRedo(), selected, tipsBadge: !this.replayLabel && this.suggestedTip != null && !loadReadTips().includes(this.suggestedTip), tipsOpen: this.tips?.isOpen ?? false };
   }
   renderSide() { if (this.panel) this.panel.render(this.panelState()); }
-  openTips(id?: string) { ui.setHidden(true); this.tips.open(id ?? this.suggestedTip ?? undefined); if (this.suggestedTip && loadReadTips().includes(this.suggestedTip)) this.suggestedTip = null; this.renderSide(); }
+  openTips(id?: string) { this.tips.open(id ?? this.suggestedTip ?? undefined); if (this.suggestedTip && loadReadTips().includes(this.suggestedTip)) this.suggestedTip = null; this.renderSide(); }
   closeTips() { this.tips.close(); }
   tipsInfo() { return { open: this.tips.isOpen, current: this.tips.currentId, suggested: this.suggestedTip != null && !loadReadTips().includes(this.suggestedTip) ? this.suggestedTip : null, read: loadReadTips(), demo: this.tips.demoState() }; }
   // ---------- onboarding hints ----------

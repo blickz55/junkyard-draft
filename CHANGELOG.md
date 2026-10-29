@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased — 2026-10-29 (v0.4: histogram-first results, PLAN-v1 0.4.1)
 
+### Tips panel in the DOM (PLAN-v1 0.4.12)
+- The tips & demos panel is a DOM dialog layered over the current screen (`game/src/ui/TipsPanel.ts`): tip list with unread dots and an active state, title and text in real type, Close (Esc), click outside to close. The live demo is a small 2D canvas stepped by the real simulation and drawn from the real textures (item slides between cells, reduced motion snaps). The last Phaser text/rectangle panel is gone, so the overlay no longer hides itself while tips are open and the text-size setting applies to tips too.
+
 ### GIF clip format (PLAN-v1 0.4.11)
 - "Save GIF" on the results screen beside "Export clip": the same best round, drawn offline by the clip painter at 1× and 10 fps as one pass plus a hold, encoded in the browser by a dependency-free GIF89a writer (`game/src/render/gif.ts`: one global 256-colour palette quantised from every frame, LZW, NETSCAPE2.0 loop). It needs no MediaRecorder, so it also works where video capture is unavailable, and posts where a video will not autoplay. Electron saves it to Downloads through the same bridge as the WebM. Measured on seed gif-seed (a 5-machine line, 80 ticks at 4×): 624×536, 38 frames, 3.8 s loop, 256 colours, 580 KB, drawn and encoded in 0.3–0.6 s; looked at in Chromium: belts, items, dock pops and the strip animate as in the video.
 

@@ -136,6 +136,11 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       const demo = await page.waitForFunction(() => { const d = window.__jd.tips().demo; return d && d.shipped.plate >= 1 ? d : false; }, null, { timeout: 20000 });
       const d = await demo.jsonValue();
       assert.equal(d.tip, 'press'); assert.ok(d.shipped.plate >= 1, `the live demo pressed a plate by tick ${d.tick}`);
+      // the panel is DOM (0.4.12): dialog, nav button marked read and active, the watch line reports the demo, the demo canvas has pixels
+      const dom = await page.evaluate(() => { const q = (t) => document.querySelector(`[data-testid=${t}]`); const c = q('tips-demo'); const px = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let lit = 0; for (let i = 0; i < px.length; i += 4) if (px[i + 3] > 0 && (px[i] + px[i + 1] + px[i + 2]) > 60) lit++; return { dialog: q('tips-panel')?.getAttribute('role'), press: q('tip-press')?.textContent, active: q('tip-press')?.classList.contains('jd-active'), watch: q('tips-watch')?.textContent, canvas: [c.width, c.height], lit, hidden: document.getElementById('ui').classList.contains('jd-hidden') }; });
+      assert.equal(dom.dialog, 'dialog'); assert.equal(dom.press, 'A press needs two shards for one plate', 'read: no badge dot'); assert.equal(dom.active, true);
+      assert.match(dom.watch, /shipped: .*plate/); assert.ok(dom.canvas[0] > 0 && dom.canvas[0] % 108 === 0 && dom.canvas[1] % 108 === 0, `demo canvas is whole 54 px cells at 2x backing: ${dom.canvas}`); assert.ok(dom.lit > 1000, `the demo canvas is drawn (${dom.lit} lit pixels)`);
+      assert.equal(dom.hidden, false, 'the DOM screen is not hidden behind the panel any more');
       assert.equal(await api('hint'), await api('hint'), 'sanity'); // tips never touch the hint strip: it still shows the build hint
       assert.doesNotMatch(await api('hint'), /press needs two shards/i, 'the tip text did not leak into the hint strip');
       await page.keyboard.press('Escape'); await wait(150);
@@ -148,6 +153,22 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       assert.equal(await btnText(), 'Tips');
       assert.deepEqual(errors, [], 'no page errors');
       await context.close();
+      // 5b) tips_panel_fits_at_130 (0.4.12): from the title at 130 % text, the dialog needs no scrolling and every control stays inside the overlay
+      const cBig = await browser.newContext({ viewport: { width: 1120, height: 700 } });
+      const pBig = await cBig.newPage();
+      await pBig.addInitScript(() => { try { localStorage.setItem('jd.settings.v1', JSON.stringify({ volume: 0.7, muted: false, reducedMotion: false, textScale: 1.3, renderQuality: 'auto', telemetry: false })); } catch {} });
+      await pBig.goto(`${URL}/?dev=1`);
+      await pBig.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+      await pBig.getByTestId('tips').click();
+      await pBig.getByTestId('tip-splitter').click();
+      await wait(150);
+      const fit = await pBig.evaluate(() => { const box = document.querySelector('[data-testid=tips-panel]'); const ui = document.getElementById('ui').getBoundingClientRect(); const outside = [...box.querySelectorAll('[data-testid]')].filter((el) => { const r = el.getBoundingClientRect(); return !(r.left >= ui.left - 1 && r.right <= ui.right + 1 && r.top >= ui.top - 1 && r.bottom <= ui.bottom + 1); }).map((el) => el.dataset.testid); return { scrollH: box.scrollHeight, clientH: box.clientHeight, outside, textScale: getComputedStyle(document.getElementById('ui')).getPropertyValue('--text-scale').trim() }; });
+      assert.equal(fit.textScale, '1.3');
+      assert.ok(fit.scrollH <= fit.clientH + 1, `the tips dialog does not scroll at 130 % (${fit.scrollH} vs ${fit.clientH})`);
+      assert.deepEqual(fit.outside, [], 'every tips control stays inside the overlay at 130 %');
+      await pBig.keyboard.press('Escape'); await wait(100);
+      assert.equal(await pBig.evaluate(() => !!document.querySelector('[data-testid=tips-panel]')), false, 'Esc closes the DOM dialog from the title');
+      await cBig.close();
     }
     // 6) tutorial_seed_teaches_one_rule_per_round (PLAN-v1 0.3.4): a fresh profile sees Learn first; the scripted lesson reaches
     //    round 4 in <= 40 actions with the hint strip as the only guidance surface; finishing round 3 marks the profile onboarded

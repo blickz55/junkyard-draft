@@ -77,6 +77,17 @@ const STYLE = `
 #ui .jd-btn-dark:hover:not(:disabled) { filter: brightness(0.88); }
 #ui .jd-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 1px 0 rgba(0,0,0,0.35); }
 #ui .jd-btn:disabled { opacity: 0.4; cursor: default; }
+#ui .jd-tips { position: absolute; inset: 0; pointer-events: auto; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10; }
+#ui .jd-tips-box { width: min(92%, 50em); max-height: 94%; overflow: auto; display: flex; flex-direction: column; gap: 0.5em; }
+#ui .jd-tips-cols { display: flex; gap: 1em; align-items: flex-start; }
+#ui .jd-tips-nav { display: flex; flex-direction: column; gap: 0.35em; flex: 0 0 14em; }
+#ui .jd-tips-nav .jd-btn { text-align: left; white-space: normal; }
+#ui .jd-tips-nav .jd-btn.jd-active { background: ${CSS.amber}; color: #1a1612; }
+#ui .jd-tips-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 0.4em; }
+#ui .jd-tips-title { font-weight: 700; font-size: 1.05em; }
+#ui .jd-tips-text { margin: 0; font-size: 0.8125em; }
+#ui .jd-tips-demo { display: block; border: 1px solid #3f382d; align-self: center; }
+#ui .jd-tips-watch { color: ${CSS.amber}; font-size: 0.75em; }
 #ui .jd-btn:focus-visible, #ui input:focus-visible, #ui .jd-entry:focus-visible { outline: 3px solid #d6f0ff; outline-offset: 2px; }
 #ui input[type=range] { accent-color: ${CSS.amber}; width: 12em; }
 #ui .jd-entry { font: inherit; font-family: ${MONO}; font-size: 0.75em; background: none; border: 0; color: ${CSS.text}; text-align: left; padding: 0.1em 0; cursor: pointer; }
@@ -147,7 +158,14 @@ class UiLayer {
     if (this.keyHandler) { document.removeEventListener('keydown', this.keyHandler); this.keyHandler = null; }
     this.setHidden(false);
   }
-  /** Hide the DOM screen while a Phaser panel (tips) is open above the canvas. */
+  /** Add an element above the current screen (a dialog such as the tips panel); the caller removes it. */
+  layer(scene: Phaser.Scene, el: HTMLElement) {
+    if (!this.root) this.attach(scene.game);
+    if (!this.root) return;
+    this.sync();
+    this.root.append(el);
+  }
+  /** Hide the whole DOM overlay (kept for callers that draw something Phaser-side above the canvas). */
   setHidden(hidden: boolean) { this.root?.classList.toggle('jd-hidden', hidden); }
   get mounted(): boolean { return this.screen != null; }
   get element(): HTMLDivElement | null { return this.root; }
