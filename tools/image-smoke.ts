@@ -64,6 +64,12 @@ async function main() {
   const early = await fetch(`${url}/daily?date=${tomorrow}`);
   if (early.status !== 403) fail(`tomorrow's daily should be refused with 403, got ${early.status}`);
   console.log(`daily ${d.date} minted as ${d.seed}; commitment published; tomorrow refused`);
+  const twoBack = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+  const old = await (await fetch(`${url}/daily?date=${twoBack}`)).json() as { final?: boolean; frozenAt?: string | null };
+  if (old.final !== true || !old.frozenAt) fail(`a day two days back should be final: ${JSON.stringify(old)}`);
+  const arch = await (await fetch(`${url}/archive`)).json() as { ok?: boolean; days?: { date: string }[] };
+  if (!arch.ok || arch.days?.[0]?.date !== twoBack) fail(`/archive should list ${twoBack} first: ${JSON.stringify(arch)}`);
+  console.log(`archive lists ${twoBack} as final`);
   const dup = await fetch(`${url}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(run), player: 'again' }) });
   if (dup.status !== 422) fail(`a duplicate replay should be refused with 422, got ${dup.status}`);
   console.log(`verified $${body.score} for ${seed}; board has 1 entry; duplicate refused`);

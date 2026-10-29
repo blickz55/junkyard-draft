@@ -137,12 +137,17 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       const player = await ensurePlayer();
       if (player === null) { setStatus('Submission cancelled.'); return; }
       setStatus('Submitting replay to the local verifier…');
-      let body: { ok: boolean; score?: number; error?: string; entry?: { replayHash: string; verifiedAt: string; score?: number }; recorded?: boolean; player?: string };
+      let body: { ok: boolean; score?: number; error?: string; entry?: { replayHash: string; verifiedAt: string; score?: number }; recorded?: boolean; player?: string; late?: boolean; closesAt?: string };
       try {
         const res = await fetch(`${verifierUrl}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders(verifierUrl) }, body: JSON.stringify({ replay: exportReplay(run, import.meta.env.BUILD), player }) });
         body = await res.json() as typeof body;
         if (res.status === 503 || res.status === 429) { telemetry.track('daily_submit_result', { result: 'busy' }); setStatus(`Verifier busy (${body.error || res.status}); nothing was recorded. Try again in a moment.`); return; }
       } catch { setStatus(`Verifier unreachable at ${verifierUrl} (start it with: npm run verifier). Score stays local/unverified.`); return; }
+      if (body.ok && body.late) { // PLAN-v3 0.6.2: the day closed; the run was re-simulated and is real, the final board does not move
+        telemetry.track('daily_submit_result', { result: 'late' });
+        setStatus(`Verified by re-simulation: $${body.score} — too late for the ranked board: this daily closed at ${body.closesAt ? body.closesAt.replace('T', ' ').slice(0, 16) + ' UTC' : 'its deadline'}. Not recorded.`, 'jd-amber');
+        return;
+      }
       if (!body.ok || !body.entry) { telemetry.track('daily_submit_result', { result: 'rejected' }); setStatus(`Verifier response: ${body.error || 'rejected'}`, 'jd-red'); return; }
       verified = true;
     telemetry.track('daily_submit_result', { result: 'verified' });

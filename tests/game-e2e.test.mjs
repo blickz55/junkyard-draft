@@ -392,8 +392,26 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.evaluate(({ seed, s, v }) => localStorage.setItem('jd.submissions.v2', JSON.stringify({ byVersion: { [v]: { [seed]: s } } })), { v: V, seed: dinfo.seed, s: { score: sub.score, replayHash: sub.entry.replayHash, verifiedAt: sub.entry.verifiedAt, player: 'e2e player' } });
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => { const t = document.querySelector('[data-testid=daily-board]')?.textContent || ''; return /^You: #1 of 1 \(\$\d+\)/.test(t) && /1\. \$\d+ e2e player/.test(t); }, null, { timeout: 15000 });
-    assert.equal(await page.getByTestId('daily-mode').textContent(), 'minted by the verifier · ranked'); assert.equal(await page.getByTestId('daily-seed').textContent(), `seed ${dinfo.seed}`);
+    assert.match(await page.getByTestId('daily-mode').textContent(), /^minted · ranked · provisional · closes in \d+ (h|min)$/); assert.equal(await page.getByTestId('daily-seed').textContent(), `seed ${dinfo.seed}`);
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.daily.v1'))).seed, dinfo.seed, 'the minted seed is cached for the day');
+    // window, freeze, archive (PLAN-v3 0.6.2): a day two days back closed at 00:00 UTC today: final, a run on it verifies as late and never ranks, the archive lists it
+    const twoBack = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+    const old = await (await fetch(`http://127.0.0.1:${VPORT}/daily?date=${twoBack}`)).json();
+    assert.equal(old.final, true); assert.equal(old.frozenAt, old.closesAt);
+    const lateRun = newRun(old.seed);
+    for (let r = 1; r <= RULES.rounds; r++) { const ci = lateRun.offers.indexOf('crusher'); apply(lateRun, { t: 'pick', i: ci >= 0 ? ci : 0 }); if (r === 1) { const cv = lateRun.layout.machines.find((m) => m.x === 2 && m.y === 2); apply(lateRun, { t: 'unplace', id: cv.id }); apply(lateRun, { t: 'place', id: lateRun.bin[0].id, x: 2, y: 2, dir: 0 }); } apply(lateRun, { t: 'run' }); apply(lateRun, { t: 'next' }); }
+    const lsub = await (await fetch(`http://127.0.0.1:${VPORT}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(lateRun), player: 'late player' }) })).json();
+    assert.equal(lsub.ok, true); assert.equal(lsub.late, true); assert.equal(lsub.recorded, false); assert.equal(lsub.score, lateRun.score, 'late runs are still re-simulated');
+    const arch = await (await fetch(`http://127.0.0.1:${VPORT}/archive`)).json();
+    assert.deepEqual(arch.days[0], { ...arch.days[0], date: twoBack, n: 0 }, 'the archive lists the closed day without the late run'); assert.ok(arch.days.every((x) => x.frozenAt && x.n === 0), JSON.stringify(arch.days));
+    await page.getByTestId('archive').click();
+    await page.waitForFunction((d) => [...document.querySelectorAll('[data-testid=archive-row]')].some((r) => r.dataset.date === d && /final/.test(r.textContent)), twoBack, { timeout: 10000 });
+    assert.match(await page.getByTestId('archive-row').first().textContent(), new RegExp(`^${twoBack} · final · 0 verified runs`));
+    await page.getByTestId('archive-play').first().click();
+    await page.waitForFunction((seed) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, old.seed, { timeout: 15000 });
+    assert.equal(await page.getByTestId('hud-seed').textContent(), `seed ${old.seed} · archived daily (practice)`);
+    await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
+    await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
     assert.match(await page.getByTestId('player').textContent(), /^Player: e2e player#[2-9A-HJKMNP-TV-Z]{4}$/);
     // keep_best_per_player (PLAN-v3 0.6.0): with the page's bearer, a better run on a seed replaces the entry, an equal one is verified but not recorded
     {

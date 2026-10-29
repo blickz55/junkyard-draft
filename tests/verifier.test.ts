@@ -74,6 +74,14 @@ test('http: POST /verify and GET /board return verified data only', async () => 
     assert.match(daily.seed, /^daily-\d{4}-\d{2}-\d{2}-[a-z2-7]{8}$/); assert.equal(daily.verified, true); assert.equal(daily.minted, true); assert.match(daily.commitment, /^[0-9a-f]{64}$/); assert.deepEqual(daily.entries, []);
     const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
     assert.equal((await fetch(`${base}/daily?date=${tomorrow}`)).status, 403, 'tomorrow has not opened'); assert.equal((await fetch(`${base}/daily?date=nope`)).status, 400);
+    // window and archive over HTTP (PLAN-v3 0.6.2): two days back closed at 00:00 UTC today
+    const twoBack = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+    const old = await (await fetch(`${base}/daily?date=${twoBack}`)).json() as { final: boolean; frozenAt: string | null; closesAt: string };
+    assert.equal(old.final, true); assert.equal(old.frozenAt, old.closesAt);
+    const arch = await (await fetch(`${base}/archive`)).json() as { ok: boolean; days: { date: string; n: number; frozenAt: string }[]; nextTo: string | null };
+    const threeBack = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
+    assert.deepEqual(arch.days.map((x) => x.date), [twoBack, threeBack], 'the looked-up day and the previous day it issued for commitment checks, both closed'); assert.equal(arch.days[0].n, 0); assert.equal(arch.nextTo, null);
+    assert.equal((await fetch(`${base}/archive?from=2030-1-1`)).status, 400);
     const health = await (await fetch(`${base}/health`)).json() as { entries: number; uptimeSec: number; version: string };
     assert.equal(health.entries, 1, 'health reports the number of verified entries');
     assert.equal(health.version, JSON.parse(fs.readFileSync('package.json', 'utf8')).version, 'health reports the package version');
@@ -659,7 +667,8 @@ test('minted daily: seeds differ per date and per secret; the commitment publish
   const forged = v.submit(JSON.stringify(exportReplay(finishedRun('daily-2030-01-02-zzzzzzzz'))), 'forger', null, d1);
   assert.equal(forged.ok, false); assert.match(forged.error!, /not an issued daily seed/);
   const late = v.submit(JSON.stringify(exportReplay(twist(a.seed))), 'late', null, new Date('2030-01-04T00:00:00Z'));
-  assert.equal(late.ok, false); assert.match(late.error!, /closed at 2030-01-04T00:00:00/);
+  assert.equal(late.ok, true); assert.equal(late.late, true, 'after the close a run is verified but answered late (0.6.2)'); assert.equal(late.recorded, false); assert.equal(late.closesAt, '2030-01-04T00:00:00.000Z');
+  assert.deepEqual(v.daily(10, d1)!.entries.map((e) => e.player), ['ranked'], 'and never joins the board');
   assert.equal(v.submit(JSON.stringify(exportReplay(twist(a.seed))), 'in time', null, new Date('2030-01-03T23:59:59Z')).ok, true, 'one second before the close is fine');
   // rotation: issued days keep their stored seed; unissued days mint from the new secret
   const rotated = new Verifier(file, { dailySecret: 'secret-two' });
@@ -668,4 +677,39 @@ test('minted daily: seeds differ per date and per secret; the commitment publish
   const d4 = new Date('2030-01-05T01:00:00Z');
   assert.equal(rotated.daily(10, d4)!.seed, mintSeed('secret-two', '2030-01-05'), 'new days mint from the new secret');
   assert.notEqual(rotated.daily(10, d4)!.seed, mintSeed('secret-one', '2030-01-05'));
+});
+
+// ---- the 48-hour window, freeze and archive (PLAN-v3 0.6.2) ----
+const twistRun = (seed: string) => { const s = newRun(seed); for (let r = 1; r <= RULES.rounds; r++) { const i = s.offers.indexOf('crusher'); apply(s, { t: 'pick', i: i >= 0 ? i : 0 }); if (r === 1) { const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!; apply(s, { t: 'unplace', id: conv.id }); apply(s, { t: 'place', id: s.bin[0].id, x: 2, y: 2, dir: 0 }); } if (r === 2) apply(s, { t: 'rotate', id: s.bin[0].id }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); } return s; };
+test('daily window: closes 48 h after 00:00 UTC; freeze flips exactly at the boundary, is idempotent and survives a restart; late runs are verified, answered late and never ranked; the archive lists frozen days newest first, paged; a day\'s par survives the cap', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-freeze-')), 'board.json');
+  const v = new Verifier(file, { dailySecret: 'freeze-secret' });
+  const D = '2030-03-10'; const open = new Date('2030-03-11T23:59:59Z'), at = new Date('2030-03-12T00:00:00Z'), later = new Date('2030-03-13T05:00:00Z');
+  const rec = v.daily(10, open, D)!;
+  assert.equal(rec.closesAt, '2030-03-12T00:00:00.000Z', 'closesAt = D+2 00:00Z'); assert.equal(rec.final, false); assert.equal(rec.frozenAt, null); assert.equal(rec.now, open.toISOString());
+  const first = v.submit(JSON.stringify(exportReplay(finishedRun(rec.seed))), 'early', null, open); assert.equal(first.ok, true); assert.equal(first.recorded, true);
+  assert.equal(v.daily(10, new Date(at.getTime() - 1), D)!.final, false, 'one millisecond before the close the board is provisional');
+  const frozen = v.daily(10, at, D)!; assert.equal(frozen.final, true); assert.equal(frozen.frozenAt, '2030-03-12T00:00:00.000Z', 'freeze flips exactly at the boundary and records the close time');
+  assert.equal(v.daily(10, later, D)!.frozenAt, '2030-03-12T00:00:00.000Z', 'idempotent');
+  assert.equal(new Verifier(file, { dailySecret: 'freeze-secret' }).daily(10, later, D)!.frozenAt, '2030-03-12T00:00:00.000Z', 'survives a restart');
+  const lateRun = twistRun(rec.seed);
+  const late = v.submit(JSON.stringify(exportReplay(lateRun)), 'late', null, later);
+  assert.equal(late.ok, true); assert.equal(late.late, true); assert.equal(late.recorded, false); assert.equal(late.score, lateRun.score); assert.equal(late.closesAt, rec.closesAt); assert.equal(late.player, 'late');
+  assert.deepEqual(v.board(rec.seed).map((e) => e.player), ['early'], 'late runs never join the board'); assert.equal(v.sizeAllVersions, 1);
+  assert.equal(v.replay(replayId(exportReplay(lateRun))), null, 'and are not stored');
+  const cheat = v.submit(JSON.stringify({ ...exportReplay(lateRun), claimedScore: lateRun.score + 1 }), 'cheat', null, later); assert.equal(cheat.ok, false, 'late submissions are still re-simulated');
+  // archive: at `later` (03-13 05:00) the days 03-08..03-11 have closed, 03-12 and 03-13 are open
+  for (const d of ['2030-03-08', '2030-03-09', '2030-03-11', '2030-03-12', '2030-03-13']) assert.ok(v.daily(10, later, d));
+  const a = v.archive({}, later);
+  assert.deepEqual(a.days.map((x) => x.date), ['2030-03-11', '2030-03-10', '2030-03-09', '2030-03-08', '2030-03-07'], 'frozen days only, newest first (03-07 was issued as 03-08\'s previous day)'); assert.equal(a.nextTo, null);
+  const d10 = a.days.find((x) => x.date === D)!; assert.equal(d10.n, 1); assert.equal(d10.top[0].player, 'early'); assert.equal(d10.frozenAt, rec.closesAt); assert.equal(d10.seed, rec.seed); assert.equal(a.days[3].n, 0);
+  const p1 = v.archive({ limit: 2 }, later); assert.deepEqual(p1.days.map((x) => x.date), ['2030-03-11', '2030-03-10']); assert.equal(p1.nextTo, '2030-03-09');
+  const p2 = v.archive({ limit: 2, to: p1.nextTo! }, later); assert.deepEqual(p2.days.map((x) => x.date), ['2030-03-09', '2030-03-08']); assert.equal(p2.nextTo, '2030-03-07');
+  const p3 = v.archive({ limit: 2, to: p2.nextTo! }, later); assert.deepEqual(p3.days.map((x) => x.date), ['2030-03-07']); assert.equal(p3.nextTo, null);
+  assert.deepEqual(v.archive({ from: '2030-03-09', to: '2030-03-10' }, later).days.map((x) => x.date), ['2030-03-10', '2030-03-09']);
+  assert.deepEqual(v.archive({ limit: 0 }, later).days.length, 1, 'limit is clamped to at least one');
+  // a day's bot par is kept when the par cache is capped
+  const small = new Verifier(path.join(path.dirname(file), 'small.json'), { dailySecret: 's', maxSeeds: 2 });
+  const day = small.daily(10, later)!.seed; small.setPar(day, 100, 5, 40); small.setPar('x-1', 101, 5, 40); small.setPar('x-2', 102, 5, 40);
+  assert.equal(small.par(day), 100, 'the daily keeps its par'); assert.equal(small.parCount, 2); assert.equal([small.par('x-1'), small.par('x-2')].filter((p) => p == null).length, 1, 'an ordinary seed was dropped instead');
 });

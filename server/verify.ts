@@ -4,6 +4,9 @@
  * - GET  /board?seed=<seed>&limit=20 → verified scores for a seed (never client-claimed scores).
  * - GET  /daily?limit=10[&date=YYYY-MM-DD] → the minted daily seed for today (or an opened past day) with its verified board,
  *   the commitment to the next day's seed and the previous day's record (PLAN-v3 0.6.1); a day that has not opened is 403.
+ *   Each day closes 48 h after 00:00 UTC (`closesAt`); from then on `final`/`frozenAt` are set and the board never changes;
+ *   a later submission is verified and answered `{ ok, score, late: true, recorded: false }` (PLAN-v3 0.6.2).
+ * - GET  /archive?from=&to=&limit=30 → closed days newest first with N, bot par and the top five; `nextTo` pages older.
  * - GET  /replay?hash=<replayHash> → the stored actions of a VERIFIED entry (for playback); 404 otherwise.
  * - GET  /health → { ok, version, rulesVersion, entries, uptimeSec }
  * - GET  /histogram?seed=<seed>&hash=<replayHash> → the verified score distribution for a seed (PLAN-v1 0.4.1): bins, N, and
@@ -84,7 +87,10 @@ export interface StoredReplay { seed: string; rulesVersion: number; actions: Rep
 /** The autoplayer's median score on a seed: a target that exists on day one without inventing competitors. */
 export interface BotPar { par: number; runs: number; tries: number; rulesVersion: number; computedAt: string }
 /** One issued daily (PLAN-v3 0.6.1): the seed minted from the secret for that UTC date, the commitment to the next day's seed, and the window. */
-export interface DailyRecord { date: string; seed: string; commitment: string; issuedAt: string; closesAt: string; rulesVersion: number; build: string }
+export interface DailyRecord { date: string; seed: string; commitment: string; issuedAt: string; closesAt: string; rulesVersion: number; build: string; /** set once the window closed (= closesAt); the board is final from then on (PLAN-v3 0.6.2) */ frozenAt?: string }
+/** One closed day in GET /archive. */
+export interface ArchiveDay { date: string; seed: string; closesAt: string; frozenAt: string; n: number; botPar: number | null; top: BoardEntry[] }
+export const MAX_ARCHIVE_LIMIT = 100;
 export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay>; pars?: Record<string, BotPar>; players?: Record<string, Player>; dailies?: Record<string, DailyRecord> }
 
 const MAX_BODY = 512 * 1024;
@@ -260,7 +266,7 @@ export class Verifier {
     return { entries: mine.length };
   }
 
-  submit(replayText: string, player = 'anonymous', playerId: string | null = null, now = new Date()): { ok: boolean; score?: number; error?: string; entry?: BoardEntry; recorded?: boolean; player?: string } {
+  submit(replayText: string, player = 'anonymous', playerId: string | null = null, now = new Date()): { ok: boolean; score?: number; error?: string; entry?: BoardEntry; recorded?: boolean; player?: string; late?: boolean; closesAt?: string } {
     let replay: ReplayFile;
     try { replay = decodeReplay(replayText); } catch (e) { return { ok: false, error: `rejected: ${(e as Error).message}` }; }
     if (replay.rulesVersion !== RULES_VERSION) return { ok: false, error: `rejected: rules version ${replay.rulesVersion} not accepted (server has ${RULES_VERSION})` };
@@ -271,10 +277,13 @@ export class Verifier {
     if (isMintedDailySeed(replay.seed)) { // a minted-looking seed counts only if this server issued it and its window is open (PLAN-v3 0.6.1)
       const rec = this.data.dailies?.[dailyDateOf(replay.seed) ?? ''];
       if (!rec || rec.seed !== replay.seed) return { ok: false, error: 'rejected: not an issued daily seed' };
-      if (now.getTime() >= Date.parse(rec.closesAt)) return { ok: false, error: `rejected: the daily for ${rec.date} closed at ${rec.closesAt}` };
     }
     const claimed = playerId ? this.data.players?.[playerId] : undefined;
     const label = claimed ? labelFor(claimed.name, claimed.tag) : String(player).replace(/\s+/g, ' ').trim().slice(0, 32) || 'anonymous';
+    if (isMintedDailySeed(replay.seed)) { // after the close the run is verified and told so, but the final board never changes (PLAN-v3 0.6.2)
+      const rec = this.data.dailies![dailyDateOf(replay.seed)!];
+      if (now.getTime() >= Date.parse(rec.closesAt)) { this.observeFreeze(now); return { ok: true, score: v.score, late: true, recorded: false, closesAt: rec.closesAt, player: label }; }
+    }
     const entry: BoardEntry = { seed: replay.seed, score: v.score, player: label, verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash, finalMachines: finalMachinesOf(replay) ?? undefined, ...(playerId ? { playerId } : {}) };
     // keep-best per (seed, player): a worse or equal run is verified but not recorded; a better one replaces the old entry and its replay
     let entries = this.data.entries; const replays = { ...(this.data.replays ?? {}) };
@@ -308,7 +317,8 @@ export class Verifier {
   setPar(seed: string, par: number, runs: number, tries: number) {
     const pars = { ...(this.data.pars ?? {}), [seed]: { par, runs, tries, rulesVersion: RULES_VERSION, computedAt: new Date().toISOString() } };
     const keys = Object.keys(pars);
-    if (keys.length > this.maxSeeds) for (const k of keys.sort((a, b) => pars[a].computedAt.localeCompare(pars[b].computedAt)).slice(0, keys.length - this.maxSeeds)) delete pars[k];
+    const dailySeeds = new Set(Object.values(this.data.dailies ?? {}).map((d) => d.seed)); // a day's par is computed once and kept (PLAN-v3 0.6.2)
+    if (keys.length > this.maxSeeds) for (const k of keys.filter((k) => !dailySeeds.has(k)).sort((a, b) => pars[a].computedAt.localeCompare(pars[b].computedAt)).slice(0, keys.length - this.maxSeeds)) delete pars[k];
     this.commit({ ...this.data, pars });
   }
   /** Number of cached pars (for tests and /health). */
@@ -316,21 +326,38 @@ export class Verifier {
   /** Verified score distribution for a seed; `hash` locates the caller's own entry. */
   histogram(seed: string, hash?: string): Histogram { return { seed, ...histogramOf(this.rank(seed), hash) }; }
   /** The issued daily for a UTC date, minting and persisting it on first request; null when that day has not opened yet (PLAN-v3 0.6.1). */
+  /** Mark every issued day whose window has closed as frozen at its close time: idempotent, persisted, derived from the clock alone (PLAN-v3 0.6.2). */
+  private observeFreeze(now: Date) {
+    const ds = this.data.dailies; if (!ds) return;
+    let changed = false; const next: Record<string, DailyRecord> = {};
+    for (const [k, r] of Object.entries(ds)) { if (!r.frozenAt && Date.parse(r.closesAt) <= now.getTime()) { next[k] = { ...r, frozenAt: r.closesAt }; changed = true; } else next[k] = r; }
+    if (!changed) return;
+    const d = { ...this.data, dailies: next }; try { this.commit(d); } catch { this.data = d; }
+  }
   dailyRecord(date: string, now = new Date()): DailyRecord | null {
     if (!isUtcDate(date) || date > utcDate(now)) return null;
-    const have = this.data.dailies?.[date]; if (have) return have;
+    const have = this.data.dailies?.[date]; if (have) { this.observeFreeze(now); return this.data.dailies![date]; }
     const rec: DailyRecord = { date, seed: mintSeed(this.dailySecret, date), commitment: commitmentFor(mintSeed(this.dailySecret, shiftDate(date, 1))), issuedAt: now.toISOString(), closesAt: new Date(dayStartMs(date) + DAILY_WINDOW_MS).toISOString(), rulesVersion: RULES_VERSION, build: VERSION };
     const next = { ...this.data, dailies: { ...(this.data.dailies ?? {}), [date]: rec } };
     try { this.commit(next); } catch { this.data = next; } // storage trouble: serve the minted seed anyway; it is persisted with the next successful write
-    return rec;
+    this.observeFreeze(now); // a day issued after its own close (an archive lookup) is frozen at once
+    return this.data.dailies![date];
+  }
+  /** Closed days, newest first, paged by `limit` with `nextTo` = the next older date to pass as `to` (PLAN-v3 0.6.2). */
+  archive(o: { from?: string; to?: string; limit?: number } = {}, now = new Date()): { days: ArchiveDay[]; nextTo: string | null } {
+    this.observeFreeze(now);
+    const limit = Math.min(MAX_ARCHIVE_LIMIT, Math.max(1, Math.floor(o.limit ?? 30)));
+    const frozen = Object.values(this.data.dailies ?? {}).filter((r) => r.frozenAt && (!o.from || r.date >= o.from) && (!o.to || r.date <= o.to)).sort((a, b) => b.date.localeCompare(a.date));
+    const days = frozen.slice(0, limit).map((r) => ({ date: r.date, seed: r.seed, closesAt: r.closesAt, frozenAt: r.frozenAt!, n: this.rank(r.seed).length, botPar: this.par(r.seed), top: this.board(r.seed, 5) }));
+    return { days, nextTo: frozen.length > limit ? frozen[limit].date : null };
   }
   /** Today's minted seed (the one bot par computes first). */
   todaySeed(now = new Date()): string { return this.dailyRecord(utcDate(now), now)!.seed; }
   /** Today's challenge (or an opened past day): the minted record, its verified board, and the previous day for commitment checks. */
-  daily(limit = 10, now = new Date(), date = utcDate(now)): (DailyRecord & { verified: true; minted: true; entries: BoardEntry[]; previous: { date: string; seed: string; commitment: string } | null }) | null {
+  daily(limit = 10, now = new Date(), date = utcDate(now)): (Omit<DailyRecord, 'frozenAt'> & { frozenAt: string | null; final: boolean; now: string; verified: true; minted: true; entries: BoardEntry[]; previous: { date: string; seed: string; commitment: string } | null }) | null {
     const rec = this.dailyRecord(date, now); if (!rec) return null;
     const prev = this.dailyRecord(shiftDate(date, -1), now);
-    return { ...rec, verified: true, minted: true, entries: this.board(rec.seed, Math.min(MAX_DAILY_LIMIT, limit)), previous: prev ? { date: prev.date, seed: prev.seed, commitment: prev.commitment } : null };
+    return { ...rec, frozenAt: rec.frozenAt ?? null, final: !!rec.frozenAt, now: now.toISOString(), verified: true, minted: true, entries: this.board(rec.seed, Math.min(MAX_DAILY_LIMIT, limit)), previous: prev ? { date: prev.date, seed: prev.seed, commitment: prev.commitment } : null };
   }
 }
 
@@ -420,7 +447,7 @@ export function loadBoard(text: string): Board {
     const players: Record<string, Player> = {};
     if (raw.players && typeof raw.players === 'object') for (const [id, p] of Object.entries(raw.players as Record<string, Player>)) if (p && typeof p.name === 'string' && typeof p.tag === 'string' && /^[0-9a-f]{64}$/.test(id)) players[id] = { name: p.name, tag: p.tag, createdAt: typeof p.createdAt === 'string' ? p.createdAt : '', renamedAt: typeof p.renamedAt === 'string' ? p.renamedAt : '' };
     const dailies: Record<string, DailyRecord> = {};
-    if (raw.dailies && typeof raw.dailies === 'object') for (const [date, d] of Object.entries(raw.dailies as Record<string, DailyRecord>)) if (d && isUtcDate(date) && typeof d.seed === 'string' && isMintedDailySeed(d.seed) && typeof d.commitment === 'string') dailies[date] = { date, seed: d.seed, commitment: d.commitment, issuedAt: typeof d.issuedAt === 'string' ? d.issuedAt : '', closesAt: typeof d.closesAt === 'string' ? d.closesAt : new Date(dayStartMs(date) + DAILY_WINDOW_MS).toISOString(), rulesVersion: typeof d.rulesVersion === 'number' ? d.rulesVersion : RULES_VERSION, build: typeof d.build === 'string' ? d.build : '' };
+    if (raw.dailies && typeof raw.dailies === 'object') for (const [date, d] of Object.entries(raw.dailies as Record<string, DailyRecord>)) if (d && isUtcDate(date) && typeof d.seed === 'string' && isMintedDailySeed(d.seed) && typeof d.commitment === 'string') dailies[date] = { date, seed: d.seed, commitment: d.commitment, issuedAt: typeof d.issuedAt === 'string' ? d.issuedAt : '', closesAt: typeof d.closesAt === 'string' ? d.closesAt : new Date(dayStartMs(date) + DAILY_WINDOW_MS).toISOString(), rulesVersion: typeof d.rulesVersion === 'number' ? d.rulesVersion : RULES_VERSION, build: typeof d.build === 'string' ? d.build : '', ...(typeof d.frozenAt === 'string' ? { frozenAt: d.frozenAt } : {}) };
     const out: Board = { entries, replays };
     if (Object.keys(pars).length) out.pars = pars;
     if (Object.keys(players).length) out.players = players;
@@ -551,6 +578,11 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const d = verifier.daily(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT), now, dateQ ?? undefined);
         if (!d) return json(403, { ok: false, error: `the daily for ${dateQ} has not opened yet (dailies open at 00:00 UTC)`, today: utcDate(now) });
         return json(200, { ok: true, ...d, botPar: withPar(d.seed), tieBreak: TIE_BREAK });
+      }
+      if (req.method === 'GET' && url.pathname === '/archive') {
+        const now = new Date((opts.now ?? Date.now)()); const from = url.searchParams.get('from'), to = url.searchParams.get('to');
+        if ((from !== null && !isUtcDate(from)) || (to !== null && !isUtcDate(to))) return json(400, { ok: false, error: 'from/to must be YYYY-MM-DD' });
+        return json(200, { ok: true, ...verifier.archive({ from: from ?? undefined, to: to ?? undefined, limit: clampInt(url.searchParams.get('limit'), 30, MAX_ARCHIVE_LIMIT) }, now), tieBreak: TIE_BREAK });
       }
       if (req.method === 'GET' && url.pathname === '/histogram') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { ok: true, ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined), botPar: withPar(seed), tieBreak: TIE_BREAK }); }
       if (req.method === 'GET' && url.pathname === '/board') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { seed, verified: true, entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT)), botPar: withPar(seed), tieBreak: TIE_BREAK }); }

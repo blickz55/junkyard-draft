@@ -16,7 +16,7 @@ import { CELL, machineTexture } from '../render/textures';
 import { GRID_X, GRID_Y, GRID_W, GRID_H, SIDE_X, SIDE_W, W, H } from '../render/layout';
 import { prefs } from '../render/prefs';
 import { loadBests } from '../render/storage';
-import { isDailySeed, isMintedDailySeed } from '../sim/daily';
+import { isDailySeed, isMintedDailySeed, dailyDateOf } from '../sim/daily';
 
 export type PanelMode = 'build' | 'running' | 'paused' | 'summary';
 
@@ -53,7 +53,7 @@ export class GamePanel {
   stallText = '';
 
   constructor(private readonly scene: Phaser.Scene, private readonly actions: PanelActions, seed: string, replayLabel: string | null, muted: boolean) {
-    const suffix = replayLabel ? ` · ${replayLabel}` : isMintedDailySeed(seed) ? " · today's challenge" : isDailySeed(seed) ? ' · practice (unranked)' : ''; // PLAN-v3 0.6.1: the HUD says which daily this is
+    const suffix = replayLabel ? ` · ${replayLabel}` : isMintedDailySeed(seed) ? (dailyDateOf(seed) === new Date().toISOString().slice(0, 10) ? " · today's challenge" : ' · archived daily (practice)') : isDailySeed(seed) ? ' · practice (unranked)' : ''; // PLAN-v3 0.6.1/0.6.2: the HUD says which daily this is
     this.hud = {
       seed: h('span', { class: `jd-mono jd-hud-seed ${replayLabel ? 'jd-blue' : 'jd-dim'}`, tid: 'hud-seed', title: seed }, `seed ${seed}${suffix}`),
       round: h('span', { class: 'jd-hud-round', tid: 'hud-round' }, ''),

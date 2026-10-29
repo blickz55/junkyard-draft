@@ -13,6 +13,7 @@ import { decodeReplay, verifyReplay } from '../sim/replay';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { identityDialog, playerLabel } from './identityDialog';
 import { acceptDaily, cachedDaily, fetchDaily, practiceSeed, todaySeed } from '../render/daily';
+import { openArchive } from './ArchivePanel';
 
 export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const save = loadSave();
@@ -94,17 +95,22 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   // today's verified board (optional verifier)
   const url = verifierUrl;
   const line = h('div', { class: 'jd-mono jd-dim', tid: 'daily-board', style: 'font-size:0.75em; margin-top:0.3em' }, 'Checking the local verifier…');
-  const seedSpan = h('span', { class: 'jd-mono jd-dim', tid: 'daily-seed', style: 'font-size:0.75em' }, `seed ${todaySeed()}`);
-  const modeSpan = h('span', { class: 'jd-mono jd-dim', tid: 'daily-mode', style: 'font-size:0.75em; margin-left:0.75em' }, cachedDaily() ? 'minted by the verifier · ranked' : 'practice (unranked) until the verifier answers');
-  const stripHead = h('div', { class: 'jd-row jd-between' }, h('div', { class: 'jd-row' }, h('div', { class: 'jd-head' }, "Today's verified board"), seedSpan, modeSpan));
+  const seedSpan = h('span', { class: 'jd-mono jd-dim', tid: 'daily-seed', style: 'font-size:0.75em; white-space:nowrap' }, `seed ${todaySeed()}`);
+  const modeSpan = h('span', { class: 'jd-mono jd-dim', tid: 'daily-mode', style: 'font-size:0.75em; margin-left:0.75em; white-space:nowrap', title: 'minted: the verifier derived today\'s seed from its secret and published a commitment to tomorrow\'s; provisional: the board can still change until the day closes, 48 h after 00:00 UTC' }, cachedDaily() ? 'minted · ranked' : 'practice (unranked) until the verifier answers');
+  // one line at every text scale: the head row never wraps, the left group clips, and the Archive button is text-height (the 130 % layout test measures the strip)
+  const archiveBtn = btn('Archive', 'archive', () => openArchive(scene, verifierUrl), { small: true, title: 'closed days with their final boards; any day is playable as practice (PLAN-v3 0.6.2)' });
+  archiveBtn.style.cssText += 'padding:0 0.5em; font-size:0.75em; line-height:1.4; min-height:0';
+  const stripHead = h('div', { class: 'jd-row jd-between', style: 'flex-wrap:nowrap' }, h('div', { class: 'jd-row', style: 'flex-wrap:nowrap; min-width:0; overflow:hidden' }, h('div', { class: 'jd-head', style: 'white-space:nowrap' }, "Today's verified board"), seedSpan, modeSpan), archiveBtn);
   const practiceMode = (why: string) => { seedSpan.textContent = `seed ${practiceSeed()}`; modeSpan.textContent = `practice (unranked): ${why}`; };
   const strip = h('div', { class: 'jd-panel', tid: 'daily-strip', style: 'margin-top:auto; padding-top:0.4em; padding-bottom:0.4em' }, stripHead, line);
   const alive = () => line.isConnected && scene.scene.isActive('Title');
-  fetch(`${url}/daily?limit=5`).then((r) => r.json()).then((d: { seed: string; date?: string; rulesVersion: number; entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[]; botPar?: number | null }) => {
+  const closesIn = (closesAt: string, now: string) => { const ms = Date.parse(closesAt) - Date.parse(now); if (!Number.isFinite(ms) || ms <= 0) return 'closing'; const h = Math.floor(ms / 3_600_000); return h >= 1 ? `closes in ${h} h` : `closes in ${Math.max(1, Math.round(ms / 60_000))} min`; };
+  fetch(`${url}/daily?limit=5`).then((r) => r.json()).then((d: { seed: string; date?: string; rulesVersion: number; entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[]; botPar?: number | null; closesAt?: string; now?: string; final?: boolean }) => {
     if (!alive()) return;
     const info = acceptDaily(d);
     if (!info) { practiceMode(`the verifier's daily is for ${d.date ?? 'another day'}`); line.textContent = `Verifier day differs (${d.seed}); board hidden.`; return; }
-    const seed = info.seed; seedSpan.textContent = `seed ${seed}`; modeSpan.textContent = 'minted by the verifier · ranked';
+    const seed = info.seed; seedSpan.textContent = `seed ${seed}`;
+    modeSpan.textContent = d.final ? 'minted · final' : `minted · ranked · provisional · ${closesIn(d.closesAt ?? info.closesAt, d.now ?? new Date().toISOString())}`; // PLAN-v3 0.6.2: one global deadline, said plainly
     const top = d.entries.length ? d.entries.map((e, i) => `${i + 1}. $${e.score} ${e.player}`).join('   ·   ') + `   ·   re-simulated by the verifier (rules v${d.rulesVersion}) · ties: fewer round-6 machines first` : 'No verified scores yet today. Finish a run and submit the replay from the results screen.';
     if (d.botPar != null) stripHead.firstElementChild?.append(h('span', { class: 'jd-mono jd-dim', tid: 'daily-par', style: 'font-size:0.75em; margin-left:0.75em', title: 'the shipped autoplayer\'s median on today\'s seed: a target, never an entry' }, `bot par $${d.botPar}`));
     line.textContent = top; line.classList.toggle('jd-dim', !d.entries.length);
