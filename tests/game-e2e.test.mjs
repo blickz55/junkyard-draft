@@ -97,6 +97,18 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.equal(st.bin.length, 0);
     await page.keyboard.press('r'); await wait(150);
     assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id).dir, 1, 'R rotates the machine just placed');
+    // undo_restores_facing (PLAN-v1 0.3.3): Ctrl+Z undoes the rotation, Ctrl+Y re-applies it, the panel buttons track it
+    const undoBtn = () => page.evaluate(() => { const s = window.__jdGame.scene.getScene('Game').side; return { undo: s.getByName('undo')?.alpha, redo: s.getByName('redo')?.alpha }; });
+    assert.deepEqual(await undoBtn(), { undo: 1, redo: 0.4 }, 'Undo enabled after an edit, Redo disabled');
+    await page.keyboard.press('Control+z'); await wait(200);
+    assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id).dir, 0, 'Ctrl+Z restores the previous facing');
+    assert.deepEqual(await undoBtn(), { undo: 1, redo: 1 }, 'Redo enabled after an undo');
+    await page.keyboard.press('Control+z'); await wait(200);
+    assert.ok((await api('state')).bin.some((mm) => mm.id === kbConv.id), 'a second Ctrl+Z undoes the placement: the conveyor is back in the bin');
+    await page.keyboard.press('Control+y'); await wait(200);
+    await page.keyboard.press('Control+y'); await wait(200);
+    assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id)?.dir, 1, 'two Ctrl+Y re-place and re-rotate it');
+    assert.deepEqual(await undoBtn(), { undo: 1, redo: 0.4 });
     await page.keyboard.press('Enter'); await wait(150);
     assert.equal((await cur()).held, kbConv.id, 'Enter on a machine picks it up');
     await page.keyboard.press('ArrowUp'); await wait(150);

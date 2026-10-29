@@ -3,6 +3,7 @@ import { applyDpr, DPR } from '../dpr';
 import { decideQuality, QUALITY_PROBE_FRAMES } from '../quality';
 import { explainRunError, inputTravelDirs, outputDirs, placementWarning } from '../../sim/advice';
 import { apply, newRun, replay as replayRun, RunError, type Action, type RunState } from '../../sim/run';
+import { canUndo, undo as undoEdit } from '../../sim/undo';
 import { createSim, step, cellIndex, type SimState } from '../../sim/sim';
 import { DIR_DX, DIR_DY, MACHINE_INFO, RULES } from '../../sim/rules';
 import type { Machine, Material, SimEvent } from '../../sim/types';
@@ -69,6 +70,10 @@ export class GameScene extends Phaser.Scene {
   private readonly shipsThisTick = new Map<number, number>();
   /** inputs of the last side-panel build; renderSide() is a no-op while they are unchanged */
   private sideKey = '';
+  /** undone build edits, re-applied by Ctrl+Y; any new edit clears it (PLAN-v1 0.3.3) */
+  private redoStack: Action[] = [];
+  private redoing = false;
+  private lastShortcutAt = -1000;
   /** adaptive resolution: frame deltas of the first 120 running frames at DPR > 1 while renderQuality is still 'auto' */
   private dprProbe: number[] | null = null;
   /** the VALUES legend never changes: built once, re-parented into each panel instead of re-rasterised (12 Text objects per rebuild) */
@@ -102,7 +107,7 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     // the scene instance is reused across scene.start(): anything cached on it from the previous life was destroyed at shutdown
-    this.legendC = null; this.sideKey = ''; this.popPool = []; this.popsAlive = 0; this.popsPeak = 0; this.popsSkipped = 0;
+    this.legendC = null; this.sideKey = ''; this.popPool = []; this.redoStack = []; this.popsAlive = 0; this.popsPeak = 0; this.popsSkipped = 0;
     this.cameras.main.setBackgroundColor(P.bg);
     applyDpr(this);
     this.input.mouse?.disableContextMenu();
@@ -270,6 +275,10 @@ export class GameScene extends Phaser.Scene {
     const KC = Phaser.Input.Keyboard.KeyCodes;
     kb?.addCapture([KC.UP, KC.DOWN, KC.LEFT, KC.RIGHT, KC.ENTER, KC.TAB, KC.SPACE]);
     kb?.on('keydown-R', () => this.rotateSelected());
+    // Phaser queues a modifier+key keydown twice in Chromium (two listeners, differing timeStamps slip past its own bailout); one shortcut per 30 ms
+    const once = (e: KeyboardEvent) => { if (e.timeStamp - this.lastShortcutAt < 30) return false; this.lastShortcutAt = e.timeStamp; return true; };
+    kb?.on('keydown-Z', (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && once(e)) { e.preventDefault(); if (e.shiftKey) this.redo(); else this.undo(); } });
+    kb?.on('keydown-Y', (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && once(e)) { e.preventDefault(); this.redo(); } });
     kb?.on('keydown-SPACE', () => { if (this.mode === 'build' && this.run.phase === 'build') this.startRun(); else if (this.mode === 'summary') this.nextRound(); });
     kb?.on('keydown-ESC', () => { if (this.replayLabel) this.stopReplay(); else if (this.mode === 'running') this.setPaused(true); else if (this.mode === 'paused') this.setPaused(false); else this.keyEscape(); });
     kb?.on('keydown-M', () => audio.setMuted(!audio.muted));
@@ -412,6 +421,7 @@ export class GameScene extends Phaser.Scene {
     if (GameScene.LAYOUT_EDITS.has(a.t) && this.mode !== 'build') return false; // frozen: a drop, key or dev-API call during a run changes nothing
     try { apply(this.run, a); } catch (e) { if (e instanceof RunError) { if (a.t === 'place') this.showReject(explainRunError(e.message)); return false; } throw e; }
     if (!this.replayLabel) writeSave(this.run.seed, this.run.actions); // playback is never saved: it is someone else's run
+    if (!this.redoing) this.redoStack.length = 0; // a new edit forks history: stale redos are dropped
     this.updateHud();
     if (a.t === 'place' || a.t === 'pick' || a.t === 'rotate') this.updateHint();
     if (a.t !== 'rotate') this.renderSide();
@@ -422,12 +432,38 @@ export class GameScene extends Phaser.Scene {
     if (this.act({ t: 'pick', i })) { audio.place(); this.selectedId = this.run.bin[this.run.bin.length - 1]?.id ?? null; this.syncMachines(); this.renderSide(); }
   }
 
+  // ---------- undo / redo (build phase only; the replay stays a flat list of final actions) ----------
+  /** Ctrl+Z: remove the last layout edit of this build phase (never across a run). Returns false when there is nothing to undo. */
+  undo(): boolean {
+    if (this.mode !== 'build' || this.replayQueue) return false;
+    const u = undoEdit(this.run); if (!u) { audio.invalid(); return false; }
+    this.run = u.state; this.redoStack.push(u.undone);
+    if (!this.replayLabel) writeSave(this.run.seed, this.run.actions);
+    this.afterHistoryChange(); return true;
+  }
+  /** Ctrl+Y / Ctrl+Shift+Z: re-apply the last undone edit if the rules still accept it. */
+  redo(): boolean {
+    if (this.mode !== 'build' || this.replayQueue) return false;
+    const a = this.redoStack.pop(); if (!a) { audio.invalid(); return false; }
+    this.redoing = true; const ok = this.act(a); this.redoing = false;
+    if (!ok) { this.redoStack.length = 0; audio.invalid(); return false; }
+    this.afterHistoryChange(); return true;
+  }
+  canRedo(): boolean { return this.redoStack.length > 0; }
+  private afterHistoryChange() {
+    audio.click();
+    const exists = (id: number | null) => id != null && (this.run.layout.machines.some((m) => m.id === id) || this.run.bin.some((m) => m.id === id));
+    if (!exists(this.heldId)) this.heldId = null;
+    if (!exists(this.selectedId)) this.selectedId = null;
+    this.updateHud(); this.syncMachines(); this.renderSide(); this.updateHint();
+  }
+
   // ---------- side panel ----------
   /** Everything renderSide() draws is a function of these; identical inputs mean an identical panel. */
   private sideInputs(): string {
     const r = this.run;
     const sel = this.selectedId != null ? r.layout.machines.find((m) => m.id === this.selectedId) ?? r.bin.find((m) => m.id === this.selectedId) : undefined;
-    return JSON.stringify([this.mode, r.phase, r.round, r.offers, r.bin.length, r.layout.machines.length, this.speed, this.replayLabel, !!this.replayRounds, sel ? [sel.id, sel.kind, sel.dir, sel.x >= 0] : null, !!this.replayQueue]);
+    return JSON.stringify([this.mode, r.phase, r.round, r.offers, r.bin.length, r.layout.machines.length, this.speed, this.replayLabel, !!this.replayRounds, sel ? [sel.id, sel.kind, sel.dir, sel.x >= 0] : null, !!this.replayQueue, canUndo(r), this.redoStack.length]);
   }
   renderSide() {
     const key = this.sideInputs();
@@ -491,6 +527,8 @@ export class GameScene extends Phaser.Scene {
       }
       const placedCount = r.layout.machines.length;
       t(16, 176, `${placedCount} machines placed · ${r.bin.length} in bin`, 12, CSS.dim);
+      add(new Button(this, SIDE_W - 124, 184, 'Undo (Ctrl+Z)', () => this.undo(), { w: 104, h: 24, color: P.steelDark, textColor: CSS.text, size: 11, name: 'undo', disabled: !canUndo(r) }));
+      add(new Button(this, SIDE_W - 36, 184, 'Redo', () => this.redo(), { w: 56, h: 24, color: P.steelDark, textColor: CSS.text, size: 11, name: 'redo', disabled: !this.redoStack.length }));
       this.runBtn = add(new Button(this, SIDE_W / 2, 230, `RUN ROUND ${r.round}  (Space)`, () => this.startRun(), { w: SIDE_W - 48, h: 52, size: 18, name: 'run' })) as Button;
       let legendY = 300;
       if (r.bin.length > 0) { const note = t(16, 262, `Parts left in the bin do nothing this round. Select one to sell it for $${RULES.sellValue}.`, 12, CSS.dim); legendY = Math.max(300, note.y + note.height + 14); }

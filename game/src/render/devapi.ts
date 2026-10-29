@@ -23,6 +23,9 @@ export interface DevApi {
   prefs: () => { reducedMotion: boolean; textScale: number };
   /** +$ pop pool counters: alive now, peak, skipped (pool full), pool size and cap */
   counters: () => { popsAlive: number; popsPeak: number; popsSkipped: number; poolSize: number; poolMax: number };
+  /** build-phase undo / redo (Ctrl+Z / Ctrl+Y); false when nothing could be undone or redone */
+  undo: () => boolean;
+  redo: () => boolean;
 }
 
 export const devEnabled = () => import.meta.env.DEV || new URLSearchParams(location.search).get('dev') === '1';
@@ -43,6 +46,8 @@ export function installDevApi(scene: GameScene) {
     cursor: () => scene.cursorInfo(),
     prefs: () => ({ reducedMotion: prefs.reducedMotion, textScale: prefs.textScale }),
     counters: () => scene.popCounters(),
+    undo: () => scene.undo(),
+    redo: () => scene.redo(),
   };
   (window as unknown as { __jd: DevApi }).__jd = api;
 }

@@ -1,4 +1,11 @@
-# Status — 2026-10-29 (PR #1 merged; DOSSIER-v1 slice 0.3.8–0.3.10 done on the PC)
+# Status — 2026-10-29 (PR #1 merged; DOSSIER-v1 slice 0.3.8–0.3.10 and PLAN-v1 0.3.3 done on the PC)
+
+## Session 2026-10-29 (later) — PLAN-v1 0.3.3 undo / redo
+- `game/src/sim/undo.ts`: `canUndo` (building, last action is place/unplace/rotate/sell), `undo` (state re-derived by `replay()` from seed + remaining actions, returns the removed action), `redo` (re-apply if the rules still accept it). The replay stays a flat list of final actions; nothing crosses a run or a pick.
+- GameScene: Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z, "Undo (Ctrl+Z)" and "Redo" buttons in the build panel (disabled when unavailable, in the panel's change key), redo stack cleared by any new edit, selection/held ids dropped if their machine vanished, save rewritten. Dev API `undo()` / `redo()`.
+- Found and worked around: Phaser's keyboard plugin delivers a modifier+key keydown twice in this Chromium (its duplicate bailout compares timeStamps, which differ), so one Ctrl+Z undid two edits; shortcuts are now guarded to one per 30 ms (`lastShortcutAt`). `R` alone was never affected.
+- Tests: `tests/undo.test.ts` (2) and the e2e step undo_restores_facing (Ctrl+Z after R restores dir 0, a second Ctrl+Z returns the part to the bin, two Ctrl+Y redo both, button alphas 1 / 0.4 track availability). `npm test` 52/52.
+
 
 ## Session 2026-10-29 — worst-machine foundation (docs/DOSSIER-v1.md §8)
 Reviewed and merged the routine's PR #1 (0.3.2) after running its suite here (47/47). Then the three increments, each a commit on main:
@@ -23,7 +30,7 @@ Numbers after the slice (Chromium headless on this PC, seed auto-12 last round a
 - Not done: tested only in headless Chromium; no human playtest of the arrow legibility.
 
 ## Next task
-PLAN-v1 **0.3.3 undo/redo in the build phase covering rotations** (S/M): Ctrl+Z / Ctrl+Y plus on-screen buttons over the build-phase action list since the last run; undo removes (the replay stays a flat list of final actions); keyboard-only path reaches undo. Accept: sim test place→rotate→undo→undo yields the pre-place layout and the exported replay verifies; e2e Ctrl+Z after a rotate restores facing. Then 0.3.5, 0.3.6, 0.3.7. Human-gated items (0.3.1 playtest, installer run, Docker build) still stand.
+PLAN-v1 **0.3.5 live money heartbeat and stall indicator during the run** (S): the running total ticks up per shipped item (the pooled pops and value-scaled chime already exist); when no item has shipped for 8 ticks and the hopper is blocked or a machine is jammed, the HUD shows a small "stalled" marker pointing at the first blocking cell (data in the live jam tint and `CellStats`); reduced motion = text change only. Accept: e2e runs a layout with a deliberate head-on conveyor and asserts the stall marker appears within 10 ticks and names the cell; `tools/perf.ts` shows no script-time change beyond noise. Then 0.3.6 tips panel (M), 0.3.7 funnel events (S/M); 0.3.3 is done. Human-gated items (0.3.1 playtest, installer run, Docker build) still stand.
 
 # Status — 2026-10-26 (external review of 0.2.0 addressed; routine paused during the fix, re-enabled after)
 
