@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased — 2026-10-29 (v0.4: histogram-first results, PLAN-v1 0.4.1)
 
+### Bot par (PLAN-v1 0.4.5)
+- The first time a seed is asked about, the verifier runs the shipped autoplayer in a worker thread (five searches × 40 tries on fixed rng streams, so the same number on every machine), wall-clock capped and never on the request path, and stores the median as `botPar`; `/board`, `/histogram` and `/daily` return it (null while computing; a failed job backs off ten minutes; `BOT_PAR=0` disables). The results histogram shows "Bot par $N · the shipped autoplayer's median on this seed (a target, never ranked)" and whether you beat it; the title's daily strip shows "bot par $N". It is never an entry on any board.
+
 ### Histogram-first results and daily strip
 - Verifier `GET /histogram?seed=&hash=`: the verified score distribution in nice-width bins (1 / 2 / 2.5 / 5 × 10^k), N, and, when the caller's replay hash is on the board, its rank, bin, percentile (share of other verified runs with a strictly lower score; ties are not beaten) and up to five neighbours above and below. Empty when nobody has played: nothing is ever invented.
 - Results screen: the distribution with the player's bin highlighted, "Better than X % of N verified runs · #R" once five or more runs exist, otherwise "N verified runs so far · you are #R", and an "around you" slice. The title's daily strip shows a miniature of today's distribution once a verified run exists.

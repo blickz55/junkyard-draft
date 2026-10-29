@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, loadBoard, StorageError, EventStore, histogramOf, niceStep, type BoardEntry } from '../server/verify';
+import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, loadBoard, StorageError, EventStore, histogramOf, niceStep, computeParSync, computeParInWorker, ParService, type BoardEntry } from '../server/verify';
 import { build as esbuild } from 'esbuild';
 import net from 'node:net';
 import { RULES_VERSION } from '../game/src/sim/types';
@@ -340,4 +340,43 @@ test('histogram (PLAN-v1 0.4.1): bins and percentile for 1, 4 and 200 entries; n
     const empty = await (await fetch(`http://127.0.0.1:${port}/histogram?seed=nobody-played`)).json() as { n: number; bins: unknown[] };
     assert.deepEqual([empty.n, empty.bins], [0, []]);
   } finally { server.close(); }
+});
+
+test('bot par (PLAN-v1 0.4.5): deterministic across runs and threads, computed off the request path, never blocks a submission, backs off after a failure', async () => {
+  const a = computeParSync('par-seed', 3, 12); const b = computeParSync('par-seed', 3, 12);
+  assert.equal(a, b, 'the same seed gives the same par in the same process');
+  assert.ok(a > 0);
+  const viaWorker = await computeParInWorker('par-seed', 60_000, 3, 12);
+  assert.equal(viaWorker, a, 'a worker thread (fresh module instance) computes the identical par');
+  // a service with a par job that hangs: the submission path is unaffected, the histogram says null meanwhile
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-par-'));
+  const v = new Verifier(path.join(dir, 'board.json'));
+  let release: ((n: number) => void) | null = null; const calls: string[] = [];
+  const slow = new ParService(v, (seed) => { calls.push(seed); return new Promise<number>((res) => { release = res; }); }, 1000, () => Date.now());
+  const server = createServer(v, { log: null, rateLimit: null, par: slow });
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
+  const port = (server.address() as net.AddressInfo).port;
+  try {
+    const h0 = await (await fetch(`http://127.0.0.1:${port}/histogram?seed=hang-seed`)).json() as { botPar: number | null };
+    assert.equal(h0.botPar, null, 'unknown until computed'); assert.deepEqual(calls, ['hang-seed'], 'the first request started one job');
+    await fetch(`http://127.0.0.1:${port}/histogram?seed=hang-seed`); assert.equal(calls.length, 1, 'repeat requests do not start another job');
+    const run = finishedRun('hang-seed');
+    const t0 = Date.now();
+    const r = await fetch(`http://127.0.0.1:${port}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(run), player: 'alice' }) });
+    assert.equal(r.status, 200); assert.ok(Date.now() - t0 < 1500, 'a hanging par job does not delay a submission');
+    release!(1234);
+    await new Promise((res) => setTimeout(res, 30));
+    const h1 = await (await fetch(`http://127.0.0.1:${port}/histogram?seed=hang-seed`)).json() as { botPar: number | null; n: number };
+    assert.deepEqual({ botPar: h1.botPar, n: h1.n }, { botPar: 1234, n: 1 }, 'the par lands once the job finishes and is stored');
+    assert.equal(new Verifier(path.join(dir, 'board.json')).par('hang-seed'), 1234, 'pars persist in the board file');
+    const d = await (await fetch(`http://127.0.0.1:${port}/daily`)).json() as { botPar: number | null };
+    assert.ok('botPar' in d, '/daily carries the par (null while the daily seed computes)');
+  } finally { server.close(); }
+  // a failing job backs off: one attempt, then nothing until the cooldown passes
+  let now = 1_000_000; let attempts = 0;
+  const failing = new ParService(new Verifier(path.join(dir, 'b2.json')), () => { attempts++; return Promise.reject(new Error('boom')); }, 5000, () => now);
+  failing.request('f'); await new Promise((res) => setTimeout(res, 10)); failing.request('f'); await new Promise((res) => setTimeout(res, 10));
+  assert.equal(attempts, 1, 'no retry inside the cooldown');
+  now += 6000; failing.request('f'); await new Promise((res) => setTimeout(res, 10));
+  assert.equal(attempts, 2, 'retried after the cooldown');
 });

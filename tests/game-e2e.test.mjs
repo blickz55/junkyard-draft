@@ -256,7 +256,10 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.waitForFunction(() => /^1 verified run so far · you are #1$/.test(document.querySelector('[data-testid=percentile]')?.textContent || ''), null, { timeout: 10000 });
     const hist = await page.evaluate(() => ({ bins: document.querySelectorAll('[data-testid=histogram] .jd-hist-bin').length, mine: document.querySelectorAll('[data-testid=histogram] .jd-hist-mine').length, mineCount: document.querySelector('[data-testid=histogram] .jd-hist-mine .jd-hist-count')?.textContent }));
     assert.ok(hist.bins >= 1 && hist.mine === 1 && hist.mineCount === '1', `histogram shows the player's bin: ${JSON.stringify(hist)}`);
+    // bot_par_is_a_target_not_an_entry (PLAN-v1 0.4.5): the test verifier computed the autoplayer's par for this seed in a worker; it shows as a bot line and the board still has one entry
+    await page.waitForFunction(() => /^Bot par \$\d+ · the shipped autoplayer/.test(document.querySelector('[data-testid=bot-par]')?.textContent || ''), null, { timeout: 30000 });
     const board = await (await fetch(`http://127.0.0.1:${VPORT}/board?seed=e2e-seed`)).json();
+    assert.ok(typeof board.botPar === 'number' && board.botPar > 0, 'the board carries a numeric bot par');
     assert.equal(board.entries.length, 1, 'one verified entry');
     assert.equal(board.entries[0].player, 'e2e player', 'the stored player name is sent with the submission');
     // share text: copied to the clipboard with seed, score and verified rank

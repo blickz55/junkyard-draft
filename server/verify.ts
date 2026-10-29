@@ -10,6 +10,9 @@
  * - POST /events  { installId, consent: true, events[] } → opt-in funnel events (PLAN-v1 0.3.7), appended to events.jsonl with a
  *                 daily-salted IP hash; only the fixed vocabulary in game/src/telemetry/events.ts is accepted; 30-day retention.
  * - GET  /funnel  → unique installs per funnel step and event counts (what tools/funnel.ts prints).
+ * - Bot par (PLAN-v1 0.4.5): the first time a seed is asked about, the shipped autoplayer runs in a worker thread (wall-clock
+ *   capped, never on the request path) and the median of its runs is stored as `botPar`; /board, /histogram and /daily
+ *   return it. It is a population-independent target labelled as a bot, never an entry on any board.
  *
  * Guarantees (each covered by tests/verifier.test.ts):
  * - A malformed request never kills the process (URL parsing and every handler are guarded; 400/500 JSON).
@@ -37,6 +40,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
+import { playSeed } from '../tools/autoplay-lib';
+import { Rng } from '../game/src/sim/rng';
 import { decodeReplay, verifyReplay, type ReplayFile } from '../game/src/sim/replay';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { dailySeedFor } from '../game/src/sim/daily';
@@ -48,7 +54,9 @@ export const VERSION: string = pkg.version;
 export interface BoardEntry { seed: string; score: number; player: string; verifiedAt: string; rulesVersion: number; actions: number; replayHash: string; replayAvailable?: boolean }
 /** Actions of a verified replay, kept so anyone can watch it; bounded by the replay limits enforced at verification. */
 export interface StoredReplay { seed: string; rulesVersion: number; actions: ReplayFile['actions']; score: number; player: string; verifiedAt: string }
-export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay> }
+/** The autoplayer's median score on a seed: a target that exists on day one without inventing competitors. */
+export interface BotPar { par: number; runs: number; tries: number; rulesVersion: number; computedAt: string }
+export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay>; pars?: Record<string, BotPar> }
 
 const MAX_BODY = 512 * 1024;
 export const MAX_BOARD_LIMIT = 100;
@@ -203,12 +211,74 @@ export class Verifier {
     const r = this.data.replays?.[hash];
     return r && r.rulesVersion === RULES_VERSION ? { hash, ...r } : null;
   }
+  /** The stored bot par for a seed under the current rules, or null when it has not been computed. */
+  par(seed: string): number | null { const p = this.data.pars?.[seed]; return p && p.rulesVersion === RULES_VERSION ? p.par : null; }
+  /** Persist a computed par (atomic, like every write). */
+  setPar(seed: string, par: number, runs: number, tries: number) {
+    const candidate: Board = { ...this.data, pars: { ...(this.data.pars ?? {}), [seed]: { par, runs, tries, rulesVersion: RULES_VERSION, computedAt: new Date().toISOString() } } };
+    this.commit(candidate);
+  }
   /** Verified score distribution for a seed; `hash` locates the caller's own entry. */
   histogram(seed: string, hash?: string): Histogram { return { seed, ...histogramOf(this.rank(seed), hash) }; }
   /** Today's challenge: the seed every client derives for this UTC date, plus its verified board. */
   daily(limit = 10, now = new Date()): { seed: string; date: string; rulesVersion: number; verified: true; entries: BoardEntry[] } {
     const seed = dailySeedFor(now);
     return { seed, date: now.toISOString().slice(0, 10), rulesVersion: RULES_VERSION, verified: true, entries: this.board(seed, Math.min(MAX_DAILY_LIMIT, limit)) };
+  }
+}
+
+// ---------- bot par: the autoplayer as a day-one target ----------
+export const PAR_RUNS = 5;
+export const PAR_TRIES = 40;
+/** Median autoplayer score over PAR_RUNS independent searches (fixed rng streams, so identical on every machine). Synchronous: run it in a worker. */
+export function computeParSync(seed: string, runs = PAR_RUNS, tries = PAR_TRIES): number {
+  const scores: number[] = [];
+  for (let k = 0; k < runs; k++) scores.push(playSeed(seed, new Rng(`${seed}:par:${k}`), tries).report.score);
+  scores.sort((a, b) => a - b);
+  return scores[Math.floor(scores.length / 2)];
+}
+// worker entry: this same module is loaded in a worker thread with { parSeed } and answers with the par
+if (!isMainThread && parentPort && workerData && typeof (workerData as { parSeed?: unknown }).parSeed === 'string') {
+  const wd = workerData as { parSeed: string; runs?: number; tries?: number };
+  parentPort.postMessage(computeParSync(wd.parSeed, wd.runs, wd.tries));
+}
+/** Only the module-loader flags of this process (e.g. --import tsx) go to the worker: node --test adds flags a Worker rejects. */
+function loaderArgs(): string[] {
+  const out: string[] = []; const a = process.execArgv;
+  for (let i = 0; i < a.length; i++) { const f = a[i]; if (/^--(import|loader|experimental-loader|require)(=|$)/.test(f)) { out.push(f); if (!f.includes('=') && i + 1 < a.length) out.push(a[++i]); } }
+  return out;
+}
+/** Compute a par off the request path: a worker thread running this module, terminated at the wall-clock cap. */
+export function computeParInWorker(seed: string, capMs = 20_000, runs = PAR_RUNS, tries = PAR_TRIES): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const w = new Worker(new URL(import.meta.url), { workerData: { parSeed: seed, runs, tries }, execArgv: loaderArgs() });
+    const timer = setTimeout(() => { void w.terminate(); reject(new Error(`par for ${seed} exceeded ${capMs} ms`)); }, capMs);
+    w.once('message', (v: number) => { clearTimeout(timer); resolve(v); void w.terminate(); });
+    w.once('error', (e) => { clearTimeout(timer); reject(e); });
+    w.once('exit', (code) => { clearTimeout(timer); if (code !== 0) reject(new Error(`par worker exited with ${code}`)); });
+  });
+}
+/** One par job at a time, deduplicated per seed; failures back off instead of retrying on every request. */
+export class ParService {
+  private pending: string | null = null;
+  private queue: string[] = [];
+  private failedAt = new Map<string, number>();
+  constructor(private readonly verifier: Verifier, private readonly compute: (seed: string) => Promise<number> = (s) => computeParInWorker(s), private readonly cooldownMs = 10 * 60_000, private readonly now: () => number = Date.now) {}
+  get busy(): string | null { return this.pending; }
+  /** Ask for a seed's par; returns immediately. No-op if known, queued, or recently failed. */
+  request(seed: string) {
+    if (!seed || this.verifier.par(seed) != null || this.pending === seed || this.queue.includes(seed)) return;
+    const failed = this.failedAt.get(seed); if (failed != null && this.now() - failed < this.cooldownMs) return;
+    this.queue.push(seed);
+    this.drain();
+  }
+  private drain() {
+    if (this.pending || !this.queue.length) return;
+    const seed = this.queue.shift()!; this.pending = seed;
+    this.compute(seed)
+      .then((par) => { try { this.verifier.setPar(seed, par, PAR_RUNS, PAR_TRIES); } catch { this.failedAt.set(seed, this.now()); } })
+      .catch(() => this.failedAt.set(seed, this.now()))
+      .finally(() => { this.pending = null; this.drain(); });
   }
 }
 
@@ -219,7 +289,9 @@ export function loadBoard(text: string): Board {
     const entries = Array.isArray(raw.entries) ? raw.entries.filter((e): e is BoardEntry => !!e && typeof e.seed === 'string' && typeof e.score === 'number' && typeof e.replayHash === 'string' && typeof e.verifiedAt === 'string' && Number.isInteger(e.rulesVersion)) : [];
     const replays: Record<string, StoredReplay> = {};
     if (raw.replays && typeof raw.replays === 'object') for (const [h, r] of Object.entries(raw.replays)) if (r && typeof r.seed === 'string' && Array.isArray(r.actions) && Number.isInteger(r.rulesVersion)) replays[h] = r;
-    return { entries, replays };
+    const pars: Record<string, BotPar> = {};
+    if (raw.pars && typeof raw.pars === 'object') for (const [s, p] of Object.entries(raw.pars)) if (p && typeof p.par === 'number' && Number.isInteger(p.rulesVersion)) pars[s] = p;
+    return Object.keys(pars).length ? { entries, replays, pars } : { entries, replays };
   } catch { return { entries: [] }; }
 }
 
@@ -299,6 +371,8 @@ export interface ServerOptions {
   events?: EventStore | null;
   /** POST /events limit per client IP per minute (default 30) */
   eventsRateLimit?: number;
+  /** bot-par jobs (PLAN-v1 0.4.5); null (default) means pars are never computed */
+  par?: ParService | null;
 }
 
 export function clientIp(req: http.IncomingMessage, trustProxy: boolean): string {
@@ -309,6 +383,8 @@ export function clientIp(req: http.IncomingMessage, trustProxy: boolean): string
 export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const rl = opts.rateLimit === null ? null : new RateLimiter(opts.rateLimit?.limit ?? 60, opts.rateLimit?.windowMs ?? 60_000, opts.now);
   const events = opts.events ?? null;
+  const par = opts.par ?? null;
+  const withPar = (seed: string) => { par?.request(seed); return verifier.par(seed); };
   const erl = events ? new RateLimiter(opts.eventsRateLimit ?? 30, 60_000, opts.now) : null;
   const MAX_EVENTS_BODY = 64 * 1024;
   const corsOrigin = opts.corsOrigin ?? '*';
@@ -329,9 +405,9 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
       if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, uptimeSec: Math.round((Date.now() - started) / 1000) });
       if (req.method === 'GET' && url.pathname === '/replay') { const r = verifier.replay(url.searchParams.get('hash') || ''); return r ? json(200, { ok: true, ...r }) : json(404, { ok: false, error: 'no verified replay with that hash' }); }
-      if (req.method === 'GET' && url.pathname === '/daily') return json(200, verifier.daily(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT)));
-      if (req.method === 'GET' && url.pathname === '/histogram') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { ok: true, ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined) }); }
-      if (req.method === 'GET' && url.pathname === '/board') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { seed, verified: true, entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT)) }); }
+      if (req.method === 'GET' && url.pathname === '/daily') { const d = verifier.daily(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT)); return json(200, { ...d, botPar: withPar(d.seed) }); }
+      if (req.method === 'GET' && url.pathname === '/histogram') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { ok: true, ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined), botPar: withPar(seed) }); }
+      if (req.method === 'GET' && url.pathname === '/board') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { seed, verified: true, entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT)), botPar: withPar(seed) }); }
       if (req.method === 'POST' && url.pathname === '/verify') {
         if (rl) { const r = rl.take(ip); if (!r.ok) { req.resume(); return json(429, { ok: false, error: `rate limited: ${rl.limit} submissions per ${rl.windowMs / 1000}s` }, { 'Retry-After': String(r.retryAfterSec) }); } }
         let body = '';
@@ -342,6 +418,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           try { parsed = JSON.parse(body) as { replay: unknown; player?: string }; } catch (e) { return json(400, { ok: false, error: `bad request: ${(e as Error).message}` }); }
           try {
             const result = verifier.submit(JSON.stringify(parsed.replay), parsed.player);
+            if (result.ok && result.entry) par?.request(result.entry.seed);
             json(result.ok ? 200 : 422, result);
           } catch (e) {
             if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable, nothing was recorded; try again' }, { 'Retry-After': '5' });
@@ -375,7 +452,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   return server;
 }
 
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const isMain = isMainThread && process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const args = process.argv.slice(2);
   const flag = (k: string) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i + 1] : undefined; };
@@ -391,6 +468,8 @@ if (isMain) {
   const events = new EventStore(process.env.EVENTS_FILE || path.join(path.dirname(file), 'events.jsonl'), Number(process.env.EVENTS_RETENTION_DAYS || 30));
   const pruned = events.prune(); if (pruned) console.log(`events: pruned ${pruned} rows older than ${events.retentionDays} days`);
   setInterval(() => { try { events.prune(); } catch { /* next hour */ } }, 3_600_000).unref();
-  createServer(new Verifier(file), { rateLimit: { limit, windowMs: 60_000 }, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events })
+  const verifier = new Verifier(file);
+  const par = process.env.BOT_PAR === '0' ? null : new ParService(verifier, (s) => computeParInWorker(s, Number(process.env.BOT_PAR_CAP_MS || 20_000)));
+  createServer(verifier, { rateLimit: { limit, windowMs: 60_000 }, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events, par })
     .listen(port, host, () => console.log(`replay verifier v${VERSION} → http://${host}:${port}/  (board: ${file}, events: ${events.file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, CORS ${corsOrigin}${trustProxy ? ', trusting X-Forwarded-For' : ''})`));
 }

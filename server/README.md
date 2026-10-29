@@ -9,7 +9,7 @@ keeps only verified scores. One Node process, a JSON file for storage, no databa
 | POST | `/verify` `{ replay, player? }` | `{ ok, score, entry }` or `{ ok: false, error }` (422 rejected, 429 rate-limited, 413 too large) |
 | GET | `/board?seed=…&limit=20` | verified entries for a seed |
 | GET | `/daily?limit=10` | today's UTC daily seed + its verified board |
-| GET | `/histogram?seed=…&hash=…` | verified score distribution for a seed: `{ n, step, bins[{from,to,count}], mine{score,rank,bin,percentile}?, around[] }` — the player's own entry located by replay hash, never by name |
+| GET | `/histogram?seed=…&hash=…` (also `/board`, `/daily`: `botPar`) | verified score distribution for a seed: `{ n, step, bins[{from,to,count}], mine{score,rank,bin,percentile}?, around[] }` — the player's own entry located by replay hash, never by name |
 | GET | `/replay?hash=…` | the stored actions of a **verified** entry `{ ok, hash, seed, player, score, rulesVersion, actions, verifiedAt }` (404 otherwise) |
 | GET | `/health` | `{ ok, rulesVersion, entries, uptimeSec }` |
 | POST | `/events` `{ installId, consent: true, events[] }` | opt-in funnel events (PLAN-v1 0.3.7): only the fixed vocabulary in `game/src/telemetry/events.ts`, consent explicit, ≤ 100 events, 30 req/min/IP; appended to `events.jsonl` with a daily-salted IP hash (422 rejected, 429 limited, 503 storage) |
@@ -21,6 +21,8 @@ npm run verifier                       # dev: tsx, 127.0.0.1:4400, board in serv
 npm run verifier:build                 # esbuild → server/dist/verify.mjs (single file, Node ≥ 20, no tsx)
 node server/dist/verify.mjs --host 0.0.0.0 --port 4400 --data-dir /data --cors-origin https://your.site --rate-limit 60
 ```
+Bot par (PLAN-v1 0.4.5): the first request about a seed starts the shipped autoplayer in a worker thread (5 searches × 40 tries, fixed rng streams, so the same number on every machine); the median is stored as `botPar` and returned by `/board`, `/histogram` and `/daily` (null while computing). `BOT_PAR=0` disables it, `BOT_PAR_CAP_MS` (20000) caps a job; a failed or capped job backs off ten minutes. It is a target labelled as a bot, never an entry.
+
 Env vars with the same meaning: `HOST`, `PORT`, `DATA_DIR` (or `BOARD_FILE`), `EVENTS_FILE` (default next to the board), `EVENTS_RETENTION_DAYS` (30), `CORS_ORIGIN`, `RATE_LIMIT`
 (POST /verify per client IP per minute), `TRUST_PROXY=1` (use `X-Forwarded-For` behind a reverse proxy you
 control), `VERIFIER_LOG=0` (silence the one-line-per-request log).
