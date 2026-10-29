@@ -28,6 +28,12 @@ test('control room: live updates, reload history, disconnect visibility', { time
   const startServer = () => spawn('node', [path.join(tmp, 'control-room/server.mjs')], { env: { ...process.env, CONTROL_ROOM_PORT: String(PORT) }, stdio: 'ignore' });
   let server = startServer();
   await wait(900);
+  // request hardening (review): a malformed percent-escape is a 400, not a crash; a traversal attempt never leaves the directory
+  const base = `http://127.0.0.1:${PORT}`;
+  assert.equal((await fetch(`${base}/screenshots/%E0%A4%A`)).status, 400, 'malformed escape → 400');
+  assert.equal((await fetch(`${base}/screenshots/..%2F..%2Fpackage.json`)).status, 403, 'traversal → 403');
+  assert.equal((await fetch(`${base}/reports/../../package.json`)).ok, false, 'normalised traversal does not serve the repo');
+  assert.equal((await fetch(`${base}/api/summary`)).status, 200, 'the server is still serving after the bad requests');
   let browser;
   try {
     browser = await chromium.launch();

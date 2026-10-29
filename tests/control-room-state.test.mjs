@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createState, reduce, snapshot } from '../control-room/state.mjs';
+import { createState, reduce, snapshot, TOOL_CALL_LIMIT } from '../control-room/state.mjs';
 
 const hook = (event, extra = {}) => ({ ts: '2026-01-01T00:00:00Z', kind: 'hook', event, session_id: 's1', ...extra });
 
@@ -43,6 +43,15 @@ test('reported objective attributes later hook events to its task; failed check 
   assert.ok(st.tasks.G1.lastFailedCheck);
   reduce(st, { ts: 't', kind: 'reported', event: 'cr.task', id: 'G1', stage: 'implement', status: 'active', note: 'returned after failed unit' }, 5);
   assert.equal(st.tasks.G1.history.length, 2);
+});
+
+test('tool-call history is bounded (review): thousands of starts keep at most the newest TOOL_CALL_LIMIT entries', () => {
+  const s = createState();
+  for (let i = 0; i < TOOL_CALL_LIMIT + 500; i++) reduce(s, { ts: new Date(1_700_000_000_000 + i).toISOString(), kind: 'hook', event: 'PreToolUse', session_id: 'sess', tool_name: 'Bash', tool_use_id: `t${i}`, input: { command: 'echo' } });
+  const ids = Object.keys(s.toolCalls);
+  assert.equal(ids.length, TOOL_CALL_LIMIT);
+  assert.equal(ids[0], 't500', 'the oldest entries were dropped');
+  assert.equal(ids[ids.length - 1], `t${TOOL_CALL_LIMIT + 499}`);
 });
 
 test('malformed and unknown events do not break the reducer', () => {

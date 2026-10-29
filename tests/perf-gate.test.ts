@@ -8,6 +8,20 @@ const baseline: GateReport = { samples: [
 ] };
 const report = (script: number, dropped = 0, label = 'device B webgl'): GateReport => ({ samples: [{ label, frames: 200, dropped, scriptMsPerFrame: script }] });
 
+test('perf gate --strict (review): an empty report, a sample without metrics, or no matching label fails instead of passing by omission', () => {
+  const baseline = { samples: [{ label: 'device B webgl', frames: 200, dropped: 3, scriptMsPerFrame: 2.5 }] };
+  assert.equal(compare({ samples: [] }, baseline).ok, true, 'lenient: nothing to compare passes (local runs)');
+  const empty = compare({ samples: [] }, baseline, { strict: true });
+  assert.equal(empty.ok, false); assert.match(empty.problems.join(' '), /empty report/);
+  const unmatched = compare({ samples: [{ label: 'other', frames: 200, dropped: 0, scriptMsPerFrame: 1 }] }, baseline, { strict: true });
+  assert.equal(unmatched.ok, false); assert.match(unmatched.problems.join(' '), /no sample matches/);
+  const broken = compare({ samples: [{ label: 'device B webgl', frames: 0, dropped: NaN, scriptMsPerFrame: null }] }, baseline, { strict: true });
+  assert.equal(broken.ok, false); assert.match(broken.problems.join(' '), /no usable metrics/);
+  const fine = compare({ samples: [{ label: 'device B webgl', frames: 200, dropped: 3, scriptMsPerFrame: 2.6 }] }, baseline, { strict: true });
+  assert.equal(fine.ok, true); assert.deepEqual(fine.problems, []);
+  assert.equal(compare({ samples: undefined as unknown as never }, baseline, { strict: true }).ok, false, 'a malformed report is not evidence');
+});
+
 test('perf gate: a 30 % script-time regression fails, 10 % passes, and dropped frames gate against the baseline plus slack', () => {
   assert.equal(compare(report(3.9), baseline).ok, false, '30 % slower than baseline fails');
   assert.equal(compare(report(3.3), baseline).ok, true, '10 % slower passes');

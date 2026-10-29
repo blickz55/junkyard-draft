@@ -5,6 +5,7 @@
 export const STAGES = ['backlog', 'design', 'implement', 'test', 'inspect', 'review', 'checkpoint'];
 export const STAGE_LABELS = { backlog: 'Backlog', design: 'Design', implement: 'Implement', test: 'Test', inspect: 'Visual Inspection', review: 'Review', checkpoint: 'Checkpoint' };
 const FEED_LIMIT = 3000;
+export const TOOL_CALL_LIMIT = 2000;
 
 export function createState() {
   return {
@@ -155,6 +156,8 @@ export function reduce(state, e, seq) {
   if (state.screenshots.length > 60) state.screenshots.splice(0, state.screenshots.length - 60);
   if (state.checks.length > 300) state.checks.splice(0, state.checks.length - 300);
   if (state.pendingAgentSpawns.length > 20) state.pendingAgentSpawns.splice(0, state.pendingAgentSpawns.length - 20);
+  const calls = Object.keys(state.toolCalls); // tool-call history is working memory for matching start/end, not an archive (review)
+  if (calls.length > TOOL_CALL_LIMIT) for (const id of calls.slice(0, calls.length - TOOL_CALL_LIMIT)) delete state.toolCalls[id];
   return state;
 }
 

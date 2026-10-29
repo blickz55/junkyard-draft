@@ -1,6 +1,6 @@
 # Performance gate (DOSSIER-v1 0.3.8): runs tools/perf.ts on device preset B (4 GB Chromebook: 1366x768,
 # CPU x6) in headless Chromium against the dev server and compares it with the CI baseline committed under
-# the newest docs/baselines/<version>/perf-ci.json using tools/perf-gate.ts. GitHub runners render with software GL,
+# the explicit CI baseline docs/baselines/ci/perf-ci.json using tools/perf-gate.ts --strict (an empty or unmatched report fails). GitHub runners render with software GL,
 # so CI numbers are only comparable with CI numbers: the gate fails on a >25 % script-time regression or on
 # more dropped frames than the CI baseline plus 5 % of frames. When no CI baseline exists yet, the report is
 # uploaded as an artifact and the job passes; commit that artifact as the baseline to arm the gate.
@@ -36,5 +36,5 @@ jobs:
           path: perf-ci.json
       - name: Gate against the CI baseline
         run: |
-          BASE=$(ls -d docs/baselines/*/ | sort -V | tail -1)perf-ci.json
-          if [ -f "$BASE" ]; then node --import tsx tools/perf-gate.ts perf-ci.json "$BASE"; else echo "no CI baseline at $BASE yet; download the perf-ci artifact and commit it there to arm the gate"; fi
+          BASE=docs/baselines/ci/perf-ci.json
+          if [ -f "$BASE" ]; then node --import tsx tools/perf-gate.ts perf-ci.json "$BASE" --strict; else echo "::warning::no CI baseline at $BASE yet; download the perf-ci artifact and commit it there to arm the gate"; fi

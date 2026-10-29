@@ -214,11 +214,15 @@ export class Verifier {
   }
   /** The stored bot par for a seed under the current rules, or null when it has not been computed. */
   par(seed: string): number | null { const p = this.data.pars?.[seed]; return p && p.rulesVersion === RULES_VERSION ? p.par : null; }
-  /** Persist a computed par (atomic, like every write). */
+  /** Persist a computed par (atomic, like every write); cached pars are capped at maxSeeds, oldest first (review F07). */
   setPar(seed: string, par: number, runs: number, tries: number) {
-    const candidate: Board = { ...this.data, pars: { ...(this.data.pars ?? {}), [seed]: { par, runs, tries, rulesVersion: RULES_VERSION, computedAt: new Date().toISOString() } } };
-    this.commit(candidate);
+    const pars = { ...(this.data.pars ?? {}), [seed]: { par, runs, tries, rulesVersion: RULES_VERSION, computedAt: new Date().toISOString() } };
+    const keys = Object.keys(pars);
+    if (keys.length > this.maxSeeds) for (const k of keys.sort((a, b) => pars[a].computedAt.localeCompare(pars[b].computedAt)).slice(0, keys.length - this.maxSeeds)) delete pars[k];
+    this.commit({ ...this.data, pars });
   }
+  /** Number of cached pars (for tests and /health). */
+  get parCount() { return Object.keys(this.data.pars ?? {}).length; }
   /** Verified score distribution for a seed; `hash` locates the caller's own entry. */
   histogram(seed: string, hash?: string): Histogram { return { seed, ...histogramOf(this.rank(seed), hash) }; }
   /** Today's challenge: the seed every client derives for this UTC date, plus its verified board. */
@@ -259,26 +263,45 @@ export function computeParInWorker(seed: string, capMs = 20_000, runs = PAR_RUNS
     w.once('exit', (code) => { clearTimeout(timer); if (code !== 0) reject(new Error(`par worker exited with ${code}`)); });
   });
 }
-/** One par job at a time, deduplicated per seed; failures back off instead of retrying on every request. */
+export interface ParServiceOptions { /** seeds waiting behind the running job; anything beyond is refused (reads still answer) */ maxQueue?: number; /** failure memory entries kept */ maxFailures?: number }
+/**
+ * One par job at a time, deduplicated per seed; failures back off instead of retrying on every request. Admission is
+ * bounded (review F07): unauthenticated reads can enqueue at most `maxQueue` seeds, today's daily seed jumps the queue,
+ * the failure memory expires and is capped, and ordinary reads are served whether or not new work was admitted.
+ */
 export class ParService {
   private pending: string | null = null;
   private queue: string[] = [];
   private failedAt = new Map<string, number>();
-  constructor(private readonly verifier: Verifier, private readonly compute: (seed: string) => Promise<number> = (s) => computeParInWorker(s), private readonly cooldownMs = 10 * 60_000, private readonly now: () => number = Date.now) {}
+  readonly maxQueue: number;
+  readonly maxFailures: number;
+  constructor(private readonly verifier: Verifier, private readonly compute: (seed: string) => Promise<number> = (s) => computeParInWorker(s), private readonly cooldownMs = 10 * 60_000, private readonly now: () => number = Date.now, opts: ParServiceOptions = {}) {
+    this.maxQueue = opts.maxQueue ?? 8; this.maxFailures = opts.maxFailures ?? 500;
+  }
   get busy(): string | null { return this.pending; }
-  /** Ask for a seed's par; returns immediately. No-op if known, queued, or recently failed. */
-  request(seed: string) {
-    if (!seed || this.verifier.par(seed) != null || this.pending === seed || this.queue.includes(seed)) return;
-    const failed = this.failedAt.get(seed); if (failed != null && this.now() - failed < this.cooldownMs) return;
-    this.queue.push(seed);
+  get queued(): number { return this.queue.length; }
+  get failures(): number { return this.failedAt.size; }
+  /** Ask for a seed's par; returns at once with whether the work was admitted. Known, queued, recently failed or over-capacity requests are not. */
+  request(seed: string, priority = false): boolean {
+    if (!seed || this.verifier.par(seed) != null || this.pending === seed || this.queue.includes(seed)) return false;
+    const failed = this.failedAt.get(seed); if (failed != null && this.now() - failed < this.cooldownMs) return false;
+    if (this.queue.length >= this.maxQueue) { if (!priority) return false; this.queue.pop(); }
+    if (priority) this.queue.unshift(seed); else this.queue.push(seed);
     this.drain();
+    return true;
+  }
+  private fail(seed: string) {
+    this.failedAt.set(seed, this.now());
+    const t = this.now();
+    for (const [s, at] of this.failedAt) if (t - at >= this.cooldownMs) this.failedAt.delete(s);
+    while (this.failedAt.size > this.maxFailures) this.failedAt.delete(this.failedAt.keys().next().value as string);
   }
   private drain() {
     if (this.pending || !this.queue.length) return;
     const seed = this.queue.shift()!; this.pending = seed;
     this.compute(seed)
-      .then((par) => { try { this.verifier.setPar(seed, par, PAR_RUNS, PAR_TRIES); } catch { this.failedAt.set(seed, this.now()); } })
-      .catch(() => this.failedAt.set(seed, this.now()))
+      .then((par) => { try { this.verifier.setPar(seed, par, PAR_RUNS, PAR_TRIES); } catch { this.fail(seed); } })
+      .catch(() => this.fail(seed))
       .finally(() => { this.pending = null; this.drain(); });
   }
 }
@@ -385,7 +408,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const rl = opts.rateLimit === null ? null : new RateLimiter(opts.rateLimit?.limit ?? 60, opts.rateLimit?.windowMs ?? 60_000, opts.now);
   const events = opts.events ?? null;
   const par = opts.par ?? null;
-  const withPar = (seed: string) => { par?.request(seed); return verifier.par(seed); };
+  const withPar = (seed: string) => { par?.request(seed, seed === dailySeedFor(new Date())); return verifier.par(seed); }; // today's seed goes first; the answer never waits for the job
   const erl = events ? new RateLimiter(opts.eventsRateLimit ?? 30, 60_000, opts.now) : null;
   const MAX_EVENTS_BODY = 64 * 1024;
   const corsOrigin = opts.corsOrigin ?? '*';

@@ -112,8 +112,9 @@ function summary() {
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.wasm': 'application/wasm' };
 function serveFile(res, base, rel) {
-  const p = path.normalize(path.join(base, rel));
-  if (!p.startsWith(base)) { res.writeHead(403); return res.end(); }
+  const p = path.resolve(base, rel);
+  const inside = path.relative(base, p); // path-boundary containment: a sibling directory sharing the prefix is outside (review)
+  if (!inside || inside.startsWith('..') || path.isAbsolute(inside)) { res.writeHead(403); return res.end(); }
   fs.stat(p, (err, st) => {
     if (err || !st.isFile()) { res.writeHead(404); return res.end('not found'); }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(p)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
@@ -122,9 +123,13 @@ function serveFile(res, base, rel) {
 }
 function json(res, data) { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' }); res.end(JSON.stringify(data)); }
 
+/** decodeURIComponent that answers a malformed escape with null instead of throwing out of the request handler */
+const dec = (s) => { try { return decodeURIComponent(s); } catch { return null; } };
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${HOST}:${PORT}`);
+  let url;
+  try { url = new URL(req.url, `http://${HOST}:${PORT}`); } catch { res.writeHead(400); return res.end('bad request'); }
   const p = url.pathname;
+  if (/%[0-9a-f]{0,2}/i.test(p) && dec(p) === null) { res.writeHead(400); return res.end('bad request: malformed escape'); }
   if (p === '/events') {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
     res.write(`event: state\ndata: ${JSON.stringify({ ...snapshot(state), summary: summary(), gameDevUrl: GAME_DEV_URL })}\n\n`);
@@ -137,12 +142,12 @@ const server = http.createServer(async (req, res) => {
   if (p === '/api/git') return json(res, await gitLog());
   if (p === '/api/milestones') return json(res, milestones());
   if (p === '/api/events') { const n = Math.min(Number(url.searchParams.get('limit') || 200), 3000); return json(res, state.feed.slice(-n)); }
-  if (p.startsWith('/screenshots/')) return serveFile(res, SHOTS, decodeURIComponent(p.slice('/screenshots/'.length)));
-  if (p.startsWith('/reports/')) return serveFile(res, REPORTS, decodeURIComponent(p.slice('/reports/'.length)));
-  if (p.startsWith('/verified/')) return serveFile(res, DIST, decodeURIComponent(p.slice('/verified/'.length)) || 'index.html');
+  if (p.startsWith('/screenshots/')) return serveFile(res, SHOTS, dec(p.slice('/screenshots/'.length)));
+  if (p.startsWith('/reports/')) return serveFile(res, REPORTS, dec(p.slice('/reports/'.length)));
+  if (p.startsWith('/verified/')) return serveFile(res, DIST, dec(p.slice('/verified/'.length)) || 'index.html');
   if (p === '/verified') { res.writeHead(302, { Location: '/verified/index.html' }); return res.end(); }
   if (p === '/') return serveFile(res, UI, 'index.html');
-  return serveFile(res, UI, decodeURIComponent(p.slice(1)));
+  return serveFile(res, UI, dec(p.slice(1)));
 });
 
 server.listen(PORT, HOST, () => {

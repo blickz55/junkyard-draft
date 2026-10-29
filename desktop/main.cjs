@@ -4,13 +4,21 @@ const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 
-// exported loop clips go straight to Downloads (no dialog); the name is sanitised and never leaves that folder
-ipcMain.handle('jd:save-clip', (_event, name, bytes) => {
-  const safe = String(name).replace(/[^a-z0-9._$-]+/gi, '_').slice(0, 80) || 'clip.webm';
+// exported loop clips go straight to Downloads (no dialog); the name is sanitised and never leaves that folder.
+// IPC hardening (review): only our window's main frame may call it, only clip types, only bounded byte payloads.
+let mainWindow = null;
+const CLIP_EXT = new Set(['.webm', '.mp4', '.gif']);
+const MAX_CLIP_BYTES = 64 * 1024 * 1024;
+ipcMain.handle('jd:save-clip', (event, name, bytes) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents || (event.senderFrame && event.senderFrame !== mainWindow.webContents.mainFrame)) throw new Error('save-clip: unexpected sender');
+  const safe = String(name).replace(/[^a-z0-9._$-]+/gi, '_').slice(0, 80);
+  if (!CLIP_EXT.has(path.extname(safe).toLowerCase())) throw new Error('save-clip: unsupported file type');
+  const buf = bytes instanceof ArrayBuffer ? Buffer.from(bytes) : ArrayBuffer.isView(bytes) ? Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) : null;
+  if (!buf || buf.length === 0 || buf.length > MAX_CLIP_BYTES) throw new Error('save-clip: payload out of bounds');
   const dir = process.env.JD_CLIP_DIR || app.getPath('downloads');
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, safe);
-  fs.writeFileSync(file, Buffer.from(bytes));
+  fs.writeFileSync(file, buf);
   return file;
 });
 
@@ -25,6 +33,9 @@ function createWindow() {
   const query = process.env.JD_DEV_API === '1' ? { dev: '1' } : undefined;
   win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), query ? { query } : undefined);
   win.webContents.setWindowOpenHandler(({ url }) => { if (url.startsWith('https://')) shell.openExternal(url); return { action: 'deny' }; });
+  win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file://')) e.preventDefault(); }); // the shell shows dist/ only; links open outside
+  mainWindow = win;
+  win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
 }
 app.whenReady().then(() => { createWindow(); app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); }); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

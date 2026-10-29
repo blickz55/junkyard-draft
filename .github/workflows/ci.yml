@@ -1,0 +1,70 @@
+# Correctness CI (review, pre-v0.5): typecheck, the full test suite (sim, verifier, Control Room, browser e2e in Chromium),
+# the production bundle and the verifier bundle on every push and pull request; then the verifier's Docker image is really
+# built, started, health-checked, fed a legal replay, restarted on the same volume and checked for persistence. The desktop
+# job packages the Windows app and runs its smoke test on version tags and on demand (it is slow and needs a Windows runner).
+name: ci
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run verifier:build
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build the verifier image
+        run: docker build -t junkyard-verifier .
+      - name: Start it on a named volume
+        run: docker run -d --name verifier -p 4400:4400 -v jd-smoke-data:/data junkyard-verifier
+      - name: Health, legal replay accepted, board has one entry
+        run: node --import tsx tools/image-smoke.ts http://127.0.0.1:4400
+      - name: Restart on the same volume keeps the entry
+        run: |
+          docker restart verifier
+          node --import tsx tools/image-smoke.ts http://127.0.0.1:4400 --expect-entries 1
+      - name: Container logs
+        if: always()
+        run: docker logs verifier || true
+  desktop:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install chromium
+      - run: npm run desktop:pack
+      - run: node --import tsx --test tests/desktop-smoke.test.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win-unpacked
+          path: release/win-unpacked
+          retention-days: 7

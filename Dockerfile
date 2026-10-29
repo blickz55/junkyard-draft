@@ -2,7 +2,9 @@
 # verified board. Build: docker build -t junkyard-verifier .   Run: see server/README.md
 # The bundle is always built inside the image (server/dist and server/data are in .dockerignore), so host-generated
 # output and its permissions never reach the container; the final file is copied world-readable for the nonroot user.
-# Built outside the dev machine (no Docker there): an external review built it successfully once those two rules held.
+# The verifier imports game/src/sim, game/src/telemetry and tools/autoplay-lib.ts (review F06): tests/verifier.test.ts rebuilds
+# the bundle from exactly the paths this file copies (minus .dockerignore), so a new import that the image lacks fails the suite.
+# No Docker on the dev machine: the image itself is built and smoke-tested by .github/workflows/ci.yml.
 
 FROM node:24-alpine AS build
 WORKDIR /app
@@ -10,6 +12,8 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY tsconfig.json ./
 COPY game/src/sim ./game/src/sim
+COPY game/src/telemetry ./game/src/telemetry
+COPY tools/autoplay-lib.ts ./tools/autoplay-lib.ts
 COPY server ./server
 RUN npm run verifier:build
 

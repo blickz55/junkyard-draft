@@ -179,6 +179,65 @@ test('verifier bundles to a single file that exports the server pieces (what the
   assert.ok(fs.statSync(out).size < 200_000, 'bundle stays small (sim + server only)');
 });
 
+test('docker layout bundles (review F06): the verifier builds from exactly the paths the Dockerfile copies, minus .dockerignore', async () => {
+  const ROOT = process.cwd();
+  const dockerfile = fs.readFileSync(path.join(ROOT, 'Dockerfile'), 'utf8');
+  // COPY <src>... <dest>: several sources may share one destination (package.json package-lock.json ./)
+  const copies = [...dockerfile.matchAll(/^COPY (?!--from)(.+)$/gm)].flatMap((m) => { const parts = m[1].trim().split(/\s+/); const dest = parts.pop()!; return parts.map((src) => ({ src, dest })); });
+  assert.ok(copies.some((c) => c.src === 'server'), 'the Dockerfile copies the server');
+  const ignore = fs.readFileSync(path.join(ROOT, '.dockerignore'), 'utf8').split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+  const ignored = (rel: string) => {
+    let out = false;
+    for (const rule of ignore) {
+      const neg = rule.startsWith('!'); const pat = (neg ? rule.slice(1) : rule).replace(/\/\*$/, '/__CHILDREN__');
+      let hit: boolean;
+      if (pat.endsWith('/__CHILDREN__')) { const dir = pat.slice(0, -'/__CHILDREN__'.length); hit = rel.startsWith(dir + '/'); }
+      else hit = rel === pat || rel.startsWith(pat + '/');
+      if (hit) out = !neg;
+    }
+    return out;
+  };
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-docker-'));
+  const copyTree = (srcRel: string, destRel: string) => {
+    const src = path.join(ROOT, srcRel);
+    if (fs.statSync(src).isFile()) { if (ignored(srcRel)) return; fs.mkdirSync(path.dirname(path.join(tmp, destRel)), { recursive: true }); fs.copyFileSync(src, path.join(tmp, destRel)); return; }
+    for (const name of fs.readdirSync(src)) copyTree(path.posix.join(srcRel, name), path.posix.join(destRel, name));
+  };
+  for (const c of copies) { if (!fs.existsSync(path.join(ROOT, c.src))) continue; const destRel = c.dest.replace(/^\.\//, ''); copyTree(c.src, destRel === '' || destRel.endsWith('/') ? path.posix.join(destRel, path.posix.basename(c.src)) : destRel); } // COPY x ./ lands x inside the directory
+  assert.ok(fs.existsSync(path.join(tmp, 'server', 'verify.ts')) && !fs.existsSync(path.join(tmp, 'tests')), 'only the copied paths exist in the image layout');
+  const r = await esbuild({ entryPoints: [path.join(tmp, 'server', 'verify.ts')], bundle: true, platform: 'node', format: 'esm', write: false, logLevel: 'silent', absWorkingDir: tmp });
+  assert.equal(r.errors.length, 0, 'the verifier bundles from the image layout');
+  assert.ok(r.outputFiles[0].text.length > 10_000);
+});
+
+test('bot par admission is bounded (review F07): queue cap with today\'s seed first, failure memory expires and is capped, cached pars are capped', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-par-cap-')), 'board.json');
+  const v = new Verifier(file, { maxSeeds: 3 });
+  let release: ((n: number) => void) | null = null;
+  const blocked = () => new Promise<number>((res) => { release = res; });
+  let now = 1_000_000;
+  const svc = new ParService(v, () => blocked(), 60_000, () => now, { maxQueue: 3, maxFailures: 4 });
+  assert.equal(svc.request('busy'), true); // runs now
+  const admitted = ['a', 'b', 'c', 'd', 'e', 'f'].map((s) => svc.request(s));
+  assert.deepEqual(admitted, [true, true, true, false, false, false], 'three queued behind the running job, the rest refused');
+  assert.equal(svc.queued, 3);
+  assert.equal(svc.request('a'), false, 'duplicates are not admitted twice');
+  assert.equal(svc.request(dailySeedFor(new Date()), true), true, 'today\'s seed is admitted even when the queue is full');
+  assert.equal(svc.queued, 3, 'it displaced the last ordinary seed');
+  assert.equal(v.par('a'), null, 'reads answer immediately while work is pending');
+  // failures: each refused compute is remembered, expires after the cooldown, and the memory is capped
+  const failing = new ParService(v, () => Promise.reject(new Error('no')), 60_000, () => now, { maxQueue: 50, maxFailures: 4 });
+  for (const s of ['f1', 'f2', 'f3', 'f4', 'f5', 'f6']) { failing.request(s); await new Promise((r) => setTimeout(r, 0)); await new Promise((r) => setTimeout(r, 0)); }
+  assert.ok(failing.failures <= 4, `failure memory capped (${failing.failures})`);
+  assert.equal(failing.request('f6'), false, 'a fresh failure is not retried inside the cooldown');
+  now += 61_000;
+  assert.equal(failing.request('f6'), true, 'after the cooldown it may be retried');
+  // cached pars never exceed maxSeeds (oldest dropped)
+  v.setPar('p1', 1, 1, 1); v.setPar('p2', 2, 1, 1); v.setPar('p3', 3, 1, 1); v.setPar('p4', 4, 1, 1);
+  assert.equal(v.parCount, 3); assert.equal(v.par('p1'), null, 'the oldest cached par was evicted'); assert.equal(v.par('p4'), 4);
+  release!(0);
+});
+
 test('retention: stored replays are kept only for each seed\'s top N entries; scores stay on the board', () => {
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-board-')), 'board.json');
   const v = new Verifier(file, { replaysPerSeed: 2 });
