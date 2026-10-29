@@ -1,6 +1,6 @@
 # Roadmap
 
-**0.2.0 release candidate cut 2026-10-25** (`CHANGELOG.md`, baseline numbers in `docs/STATUS.md`). Open items below that need a human are marked ⚑.
+**0.2.0 release candidate cut 2026-10-25; 0.4.0 released 2026-10-29** (`CHANGELOG.md`, numbers in `docs/STATUS.md`). Open items below that need a human are marked ⚑.
 
 **From v0.3 on, the plan of record is `docs/PLAN-v1.md`** (eight milestones v0.3 → v1.0 with numbered, sized features and acceptance criteria). The checklists below remain the verified-history record; new work is picked from PLAN-v1 in milestone order.
 
@@ -61,3 +61,18 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] Performance budget: measured at 4× on the busiest autoplayer layout — 0 dropped frames in Chromium, Chromium with 4× CPU throttling, and the packaged app; game script ≤ 0.7 ms/frame on hardware (`tools/perf.ts`, `docs/perf-2026-10-25.json`)
 - [ ] Re-measure on an actual low-end laptop when one is available
 - [ ] Steam build pipeline (requires the user's Steamworks credentials — not a prerequisite earlier)
+
+## M6 — v0.3 + v0.4: first five minutes, then the run is the show (PLAN-v1 / DOSSIER-v1, released as 0.4.0)
+- [x] v0.3 first five minutes: onboarding rejections with reasons, undo/redo, money heartbeat + stall marker, tutorial seed, opt-in funnel events, tips with live demos (PLAN-v1 0.3.2–0.3.7; e2e in `tests/render-e2e.test.mjs`, `tests/undo.test.ts`, `tests/tips.test.ts`, `tests/telemetry.test.ts`)
+- [x] Worst-machine foundation: render probe + device presets + CI perf gate, texture atlas, DPR-sized canvas with adaptive quality, Canvas fallback, context-loss recovery (DOSSIER-v1 0.3.8–0.3.10; `tools/perf.ts`, `.github/workflows/perf.yml`)
+- [x] 0.4.0 DOM UI shell: title, results, game side panel, HUD, hint strip in real text; 130 % fits with zero slack (e2e geometry checks; a11y stylesheet audit)
+- [x] 0.4.1 Histogram-first results and daily strip (`/histogram`; `tests/verifier.test.ts`, game e2e)
+- [x] 0.4.2 Loop clip export (WebM, live recording; e2e ≥ 3 s, < 10 s) · 0.4.11 GIF variant (dependency-free GIF89a writer; `tests/gif.test.ts`, e2e 580 KB / 38 frames)
+- [x] 0.4.3 Spoiler-free share grid, detailed variant, opt-in permalink, days played (`tests/share.test.ts`)
+- [x] 0.4.4 Juice pass bound to sim events: state frames, 8 belt frames, lock-in and settle; event → sound → visual table in `docs/DESIGN.md`
+- [x] 0.4.5 Bot par per seed in a verifier worker, deterministic, wall-clock capped (`tests/verifier.test.ts`)
+- [x] 0.4.6 Non-ranked badges Clean / Minimalist / Full Grid (`tests/badges.test.ts`)
+- [x] 0.4.8 Authored SVG art pipeline + one-texture atlas (draws 4.8 → 1, binds 59 → 3 per frame) · 0.4.8b HiDPI atlas at min(DPR, 2) with a per-key base scale (e2e at `?dpr=2`; perf A/B unchanged)
+- [x] 0.4.9 Audio buses, voice caps, chords, ducking, reduced audio (`tests/mixer.test.ts`, e2e) · 0.4.10 Throughput hum · 0.4.13 Impact samples under the synth (`tests/samples.test.ts`, e2e)
+- [x] 0.4.12 Tips panel in the DOM with a canvas demo; the last Phaser text panel removed (e2e incl. 130 % fit)
+- [ ] ⚑ 0.4.7 Host the verifier (deployable bundle + Dockerfile exist; nothing deployed — see M4)
