@@ -204,6 +204,13 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       await page.keyboard.press('Escape'); await wait(100);
       assert.equal(await page.evaluate(() => !!document.querySelector('[data-testid=dialog]')), false, 'Esc cancels');
       assert.equal(await page.getByTestId('player').textContent(), 'Player: Kbd Tester', 'cancel keeps the name');
+      // policy panel (PLAN-v3 0.6.5): generated from the code, names the rules version and the tie rule, Esc closes
+      await page.getByTestId('policy').click(); await wait(100);
+      assert.match(await page.getByTestId('policy-headline').textContent(), new RegExp(`^Rules version ${RULES_VERSION} · verifier protocol \\d+$`));
+      assert.match(await page.getByTestId('policy-tie').textContent(), /^Tie-break: Equal scores: fewer machines in round 6 first/);
+      assert.ok((await page.getByTestId('policy-body').textContent()).includes('48 h from 00:00 UTC'), 'the daily window comes from the verifier constant');
+      await page.keyboard.press('Escape'); await wait(100);
+      assert.equal(await page.evaluate(() => !!document.querySelector('[data-testid=policy-dialog]')), false, 'Esc closes the policy panel');
       // identity_recovery (PLAN-v3 0.6.0): the recovery code shown here restores the same device token in a fresh browser context
       const identityBefore = JSON.parse(await page.evaluate(() => localStorage.getItem('jd.identity.v1')));
       assert.match(identityBefore.token, /^[0-9a-f]{32}$/, 'a device token exists after the first use of the player dialog');

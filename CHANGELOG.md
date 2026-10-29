@@ -5,6 +5,10 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.6, PLAN-v3)
 
+### 0.6.5 Fairness and verification policy page — 2026-10-30
+- **For players.** A "Fairness policy" button on the title (and "Policy" on the results) opens a panel that says how scores are verified, how ties break, how the daily seed is minted and when it closes, how medals are computed, what the game stores about you and how to delete it, and what the rate limits are. The text is generated from the code, so it cannot drift from what the verifier actually does. The same document ships as `policy.json` next to the game and as `docs/POLICY.md`.
+- **For operators.** `npm run policy` regenerates both files from `rules.ts`, the verifier's now-named `DEFAULT_*` constants, the identity and medal constants and the telemetry vocabulary; `tests/policy.test.ts` fails when they are stale. No protocol or rules change.
+
 ### 0.6.4 Medals after close — 2026-10-30
 - **For players.** When a daily closes and has at least five verified runs, its final board sets three medal thresholds: bronze at the 50th percentile, silver at the 80th, gold at the 95th. The Archive shows the thresholds for each closed day and names the medal your own verified run earned; the results histogram and the detailed share text do the same for a closed day. Bot par stays the day-of target; medals are the after-close one. Nothing is shown until the server has computed them.
 - **For operators.** `medals` on the day record, computed once at freeze (nearest-rank percentiles, documented in `game/src/daily/medals.ts`), returned by `/daily`, `/archive` and `/histogram` (frozen daily seeds only). The Dockerfile copies `game/src/daily`. Protocol stays 2 (additive). No rules change.

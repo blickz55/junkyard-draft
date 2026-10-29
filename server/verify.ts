@@ -95,9 +95,13 @@ export interface DailyRecord { date: string; seed: string; commitment: string; i
 /** One closed day in GET /archive. */
 export interface ArchiveDay { date: string; seed: string; closesAt: string; frozenAt: string; n: number; botPar: number | null; medals: Medals | null; top: BoardEntry[] }
 export const MAX_ARCHIVE_LIMIT = 100;
+/** Defaults the policy page publishes (PLAN-v3 0.6.5); env/flags override the rate limits at runtime. */
+export const DEFAULT_RATE_LIMIT = 60, DEFAULT_PLAYER_RATE_LIMIT = 2, IDENTITY_RATE_LIMIT = 5, DEFAULT_EVENTS_RATE_LIMIT = 30;
+export const DEFAULT_REPLAYS_PER_SEED = 100, DEFAULT_MAX_ENTRIES_PER_SEED = 1000, DEFAULT_MAX_SEEDS = 5000, DEFAULT_EVENTS_RETENTION_DAYS = 30;
 export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay>; pars?: Record<string, BotPar>; players?: Record<string, Player>; dailies?: Record<string, DailyRecord> }
 
-const MAX_BODY = 512 * 1024;
+export const MAX_BODY_BYTES = 512 * 1024;
+const MAX_BODY = MAX_BODY_BYTES;
 export const MAX_BOARD_LIMIT = 100;
 export const MAX_DAILY_LIMIT = 50;
 
@@ -178,9 +182,9 @@ export class Verifier {
   private readonly dailySecret: string;
   constructor(private file: string, opts: VerifierOptions = {}) {
     this.dailySecret = opts.dailySecret || randomBytes(32).toString('hex');
-    this.replaysPerSeed = opts.replaysPerSeed ?? 100;
-    this.maxEntriesPerSeed = opts.maxEntriesPerSeed ?? 1000;
-    this.maxSeeds = opts.maxSeeds ?? 5000;
+    this.replaysPerSeed = opts.replaysPerSeed ?? DEFAULT_REPLAYS_PER_SEED;
+    this.maxEntriesPerSeed = opts.maxEntriesPerSeed ?? DEFAULT_MAX_ENTRIES_PER_SEED;
+    this.maxSeeds = opts.maxSeeds ?? DEFAULT_MAX_SEEDS;
     this.data = fs.existsSync(file) ? loadBoard(fs.readFileSync(file, 'utf8')) : { entries: [] };
     this.deriveTieBreaks();
   }
@@ -476,7 +480,7 @@ export interface StoredEvent { at: string; receivedAt: string; installId: string
 
 /** Append-only JSON-lines store for opt-in funnel events with time-based retention (PLAN-v1 0.3.7). */
 export class EventStore {
-  constructor(public readonly file: string, public readonly retentionDays = 30, private readonly salt = randomBytes(16).toString('hex')) {}
+  constructor(public readonly file: string, public readonly retentionDays = DEFAULT_EVENTS_RETENTION_DAYS, private readonly salt = randomBytes(16).toString('hex')) {}
   /** Daily-salted hash of a client address: the same client is one key within a day, unlinkable across days or restarts. */
   ipHash(ip: string, now = new Date()): string { return createHash('sha256').update(`${this.salt}:${now.toISOString().slice(0, 10)}:${ip}`).digest('hex').slice(0, 16); }
   /** Append a validated batch; throws StorageError when the file cannot be written (nothing is kept in memory). */
@@ -563,9 +567,9 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const events = opts.events ?? null;
   const par = opts.par ?? null;
   const withPar = (seed: string) => { par?.request(seed, seed === verifier.todaySeed(new Date((opts.now ?? Date.now)()))); return verifier.par(seed); }; // today's minted seed goes first; the answer never waits for the job
-  const erl = events ? new RateLimiter(opts.eventsRateLimit ?? 30, 60_000, opts.now) : null;
-  const prl = new RateLimiter(opts.playerRateLimit ?? 2, 60_000, opts.now); // per-player submissions (PLAN-v3 §1 abuse baseline)
-  const irl = new RateLimiter(5, 60_000, opts.now); // per-player identity calls
+  const erl = events ? new RateLimiter(opts.eventsRateLimit ?? DEFAULT_EVENTS_RATE_LIMIT, 60_000, opts.now) : null;
+  const prl = new RateLimiter(opts.playerRateLimit ?? DEFAULT_PLAYER_RATE_LIMIT, 60_000, opts.now); // per-player submissions (PLAN-v3 §1 abuse baseline)
+  const irl = new RateLimiter(IDENTITY_RATE_LIMIT, 60_000, opts.now); // per-player identity calls
   const MAX_EVENTS_BODY = 64 * 1024;
   const corsOrigin = opts.corsOrigin ?? '*';
   const log = opts.log === null ? null : opts.log ?? ((l: string) => console.log(l));
@@ -684,11 +688,11 @@ if (isMain) {
   const dataDir = flag('data-dir') || process.env.DATA_DIR || path.join(process.cwd(), 'server', 'data');
   const file = process.env.BOARD_FILE || path.join(dataDir, 'board.json');
   const corsOrigin = flag('cors-origin') || process.env.CORS_ORIGIN || '*';
-  const limit = Number(flag('rate-limit') || process.env.RATE_LIMIT || 60);
+  const limit = Number(flag('rate-limit') || process.env.RATE_LIMIT || DEFAULT_RATE_LIMIT);
   const trustProxy = process.env.TRUST_PROXY === '1';
-  const playerRateLimit = Number(process.env.PLAYER_RATE_LIMIT || 2); // POST /verify per player id per minute (PLAN-v3 §1)
+  const playerRateLimit = Number(process.env.PLAYER_RATE_LIMIT || DEFAULT_PLAYER_RATE_LIMIT); // POST /verify per player id per minute (PLAN-v3 §1)
   // opt-in funnel events live next to the board (EVENTS_FILE overrides); retention is enforced at start and hourly
-  const events = new EventStore(process.env.EVENTS_FILE || path.join(path.dirname(file), 'events.jsonl'), Number(process.env.EVENTS_RETENTION_DAYS || 30));
+  const events = new EventStore(process.env.EVENTS_FILE || path.join(path.dirname(file), 'events.jsonl'), Number(process.env.EVENTS_RETENTION_DAYS || DEFAULT_EVENTS_RETENTION_DAYS));
   const pruned = events.prune(); if (pruned) console.log(`events: pruned ${pruned} rows older than ${events.retentionDays} days`);
   setInterval(() => { try { events.prune(); } catch { /* next hour */ } }, 3_600_000).unref();
   // daily secret (PLAN-v3 0.6.1): DAILY_SECRET / --daily-secret, else a generated one kept next to the board so restarts mint the same days

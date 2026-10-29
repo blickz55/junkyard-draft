@@ -15,6 +15,7 @@ import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { identityDialog, playerLabel } from './identityDialog';
 import { acceptDaily, cachedDaily, fetchDaily, practiceSeed, todaySeed } from '../render/daily';
 import { openArchive } from './ArchivePanel';
+import { openPolicy } from './PolicyPanel';
 
 export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const save = loadSave();
@@ -101,7 +102,9 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   // one line at every text scale: the head row never wraps, the left group clips, and the Archive button is text-height (the 130 % layout test measures the strip)
   const archiveBtn = btn('Archive', 'archive', () => openArchive(scene, verifierUrl), { small: true, title: 'closed days with their final boards; any day is playable as practice (PLAN-v3 0.6.2)' });
   archiveBtn.style.cssText += 'padding:0 0.5em; font-size:0.75em; line-height:1.4; min-height:0';
-  const stripHead = h('div', { class: 'jd-row jd-between', style: 'flex-wrap:nowrap' }, h('div', { class: 'jd-row', style: 'flex-wrap:nowrap; min-width:0; overflow:hidden' }, h('div', { class: 'jd-head', style: 'white-space:nowrap' }, "Today's verified board"), seedSpan, modeSpan), archiveBtn);
+  const policyBtn = btn('Fairness policy', 'policy', () => openPolicy(scene), { small: true, title: 'how scores are verified, how the daily works, what is stored about you (generated from the code, PLAN-v3 0.6.5)' });
+  policyBtn.style.cssText += 'padding:0 0.5em; font-size:0.75em; line-height:1.4; min-height:0'; // text-height like Archive: the top row at 130 % has no room for a fourth button
+  const stripHead = h('div', { class: 'jd-row jd-between', style: 'flex-wrap:nowrap' }, h('div', { class: 'jd-row', style: 'flex-wrap:nowrap; min-width:0; overflow:hidden' }, h('div', { class: 'jd-head', style: 'white-space:nowrap' }, "Today's verified board"), seedSpan, modeSpan), h('span', { class: 'jd-row', style: 'gap:0.4em; flex-wrap:nowrap' }, policyBtn, archiveBtn));
   const practiceMode = (why: string) => { seedSpan.textContent = `seed ${practiceSeed()}`; modeSpan.textContent = `practice (unranked): ${why}`; };
   const strip = h('div', { class: 'jd-panel', tid: 'daily-strip', style: 'margin-top:auto; padding-top:0.4em; padding-bottom:0.4em' }, stripHead, line);
   const alive = () => line.isConnected && scene.scene.isActive('Title');

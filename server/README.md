@@ -44,6 +44,9 @@ The image was written without Docker available on the dev machine and has **not 
 `VERIFIER_URL=https://verifier.your.site npm run build` bakes the URL into `dist/` (default
 `http://127.0.0.1:4400`). A `?verifier=` query parameter still overrides it at runtime (used by tests).
 
+## Policy
+The fairness and verification policy players see in the game (title and results: "Fairness policy") is generated from this code by `npm run policy` into `game/public/policy.json` and `docs/POLICY.md` (PLAN-v3 0.6.5). The limits above are the exported `DEFAULT_*` constants; changing one regenerates the policy or fails `tests/policy.test.ts`.
+
 ## Guarantees (each pinned by a test in `tests/verifier.test.ts`)
 - A malformed request never kills the process: unparsable URLs get 400, handler errors 500, socket-level garbage 400 via `clientError`.
 - Nothing is recorded until it is on disk: the candidate board is written to a temp file in the same directory and renamed over
