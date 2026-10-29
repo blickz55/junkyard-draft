@@ -13,7 +13,8 @@ export type Action =
   | { t: 'unplace'; id: number }
   | { t: 'sell'; id: number }
   | { t: 'run' }
-  | { t: 'next' };
+  | { t: 'next' }
+  | { t: 'reroll' };
 
 export interface RoundRecord { round: number; earned: number; layout: Layout; result: RunResult }
 
@@ -30,6 +31,9 @@ export interface RunState {
   score: number;
   /** money from selling drafted parts (part of score) */
   sold: number;
+  /** rerolls bought this run (each cost RULES.rerollCost, already deducted from score) and the round of the last one (0 = none) */
+  rerolls: number;
+  rerolledRound: number;
   nextId: number;
   actions: Action[];
 }
@@ -47,10 +51,23 @@ export const TUTORIAL_SPARE_CONVEYORS = 3;
 
 export function draftOffers(seed: string, round: number): MachineKind[] {
   if (isTutorialSeed(seed) && round >= 1 && round <= TUTORIAL_OFFERS.length) return TUTORIAL_OFFERS[round - 1].slice();
-  const rng = new Rng(`${seed}:draft:${round}`);
+  return offersFrom(new Rng(`${seed}:draft:${round}`), round, round === 1);
+}
+/** The offers a reroll buys: a purpose-specific stream, so buying one can never change a later round's draft; no crusher guarantee. */
+export function rerollOffers(seed: string, round: number): MachineKind[] { return offersFrom(new Rng(`${seed}:draft:${round}:reroll:1`), round, false); }
+/** Why a reroll is not allowed right now, or null when it is. */
+export function canReroll(s: Pick<RunState, 'phase' | 'seed' | 'round' | 'rerolledRound' | 'score'>): string | null {
+  if (s.phase !== 'draft') return 'not drafting';
+  if (isTutorialSeed(s.seed)) return 'no rerolls in the tutorial';
+  if (s.rerolledRound === s.round) return 'reroll already used this round';
+  if (s.score < RULES.rerollCost) return `cannot afford a reroll ($${RULES.rerollCost})`;
+  return null;
+}
+function offersFrom(rng: Rng, round: number, guaranteeCrusher: boolean): MachineKind[] {
   const offers: MachineKind[] = [];
-  if (round === 1) offers.push('crusher'); // first useful upgrade is always reachable
+  if (guaranteeCrusher) offers.push('crusher'); // first useful upgrade is always reachable
   const weights = { ...RULES.draftWeights } as Record<MachineKind, number>;
+  for (const k of Object.keys(weights) as MachineKind[]) if (weights[k] <= 0 || (RULES.offerFromRound[k] ?? 1) > round) delete weights[k]; // experimental kinds are never offered; tiered kinds not before their round
   let guard = 0;
   while (offers.length < 3 && guard++ < 50) {
     const k = rng.weighted(weights);
@@ -81,7 +98,7 @@ export function sanitizeSeed(raw: string | null | undefined, fallback = 'junkyar
 export function newRun(seed: string): RunState {
   if (!isValidSeed(seed)) throw new RunError('bad seed');
   const { layout, nextId } = starterLayout();
-  const s: RunState = { rulesVersion: RULES_VERSION, seed, round: 1, phase: 'draft', layout, bin: [], offers: draftOffers(seed, 1), picks: [], rounds: [], score: 0, sold: 0, nextId, actions: [] };
+  const s: RunState = { rulesVersion: RULES_VERSION, seed, round: 1, phase: 'draft', layout, bin: [], offers: draftOffers(seed, 1), picks: [], rounds: [], score: 0, sold: 0, rerolls: 0, rerolledRound: 0, nextId, actions: [] };
   if (isTutorialSeed(seed)) for (let i = 0; i < TUTORIAL_SPARE_CONVEYORS; i++) s.bin.push({ id: s.nextId++, kind: 'conveyor', x: -1, y: -1, dir: 0 });
   return s;
 }
@@ -108,7 +125,7 @@ function findMachine(s: RunState, id: number): { m: Machine; where: 'grid' | 'bi
 }
 
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
-const ACTION_TYPES = new Set(['pick', 'place', 'rotate', 'unplace', 'sell', 'run', 'next']);
+const ACTION_TYPES = new Set(['pick', 'place', 'rotate', 'unplace', 'sell', 'run', 'next', 'reroll']);
 
 /** Structural validation of an action object (replays come from untrusted files). */
 export function validateAction(a: unknown): a is Action {
@@ -119,7 +136,7 @@ export function validateAction(a: unknown): a is Action {
     case 'pick': return isInt(o.i) && o.i >= 0 && o.i < 3 && Object.keys(o).length === 2;
     case 'place': return isInt(o.id) && isInt(o.x) && isInt(o.y) && isInt(o.dir) && o.dir >= 0 && o.dir <= 3 && Object.keys(o).length === 5;
     case 'rotate': case 'unplace': case 'sell': return isInt(o.id) && Object.keys(o).length === 2;
-    case 'run': case 'next': return Object.keys(o).length === 1;
+    case 'run': case 'next': case 'reroll': return Object.keys(o).length === 1;
   }
   return false;
 }
@@ -178,6 +195,12 @@ export function apply(s: RunState, a: Action): RunState {
       s.rounds.push({ round: s.round, earned: result.earned, layout, result });
       s.score += result.earned;
       s.phase = 'result';
+      break;
+    }
+    case 'reroll': {
+      const why = canReroll(s); if (why) throw new RunError(why);
+      s.score -= RULES.rerollCost; s.rerolls++; s.rerolledRound = s.round;
+      s.offers = rerollOffers(s.seed, s.round);
       break;
     }
     case 'next': {

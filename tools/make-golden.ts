@@ -58,6 +58,18 @@ for (const seed of ['golden-ordinary-1', 'golden-ordinary-2']) { const { actions
   corpus.push({ name: 'golden-press', run: s, note: 'crusher at (2,2) then a press at (3,2): shards become plates from round 2' });
 }
 corpus.push({ name: 'golden-churn', run: finish('golden-churn', ['crusher'], (s) => { swapIn(s, 2, 2); const m = s.layout.machines.find((x) => x.x === 2 && x.y === 2)!; for (let k = 0; k < 6; k++) { apply(s, { t: 'rotate', id: m.id }); } apply(s, { t: 'unplace', id: m.id }); apply(s, { t: 'place', id: m.id, x: 2, y: 2, dir: 0 }); apply(s, { t: 'unplace', id: m.id }); apply(s, { t: 'place', id: m.id, x: 2, y: 2, dir: 0 }); }), note: 'rotate/unplace/re-place churn in round 1 (what undo/redo records)' });
+// a reroll in round 2 (affordable after a crusher round), then the usual play; the corpus pins that rerolled offers and the deduction replay exactly
+{
+  const s = newRun('golden-reroll');
+  for (let r = 1; r <= RULES.rounds; r++) {
+    if (r === 2) apply(s, { t: 'reroll' });
+    apply(s, { t: 'pick', i: Math.max(0, s.offers.indexOf('crusher')) });
+    if (r === 1) swapIn(s, 2, 2);
+    apply(s, { t: 'run' }); apply(s, { t: 'next' });
+  }
+  if (s.rerolls !== 1) throw new Error('golden-reroll: expected one reroll');
+  corpus.push({ name: 'golden-reroll', run: s, note: 'crusher at (2,2) in round 1, a reroll (−$' + RULES.rerollCost + ') before the round-2 pick' });
+}
 corpus.push({ name: 'tutorial-1', run: finish(TUTORIAL_SEED, ['crusher', 'furnace', 'splitter'], (s) => swapIn(s, 2, 2)), note: 'the tutorial scenario (constrained drafts, spare conveyors); scenario semantics are versioned with RULES_VERSION from 0.4.1 on' });
 corpus.push({ name: 'tutorialish', run: finish('tutorialish', ['crusher']), note: 'a tutorial-looking name without the dash: an ordinary seed, never a scenario' });
 corpus.push({ name: 'daily-2026-10-29', run: finish('daily-2026-10-29', ['crusher'], (s) => swapIn(s, 2, 2)), note: 'a daily seed label' });

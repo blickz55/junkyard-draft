@@ -130,6 +130,18 @@ export function generateTextures(scene: Phaser.Scene) {
     g.fillStyle(P.amber, 1); g.fillTriangle(H - 6, 18, H + 6, 18, H, 8); g.fillTriangle(H - 6, C - 18, H + 6, C - 18, H, C - 8);
     bolt(g, 12, 12); bolt(g, C - 12, 12); bolt(g, 12, C - 12); bolt(g, C - 12, C - 12);
   });
+  // tuner (rules v3): a squat steel box with a gauge dial, an amber needle and a coil along the bottom; no arrow because nothing passes through
+  make('m-tuner', C, C, (g) => {
+    body(g, 0x5a5466, 8, 8);
+    g.fillStyle(0x2a2733, 1); g.fillRoundedRect(14, 14, C - 28, C - 28, 7);
+    g.fillStyle(0x1a1822, 1); g.fillCircle(H, H - 4, 15);
+    g.lineStyle(2, P.steel, 0.9); g.strokeCircle(H, H - 4, 15);
+    g.lineStyle(2, P.text, 0.5); for (let i = -2; i <= 2; i++) { const a = -Math.PI / 2 + i * 0.5; g.beginPath(); g.moveTo(H + Math.cos(a) * 11, H - 4 + Math.sin(a) * 11); g.lineTo(H + Math.cos(a) * 14, H - 4 + Math.sin(a) * 14); g.strokePath(); }
+    g.lineStyle(3, P.amber, 1); g.beginPath(); g.moveTo(H, H - 4); g.lineTo(H + 9, H - 13); g.strokePath();
+    g.fillStyle(P.amber, 1); g.fillCircle(H, H - 4, 3);
+    g.lineStyle(3, P.cursor, 0.95); g.beginPath(); for (let i = 0; i <= 8; i++) { const x = 16 + i * 5; const y = C - 20 + (i % 2 ? -4 : 4); if (i === 0) g.moveTo(x, y); else g.lineTo(x, y); } g.strokePath();
+    bolt(g, 12, 12); bolt(g, C - 12, 12); bolt(g, 12, C - 12); bolt(g, C - 12, C - 12);
+  });
   // dock: green bay with crates
   make('m-dock', C, C, (g) => {
     body(g, 0x3e6b4a, 6, 8);

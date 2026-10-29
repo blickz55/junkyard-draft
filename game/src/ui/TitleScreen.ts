@@ -73,7 +73,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     h('div', { style: 'margin-top:0.35em; font-size:0.9375em' }, bests.overall ? `Best score: $${bests.overall.score}  (seed ${bests.overall.seed})` : 'No finished runs yet on this device.'),
     h('div', { class: 'jd-dim', style: 'font-size:0.875em' }, todayBest ? `Today's challenge best: $${todayBest.score}` : "Today's challenge: not played yet"),
     h('div', { class: 'jd-mono jd-dim', style: 'font-size:0.75em' }, `${bests.runs} run(s) recorded locally · not verified online`),
-    ...loadArchivedBests().map(({ version, bests: ab }) => h('details', { tid: `archived-bests-${version}`, style: 'margin-top:0.2em' }, h('summary', { class: 'jd-dim', style: 'font-size:0.75em; cursor:pointer' }, `Under rules v${version}`), h('div', { class: 'jd-mono jd-dim', style: 'font-size:0.75em; margin-top:0.15em' }, `${ab.overall ? `best $${ab.overall.score} (seed ${ab.overall.seed}) · ` : ''}${ab.runs} run(s) · kept, not comparable with v${RULES_VERSION}`))),
+    ...loadArchivedBests().map(({ version, bests: ab }) => h('details', { tid: `archived-bests-${version}`, style: 'margin-top:0.2em' }, h('summary', { class: 'jd-dim', style: 'font-size:0.75em; cursor:pointer' }, `Under rules v${version}${version < RULES_VERSION ? ` · rules changed to v${RULES_VERSION}: old replays and saves no longer verify` : ''}`), h('div', { class: 'jd-mono jd-dim', style: 'font-size:0.75em; margin-top:0.15em' }, `${ab.overall ? `best $${ab.overall.score} (seed ${ab.overall.seed}) · ` : ''}${ab.runs} run(s) · kept, not comparable with v${RULES_VERSION}`))),
     h('div', { class: 'jd-row', style: 'margin-top:0.6em' }, h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, 'Volume'), volume, muteBtn),
     (() => {
       // audio buses (DOSSIER-v1 0.4.9): collapsed so the title keeps its height at 130 % text
@@ -94,7 +94,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   fetch(`${url}/daily?limit=5`).then((r) => r.json()).then((d: { seed: string; rulesVersion: number; entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[]; botPar?: number | null }) => {
     if (!alive()) return;
     if (d.seed !== dailySeed()) { line.textContent = `Verifier day differs (${d.seed}); board hidden.`; return; }
-    const top = d.entries.length ? d.entries.map((e, i) => `${i + 1}. $${e.score} ${e.player}`).join('   ·   ') + `   ·   re-simulated by the verifier (rules v${d.rulesVersion})` : 'No verified scores yet today. Finish a run and submit the replay from the results screen.';
+    const top = d.entries.length ? d.entries.map((e, i) => `${i + 1}. $${e.score} ${e.player}`).join('   ·   ') + `   ·   re-simulated by the verifier (rules v${d.rulesVersion}) · ties: fewer round-6 machines first` : 'No verified scores yet today. Finish a run and submit the replay from the results screen.';
     if (d.botPar != null) stripHead.firstElementChild?.append(h('span', { class: 'jd-mono jd-dim', tid: 'daily-par', style: 'font-size:0.75em; margin-left:0.75em', title: 'the shipped autoplayer\'s median on today\'s seed: a target, never an entry' }, `bot par $${d.botPar}`));
     line.textContent = top; line.classList.toggle('jd-dim', !d.entries.length);
     if (d.entries.length) {

@@ -125,6 +125,7 @@ export class GameScene extends Phaser.Scene {
       toBin: (id) => { this.act({ t: 'unplace', id }); this.syncMachines(); },
       sell: (id) => { if (this.act({ t: 'sell', id })) { audio.ship(RULES.sellValue); this.selectedId = null; this.syncMachines(); this.renderSide(); } },
       nextRound: () => this.nextRound(), toTitle: () => this.scene.start('Title'), toggleMute: () => { audio.setMuted(!audio.muted); return audio.muted; },
+      reroll: () => { if (this.replayQueue) return; if (this.act({ t: 'reroll' })) { audio.lockIn(); if (!this.replayLabel) telemetry.track('reroll_used', { n: this.run.round }); this.renderSide(); } },
     }, this.run.seed, this.replayLabel, audio.muted);
     this.tips = new TipsPanel(this, () => this.renderSide());
     this.suggestedTip = null;

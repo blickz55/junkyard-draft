@@ -33,6 +33,7 @@ class SvgGraphics {
   fillRoundedRect(x: number, y: number, w: number, h: number, r = 0) { this.shapes.push(`<rect x="${num(x)}" y="${num(y)}" width="${num(w)}" height="${num(h)}" rx="${num(r)}" ${this.fillAttr()}/>`); return this; }
   strokeRect(x: number, y: number, w: number, h: number) { this.shapes.push(`<rect x="${num(x)}" y="${num(y)}" width="${num(w)}" height="${num(h)}" ${this.strokeAttr()}/>`); return this; }
   strokeRoundedRect(x: number, y: number, w: number, h: number, r = 0) { this.shapes.push(`<rect x="${num(x)}" y="${num(y)}" width="${num(w)}" height="${num(h)}" rx="${num(r)}" ${this.strokeAttr()}/>`); return this; }
+  strokeCircle(x: number, y: number, r: number) { this.shapes.push(`<circle cx="${num(x)}" cy="${num(y)}" r="${num(r)}" ${this.strokeAttr()}/>`); return this; }
   fillCircle(x: number, y: number, r: number) { this.shapes.push(`<circle cx="${num(x)}" cy="${num(y)}" r="${num(r)}" ${this.fillAttr()}/>`); return this; }
   fillTriangle(x0: number, y0: number, x1: number, y1: number, x2: number, y2: number) { this.shapes.push(`<polygon points="${num(x0)},${num(y0)} ${num(x1)},${num(y1)} ${num(x2)},${num(y2)}" ${this.fillAttr()}/>`); return this; }
   beginPath() { this.path = []; return this; }

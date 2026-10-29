@@ -44,6 +44,7 @@ import { Worker, isMainThread, parentPort, workerData } from 'node:worker_thread
 import { playSeed } from '../tools/autoplay-lib';
 import { Rng } from '../game/src/sim/rng';
 import { decodeReplay, verifyReplay, canonicalReplayJson, type ReplayFile } from '../game/src/sim/replay';
+import { replay as replayRun } from '../game/src/sim/run';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { dailySeedFor } from '../game/src/sim/daily';
 import { validateBatch, FUNNEL, type EventBatch, type EventName, type Props } from '../game/src/telemetry/events';
@@ -51,7 +52,14 @@ import pkg from '../package.json' with { type: 'json' };
 
 export const VERSION: string = pkg.version;
 
-export interface BoardEntry { seed: string; score: number; player: string; verifiedAt: string; rulesVersion: number; actions: number; replayHash: string; replayAvailable?: boolean }
+/** `finalMachines` (rules v3, PLAN-v2 0.5.5): machines on the grid in the last round, derived by the verifier from the re-simulated replay, never taken from a payload; entries written before it exist without it and rank last among equal scores until derived from their stored replay. */
+export interface BoardEntry { seed: string; score: number; player: string; verifiedAt: string; rulesVersion: number; actions: number; replayHash: string; replayAvailable?: boolean; finalMachines?: number }
+/** Printed under every board: the one comparator, in words. */
+export const TIE_BREAK = 'Equal scores: fewer machines in round 6 first, then the earlier verified submission.';
+/** Machines on the grid in the final round of a replay, or null when it cannot be re-simulated. */
+export function finalMachinesOf(r: Pick<ReplayFile, 'seed' | 'actions' | 'rulesVersion'>): number | null {
+  try { const s = replayRun(r.seed, r.actions, r.rulesVersion); const last = s.rounds[s.rounds.length - 1]; return last ? last.layout.machines.length : null; } catch { return null; }
+}
 /** Actions of a verified replay, kept so anyone can watch it; bounded by the replay limits enforced at verification. */
 export interface StoredReplay { seed: string; rulesVersion: number; actions: ReplayFile['actions']; score: number; player: string; verifiedAt: string }
 /** The autoplayer's median score on a seed: a target that exists on day one without inventing competitors. */
@@ -126,7 +134,8 @@ export interface VerifierOptions {
   maxSeeds?: number;
 }
 
-const byRank = (a: BoardEntry, b: BoardEntry) => b.score - a.score || a.verifiedAt.localeCompare(b.verifiedAt);
+/** The one comparator (PLAN-v2 0.5.5): score desc, fewer final-round machines, earlier receipt, then the hash so the order is total. Boards, histogram ranks and neighbours, retention and the returned rank all use it. */
+const byRank = (a: BoardEntry, b: BoardEntry) => b.score - a.score || (a.finalMachines ?? Infinity) - (b.finalMachines ?? Infinity) || a.verifiedAt.localeCompare(b.verifiedAt) || a.replayHash.localeCompare(b.replayHash);
 
 export class Verifier {
   private data: Board;
@@ -138,6 +147,20 @@ export class Verifier {
     this.maxEntriesPerSeed = opts.maxEntriesPerSeed ?? 1000;
     this.maxSeeds = opts.maxSeeds ?? 5000;
     this.data = fs.existsSync(file) ? loadBoard(fs.readFileSync(file, 'utf8')) : { entries: [] };
+    this.deriveTieBreaks();
+  }
+  /** Entries recorded before finalMachines existed get it from their stored replay (current version only); persisted when anything changed. */
+  private deriveTieBreaks() {
+    let changed = false;
+    const entries = this.data.entries.map((e) => {
+      if (e.finalMachines != null || e.rulesVersion !== RULES_VERSION) return e;
+      const r = this.data.replays?.[e.replayHash]; if (!r) return e;
+      const n = finalMachinesOf({ seed: r.seed, actions: r.actions, rulesVersion: r.rulesVersion });
+      if (n == null) return e;
+      changed = true; return { ...e, finalMachines: n };
+    });
+    if (!changed) return;
+    try { this.commit({ ...this.data, entries }); } catch { this.data = { ...this.data, entries }; } // storage trouble: rank correctly in memory anyway
   }
 
   /** Current-version entries for a seed in board order. Entries persisted under another rules version never rank. */
@@ -165,6 +188,7 @@ export class Verifier {
       const keep = new Set<string>();
       const touched = new Set(data.entries.map((e) => e.seed));
       for (const s of touched) for (const e of this.rank(s, data).slice(0, this.replaysPerSeed)) keep.add(e.replayHash);
+      for (const e of data.entries) if (e.rulesVersion !== RULES_VERSION) keep.add(e.replayHash); // other versions never rank here, but a rollback needs their replays intact (PLAN-v2 §1)
       for (const h of Object.keys(data.replays)) if (!keep.has(h)) delete data.replays[h];
     }
   }
@@ -193,7 +217,7 @@ export class Verifier {
     if (!v.ok) return { ok: false, error: v.error ? `rejected: ${v.error}` : `rejected: re-simulated score $${v.score} does not match claimed $${v.claimed}${v.finished ? '' : ' (run not finished)'}` };
     const replayHash = replayId(replay);
     if (this.data.entries.some((e) => e.replayHash === replayHash)) return { ok: false, error: 'rejected: duplicate replay' };
-    const entry: BoardEntry = { seed: replay.seed, score: v.score, player: String(player).replace(/\s+/g, ' ').trim().slice(0, 32) || 'anonymous', verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash };
+    const entry: BoardEntry = { seed: replay.seed, score: v.score, player: String(player).replace(/\s+/g, ' ').trim().slice(0, 32) || 'anonymous', verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash, finalMachines: finalMachinesOf(replay) ?? undefined };
     const candidate: Board = {
       ...this.data, // never rebuild the board from a subset of its fields: cached pars were lost that way (review F08)
       entries: [...this.data.entries, entry],
@@ -431,9 +455,9 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
       if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, uptimeSec: Math.round((Date.now() - started) / 1000) });
       if (req.method === 'GET' && url.pathname === '/replay') { const r = verifier.replay(url.searchParams.get('hash') || ''); return r ? json(200, { ok: true, ...r }) : json(404, { ok: false, error: 'no verified replay with that hash' }); }
-      if (req.method === 'GET' && url.pathname === '/daily') { const d = verifier.daily(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT)); return json(200, { ...d, botPar: withPar(d.seed) }); }
-      if (req.method === 'GET' && url.pathname === '/histogram') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { ok: true, ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined), botPar: withPar(seed) }); }
-      if (req.method === 'GET' && url.pathname === '/board') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { seed, verified: true, entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT)), botPar: withPar(seed) }); }
+      if (req.method === 'GET' && url.pathname === '/daily') { const d = verifier.daily(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT)); return json(200, { ...d, botPar: withPar(d.seed), tieBreak: TIE_BREAK }); }
+      if (req.method === 'GET' && url.pathname === '/histogram') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { ok: true, ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined), botPar: withPar(seed), tieBreak: TIE_BREAK }); }
+      if (req.method === 'GET' && url.pathname === '/board') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { seed, verified: true, entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT)), botPar: withPar(seed), tieBreak: TIE_BREAK }); }
       if (req.method === 'POST' && url.pathname === '/verify') {
         if (rl) { const r = rl.take(ip); if (!r.ok) { req.resume(); return json(429, { ok: false, error: `rate limited: ${rl.limit} submissions per ${rl.windowMs / 1000}s` }, { 'Retry-After': String(r.retryAfterSec) }); } }
         let body = '';

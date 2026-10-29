@@ -42,6 +42,15 @@ test('crusher beside a hopper warns (behind only); fed in line it does not', () 
   assert.match(placementWarning(lay(mk(2, 'conveyor', 6, 3, 0)), 'crusher', 7, 3, 0, 50) ?? '', /off the grid/);
 });
 
+test('tuner (rules v3): warns when no processor touches it, silent beside a crusher, furnace or press; takes and gives nothing', () => {
+  const layout = { width: 8, height: 6, machines: [{ id: 1, kind: 'hopper' as const, x: 1, y: 2, dir: 0 as const }, { id: 2, kind: 'furnace' as const, x: 2, y: 2, dir: 0 as const }, { id: 3, kind: 'dock' as const, x: 3, y: 2, dir: 0 as const }] };
+  assert.match(placementWarning(layout, 'tuner', 5, 5, 0, 9) ?? '', /nothing here to tune/);
+  assert.equal(placementWarning(layout, 'tuner', 2, 1, 0, 9), null, 'above the furnace');
+  assert.equal(placementWarning(layout, 'tuner', 2, 3, 0, 9), null, 'below the furnace');
+  assert.match(placementWarning(layout, 'tuner', 1, 1, 0, 9) ?? '', /nothing here to tune/, 'above a hopper is not a processor');
+  assert.deepEqual(inputTravelDirs('tuner', 0), []); assert.deepEqual(outputDirs('tuner', 0), []);
+});
+
 test('conveyors accept from the sides; splitters output left and right; docks take all', () => {
   assert.deepEqual(inputTravelDirs('conveyor', 0).sort(), [0, 1, 3]);
   assert.deepEqual(inputTravelDirs('crusher', 2), [2]);

@@ -11,6 +11,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync('/opt/pw-browsers')) process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/pw-browsers';
 const { chromium } = await import('playwright');
 const { draftOffers, TUTORIAL_SEED } = await import('../game/src/sim/run.ts');
+const { RULES_VERSION } = await import('../game/src/sim/types.ts');
 const PORT = 5198;
 const URL = `http://127.0.0.1:${PORT}`;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -224,16 +225,16 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
       const migrated = await page.evaluate(() => ({ legacy: localStorage.getItem('jd.bests.v1'), v2: JSON.parse(localStorage.getItem('jd.bests.v2') || 'null'), text: document.querySelector('#ui')?.textContent || '' }));
       assert.equal(migrated.legacy, null, 'legacy key removed');
-      assert.equal(migrated.v2?.byVersion?.['2']?.overall?.score, 912, 'migrated into the rules-2 slot');
-      assert.match(migrated.text, /Best score: \$912/);
-      assert.equal(await page.locator('[data-testid^=archived-bests-]').count(), 0, 'nothing archived yet');
+      assert.equal(migrated.v2?.byVersion?.['2']?.overall?.score, 912, 'migrated into the rules-2 slot whatever version runs');
+      if (RULES_VERSION === 2) { assert.match(migrated.text, /Best score: \$912/); assert.equal(await page.locator('[data-testid^=archived-bests-]').count(), 0, 'nothing archived while rules 2 are current'); }
+      else { assert.match(migrated.text, /No finished runs yet/); assert.match(migrated.text, /Under rules v2/); assert.match(migrated.text, /\$912/, 'the migrated v2 best is archived, not the headline, under newer rules'); }
       await context.close();
       const c2 = await browser.newContext({ viewport: { width: 1120, height: 700 } });
       const p2 = await c2.newPage();
-      await p2.addInitScript(() => { try {
-        localStorage.setItem('jd.bests.v2', JSON.stringify({ byVersion: { '2': { overall: { score: 1500, seed: 'now', at: 't' }, bySeed: {}, runs: 2 }, '1': { overall: { score: 300, seed: 'then', at: 't' }, bySeed: {}, runs: 4 } } }));
+      await p2.addInitScript((v) => { try {
+        localStorage.setItem('jd.bests.v2', JSON.stringify({ byVersion: { [v]: { overall: { score: 1500, seed: 'now', at: 't' }, bySeed: {}, runs: 2 }, '1': { overall: { score: 300, seed: 'then', at: 't' }, bySeed: {}, runs: 4 } } }));
         localStorage.setItem('jd.settings.v1', JSON.stringify({ volume: 0.7, muted: false, reducedMotion: false, textScale: 1.3, renderQuality: 'auto', telemetry: false }));
-      } catch {} });
+      } catch {} }, String(RULES_VERSION));
       await p2.goto(`${URL}/?dev=1`);
       await p2.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
       const arch = await p2.evaluate(() => { const d = document.querySelector('[data-testid=archived-bests-1]'); const sc = document.querySelector('#ui .jd-screen'); return { present: !!d, open: d?.open, text: d?.textContent, scrollH: sc?.scrollHeight, clientH: sc?.clientHeight, headline: document.querySelector('#ui')?.textContent?.includes('Best score: $1500') }; });
@@ -367,6 +368,29 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       assert.equal(await p2.getByTestId('reduced-audio').textContent(), 'Reduced audio: On');
       await c2.close();
     }
+    // 7e) reroll_button (rules v3, PLAN-v2 0.5.4): disabled while unaffordable in round 1, buys new offers once in round 2 for the cost, then disables
+    {
+      const { context, page, api, errors } = await open('seed=reroll-e2e');
+      assert.equal(await page.evaluate(() => document.querySelector('[data-testid=reroll]')?.disabled), true, 'round 1: nothing earned yet, so no reroll');
+      assert.match(await page.evaluate(() => document.querySelector('[data-testid=reroll-note]')?.textContent ?? ''), /costs/);
+      const st0 = await api('state'); await api('pick', Math.max(0, st0.offers.indexOf('crusher')));
+      const st1 = await api('state'); const old = st1.layout.machines.find((m) => m.x === 2 && m.y === 2); const pick = st1.bin[st1.bin.length - 1];
+      await api('act', { t: 'unplace', id: old.id }); await api('act', { t: 'place', id: pick.id, x: 2, y: 2, dir: 0 });
+      await api('run'); await api('finishRun');
+      await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 15000 });
+      await api('next'); await wait(200);
+      const before = await api('state');
+      assert.equal(before.phase, 'draft'); assert.ok(before.score >= 40, `a crusher round affords a reroll (${before.score})`);
+      assert.equal(await page.evaluate(() => document.querySelector('[data-testid=reroll]')?.disabled), false, 'affordable: enabled');
+      await page.getByTestId('reroll').click(); await wait(200);
+      const after = await api('state');
+      assert.equal(after.score, before.score - 40, 'the cost left the score'); assert.equal(after.rerolls, 1); assert.notDeepEqual(after.offers, before.offers, 'new offers on the cards');
+      assert.equal(await page.evaluate(() => document.querySelector('[data-testid=hud-score]')?.textContent), `$${after.score}`, 'the HUD shows the deducted score');
+      assert.equal(await page.evaluate(() => document.querySelector('[data-testid=reroll]')?.disabled), true, 'once per round');
+      assert.match(await page.evaluate(() => document.querySelector('[data-testid=reroll-note]')?.textContent ?? ''), /One reroll per round/);
+      assert.deepEqual(errors, [], 'no page errors');
+      await context.close();
+    }
     // 7d) impact_samples_under_the_synth (DOSSIER-v1 0.4.13): both WAVs load through the boot loader, decode once a context
     //     exists, and the dock clink plays during a normal round; a blocked file falls back to synth-only without errors
     {
@@ -424,8 +448,8 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
       await page.goto(`${URL}/?dev=1&scene=game&seed=atlas-seed`);
       await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
-      const art = await page.evaluate(() => { const tm = window.__jdGame.textures; const keys = ['tile', 'tile-ok', 'tile-bad', 'tile-sel', 'tile-cursor', 'm-conveyor', 'm-hopper', 'm-crusher', 'm-crusher-1', 'm-furnace', 'm-press', 'm-press-1', 'm-press-2', 'm-splitter', 'm-dock', 'belt-0', 'belt-1', 'belt-2', 'belt-3', 'belt-4', 'belt-5', 'belt-6', 'belt-7', 'i-scrap', 'i-shards', 'i-plate', 'i-ingot', 'i-slag', 'dot', 'px']; const atlasSrc = tm.get('art').source[0]; return { status: window.__jdArt, allExist: keys.every((k) => tm.exists(k)), shared: keys.filter((k) => k !== 'dot' && k !== 'px').every((k) => tm.get(k).source[0] === atlasSrc), crusherCut: (() => { const f = tm.getFrame('m-crusher'); return [f.cutWidth, f.cutHeight]; })(), plateCut: (() => { const f = tm.getFrame('i-plate'); return [f.cutWidth, f.cutHeight]; })(), base64: tm.getBase64('m-crusher').slice(0, 22) }; });
-      assert.deepEqual({ built: art.status.built, packed: art.status.packed.length, missing: art.status.missing, allExist: art.allExist, shared: art.shared, crusherCut: art.crusherCut, plateCut: art.plateCut }, { built: true, packed: 28, missing: [], allExist: true, shared: true, crusherCut: [72, 72], plateCut: [24, 24] }, JSON.stringify(art));
+      const art = await page.evaluate(() => { const tm = window.__jdGame.textures; const keys = ['tile', 'tile-ok', 'tile-bad', 'tile-sel', 'tile-cursor', 'm-conveyor', 'm-hopper', 'm-crusher', 'm-crusher-1', 'm-furnace', 'm-press', 'm-press-1', 'm-press-2', 'm-splitter', 'm-dock', 'm-tuner', 'belt-0', 'belt-1', 'belt-2', 'belt-3', 'belt-4', 'belt-5', 'belt-6', 'belt-7', 'i-scrap', 'i-shards', 'i-plate', 'i-ingot', 'i-slag', 'dot', 'px']; const atlasSrc = tm.get('art').source[0]; return { status: window.__jdArt, allExist: keys.every((k) => tm.exists(k)), shared: keys.filter((k) => k !== 'dot' && k !== 'px').every((k) => tm.get(k).source[0] === atlasSrc), crusherCut: (() => { const f = tm.getFrame('m-crusher'); return [f.cutWidth, f.cutHeight]; })(), plateCut: (() => { const f = tm.getFrame('i-plate'); return [f.cutWidth, f.cutHeight]; })(), base64: tm.getBase64('m-crusher').slice(0, 22) }; });
+      assert.deepEqual({ built: art.status.built, packed: art.status.packed.length, missing: art.status.missing, allExist: art.allExist, shared: art.shared, crusherCut: art.crusherCut, plateCut: art.plateCut }, { built: true, packed: 29, missing: [], allExist: true, shared: true, crusherCut: [72, 72], plateCut: [24, 24] }, JSON.stringify(art));
       assert.equal(art.base64, 'data:image/png;base64,', 'frame-aware base64 export still works for the DOM');
       assert.deepEqual(errors, [], 'no page errors with the atlas');
       await context.close();
@@ -436,7 +460,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       await p2.goto(`${URL}/?dev=1&scene=game&seed=atlas-seed`);
       await p2.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
       const fb = await p2.evaluate(() => ({ status: window.__jdArt, pressExists: window.__jdGame.textures.exists('m-press'), pressShared: window.__jdGame.textures.get('m-press').source[0] === window.__jdGame.textures.get('art').source[0] }));
-      assert.deepEqual({ built: fb.status.built, packed: fb.status.packed.length, missing: fb.status.missing, pressExists: fb.pressExists, pressShared: fb.pressShared }, { built: true, packed: 27, missing: ['m-press'], pressExists: true, pressShared: false }, JSON.stringify(fb));
+      assert.deepEqual({ built: fb.status.built, packed: fb.status.packed.length, missing: fb.status.missing, pressExists: fb.pressExists, pressShared: fb.pressShared }, { built: true, packed: 28, missing: ['m-press'], pressExists: true, pressShared: false }, JSON.stringify(fb));
       await c2.close();
       // 8b) hidpi_atlas_keeps_logical_size (DOSSIER-v1 0.4.8b): at ?dpr=2 the atlas is twice the 1x snapshot and every packed
       //     frame is cut at 2x, yet machines, items and tiles display at their logical 72 / 24 px; a procedural fallback stays 1x
@@ -456,7 +480,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
           machine: m && [m.texture.key, m.displayWidth, m.displayHeight], tile: tile && [tile.displayWidth, tile.displayHeight], dockCut: dock && dock.cutWidth, dockShared: tm.get('m-dock').source[0] === tm.get('art').source[0] };
       });
       assert.deepEqual({ built: hi.status.built, scale: hi.status.scale, packed: hi.status.packed.length, atlas: hi.status.atlas, crusherCut: hi.crusherCut, plateCut: hi.plateCut, machine: hi.machine && hi.machine.slice(1), tile: hi.tile, dockCut: hi.dockCut, dockShared: hi.dockShared },
-        { built: true, scale: 2, packed: 27, atlas: { width: art.status.atlas.width * 2, height: art.status.atlas.height * 2 }, crusherCut: [144, 144], plateCut: 48, machine: [72, 72], tile: [72, 72], dockCut: 72, dockShared: false }, JSON.stringify(hi));
+        { built: true, scale: 2, packed: 28, atlas: { width: art.status.atlas.width * 2, height: art.status.atlas.height * 2 }, crusherCut: [144, 144], plateCut: 48, machine: [72, 72], tile: [72, 72], dockCut: 72, dockShared: false }, JSON.stringify(hi));
       assert.ok(hi.machine && hi.machine[0].startsWith('m-'), 'a machine sprite is on screen');
       await c3.close();
     }

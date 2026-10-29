@@ -1,7 +1,7 @@
 // Balance tooling (PLAN-v2 0.5.1): paired deltas, metadata, replay-verified action lists, executable gate, deterministic output.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { runBalance, gateVerdict, verifyActions } from '../tools/balance-lib';
+import { runBalance, gateVerdict, verifyActions, runRerollStudy, gateReroll } from '../tools/balance-lib';
 import { improve, playSeed, scoreSanityBound } from '../tools/autoplay-lib';
 import { Rng } from '../game/src/sim/rng';
 import { newRun } from '../game/src/sim/run';
@@ -71,6 +71,19 @@ test('search policies: neutral accepts plateau moves, never scores below greedy 
   const neutral = seeds.map((x) => playSeed(x, new Rng(`${x}:search:neutral`), 6, { policy: 'neutral' }));
   for (let i = 0; i < seeds.length; i++) { assert.equal(greedy[i].report.policy, 'greedy'); assert.equal(neutral[i].report.policy, 'neutral'); assert.deepEqual(greedy[i].report.offers, neutral[i].report.offers, 'offers come from the sim stream and never depend on the search policy'); }
   assert.ok(neutral.some((n, i) => JSON.stringify(n.actions) !== JSON.stringify(greedy[i].actions)), 'the neutral policy explores different layouts on at least one seed');
+});
+
+test('reroll study (PLAN-v2 0.5.4): paired never-vs-greedy on the same seeds, reroll rate, verified actions, gate reasons', () => {
+  const st = runRerollStudy({ seeds: 3, tries: 6, prefix: 'rrt' });
+  assert.equal(st.paired.length, 3); assert.equal(st.summary.rounds, 3 * 6);
+  for (const p of st.paired) assert.equal(p.delta, p.greedy - p.never);
+  assert.equal(st.verified, true, st.unverified.join(', '));
+  assert.ok(st.summary.rerollRate >= 0 && st.summary.rerollRate <= 1);
+  assert.equal(st.summary.rerolls, st.paired.reduce((s, p) => s + p.rerolls, 0));
+  const wide = gateReroll(st, { rate: [0, 1], maxSeedsWorse: 99 }); assert.equal(wide.ok, true, wide.reasons.join('; '));
+  const narrow = gateReroll(st, { rate: [0.999, 1] }); assert.equal(narrow.ok, false);
+  const greedyActions = Object.values(st.actions.greedy).flat();
+  assert.equal(greedyActions.filter((a) => a.t === 'reroll').length, st.summary.rerolls, 'every counted reroll is a recorded action');
 });
 
 test('derived sanity bound and dead-end definitions', () => {

@@ -1,0 +1,175 @@
+{
+ "at": "2026-10-29T19:07:50.984Z",
+ "v2Ref": "main",
+ "ok": true,
+ "steps": [
+  {
+   "step": "corpus versions",
+   "ok": true,
+   "detail": {
+    "v2": 2,
+    "v3": 3
+   }
+  },
+  {
+   "step": "v2 service up",
+   "ok": true,
+   "detail": {
+    "ok": true,
+    "version": "0.4.0",
+    "rulesVersion": 2,
+    "entries": 0,
+    "entriesAllVersions": 0,
+    "uptimeSec": 0
+   }
+  },
+  {
+   "step": "v2 replay accepted by v2",
+   "ok": true,
+   "detail": {
+    "status": 200,
+    "body": {
+     "ok": true,
+     "score": 834,
+     "entry": {
+      "seed": "golden-press-0",
+      "score": 834,
+      "player": "v2 player",
+      "verifiedAt": "2026-10-29T19:07:50.440Z",
+      "rulesVersion": 2,
+      "actions": 22,
+      "replayHash": "33305323c3cf75764e7cca4e60be36967a71acf6e19cbd547cba9e46e399a383"
+     }
+    }
+   }
+  },
+  {
+   "step": "v2 board ranks it",
+   "ok": true,
+   "detail": [
+    {
+     "seed": "golden-press-0",
+     "score": 834,
+     "player": "v2 player",
+     "verifiedAt": "2026-10-29T19:07:50.440Z",
+     "rulesVersion": 2,
+     "actions": 22,
+     "replayHash": "33305323c3cf75764e7cca4e60be36967a71acf6e19cbd547cba9e46e399a383",
+     "replayAvailable": true
+    }
+   ]
+  },
+  {
+   "step": "v3 service up on the same data: v2 entry kept but not ranked",
+   "ok": true,
+   "detail": {
+    "ok": true,
+    "version": "0.4.0",
+    "rulesVersion": 3,
+    "entries": 0,
+    "entriesAllVersions": 1,
+    "uptimeSec": 0
+   }
+  },
+  {
+   "step": "v2 board empty under v3",
+   "ok": true,
+   "detail": []
+  },
+  {
+   "step": "v2 replay refused by v3 with its version named",
+   "ok": true,
+   "detail": {
+    "status": 422,
+    "body": {
+     "ok": false,
+     "error": "rejected: rules version 2 not accepted (server has 3)"
+    }
+   }
+  },
+  {
+   "step": "v3 replay accepted by v3",
+   "ok": true,
+   "detail": {
+    "status": 200,
+    "body": {
+     "ok": true,
+     "score": 834,
+     "entry": {
+      "seed": "golden-press-0",
+      "score": 834,
+      "player": "v3 player",
+      "verifiedAt": "2026-10-29T19:07:50.623Z",
+      "rulesVersion": 3,
+      "actions": 22,
+      "replayHash": "64ca52b956522c34f1aee60badca70baa6e0dabb216d03ad5d766ff81cd3a352",
+      "finalMachines": 5
+     }
+    }
+   }
+  },
+  {
+   "step": "v3 counts",
+   "ok": true,
+   "detail": {
+    "ok": true,
+    "version": "0.4.0",
+    "rulesVersion": 3,
+    "entries": 1,
+    "entriesAllVersions": 2,
+    "uptimeSec": 0
+   }
+  },
+  {
+   "step": "rollback: v2 service up, v3 entry kept but not ranked",
+   "ok": true,
+   "detail": {
+    "ok": true,
+    "version": "0.4.0",
+    "rulesVersion": 2,
+    "entries": 1,
+    "entriesAllVersions": 2,
+    "uptimeSec": 0
+   }
+  },
+  {
+   "step": "rollback: the v2 entry ranks again, with its replay intact",
+   "ok": true,
+   "detail": [
+    {
+     "seed": "golden-press-0",
+     "score": 834,
+     "player": "v2 player",
+     "verifiedAt": "2026-10-29T19:07:50.440Z",
+     "rulesVersion": 2,
+     "actions": 22,
+     "replayHash": "33305323c3cf75764e7cca4e60be36967a71acf6e19cbd547cba9e46e399a383",
+     "replayAvailable": true
+    }
+   ]
+  },
+  {
+   "step": "rollback: a v3 replay is refused by v2 with its version named",
+   "ok": true,
+   "detail": {
+    "status": 422,
+    "body": {
+     "ok": false,
+     "error": "rejected: rules version 3 not accepted (server has 2)"
+    }
+   }
+  },
+  {
+   "step": "re-deploy v3: both entries still stored, v3 ranks",
+   "ok": true,
+   "detail": {
+    "ok": true,
+    "version": "0.4.0",
+    "rulesVersion": 3,
+    "entries": 1,
+    "entriesAllVersions": 2,
+    "uptimeSec": 0
+   }
+  }
+ ]
+}

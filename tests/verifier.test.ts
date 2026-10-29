@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, loadBoard, StorageError, EventStore, histogramOf, niceStep, computeParSync, computeParInWorker, ParService, type BoardEntry } from '../server/verify';
+import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, loadBoard, StorageError, EventStore, histogramOf, niceStep, computeParSync, computeParInWorker, ParService, finalMachinesOf, TIE_BREAK, type BoardEntry } from '../server/verify';
 import { build as esbuild } from 'esbuild';
 import net from 'node:net';
 import { RULES_VERSION } from '../game/src/sim/types';
@@ -63,8 +63,9 @@ test('http: POST /verify and GET /board return verified data only', async () => 
     assert.equal(res.status, 200);
     const bad = await fetch(`${base}/verify`, { method: 'POST', body: JSON.stringify({ replay: { ...exportReplay(run), claimedScore: 999999 }, player: 'mallory' }) });
     assert.equal(bad.status, 422);
-    const board = await (await fetch(`${base}/board?seed=http-seed`)).json() as { verified: boolean; entries: { player: string; score: number }[] };
+    const board = await (await fetch(`${base}/board?seed=http-seed`)).json() as { verified: boolean; entries: { player: string; score: number; finalMachines?: number }[]; tieBreak?: string };
     assert.equal(board.verified, true); assert.equal(board.entries.length, 1); assert.equal(board.entries[0].score, run.score);
+    assert.equal(board.tieBreak, TIE_BREAK, 'every board response states the tie rule'); assert.equal(typeof board.entries[0].finalMachines, 'number');
     assert.equal((await fetch(`${base}/health`)).status, 200);
     const daily = await (await fetch(`${base}/daily`)).json() as { seed: string; verified: boolean; rulesVersion: number; entries: unknown[] };
     assert.equal(daily.seed, dailySeedFor(new Date())); assert.equal(daily.verified, true); assert.deepEqual(daily.entries, []);
@@ -129,6 +130,54 @@ test('accepted submissions keep cached bot pars (review F08), across a restart f
   assert.deepEqual([v.par('par-a'), v.par('par-b')], [123, 456], 'pars survive a submission in memory');
   const again = new Verifier(file);
   assert.deepEqual([again.par('par-a'), again.par('par-b')], [123, 456], 'and in the persisted file');
+});
+
+test('tie-breaker (PLAN-v2 0.5.5): equal scores rank by fewer round-6 machines, then earlier receipt; derived by the verifier and never from a payload; legacy entries derive at startup or rank last; histogram agrees with the board', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-tie-')), 'board.json');
+  const v = new Verifier(file);
+  // the untouched starter line always earns $228: three runs with 5, 6 and 7 machines on the grid at the end (extra parts parked where they do nothing)
+  const park: [number, number][] = [[6, 0], [6, 5]];
+  const mk = (extra: number, twist = false) => {
+    const s = newRun('tie-seed');
+    for (let r = 1; r <= RULES.rounds; r++) {
+      apply(s, { t: 'pick', i: 0 });
+      if (r === RULES.rounds) for (let k = 0; k < extra; k++) apply(s, { t: 'place', id: s.bin[k].id, x: park[k][0], y: park[k][1], dir: 0 });
+      if (twist && r === 1) apply(s, { t: 'rotate', id: s.bin[0].id }); // a different replay with the same outcome
+      apply(s, { t: 'run' }); apply(s, { t: 'next' });
+    }
+    return s;
+  };
+  const seven = mk(2), six = mk(1), five = mk(0), fiveLater = mk(0, true);
+  for (const s of [seven, six, five, fiveLater]) assert.equal(s.score, 228);
+  // submitted in the order 7, 6, 5, 5-later: receipt order would put 7 first, the comparator puts fewer machines first
+  assert.equal(v.submit(JSON.stringify(exportReplay(seven)), 'seven').ok, true);
+  assert.equal(v.submit(JSON.stringify(exportReplay(six)), 'six').ok, true);
+  const r5 = v.submit(JSON.stringify(exportReplay(five)), 'five'); assert.equal(r5.ok, true);
+  assert.equal(v.submit(JSON.stringify(exportReplay(fiveLater)), 'five-later').ok, true);
+  const board = v.board('tie-seed');
+  assert.deepEqual(board.map((e) => [e.player, e.finalMachines]), [['five', 5], ['five-later', 5], ['six', 6], ['seven', 7]]);
+  assert.equal(finalMachinesOf(exportReplay(six)), 6);
+  // a forged field in the submission is ignored: the stored value is derived
+  const forgedReplay = { ...exportReplay(mk(1, true)), finalMachines: 1 } as unknown as object;
+  const rf = v.submit(JSON.stringify(forgedReplay), 'forger'); assert.equal(rf.ok, true); assert.equal(rf.entry!.finalMachines, 6, 'derived from the replay, not the payload');
+  // the histogram's rank for an entry equals its board position
+  const hg = v.histogram('tie-seed', r5.entry!.replayHash);
+  assert.equal(hg.mine!.rank, board.findIndex((e) => e.replayHash === r5.entry!.replayHash) + 1);
+  assert.deepEqual(hg.around.map((a) => a.player).slice(0, 2), ['five', 'five-later'], 'neighbours come from the same comparator');
+  // legacy entries: strip finalMachines from the file; one keeps its stored replay (derived at startup), one loses it (ranks last among equals)
+  const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+  for (const e of raw.entries) delete e.finalMachines;
+  const lost = raw.entries.find((e: { player: string }) => e.player === 'five');
+  delete raw.replays[lost.replayHash];
+  fs.writeFileSync(file, JSON.stringify(raw));
+  const again = new Verifier(file);
+  const b2 = again.board('tie-seed');
+  assert.deepEqual(b2.map((e) => e.player), ['five-later', 'six', 'forger', 'seven', 'five'], 'derived entries rank by machines; the one without a replay ranks last among the $228s');
+  assert.equal(b2.find((e) => e.player === 'five-later')!.finalMachines, 5, 'derived at startup from the stored replay');
+  assert.equal(b2.find((e) => e.player === 'five')!.finalMachines, undefined);
+  const persisted = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.equal(persisted.entries.find((e: { player: string }) => e.player === 'six').finalMachines, 6, 'the derivation was written back');
+  assert.ok(TIE_BREAK.includes('round 6'));
 });
 
 test('rate limiter: fixed window per key, resets after the window', () => {
@@ -333,6 +382,7 @@ test('old_rules_board_is_not_current_verified_board: entries persisted under ano
   const board = v.board('mixed-seed');
   assert.equal(board.length, 1); assert.equal(board[0].player, 'new'); assert.equal(board[0].rulesVersion, RULES_VERSION);
   assert.equal(new Verifier(file).sizeAllVersions, 2, 'old rows survive on disk for a future migration');
+  assert.ok(JSON.parse(fs.readFileSync(file, 'utf8')).replays[legacyHash], 'and so does the old replay: pruning never drops the replays of another version, so a rollback keeps them (PLAN-v2 0.5.6)');
 });
 
 test('bounds: query limits are finite integers clamped to [1, max]; limiter cardinality is capped; a damaged board file loads empty', async () => {

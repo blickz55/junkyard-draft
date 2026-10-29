@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createSim, runLayout, step } from '../game/src/sim/sim';
+import { createSim, runLayout, step, cellIndex } from '../game/src/sim/sim';
 import { RULES } from '../game/src/sim/rules';
-import { starterLayout, newRun, apply, replay, draftOffers, RunError, MAX_REPLAY_ACTIONS, actionBudget, sanitizeSeed, isTutorialSeed, TUTORIAL_SEED, TUTORIAL_SPARE_CONVEYORS } from '../game/src/sim/run';
+import { starterLayout, newRun, apply, replay, draftOffers, rerollOffers, canReroll, validateAction, RunError, MAX_REPLAY_ACTIONS, actionBudget, sanitizeSeed, isTutorialSeed, TUTORIAL_SEED, TUTORIAL_SPARE_CONVEYORS } from '../game/src/sim/run';
 import { createHash } from 'node:crypto';
 import { exportReplay, decodeReplay, encodeReplay, verifyReplay, validateReplayFile } from '../game/src/sim/replay';
 import { RULES_VERSION, type Layout, type Machine, type Dir, type MachineKind } from '../game/src/sim/types';
@@ -175,7 +175,7 @@ test('press: two shards become one $8 plate, scrap passes through, absorbed shar
 
 test('rules version 2: new runs carry it, replays from other versions are rejected, press picks replay-verify', () => {
   const s = newRun('press-seed');
-  assert.equal(s.rulesVersion, 2);
+  assert.equal(s.rulesVersion, RULES_VERSION); // the current version, whatever it is (rules-v3 branch: 3)
   // play a run that places a press whenever one is offered
   for (let r = 1; r <= RULES.rounds; r++) {
     const pi = s.offers.indexOf('press'); apply(s, { t: 'pick', i: pi >= 0 ? pi : 0 });
@@ -236,6 +236,84 @@ test('every_live_save_remains_resumable: seed bounds apply at creation and the a
   assert.equal(actionBudget(s).essential >= 0, true);
 });
 
+test('tuner (rules v3, PLAN-v2 0.5.3): adjacent processors hold one tick less on any side, never under one tick, tuners do not stack, nothing else is affected, no item ever enters a tuner', () => {
+  const line = (extra: Machine[]) => runLayout(lay(m('hopper', 0, 1), m('crusher', 1, 1), m('furnace', 2, 1), m('dock', 3, 1), ...extra), 60);
+  const plain = line([]);
+  for (const [x, y] of [[2, 0], [2, 2]] as const) { // above and below the furnace
+    const tuned = line([m('tuner', x, y)]);
+    assert.ok(tuned.shipped.ingot > plain.shipped.ingot, `tuner at ${x},${y}: ${tuned.shipped.ingot} ingots > ${plain.shipped.ingot}`);
+    assert.equal(tuned.cellStats[cellIndex(x, y, 8)]?.tuned, tuned.cellStats[cellIndex(2, 1, 8)]!.processed, 'every item the furnace processed was credited to the tuner');
+  }
+  // left/right of a processor: a tuner beside the crusher (whose hold is 2 → 1) speeds the crusher, not the furnace
+  const side = runLayout(lay(m('hopper', 0, 1), m('crusher', 1, 1), m('dock', 2, 1), m('tuner', 1, 0)), 40);
+  const sidePlain = runLayout(lay(m('hopper', 0, 1), m('crusher', 1, 1), m('dock', 2, 1)), 40);
+  assert.ok(side.shipped.shards >= sidePlain.shipped.shards, 'a crusher next to a tuner holds 1 tick instead of 2');
+  assert.ok((side.cellStats[cellIndex(1, 0, 8)]?.tuned ?? 0) > 0);
+  // two tuners do not stack and the hold never drops under one tick: crusher 2 → 1 with one tuner equals two tuners
+  const two = runLayout(lay(m('hopper', 0, 1), m('crusher', 1, 1), m('dock', 2, 1), m('tuner', 1, 0), m('tuner', 1, 2)), 40);
+  assert.equal(two.shipped.shards, side.shipped.shards, 'the second tuner adds nothing');
+  assert.equal((two.cellStats[cellIndex(1, 0, 8)]?.tuned ?? 0) + (two.cellStats[cellIndex(1, 2, 8)]?.tuned ?? 0), side.cellStats[cellIndex(1, 0, 8)]?.tuned, 'one credit per item, to one tuner');
+  // non-processors are untouched: a tuner beside conveyors and the dock changes nothing
+  const conv = runLayout(lay(m('hopper', 0, 1), m('conveyor', 1, 1), m('conveyor', 2, 1), m('dock', 3, 1), m('tuner', 1, 0), m('tuner', 3, 0)), 40);
+  const convPlain = runLayout(lay(m('hopper', 0, 1), m('conveyor', 1, 1), m('conveyor', 2, 1), m('dock', 3, 1)), 40);
+  assert.equal(conv.earned, convPlain.earned); assert.equal((conv.cellStats[cellIndex(1, 0, 8)]?.tuned ?? 0) + (conv.cellStats[cellIndex(3, 0, 8)]?.tuned ?? 0), 0);
+  // nothing enters a tuner: a hopper facing it is blocked
+  const blocked = runLayout(lay(m('hopper', 0, 1), m('tuner', 1, 1)), 10);
+  assert.equal(blocked.spawned, 0); assert.ok((blocked.cellStats[cellIndex(0, 1, 8)]?.blockedTicks ?? 0) > 0);
+  // conservation holds with tuners in the line
+  const t = line([m('tuner', 2, 0)]);
+  assert.ok(t.spawned >= Object.values(t.shipped).reduce((a, b) => a + b, 0) + t.absorbed);
+});
+
+test('reroll (rules v3, PLAN-v2 0.5.4): once per round in the draft for RULES.rerollCost from the score, refused below the cost, in other phases and in the tutorial; later rounds never change; replays verify; accounting holds', () => {
+  // boundary on the pure predicate
+  const base = newRun('reroll-seed');
+  assert.match(canReroll({ ...base, score: RULES.rerollCost - 1 }) ?? '', /cannot afford/);
+  assert.equal(canReroll({ ...base, score: RULES.rerollCost }), null, 'exactly the cost is enough');
+  assert.equal(canReroll({ ...base, score: RULES.rerollCost + 1 }), null);
+  assert.match(canReroll({ ...base, score: 999, phase: 'build' }) ?? '', /not drafting/);
+  assert.match(canReroll({ ...base, score: 999, rerolledRound: 1 }) ?? '', /already used/);
+  assert.match(canReroll({ ...newRun(TUTORIAL_SEED), score: 999 }) ?? '', /tutorial/);
+  // through apply: a starter round earns $38, which cannot buy a $40 reroll in round 2
+  const poor = newRun('reroll-poor'); apply(poor, { t: 'pick', i: 0 }); apply(poor, { t: 'run' }); apply(poor, { t: 'next' });
+  assert.ok(poor.score < RULES.rerollCost); assert.throws(() => apply(poor, { t: 'reroll' }), RunError);
+  // a crusher round affords one: offers change, score drops by the cost, a second reroll is refused, rounds 3–6 are identical to a run that never rerolled
+  const play = (reroll: boolean) => {
+    const s = newRun('reroll-rich');
+    for (let r = 1; r <= RULES.rounds; r++) {
+      if (r === 2 && reroll) { const before = s.offers.slice(); const score = s.score; apply(s, { t: 'reroll' }); assert.equal(s.score, score - RULES.rerollCost); assert.equal(s.rerolls, 1); assert.notDeepEqual(s.offers, before, 'new offers'); assert.throws(() => apply(s, { t: 'reroll' }), RunError, 'once per round'); }
+      apply(s, { t: 'pick', i: Math.max(0, s.offers.indexOf('crusher')) });
+      if (r === 1) { const old = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!; const pick = s.bin[s.bin.length - 1]; apply(s, { t: 'unplace', id: old.id }); apply(s, { t: 'place', id: pick.id, x: 2, y: 2, dir: 0 }); }
+      assert.throws(() => apply(s, { t: 'reroll' }), RunError, 'not in the build phase');
+      apply(s, { t: 'run' });
+      assert.throws(() => apply(s, { t: 'reroll' }), RunError, 'not in the result phase');
+      apply(s, { t: 'next' });
+    }
+    return s;
+  };
+  const a = play(true), b = play(false);
+  assert.ok(a.score >= RULES.rerollCost + 38, 'round 1 with a crusher affords the reroll');
+  for (const r of [3, 4, 5, 6]) assert.deepEqual(draftOffers('reroll-rich', r), draftOffers('reroll-rich', r), 'offers are a pure function of (seed, round)');
+  assert.deepEqual(a.rounds.map((x) => x.round), b.rounds.map((x) => x.round));
+  assert.notDeepEqual(rerollOffers('reroll-rich', 2), draftOffers('reroll-rich', 2), 'the reroll stream differs from the draft stream');
+  // accounting: score = production + sales − rerolls
+  assert.equal(a.score, a.rounds.reduce((t, x) => t + x.earned, 0) + a.sold - a.rerolls * RULES.rerollCost);
+  // the replay carries the reroll and verifies; a permuted-key copy is the same canonical action
+  const v = verifyReplay(exportReplay(a)); assert.deepEqual({ ok: v.ok, score: v.score }, { ok: true, score: a.score });
+  assert.ok(exportReplay(a).actions.some((x) => x.t === 'reroll'));
+  assert.equal(validateAction({ t: 'reroll' }), true); assert.equal(validateAction({ t: 'reroll', i: 1 }), false);
+});
+
+test('round-tiered offers (PLAN-v2 0.5.3): the tuner is never offered before round 3, the seven 0.2.0 machines are available in every round, offers depend on seed and round only', () => {
+  const seen: Record<number, Set<string>> = {};
+  for (let i = 0; i < 300; i++) for (let r = 1; r <= RULES.rounds; r++) for (const k of draftOffers(`tier-${i}`, r)) (seen[r] ||= new Set()).add(k);
+  for (const r of [1, 2]) assert.ok(!seen[r].has('tuner'), `no tuner in round ${r}`);
+  assert.ok([3, 4, 5, 6].some((r) => seen[r].has('tuner')), 'the tuner is offered from round 3');
+  for (let r = 1; r <= RULES.rounds; r++) for (const k of ['conveyor', 'crusher', 'furnace', 'splitter', 'hopper', 'press', 'dock']) assert.ok(seen[r].has(k), `${k} is offered in round ${r} over 300 seeds`);
+  assert.ok(![...Object.values(seen)].some((s) => s.has('sieve')), 'the experimental sieve is never offered');
+  assert.deepEqual(draftOffers('tier-7', 4), draftOffers('tier-7', 4), 'deterministic per (seed, round)');
+});
+
 test('tutorial seed (PLAN-v1 0.3.4): rounds 1-3 offer one machine each, three spare conveyors start in the bin, rounds 4-6 draft normally; every other seed\'s offers are byte-identical to before', () => {
   assert.equal(isTutorialSeed(TUTORIAL_SEED), true); assert.equal(isTutorialSeed('tutorial-x'), true); assert.equal(isTutorialSeed('junkyard'), false);
   assert.deepEqual([1, 2, 3].map((r) => draftOffers(TUTORIAL_SEED, r)), [['crusher'], ['furnace'], ['splitter']]);
@@ -246,7 +324,7 @@ test('tutorial seed (PLAN-v1 0.3.4): rounds 1-3 offer one machine each, three sp
   // snapshot taken before the tutorial table existed: the offer streams of ordinary seeds are unchanged
   const h = createHash('sha256'); for (let i = 0; i < 50; i++) for (let r = 1; r <= 6; r++) h.update(JSON.stringify(draftOffers('snap-' + i, r)));
   for (const seed of ['junkyard', 'e2e-seed', 'auto-12', 'daily-2026-10-29']) for (let r = 1; r <= 6; r++) h.update(JSON.stringify(draftOffers(seed, r)));
-  assert.equal(h.digest('hex'), 'b016e31a9c475896802de783e19133a03b107d0538936e4b2dba473558f28144', 'OFFERS_SNAPSHOT: draftOffers for non-tutorial seeds must not change without a RULES_VERSION bump');
+  assert.equal(h.digest('hex'), 'f02d6c589664e9af03d5f484f8db16d5d2ce9458c8da941acbea0228712a9959', 'OFFERS_SNAPSHOT: draftOffers for non-tutorial seeds must not change without a RULES_VERSION bump (rules v3: the tuner joins the pool from round 3, so the v2 snapshot b016e31a… was retired with the bump)');
   // a tutorial run replays and verifies like any other
   apply(s, { t: 'pick', i: 0 });
   assert.throws(() => apply(s, { t: 'pick', i: 1 }), RunError, 'only one offer exists');

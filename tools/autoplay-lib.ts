@@ -1,4 +1,4 @@
-import { apply, newRun, type Action, type RunState } from '../game/src/sim/run';
+import { apply, newRun, canReroll, type Action, type RunState } from '../game/src/sim/run';
 import { runLayout } from '../game/src/sim/sim';
 import { Rng } from '../game/src/sim/rng';
 import type { Dir, Layout, Machine, MachineKind } from '../game/src/sim/types';
@@ -91,7 +91,7 @@ export function scoreSanityBound(): number {
 export function playSeed(seed: string, rng: Rng, tries = 150, opts: PlayOptions = {}): { report: SeedReport; actions: Action[] } {
   const s: RunState = newRun(seed);
   const policy = opts.policy ?? 'greedy';
-  let flatRounds = 0; let ingots = 0; const rerolls = 0; // reroll arrives with rules v3 (PLAN-v2 0.5.4); the policy hook is accepted now so callers need no change
+  let flatRounds = 0; let ingots = 0; let rerolls = 0;
   const offers: MachineKind[][] = [];
   while (s.phase !== 'finished') {
     // pick: evaluate each offer by a short search, choose the best resulting score
@@ -104,6 +104,19 @@ export function playSeed(seed: string, rng: Rng, tries = 150, opts: PlayOptions 
       const part: Machine = { id: 9000 + i, kind: s.offers[i], x: -1, y: -1, dir: 0 };
       const r = improve(trial.layout, [...trial.bin, part], new Rng(`${seed}:${s.round}:${i}`), Math.max(10, Math.floor(tries / 3)), 4, policy);
       if (r.earned > bestVal) { bestVal = r.earned; bestI = i; }
+    }
+    // greedy reroll policy (rules v3): when the best offer is worth less than the reroll over the rounds it would serve, buy new offers once and re-evaluate
+    if (opts.rerollPolicy === 'greedy' && canReroll(s) === null && (bestVal - baseScore) * (RULES.rounds - s.round + 1) < RULES.rerollCost / 2) { // reroll only when the best offer is worth less than half the price over the rounds it would serve
+      apply(s, { t: 'reroll' }); rerolls++;
+      offers[offers.length - 1] = s.offers.slice();
+      bestI = 0; bestVal = -1;
+      const allowed2 = s.offers.map((k, i) => i).filter((i) => !opts.ban?.has(s.offers[i]));
+      for (const i of allowed2.length ? allowed2 : s.offers.map((_, i) => i)) {
+        const trial = { ...s, layout: clone(s.layout), bin: s.bin.slice() };
+        const part: Machine = { id: 9000 + i, kind: s.offers[i], x: -1, y: -1, dir: 0 };
+        const r = improve(trial.layout, [...trial.bin, part], new Rng(`${seed}:${s.round}:reroll:${i}`), Math.max(10, Math.floor(tries / 3)), 4, policy);
+        if (r.earned > bestVal) { bestVal = r.earned; bestI = i; }
+      }
     }
     if (bestVal <= baseScore) flatRounds++; // no offer improved the line this round
     apply(s, { t: 'pick', i: bestI });

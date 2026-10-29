@@ -1,19 +1,19 @@
 {
- "rulesVersion": 2,
+ "rulesVersion": 3,
  "generatedBy": "tools/make-golden.ts",
  "entries": [
   {
    "file": "golden-ordinary-1.json",
    "seed": "golden-ordinary-1",
-   "score": 1814,
-   "actions": 106,
+   "score": 1758,
+   "actions": 99,
    "note": "autoplayer line (bounded search, fixed rng stream)"
   },
   {
    "file": "golden-ordinary-2.json",
    "seed": "golden-ordinary-2",
-   "score": 1466,
-   "actions": 105,
+   "score": 1974,
+   "actions": 111,
    "note": "autoplayer line (bounded search, fixed rng stream)"
   },
   {
@@ -36,6 +36,13 @@
    "score": 684,
    "actions": 30,
    "note": "rotate/unplace/re-place churn in round 1 (what undo/redo records)"
+  },
+  {
+   "file": "golden-reroll.json",
+   "seed": "golden-reroll",
+   "score": 644,
+   "actions": 21,
+   "note": "crusher at (2,2) in round 1, a reroll (−$40) before the round-2 pick"
   },
   {
    "file": "tutorial-1.json",

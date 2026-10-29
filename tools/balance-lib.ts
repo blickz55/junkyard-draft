@@ -17,7 +17,8 @@ import type { MachineKind } from '../game/src/sim/types';
 import { Rng } from '../game/src/sim/rng';
 import { exportReplay, verifyReplay } from '../game/src/sim/replay';
 import { apply, newRun, type Action } from '../game/src/sim/run';
-import { playSeed, scoreSanityBound, type SearchPolicy, type SeedReport } from './autoplay-lib';
+import { playSeed, scoreSanityBound, type RerollPolicy, type SearchPolicy, type SeedReport } from './autoplay-lib';
+import { RULES as R2 } from '../game/src/sim/rules';
 
 export interface Variant { label: string; ban?: boolean; /** dotted RULES paths to override, e.g. { "process.press": 1, "value.plate": 9 } */ rules?: Record<string, number> }
 export interface BalanceOptions {
@@ -118,6 +119,46 @@ export function runBalance(o: BalanceOptions): BalanceResult {
     meta: { rulesVersion: RULES_VERSION, build: o.build ?? process.env.JD_BUILD ?? 'dev', machine: o.machine, seeds: o.seeds, tries: o.tries, prefix, policies, searchStream: '${seed}:search:${policy}', offerStream: '${seed}:draft:${round} (sim)', sanityBound: scoreSanityBound(), ms: Date.now() - t0, at: new Date().toISOString() },
     policies: results, actions,
   };
+}
+
+/** Reroll study (PLAN-v2 0.5.4): the same seeds with and without the greedy reroll policy; paired deltas, reroll rate, verified actions. */
+export interface RerollStudy {
+  meta: { rulesVersion: number; seeds: number; tries: number; prefix: string; policy: SearchPolicy; rerollCost: number; ms: number; at: string };
+  paired: { seed: string; never: number; greedy: number; delta: number; rerolls: number }[];
+  summary: { meanNever: number; meanGreedy: number; meanDelta: number; seedsBetter: number; seedsWorse: number; seedsEqual: number; rerolls: number; rounds: number; rerollRate: number; maxLoss: number };
+  verified: boolean; unverified: string[];
+  actions: Record<string, Record<string, Action[]>>;
+}
+export function runRerollStudy(o: { seeds: number; tries: number; prefix?: string; policy?: SearchPolicy }): RerollStudy {
+  const t0 = Date.now(); const prefix = o.prefix ?? 'rr'; const policy = o.policy ?? 'greedy';
+  const paired: RerollStudy['paired'] = []; const unverified: string[] = []; const actions: RerollStudy['actions'] = { never: {}, greedy: {} };
+  for (let i = 0; i < o.seeds; i++) {
+    const seed = `${prefix}-${i}`;
+    const a = playSeed(seed, new Rng(`${seed}:search:${policy}`), o.tries, { policy, rerollPolicy: 'never' });
+    const b = playSeed(seed, new Rng(`${seed}:search:${policy}`), o.tries, { policy, rerollPolicy: 'greedy' });
+    if (!verifyActions(seed, a.actions, a.report.score)) unverified.push(`never/${seed}`);
+    if (!verifyActions(seed, b.actions, b.report.score)) unverified.push(`greedy/${seed}`);
+    actions.never[seed] = a.actions; actions.greedy[seed] = b.actions;
+    paired.push({ seed, never: a.report.score, greedy: b.report.score, delta: b.report.score - a.report.score, rerolls: b.report.rerolls });
+  }
+  const deltas = paired.map((p) => p.delta); const rerolls = paired.reduce((s, p) => s + p.rerolls, 0); const rounds = o.seeds * R2.rounds;
+  return {
+    meta: { rulesVersion: RULES_VERSION, seeds: o.seeds, tries: o.tries, prefix, policy, rerollCost: R2.rerollCost, ms: Date.now() - t0, at: new Date().toISOString() },
+    paired,
+    summary: { meanNever: mean(paired.map((p) => p.never)), meanGreedy: mean(paired.map((p) => p.greedy)), meanDelta: mean(deltas), seedsBetter: deltas.filter((d) => d > 0).length, seedsWorse: deltas.filter((d) => d < 0).length, seedsEqual: deltas.filter((d) => d === 0).length, rerolls, rounds, rerollRate: rounds ? +(rerolls / rounds).toFixed(3) : 0, maxLoss: Math.min(0, ...deltas) },
+    verified: unverified.length === 0, unverified, actions,
+  };
+}
+export function gateReroll(r: RerollStudy, t: { rate?: [number, number]; maxSeedsWorse?: number } = {}): { ok: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  const [lo, hi] = t.rate ?? [0.1, 0.3];
+  if (r.summary.rerollRate < lo || r.summary.rerollRate > hi) reasons.push(`reroll rate ${r.summary.rerollRate} outside [${lo}, ${hi}]`);
+  // a fruitless reroll costs exactly its price: a seed may end worse by at most rerolls × cost (the bot paid for information it did not use). A larger loss would mean the rule itself hurts.
+  const overpaid = r.paired.filter((p) => p.delta < -p.rerolls * r.meta.rerollCost);
+  if (overpaid.length) reasons.push(`${overpaid.length} seed(s) lost more than their rerolls cost: ${overpaid.map((p) => `${p.seed} ${p.delta} (${p.rerolls} rerolls)`).join(', ')}`);
+  if (t.maxSeedsWorse != null && r.summary.seedsWorse > t.maxSeedsWorse) reasons.push(`${r.summary.seedsWorse} seed(s) worse with rerolls available (max ${t.maxSeedsWorse}): ${r.paired.filter((p) => p.delta < 0).map((p) => `${p.seed} ${p.delta}`).join(', ')}`);
+  if (!r.verified) reasons.push(`${r.unverified.length} score(s) did not replay-verify`);
+  return { ok: reasons.length === 0, reasons };
 }
 
 export interface GateThresholds { /** baseline vs ban: no seed may be worse with the machine allowed */ maxSeedsWorse?: number; /** mean paired delta must exceed this */ minMeanDelta?: number; /** pick rate when offered, inclusive band */ pickRate?: [number, number]; /** every reported score must be replay-verified */ requireVerified?: boolean; /** no score above the derived sanity bound */ sanity?: boolean; /** which policy the gate reads (default greedy, the control) */ policy?: SearchPolicy }

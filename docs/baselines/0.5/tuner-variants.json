@@ -1,0 +1,7 @@
+[
+  { "label": "baseline (tuner from round 3, every processor)" },
+  { "label": "ban tuner (never drafted)", "ban": true },
+  { "label": "tuner from round 4", "rules": { "offerFromRound.tuner": 4 } },
+  { "label": "tuner from round 5", "rules": { "offerFromRound.tuner": 5 } },
+  { "label": "tuner for holds >= 3 only (furnace today)", "rules": { "tunerMinHold": 3 } }
+]
