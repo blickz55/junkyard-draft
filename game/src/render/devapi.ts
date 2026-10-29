@@ -26,6 +26,8 @@ export interface DevApi {
   /** build-phase undo / redo (Ctrl+Z / Ctrl+Y); false when nothing could be undone or redone */
   undo: () => boolean;
   redo: () => boolean;
+  /** stall indicator: HUD text (empty when none), flagged cell index, current sim tick */
+  stall: () => { text: string; cell: number | null; tick: number };
 }
 
 export const devEnabled = () => import.meta.env.DEV || new URLSearchParams(location.search).get('dev') === '1';
@@ -48,6 +50,7 @@ export function installDevApi(scene: GameScene) {
     counters: () => scene.popCounters(),
     undo: () => scene.undo(),
     redo: () => scene.redo(),
+    stall: () => scene.stallInfo(),
   };
   (window as unknown as { __jd: DevApi }).__jd = api;
 }

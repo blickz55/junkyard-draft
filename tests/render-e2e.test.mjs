@@ -18,7 +18,7 @@ const cell = (x, y) => ({ x: GX + x * CELL + CELL / 2, y: GY + y * CELL + CELL /
 
 async function waitServer() { for (let i = 0; i < 60; i++) { try { const r = await fetch(`${URL}/main.js`); if (r.ok) return; } catch {} await wait(500); } throw new Error('dev server did not start'); }
 
-test('renderer: HiDPI canvas, Canvas renderer, WebGL context loss', { timeout: 180000 }, async () => {
+test('renderer and run HUD: HiDPI canvas, Canvas renderer, WebGL context loss, stall marker', { timeout: 180000 }, async () => {
   const server = spawn(process.execPath, [path.join(ROOT, 'scripts/dev.mjs')], { env: { ...process.env, GAME_PORT: String(PORT) }, stdio: 'ignore' });
   let browser;
   try {
@@ -90,6 +90,30 @@ test('renderer: HiDPI canvas, Canvas renderer, WebGL context loss', { timeout: 1
       await api('run'); await api('finishRun');
       await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 15000 });
       assert.deepEqual(errors.filter((e) => !/context/i.test(e)), [], 'no page errors after the restore');
+      await context.close();
+    }
+    // 4) stall_marker_names_the_blocking_cell (PLAN-v1 0.3.5): a head-on conveyor jams the line; within 10 ticks the HUD
+    //    says what is stalled and where, the live total stays at $0, and the marker sits on the first blocking cell
+    {
+      const { context, page, api, errors } = await open('seed=stall-seed');
+      await api('pick', 0);
+      const st = await api('state');
+      const conv = st.layout.machines.find((m) => m.x === 3 && m.y === 2);
+      assert.equal(conv?.kind, 'conveyor');
+      assert.ok(await api('act', { t: 'rotate', id: conv.id })); assert.ok(await api('act', { t: 'rotate', id: conv.id })); // now facing west: head-on to the line
+      await api('run');
+      await page.evaluate(() => { const b = window.__jdGame.scene.getScene('Game').side.getByName('speed-4'); if (b) b.emit('pointerdown'); });
+      const seen = await page.waitForFunction(() => { const s = window.__jd.stall(); return s.text ? s : false; }, null, { timeout: 15000 });
+      const stall = await seen.jsonValue();
+      assert.match(stall.text, /^Stalled: [A-Za-z ]+ at \d,\d is (waiting|blocked) — nothing shipped for 8 ticks$/, stall.text);
+      assert.ok(stall.tick <= 10, `flagged by tick ${stall.tick}`);
+      assert.ok([2 * 8 + 1, 2 * 8 + 2].includes(stall.cell), `first blocking cell is the hopper (1,2) or the conveyor in front of the head-on belt (2,2): got ${stall.cell}`);
+      const hud = await page.evaluate(() => { const s = window.__jdGame.scene.getScene('Game'); return { score: s.children.list.find((o) => o.type === 'Text' && /^\$\d+$/.test(o.text))?.text, mark: !!s.children.getByName('stall-mark')?.visible }; });
+      assert.deepEqual(hud, { score: '$0', mark: true }, 'nothing shipped and the marker is visible');
+      await api('finishRun');
+      await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 15000 });
+      assert.equal((await api('stall')).text, '', 'the marker clears when the round ends');
+      assert.deepEqual(errors, [], 'no page errors');
       await context.close();
     }
   } finally {

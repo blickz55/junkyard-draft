@@ -74,6 +74,15 @@ export class GameScene extends Phaser.Scene {
   private redoStack: Action[] = [];
   private redoing = false;
   private lastShortcutAt = -1000;
+  /** stall indicator (PLAN-v1 0.3.5): tick of the last ship this round, the cell currently flagged, its frame */
+  static readonly STALL_TICKS = 8;
+  private lastShipTick = 0;
+  private stallCell: number | null = null;
+  private stallMark!: Phaser.GameObjects.Image;
+  /** money heartbeat: the HUD total is re-rasterised at most every HUD_MS (a Text update is a canvas draw + texture upload; at 4x it would be one per frame) */
+  static readonly HUD_MS = 100;
+  private hudDirty = false;
+  private lastHudAt = 0;
   /** adaptive resolution: frame deltas of the first 120 running frames at DPR > 1 while renderQuality is still 'auto' */
   private dprProbe: number[] | null = null;
   /** the VALUES legend never changes: built once, re-parented into each panel instead of re-rasterised (12 Text objects per rebuild) */
@@ -115,6 +124,7 @@ export class GameScene extends Phaser.Scene {
     this.buildHud();
     this.hover = this.add.image(0, 0, 'tile-ok').setOrigin(0).setVisible(false).setDepth(5);
     this.ghostGfx = this.add.graphics().setDepth(6);
+    this.stallMark = this.add.image(0, 0, 'tile-sel').setOrigin(0).setDepth(7).setTint(P.red).setVisible(false).setName('stall-mark');
     this.selection = this.add.image(0, 0, 'tile-sel').setOrigin(0).setVisible(false).setDepth(6);
     this.cursorImg = this.add.image(0, 0, 'tile-cursor').setOrigin(0).setVisible(false).setDepth(6);
     this.side = this.add.container(SIDE_X, GRID_Y);
@@ -161,6 +171,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.hud.score = label(this, scoreX, 10, '', 16, CSS.gold, { fontStyle: 'bold' });
     this.hud.best = mono(this, scoreX, 34, '', 11, CSS.dim);
+    this.hud.stall = mono(this, scoreX, 50, '', 11, CSS.red).setName('stall');
     const mute = new Button(this, W - 60, 28, audio.muted ? 'Unmute' : 'Mute', () => { audio.setMuted(!audio.muted); mute.setText(audio.muted ? 'Unmute' : 'Mute'); }, { w: 80, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'mute' });
     new Button(this, W - 160, 28, 'Title', () => this.scene.start('Title'), { w: 70, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'title' });
     this.updateHud();
@@ -594,6 +605,7 @@ export class GameScene extends Phaser.Scene {
     const layout = { width: this.run.layout.width, height: this.run.layout.height, machines: this.run.layout.machines.map((m) => ({ ...m })) };
     this.sim = createSim(layout);
     this.acc = 0; this.mode = 'running';
+    this.lastShipTick = 0; this.hudDirty = false; this.lastHudAt = 0; this.clearStall();
     if (DPR > 1 && !this.dprProbe && loadSettings().renderQuality === 'auto') this.dprProbe = [];
     audio.run();
     this.renderSide();
@@ -627,6 +639,7 @@ export class GameScene extends Phaser.Scene {
     for (const j of this.jamMarks.values()) j.destroy();
     this.jamMarks.clear();
     this.sim = null;
+    this.clearStall();
     for (const v of this.views.values()) { v.img.setScale(1).setTint(0xffffff).setAngle(v.m.dir * 90); }
     this.showSummary();
   }
@@ -652,6 +665,11 @@ export class GameScene extends Phaser.Scene {
       const evs = step(this.sim);
       this.onTickEvents(evs);
       if (this.sim.tick >= RULES.ticksPerRound) { this.endRun(); return; }
+    }
+    if (this.hudDirty && this.sim && now - this.lastHudAt >= GameScene.HUD_MS) {
+      this.hudDirty = false; this.lastHudAt = now;
+      this.hud.score.setText(`$${this.run.score + this.sim.earned}`);
+      if (!prefs.reducedMotion) { this.hud.score.setScale(1.08); this.tweens.add({ targets: this.hud.score, scale: 1, duration: 140, ease: 'Quad.out' }); }
     }
     const phase = Math.min(1, this.acc / this.tickMs);
     this.beltFrame = (this.beltFrame + delta * this.speed * 0.012) % 3;
@@ -726,8 +744,33 @@ export class GameScene extends Phaser.Scene {
       const dockView = [...this.views.values()].find((v) => !v.inBin && cellIndex(v.m.x, v.m.y, RULES.gridWidth) === cell);
       if (dockView && !prefs.reducedMotion) this.tweens.add({ targets: dockView.img, scale: 1.08, duration: 60, yoyo: true });
     }
+    if (ships.size && this.sim) {
+      // money heartbeat: the running total ticks up as items ship (reduced motion: the text changes, nothing pulses)
+      this.lastShipTick = this.sim.tick;
+      this.hudDirty = true;
+    }
     ships.clear();
+    this.updateStall(jammedNow);
   }
+  /** No item shipped for STALL_TICKS while something is jammed or a hopper is blocked: flag the first blocking cell. */
+  private updateStall(jammedNow: Set<number>) {
+    const sim = this.sim;
+    if (!sim || jammedNow.size === 0 || sim.tick - this.lastShipTick < GameScene.STALL_TICKS) { if (this.stallCell != null) this.clearStall(); return; }
+    let cell = Infinity; for (const c of jammedNow) if (c < cell) cell = c;
+    if (cell === this.stallCell) return;
+    this.stallCell = cell;
+    const m = sim.grid[cell];
+    const x = cell % RULES.gridWidth, y = Math.floor(cell / RULES.gridWidth);
+    const what = m ? MACHINE_INFO[m.kind].name : 'Item';
+    this.hud.stall.setText(`Stalled: ${what} at ${x + 1},${y + 1} ${m?.kind === 'hopper' ? 'is blocked' : 'is waiting'} — nothing shipped for ${GameScene.STALL_TICKS} ticks`);
+    const { px, py } = this.cellXY(x, y);
+    this.stallMark.setPosition(px, py).setAlpha(1).setVisible(true);
+    this.tweens.killTweensOf(this.stallMark);
+    if (!prefs.reducedMotion) this.tweens.add({ targets: this.stallMark, alpha: 0.35, duration: 450, yoyo: true, repeat: -1 });
+  }
+  private clearStall() { this.stallCell = null; this.hud.stall?.setText(''); if (this.stallMark) { this.tweens.killTweensOf(this.stallMark); this.stallMark.setVisible(false); } }
+  /** Stall indicator state (dev API / tests): the HUD text and the flagged cell (null when none). */
+  stallInfo() { return { text: this.hud.stall?.text ?? '', cell: this.stallCell, tick: this.sim?.tick ?? -1 }; }
   /** Show "+$value" at a cell using a pooled Text; when all POP_POOL pops are busy the visual is skipped (the counter still ticks). */
   private popAt(x: number, y: number, value: number) {
     let txt = this.popPool.find((t) => !t.visible);

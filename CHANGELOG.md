@@ -11,6 +11,10 @@ older replays and saves on purpose.
 ### Build phase (PLAN-v1 0.3.3)
 - **Undo / redo**: Ctrl+Z removes the last layout edit of the current build phase (place, unplace, rotate, sell), Ctrl+Y or Ctrl+Shift+Z re-applies it; panel buttons "Undo (Ctrl+Z)" and "Redo" track availability. Undo re-derives the state from seed + remaining actions, so the replay stays a flat list of final actions and an undone rotation restores the exact previous facing; nothing is undone across a run or a draft pick. `game/src/sim/undo.ts`.
 
+### During the run (PLAN-v1 0.3.5)
+- **Money heartbeat**: the HUD total counts up as items ship (re-rasterised at most every 100 ms, with a small pulse unless reduced motion).
+- **Stall marker**: when nothing has shipped for 8 ticks while an item is jammed or a hopper is blocked, the HUD names the first blocking cell ("Stalled: Conveyor at 3,3 is waiting — nothing shipped for 8 ticks") and a red frame marks it (static under reduced motion). Clears when items flow again or the round ends. Dev API `stall()`.
+
 ### Rendering and performance
 - **HiDPI**: the canvas is now device-pixel-ratio sized (capped at 2×) and each scene's camera zooms the fixed 1120×700 layout onto it; Text objects rasterise at the same resolution. Pointer handlers read world coordinates. `?dpr=` overrides.
 - **Adaptive resolution**: the first run at high resolution samples 120 frames; a p95 over 20 ms stores `renderQuality: 'low'` so later starts render at 1×, with a hint and a title-screen "Resolution" button to switch back (applies on reload).
@@ -18,8 +22,8 @@ older replays and saves on purpose.
 - **Pooled +$ pops**: one pop per dock per tick from a 16-slot pool (same-tick ships coalesce); the side panel is rebuilt only when its inputs change and the VALUES legend is built once. Text objects created per busy round 208 → 68; script time at 4× CPU throttle −13 to −17 %.
 - **Measurement**: `tools/perf.ts` reports draw calls, texture binds, display-list peak, Text objects created and heap, has `--device A|B|C|D` presets and `--renderer webgl|canvas|both`; `tools/perf-gate.ts` compares a report with a baseline; `.github/workflows/perf.yml` measures preset B on every push and PR (arms once `docs/baselines/<v>/perf-ci.json` is committed). Baselines under `docs/baselines/0.3.0/`.
 
-### Tests (44 → 52)
-advice (3); perf-gate; quality (adaptive decision); undo (2: place→rotate→undo→undo restores the pre-place state and the exported replay verifies; sell refund, run boundary, stale redo); render-e2e: hidpi_canvas_keeps_logical_coordinates, canvas_renderer_completes_a_round, webgl_context_loss_keeps_the_run; game-e2e: pooled_pops_never_exceed_the_pool, undo_restores_facing (Ctrl+Z / Ctrl+Y with the panel buttons' enabled state).
+### Tests (44 → 52, plus a fourth render-e2e step)
+advice (3); perf-gate; quality (adaptive decision); undo (2: place→rotate→undo→undo restores the pre-place state and the exported replay verifies; sell refund, run boundary, stale redo); render-e2e: hidpi_canvas_keeps_logical_coordinates, canvas_renderer_completes_a_round, webgl_context_loss_keeps_the_run, stall_marker_names_the_blocking_cell; game-e2e: pooled_pops_never_exceed_the_pool, undo_restores_facing (Ctrl+Z / Ctrl+Y with the panel buttons' enabled state).
 
 ## Unreleased — 2026-10-26 (external code review response)
 

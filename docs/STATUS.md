@@ -1,4 +1,11 @@
-# Status — 2026-10-29 (PR #1 merged; DOSSIER-v1 slice 0.3.8–0.3.10 and PLAN-v1 0.3.3 done on the PC)
+# Status — 2026-10-29 (PR #1 merged; DOSSIER-v1 slice 0.3.8–0.3.10, PLAN-v1 0.3.3 and 0.3.5 done on the PC)
+
+## Session 2026-10-29 (later still) — PLAN-v1 0.3.5 money heartbeat and stall marker
+- GameScene: ships mark the HUD total dirty; `update()` re-rasterises it at most every 100 ms (`HUD_MS`) with a 140 ms pulse unless reduced motion (a per-ship `setText` at 4× cost a measurable ~1 ms/frame under CPU throttle in the first attempt, so it is coalesced). `updateStall(jammedNow)` after each tick: no ship for `STALL_TICKS` = 8 while any cell is jammed (a blocked hopper emits a `jam` at its own cell) → the lowest jammed cell is flagged: HUD line `Stalled: <machine> at <x>,<y> is waiting|blocked — nothing shipped for 8 ticks` (1-based cell like the summary badges) and a red `tile-sel` frame on the cell, pulsing alpha unless reduced motion; cleared when the stall ends or the round ends. Dev API `stall()` → text, cell, tick.
+- Test: render-e2e step stall_marker_names_the_blocking_cell (head-on conveyor at (3,2); flagged by tick ≤ 10 at the hopper or the conveyor in front of it; total stays $0; marker visible; cleared at the summary). Screenshot checked by eye.
+- Perf: `tools/perf.ts` A/B on the same machine state (stash vs working tree): previous commit 4.06 ms script/frame at 4× CPU throttle, this code 3.76 ms; both above the 2.6 ms baseline because Firefox was busy in the background during this session, so the day's absolute numbers are noise and the A/B is the evidence: no change beyond noise.
+- `npm test` 52/52.
+
 
 ## Session 2026-10-29 (later) — PLAN-v1 0.3.3 undo / redo
 - `game/src/sim/undo.ts`: `canUndo` (building, last action is place/unplace/rotate/sell), `undo` (state re-derived by `replay()` from seed + remaining actions, returns the removed action), `redo` (re-apply if the rules still accept it). The replay stays a flat list of final actions; nothing crosses a run or a pick.
@@ -30,7 +37,7 @@ Numbers after the slice (Chromium headless on this PC, seed auto-12 last round a
 - Not done: tested only in headless Chromium; no human playtest of the arrow legibility.
 
 ## Next task
-PLAN-v1 **0.3.5 live money heartbeat and stall indicator during the run** (S): the running total ticks up per shipped item (the pooled pops and value-scaled chime already exist); when no item has shipped for 8 ticks and the hopper is blocked or a machine is jammed, the HUD shows a small "stalled" marker pointing at the first blocking cell (data in the live jam tint and `CellStats`); reduced motion = text change only. Accept: e2e runs a layout with a deliberate head-on conveyor and asserts the stall marker appears within 10 ticks and names the cell; `tools/perf.ts` shows no script-time change beyond noise. Then 0.3.6 tips panel (M), 0.3.7 funnel events (S/M); 0.3.3 is done. Human-gated items (0.3.1 playtest, installer run, Docker build) still stand.
+PLAN-v1 **0.3.6 dependency-gated tips with live mini-simulations** (M): a "Tips" panel reachable from the title and the build phase; each tip is a 2×3-cell live sim loop rendered with the real renderer (crusher orientation, side-loading merge, splitter alternation, furnace on raw scrap makes slag, press needs two shards, sell from bin); a tip is suggested once (non-modal badge) the first time its machine is drafted and marked read when opened; rejections (0.3.2) pre-empt the hint strip, tips never interrupt. Accept: each tip's loop is produced by `replay()`/`runLayout` on a fixed mini-layout (unit-tested to ship the expected item); e2e: drafting a press for the first time shows the badge, opening marks it read and it does not reappear. Then 0.3.7 opt-in funnel events (S/M); 0.3.3 and 0.3.5 are done. The review follow-up "extract a round/playback controller from GameScene" (M) is now worth taking before 0.3.6 if the scene feels too tangled: it has grown by undo, pools, DPR, stall and heartbeat this week. Human-gated items (0.3.1 playtest, installer run, Docker build) still stand.
 
 # Status — 2026-10-26 (external review of 0.2.0 addressed; routine paused during the fix, re-enabled after)
 
