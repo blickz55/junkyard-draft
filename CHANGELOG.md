@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased — 2026-10-29 (v0.5 foundations on main, PLAN-v2)
 
+### Measurement tools generalised (PLAN-v2 0.5.1)
+- `tools/balance.ts` measures any machine (`--machine`), with tuning variants given as dotted RULES paths in a JSON file, two search policies side by side (greedy as the control, neutral accepting plateau moves), paired per-seed deltas against the banned condition, metadata (rules version, build, budget, rng streams, derived sanity bound), every reported score re-simulated from its recorded actions before it counts, and `--gate` exiting 1 on a failed threshold. `tools/autoplay.ts` gains `--policy`, the plan's dead-end definition (no improving draft in any round) beside the earlier ≥ 4-flat-rounds heuristic, and a sanity bound derived from the rules instead of a guess. The library (`tools/balance-lib.ts`, `tools/autoplay-lib.ts`) is unit-tested, including byte-identical output across two runs.
+
 ### Local records partitioned by rules version (PLAN-v2 0.5.0)
 - Bests and verified submissions are stored per rules version (`jd.bests.v2` / `jd.submissions.v2`: `{ byVersion: { "2": … } }`). The pre-0.5.0 keys migrate once into the rules-2 slot and are removed; settings, player name, onboarding, read tips and days played are untouched. Readers take the current version; bests kept under another version appear on the title as a collapsed "Under rules vN" block (kept, not comparable). This is the prerequisite for the rules-v3 work: after the bump an old best can no longer pose as the current target, and an old submission can no longer block a new result. No rules change.
 
