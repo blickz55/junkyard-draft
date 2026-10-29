@@ -1,13 +1,14 @@
 import { isValidSeed, validateAction, type Action } from '../sim/run';
 import { RULES_VERSION } from '../sim/types';
 import { dailySeed } from '../sim/daily';
+import { normaliseDates, streakOf } from '../daily/streak';
 import { cleanPlayer } from './share';
 
 export { dailySeed };
 
 /** Every record written before 0.5.0 was made under rules version 2; the one-time migration files them there, whatever version runs now. */
 const LEGACY_RECORDS_VERSION = 2;
-const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v2', bestsLegacy: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v2', submissionsLegacy: 'jd.submissions.v1', tips: 'jd.tips.v1', telemetry: 'jd.telemetry.v1', days: 'jd.days.v1' };
+const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v2', bestsLegacy: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v2', submissionsLegacy: 'jd.submissions.v1', tips: 'jd.tips.v1', telemetry: 'jd.telemetry.v1', days: 'jd.days.v1', dailyStreak: 'jd.dailystreak.v1' };
 /**
  * Score records are partitioned by rules version (PLAN-v2 0.5.0): `jd.bests.v2` / `jd.submissions.v2` hold
  * `{ byVersion: { "2": …, "3": … } }`. Readers take the current RULES_VERSION; the other versions are archived for the
@@ -169,6 +170,11 @@ export const clearTelemetryState = () => { try { localStorage.removeItem(K.telem
 export const loadDaysPlayed = (): string[] => { const raw = readRaw(K.days); return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x)).slice(-400) : []; };
 export const recordDayPlayed = (now = new Date()): number => { const d = now.toISOString().slice(0, 10); const all = loadDaysPlayed(); if (!all.includes(d)) { all.push(d); write(K.days, all.slice(-400)); } return all.length; };
 export const daysPlayed = (): number => loadDaysPlayed().length;
+/** UTC dates of the dailies this device submitted and had verified (by the daily's date, PLAN-v3 0.6.3). Distinct, sorted, bounded. */
+export const loadDailyDates = (): string[] => { const raw = readRaw(K.dailyStreak); return Array.isArray(raw) ? normaliseDates(raw.filter((x): x is string => typeof x === 'string')).slice(-400) : []; };
+export const recordDailyDate = (date: string): string[] => { const all = normaliseDates([...loadDailyDates(), date]).slice(-400); write(K.dailyStreak, all); return all; };
+/** Consecutive verified dailies ending today or yesterday (grace: yesterday's daily is still open); 0 once the chain is older. */
+export const currentStreak = (now = new Date()): number => streakOf(loadDailyDates(), now).streak;
 
 /** Tips the player has opened (PLAN-v1 0.3.6); anything but an array of strings reads as none. */
 export const loadReadTips = (): string[] => { const raw = readRaw(K.tips); return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : []; };

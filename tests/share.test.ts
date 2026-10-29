@@ -32,6 +32,11 @@ test('share text: days played and the opt-in permalink append lines; the detaile
   assert.match(shareText({ ...base, daysPlayed: 1 }), /\n1 day played$/);
   assert.match(shareText({ ...base, daysPlayed: 12 }), /\n12 days played$/);
   assert.doesNotMatch(shareText({ ...base, daysPlayed: 0 }), /played/);
+  // streak (PLAN-v3 0.6.3): only the detailed variant, only from two in a row
+  assert.match(shareText({ ...base, daysPlayed: 17, streak: 5, variant: 'detailed' }), /\n17 days · 5 in a row(\n|$)/);
+  assert.match(shareText({ ...base, daysPlayed: 17, streak: 5 }), /\n17 days played(\n|$)/, 'the spoiler-free grid keeps the plain line');
+  assert.match(shareText({ ...base, daysPlayed: 3, streak: 1, variant: 'detailed' }), /\n3 days played(\n|$)/, 'one in a row is not a streak');
+  assert.doesNotMatch(shareText({ ...base, daysPlayed: 0, streak: 9, variant: 'detailed' }), /in a row/);
   const withLink = shareText({ ...base, permalink: 'https://example.test/?scene=game&seed=daily-2026-10-25' });
   assert.match(withLink, /\nhttps:\/\/example\.test\/\?scene=game&seed=daily-2026-10-25$/);
   const detailed = shareText({ ...base, variant: 'detailed', player: 'jon', rank: { n: 3, of: 17 } });

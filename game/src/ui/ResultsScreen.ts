@@ -4,7 +4,8 @@ import { h, btn, ui, textureImg, promptText, showText } from './dom';
 import type { RunState } from '../sim/run';
 import { encodeReplay, exportReplay } from '../sim/replay';
 import { RULES } from '../sim/rules';
-import { dailySeed, daysPlayed, loadBests, loadPlayer, loadSubmissions, randomSeed, recordSubmission, savePlayer } from '../render/storage';
+import { dailySeed, daysPlayed, loadBests, loadPlayer, loadSubmissions, randomSeed, recordSubmission, savePlayer, recordDailyDate, currentStreak } from '../render/storage';
+import { isMintedDailySeed, dailyDateOf } from '../sim/daily';
 import { telemetry } from '../render/telemetry';
 import { shareText, type Rank } from '../render/share';
 import { badgesFor } from '../sim/badges';
@@ -151,6 +152,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       if (!body.ok || !body.entry) { telemetry.track('daily_submit_result', { result: 'rejected' }); setStatus(`Verifier response: ${body.error || 'rejected'}`, 'jd-red'); return; }
       verified = true;
     telemetry.track('daily_submit_result', { result: 'verified' });
+    if (isMintedDailySeed(run.seed)) { const dd = dailyDateOf(run.seed); if (dd) recordDailyDate(dd); } // PLAN-v3 0.6.3: a verified daily (recorded or keep-best) counts for the streak by the daily's date; late ones returned above
     const label = body.player || player;
     scene.lastPlayer = label;
     if (body.recorded === false) { // keep-best (PLAN-v3 0.6.0): verified, but an earlier run of this player on this seed ranks at least as well
@@ -177,7 +179,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
   // share (PLAN-v1 0.4.3): spoiler-free glyph grid by default, per-round dollars in the detailed variant, link only on request
   const linkToggle = h('input', { type: 'checkbox', tid: 'share-link', ariaLabel: 'append a link to this seed' });
   const permalink = () => (linkToggle.checked ? `${location.origin}${location.pathname}?scene=game&seed=${encodeURIComponent(run.seed)}` : undefined);
-  const buildShare = (variant: 'grid' | 'detailed') => shareText({ seed: run.seed, score: run.score, rulesVersion: run.rulesVersion, rounds: run.rounds.map((r) => r.earned), player: scene.lastPlayer || undefined, rank: scene.lastRank, percentile: scene.lastPercentile, n: scene.lastN, daysPlayed: daysPlayed(), permalink: permalink(), variant, rerolls: run.rerolls, badges: badgesFor(run, botPar).map((b) => b.title) });
+  const buildShare = (variant: 'grid' | 'detailed') => shareText({ seed: run.seed, score: run.score, rulesVersion: run.rulesVersion, rounds: run.rounds.map((r) => r.earned), player: scene.lastPlayer || undefined, rank: scene.lastRank, percentile: scene.lastPercentile, n: scene.lastN, daysPlayed: daysPlayed(), streak: currentStreak(), permalink: permalink(), variant, rerolls: run.rerolls, badges: badgesFor(run, botPar).map((b) => b.title) });
   const shareBtn = btn('Copy share text', 'share', () => {
     const text = buildShare('grid'); scene.lastShareText = text;
     telemetry.track('share_copied', { variant: 'grid' });

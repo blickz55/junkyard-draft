@@ -5,6 +5,10 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.6, PLAN-v3)
 
+### 0.6.3 Days played and streak, with grace — 2026-10-30
+- **For players.** The title now says "17 days played · 5 in a row". The streak counts consecutive dailies you submitted and had verified, by the daily's date: yesterday's daily is open until midnight UTC tonight, so playing it today keeps the chain whole. When a chain ends the line simply shows the plain count again, with no loss message, colour or notification. The detailed share text says "17 days · 5 in a row" once you are at two or more. Everything is UTC, so travelling never changes the count.
+- **For operators.** Client-only: `jd.dailystreak.v1` holds the dates (distinct, validated, bounded), recorded when a run on a minted daily seed is verified (recorded or keep-best; late runs do not count). No protocol or rules change.
+
 ### 0.6.2 The 48-hour window, freeze and archive — 2026-10-30
 - **For players.** Every daily closes 48 hours after 00:00 UTC of its date, the same moment for everyone. Until then the title strip says "provisional · closes in 31 h"; after it the board is final and never changes. A run submitted after the close is still re-simulated and you are told its verified score, but it does not join the board. The new **Archive** button on the title lists closed days with their final top entry, bot par and number of verified runs; any day can be played as practice (the HUD says "archived daily (practice)") and its best replay watched.
 - **For operators.** `/daily` carries `closesAt`, `frozenAt`, `final` and the server clock `now`; freeze is derived from the clock, recorded once (`frozenAt = closesAt`), idempotent and persisted. `POST /verify` after the close answers `{ ok: true, score, late: true, recorded: false, closesAt }`. New `GET /archive?from=&to=&limit=` lists frozen days newest first with `nextTo` for paging. A day's bot par is never dropped by the par cache cap. Protocol stays 2 (additive). No rules change.

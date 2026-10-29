@@ -124,6 +124,20 @@ test('records are partitioned by rules version (PLAN-v2 0.5.0): a real v2 profil
   store.clear();
 });
 
+test('daily streak dates (PLAN-v3 0.6.3): distinct, sorted, validated, bounded; the streak reads them with grace', () => {
+  store.delete('jd.dailystreak.v1');
+  assert.deepEqual(storage.loadDailyDates(), []); assert.equal(storage.currentStreak(new Date('2026-10-29T12:00:00Z')), 0);
+  assert.deepEqual(storage.recordDailyDate('2026-10-28'), ['2026-10-28']);
+  assert.deepEqual(storage.recordDailyDate('2026-10-27'), ['2026-10-27', '2026-10-28']);
+  assert.deepEqual(storage.recordDailyDate('2026-10-28'), ['2026-10-27', '2026-10-28'], 'idempotent');
+  assert.equal(storage.currentStreak(new Date('2026-10-29T12:00:00Z')), 2, 'yesterday\'s daily keeps the chain alive');
+  assert.equal(storage.currentStreak(new Date('2026-10-30T12:00:00Z')), 0, 'two days later the chain is over');
+  store.set('jd.dailystreak.v1', JSON.stringify(['2026-01-02', 5, 'nope', null, '2026-01-01', '2026-01-02']));
+  assert.deepEqual(storage.loadDailyDates(), ['2026-01-01', '2026-01-02']);
+  store.set('jd.dailystreak.v1', '"junk"'); assert.deepEqual(storage.loadDailyDates(), []);
+  store.delete('jd.dailystreak.v1');
+});
+
 test('days played: one entry per UTC date, malformed rows dropped, bounded', () => {
   store.delete('jd.days.v1');
   assert.equal(storage.daysPlayed(), 0);

@@ -394,6 +394,15 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.waitForFunction(() => { const t = document.querySelector('[data-testid=daily-board]')?.textContent || ''; return /^You: #1 of 1 \(\$\d+\)/.test(t) && /1\. \$\d+ e2e player/.test(t); }, null, { timeout: 15000 });
     assert.match(await page.getByTestId('daily-mode').textContent(), /^minted · ranked · provisional · closes in \d+ (h|min)$/); assert.equal(await page.getByTestId('daily-seed').textContent(), `seed ${dinfo.seed}`);
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.daily.v1'))).seed, dinfo.seed, 'the minted seed is cached for the day');
+    // streak with grace (PLAN-v3 0.6.3): the title line counts consecutive verified dailies ending today or yesterday; a broken chain just shows the plain count
+    const dayBack = (n) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+    await page.evaluate((ds) => localStorage.setItem('jd.dailystreak.v1', JSON.stringify(ds)), [dayBack(1), dayBack(2), dayBack(4)]);
+    await page.reload(); await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+    assert.match(await page.getByTestId('today-line').textContent(), / · 1 day played · 2 in a row$/, 'yesterday and the day before: alive through the grace window, the gap before does not count');
+    await page.evaluate((ds) => localStorage.setItem('jd.dailystreak.v1', JSON.stringify(ds)), [dayBack(2), dayBack(3)]);
+    await page.reload(); await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+    assert.match(await page.getByTestId('today-line').textContent(), / · 1 day played$/, 'a chain that ended two days back shows the plain count, no loss copy');
+    await page.evaluate(() => localStorage.removeItem('jd.dailystreak.v1'));
     // window, freeze, archive (PLAN-v3 0.6.2): a day two days back closed at 00:00 UTC today: final, a run on it verifies as late and never ranks, the archive lists it
     const twoBack = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
     const old = await (await fetch(`http://127.0.0.1:${VPORT}/daily?date=${twoBack}`)).json();

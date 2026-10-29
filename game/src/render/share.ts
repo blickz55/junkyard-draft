@@ -13,6 +13,8 @@ export interface ShareInput {
   percentile?: number | null; n?: number;
   /** UTC days with at least one finished run on this device */
   daysPlayed?: number;
+  /** consecutive verified dailies (PLAN-v3 0.6.3); the detailed variant says "17 days · 5 in a row" from two */
+  streak?: number;
   /** appended only when the player opts in */
   permalink?: string;
   variant?: 'grid' | 'detailed';
@@ -62,7 +64,7 @@ export function shareText(s: ShareInput): string {
     lines.push(s.rank ? `replay re-simulated by the verifier, rules v${s.rulesVersion}` : `rules v${s.rulesVersion}`);
     if (s.rank && s.badges?.length) lines.push(`badges: ${s.badges.join(' · ')}`);
   }
-  if (s.daysPlayed && s.daysPlayed > 0) lines.push(`${s.daysPlayed} day${s.daysPlayed === 1 ? '' : 's'} played`);
+  if (s.daysPlayed && s.daysPlayed > 0) lines.push(s.variant === 'detailed' && s.streak && s.streak >= 2 ? `${s.daysPlayed} day${s.daysPlayed === 1 ? '' : 's'} · ${s.streak} in a row` : `${s.daysPlayed} day${s.daysPlayed === 1 ? '' : 's'} played`);
   if (s.permalink) lines.push(s.permalink);
   return lines.join('\n');
 }
