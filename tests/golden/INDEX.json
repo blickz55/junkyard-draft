@@ -38,6 +38,13 @@
    "note": "rotate/unplace/re-place churn in round 1 (what undo/redo records)"
   },
   {
+   "file": "golden-reroll.json",
+   "seed": "golden-reroll",
+   "score": 644,
+   "actions": 21,
+   "note": "crusher at (2,2) in round 1, a reroll (−$40) before the round-2 pick"
+  },
+  {
    "file": "tutorial-1.json",
    "seed": "tutorial-1",
    "score": 684,

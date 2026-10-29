@@ -27,6 +27,9 @@ export function explainRunError(message: string): string {
   if (m.includes('only bin parts')) return 'Only parts still in the bin can be sold; take a placed machine back to the bin first.';
   if (m.includes('action limit')) return 'This run has used up its edit budget: run the round and move on.';
   if (m.includes('round not finished')) return 'The round is still in progress.';
+  if (m.includes('already used this round')) return 'One reroll per round: pick from these offers.';
+  if (m.includes('cannot afford')) { const amt = message.match(/\$(\d+)/)?.[1]; return `A reroll costs $${amt ?? ''} from your score; you cannot afford one yet.`; }
+  if (m.includes('no rerolls in the tutorial')) return 'The tutorial has fixed offers; rerolls come in normal runs.';
   if (m.includes('no machine')) return 'That machine is no longer there.';
   if (m.includes('malformed') || m.includes('unknown action')) return 'That action is not allowed.';
   return `Not allowed: ${message}`;

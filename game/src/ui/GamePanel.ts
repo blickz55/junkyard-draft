@@ -7,7 +7,8 @@
  */
 import type Phaser from 'phaser';
 import { h, btn, ui, textureImg } from './dom';
-import type { RunState } from '../sim/run';
+import { canReroll, type RunState } from '../sim/run';
+import { explainRunError } from '../sim/advice';
 import type { Machine, Material } from '../sim/types';
 import { MACHINE_INFO, RULES } from '../sim/rules';
 import { cellIndex } from '../sim/sim';
@@ -28,6 +29,8 @@ export interface PanelState {
 export interface PanelActions {
   pick(i: number): void; startRun(): void; setPaused(p: boolean): void; finishRun(): void; stopReplay(): void; setSpeed(s: number): void;
   undo(): void; redo(): void; openTips(): void; rotateSelected(): void; toBin(id: number): void; sell(id: number): void; nextRound(): void; toTitle(): void; toggleMute(): boolean;
+  /** buy new offers (rules v3): the scene applies { t: 'reroll' } through the controller */
+  reroll(): void;
 }
 
 /** Canvas-logical pixels → CSS length that follows the canvas scale and ignores local font-size (em would shrink inside small-text elements). */
@@ -97,7 +100,7 @@ export class GamePanel {
   // ---------- side panel ----------
   private keyOf(s: PanelState): string {
     const sel = s.selected;
-    return JSON.stringify([s.mode, s.run.phase, s.run.round, s.run.offers, s.run.bin.length, s.run.layout.machines.length, s.speed, s.replayLabel, !!s.replayRounds, sel ? [sel.id, sel.kind, sel.dir, sel.x >= 0] : null, s.playbackPending, s.canUndo, s.canRedo, s.tipsBadge, s.tipsOpen]);
+    return JSON.stringify([s.mode, s.run.phase, s.run.round, s.run.offers, s.run.rerolledRound, s.run.score, s.run.bin.length, s.run.layout.machines.length, s.speed, s.replayLabel, !!s.replayRounds, sel ? [sel.id, sel.kind, sel.dir, sel.x >= 0] : null, s.playbackPending, s.canUndo, s.canRedo, s.tipsBadge, s.tipsOpen]);
   }
   /** Rebuild the side panel if its inputs changed. */
   render(s: PanelState) {
@@ -141,6 +144,11 @@ export class GamePanel {
           h('span', { class: 'jd-dim jd-offer-key' }, `[${i + 1}]`));
         this.side.append(card);
       });
+      if (!s.replayLabel) {
+        const why = canReroll(r);
+        const rerollBtn = btn(`Reroll offers (−$${RULES.rerollCost})`, 'reroll', () => { if (!s.playbackPending) this.actions.reroll(); }, { small: true, disabled: !!why || s.playbackPending, title: why ? explainRunError(why) : 'Once per round. New offers come from their own stream, so later rounds never change.' });
+        this.side.append(h('div', { class: 'jd-row', style: 'margin-top:0.5em; gap:0.6em; align-items:center' }, rerollBtn, h('span', { class: 'jd-dim', tid: 'reroll-note', style: 'font-size:0.75em' }, why ? explainRunError(why) : `paid from your $${r.score}; once per round`)));
+      }
       this.side.append(this.legend());
       return;
     }

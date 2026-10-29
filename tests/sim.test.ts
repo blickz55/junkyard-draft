@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSim, runLayout, step, cellIndex } from '../game/src/sim/sim';
 import { RULES } from '../game/src/sim/rules';
-import { starterLayout, newRun, apply, replay, draftOffers, RunError, MAX_REPLAY_ACTIONS, actionBudget, sanitizeSeed, isTutorialSeed, TUTORIAL_SEED, TUTORIAL_SPARE_CONVEYORS } from '../game/src/sim/run';
+import { starterLayout, newRun, apply, replay, draftOffers, rerollOffers, canReroll, validateAction, RunError, MAX_REPLAY_ACTIONS, actionBudget, sanitizeSeed, isTutorialSeed, TUTORIAL_SEED, TUTORIAL_SPARE_CONVEYORS } from '../game/src/sim/run';
 import { createHash } from 'node:crypto';
 import { exportReplay, decodeReplay, encodeReplay, verifyReplay, validateReplayFile } from '../game/src/sim/replay';
 import { RULES_VERSION, type Layout, type Machine, type Dir, type MachineKind } from '../game/src/sim/types';
@@ -263,6 +263,45 @@ test('tuner (rules v3, PLAN-v2 0.5.3): adjacent processors hold one tick less on
   // conservation holds with tuners in the line
   const t = line([m('tuner', 2, 0)]);
   assert.ok(t.spawned >= Object.values(t.shipped).reduce((a, b) => a + b, 0) + t.absorbed);
+});
+
+test('reroll (rules v3, PLAN-v2 0.5.4): once per round in the draft for RULES.rerollCost from the score, refused below the cost, in other phases and in the tutorial; later rounds never change; replays verify; accounting holds', () => {
+  // boundary on the pure predicate
+  const base = newRun('reroll-seed');
+  assert.match(canReroll({ ...base, score: RULES.rerollCost - 1 }) ?? '', /cannot afford/);
+  assert.equal(canReroll({ ...base, score: RULES.rerollCost }), null, 'exactly the cost is enough');
+  assert.equal(canReroll({ ...base, score: RULES.rerollCost + 1 }), null);
+  assert.match(canReroll({ ...base, score: 999, phase: 'build' }) ?? '', /not drafting/);
+  assert.match(canReroll({ ...base, score: 999, rerolledRound: 1 }) ?? '', /already used/);
+  assert.match(canReroll({ ...newRun(TUTORIAL_SEED), score: 999 }) ?? '', /tutorial/);
+  // through apply: a starter round earns $38, which cannot buy a $40 reroll in round 2
+  const poor = newRun('reroll-poor'); apply(poor, { t: 'pick', i: 0 }); apply(poor, { t: 'run' }); apply(poor, { t: 'next' });
+  assert.ok(poor.score < RULES.rerollCost); assert.throws(() => apply(poor, { t: 'reroll' }), RunError);
+  // a crusher round affords one: offers change, score drops by the cost, a second reroll is refused, rounds 3–6 are identical to a run that never rerolled
+  const play = (reroll: boolean) => {
+    const s = newRun('reroll-rich');
+    for (let r = 1; r <= RULES.rounds; r++) {
+      if (r === 2 && reroll) { const before = s.offers.slice(); const score = s.score; apply(s, { t: 'reroll' }); assert.equal(s.score, score - RULES.rerollCost); assert.equal(s.rerolls, 1); assert.notDeepEqual(s.offers, before, 'new offers'); assert.throws(() => apply(s, { t: 'reroll' }), RunError, 'once per round'); }
+      apply(s, { t: 'pick', i: Math.max(0, s.offers.indexOf('crusher')) });
+      if (r === 1) { const old = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!; const pick = s.bin[s.bin.length - 1]; apply(s, { t: 'unplace', id: old.id }); apply(s, { t: 'place', id: pick.id, x: 2, y: 2, dir: 0 }); }
+      assert.throws(() => apply(s, { t: 'reroll' }), RunError, 'not in the build phase');
+      apply(s, { t: 'run' });
+      assert.throws(() => apply(s, { t: 'reroll' }), RunError, 'not in the result phase');
+      apply(s, { t: 'next' });
+    }
+    return s;
+  };
+  const a = play(true), b = play(false);
+  assert.ok(a.score >= RULES.rerollCost + 38, 'round 1 with a crusher affords the reroll');
+  for (const r of [3, 4, 5, 6]) assert.deepEqual(draftOffers('reroll-rich', r), draftOffers('reroll-rich', r), 'offers are a pure function of (seed, round)');
+  assert.deepEqual(a.rounds.map((x) => x.round), b.rounds.map((x) => x.round));
+  assert.notDeepEqual(rerollOffers('reroll-rich', 2), draftOffers('reroll-rich', 2), 'the reroll stream differs from the draft stream');
+  // accounting: score = production + sales − rerolls
+  assert.equal(a.score, a.rounds.reduce((t, x) => t + x.earned, 0) + a.sold - a.rerolls * RULES.rerollCost);
+  // the replay carries the reroll and verifies; a permuted-key copy is the same canonical action
+  const v = verifyReplay(exportReplay(a)); assert.deepEqual({ ok: v.ok, score: v.score }, { ok: true, score: a.score });
+  assert.ok(exportReplay(a).actions.some((x) => x.t === 'reroll'));
+  assert.equal(validateAction({ t: 'reroll' }), true); assert.equal(validateAction({ t: 'reroll', i: 1 }), false);
 });
 
 test('round-tiered offers (PLAN-v2 0.5.3): the tuner is never offered before round 3, the seven 0.2.0 machines are available in every round, offers depend on seed and round only', () => {

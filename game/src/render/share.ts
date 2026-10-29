@@ -4,6 +4,7 @@
  * earnings, the verified standing when there is one, days played, and no URL unless asked. Per-round dollars live in the
  * "detailed" variant. Nothing here carries a layout, and the glyphs are monochrome text (shape, not colour).
  */
+import { RULES } from '../sim/rules';
 export interface Rank { n: number | null; of: number }
 export interface ShareInput {
   seed: string; score: number; rulesVersion: number; rounds: number[];
@@ -17,6 +18,8 @@ export interface ShareInput {
   variant?: 'grid' | 'detailed';
   /** non-ranked badge titles; shown only in the detailed variant of a verified run */
   badges?: string[];
+  /** rerolls bought (rules v3); the detailed variant shows the deduction so the score reads as production + sales − rerolls */
+  rerolls?: number;
 }
 
 export const PLAYER_MAX = 32;
@@ -55,6 +58,7 @@ export function shareText(s: ShareInput): string {
   lines.push(standing || `local score, not yet verified`);
   if (s.variant === 'detailed') {
     lines.push(`rounds ${s.rounds.map((r) => `$${r}`).join(' · ')}`);
+    if (s.rerolls) lines.push(`rerolls: ${s.rerolls} (−$${s.rerolls * RULES.rerollCost})`);
     lines.push(s.rank ? `replay re-simulated by the verifier, rules v${s.rulesVersion}` : `rules v${s.rulesVersion}`);
     if (s.rank && s.badges?.length) lines.push(`badges: ${s.badges.join(' · ')}`);
   }

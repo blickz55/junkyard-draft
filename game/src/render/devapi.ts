@@ -49,7 +49,7 @@ export function installDevApi(scene: GameScene) {
     scene: () => (scene.scene.isActive('Game') ? 'Game' : scene.scene.manager.getScenes(true)[0]?.scene.key ?? 'unknown'),
     phase: () => scene.run.phase,
     mode: () => scene.mode,
-    state: () => ({ seed: scene.run.seed, round: scene.run.round, phase: scene.run.phase, score: scene.run.score, offers: scene.run.offers, bin: scene.run.bin, layout: scene.run.layout, rounds: scene.run.rounds.map((r) => ({ round: r.round, earned: r.earned, shipped: r.result.shipped })), actions: scene.run.actions.length }),
+    state: () => ({ seed: scene.run.seed, round: scene.run.round, phase: scene.run.phase, score: scene.run.score, rerolls: scene.run.rerolls, rerolledRound: scene.run.rerolledRound, offers: scene.run.offers, bin: scene.run.bin, layout: scene.run.layout, rounds: scene.run.rounds.map((r) => ({ round: r.round, earned: r.earned, shipped: r.result.shipped })), actions: scene.run.actions.length }),
     act: (a) => { const ok = scene.act(a); scene.syncMachines(); scene.renderSide(); return ok; },
     run: () => scene.startRun(),
     finishRun: () => scene.finishRun(),

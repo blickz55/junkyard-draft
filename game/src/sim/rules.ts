@@ -18,6 +18,8 @@ export const RULES = {
   value: { scrap: 1, shards: 3, plate: 8, ingot: 12, slag: 1 } as Record<Material, number>,
   /** money for selling an unwanted drafted part from the bin (never a placed machine) */
   sellValue: 10,
+  /** Reroll (rules v3, PLAN-v2 0.5.4): once per round during the draft, the three offers are redrawn for this much, paid from the running score (refused below it; never in the tutorial). */
+  rerollCost: 40,
   /** Draft offer weights (relative). */
   draftWeights: { conveyor: 30, crusher: 18, furnace: 15, splitter: 15, hopper: 10, press: 10, dock: 8, sieve: 0, tuner: 10 } as Record<MachineKind, number>,
   /** Round-tiered offers (PLAN-v2 0.5.3): a kind listed here is offered only from that round on; everything else from round 1. Seed-fair: depends on (seed, round) only. */

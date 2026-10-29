@@ -368,6 +368,29 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       assert.equal(await p2.getByTestId('reduced-audio').textContent(), 'Reduced audio: On');
       await c2.close();
     }
+    // 7e) reroll_button (rules v3, PLAN-v2 0.5.4): disabled while unaffordable in round 1, buys new offers once in round 2 for the cost, then disables
+    {
+      const { context, page, api, errors } = await open('seed=reroll-e2e');
+      assert.equal(await page.evaluate(() => document.querySelector('[data-testid=reroll]')?.disabled), true, 'round 1: nothing earned yet, so no reroll');
+      assert.match(await page.evaluate(() => document.querySelector('[data-testid=reroll-note]')?.textContent ?? ''), /costs/);
+      const st0 = await api('state'); await api('pick', Math.max(0, st0.offers.indexOf('crusher')));
+      const st1 = await api('state'); const old = st1.layout.machines.find((m) => m.x === 2 && m.y === 2); const pick = st1.bin[st1.bin.length - 1];
+      await api('act', { t: 'unplace', id: old.id }); await api('act', { t: 'place', id: pick.id, x: 2, y: 2, dir: 0 });
+      await api('run'); await api('finishRun');
+      await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 15000 });
+      await api('next'); await wait(200);
+      const before = await api('state');
+      assert.equal(before.phase, 'draft'); assert.ok(before.score >= 40, `a crusher round affords a reroll (${before.score})`);
+      assert.equal(await page.evaluate(() => document.querySelector('[data-testid=reroll]')?.disabled), false, 'affordable: enabled');
+      await page.getByTestId('reroll').click(); await wait(200);
+      const after = await api('state');
+      assert.equal(after.score, before.score - 40, 'the cost left the score'); assert.equal(after.rerolls, 1); assert.notDeepEqual(after.offers, before.offers, 'new offers on the cards');
+      assert.equal(await page.evaluate(() => document.querySelector('[data-testid=hud-score]')?.textContent), `$${after.score}`, 'the HUD shows the deducted score');
+      assert.equal(await page.evaluate(() => document.querySelector('[data-testid=reroll]')?.disabled), true, 'once per round');
+      assert.match(await page.evaluate(() => document.querySelector('[data-testid=reroll-note]')?.textContent ?? ''), /One reroll per round/);
+      assert.deepEqual(errors, [], 'no page errors');
+      await context.close();
+    }
     // 7d) impact_samples_under_the_synth (DOSSIER-v1 0.4.13): both WAVs load through the boot loader, decode once a context
     //     exists, and the dock clink plays during a normal round; a blocked file falls back to synth-only without errors
     {

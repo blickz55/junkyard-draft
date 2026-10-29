@@ -15,6 +15,7 @@ export const EVENTS = {
   first_place_rejected: ['reason'],
   first_rotate: [],
   undo_used: [],
+  reroll_used: ['n'],
   first_run_start: [],
   first_run_complete: ['money'],
   round_complete: ['n'],
