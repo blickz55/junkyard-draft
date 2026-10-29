@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased — 2026-10-29 (v0.4: histogram-first results, PLAN-v1 0.4.1)
 
+### Juice pass bound to sim events (PLAN-v1 0.4.4)
+- One sound and at most one visual per event, scaled by value, nothing shakes. New: a draft lock-in sound, a round-end settle (every machine eases 1 → 0.97 → 1 staggered by column, one soft tone), a 90 ms place settle and a 60 ms rotate snap. Machines show their state with frames instead of wobbles: crusher jaws alternate while holding (`m-crusher-1`), the press ram descends over its hold (`m-press-1`, `m-press-2`), the furnace keeps its warm tint; belts cycle 8 chevron frames (was 3) at the same speed. The clip exporter draws the same frames. Reduced motion keeps sounds and drops every tween and frame swap. The full event → sound → visual table is in `docs/DESIGN.md`.
+
 ### Authored art pipeline and runtime atlas (DOSSIER-v1 0.4.8)
 - The art now lives as 22 SVG files under `game/public/art/`, exported losslessly from the procedural generator by `tools/export-svg.ts` (a Phaser-Graphics-shaped recorder that emits SVG) and editable in any vector tool. At boot the SVGs load, pack into one 456×304 canvas texture, and every scene-facing key (`m-crusher`, `i-plate`, `belt-0`, `tile`…) becomes an alias whose single frame points into that shared texture: no scene code changed, and the factory draws with **1 draw call and ~3 texture binds per frame (was ~59 binds)**. A file that fails to load falls back to the procedural drawing for that key. The clip exporter and the colour-vision contact sheet read frames by their atlas cut. Frames stay at logical size; a HiDPI atlas needs a base-scale factor in the scenes and is a follow-up.
 

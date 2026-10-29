@@ -55,6 +55,10 @@ class Synth {
   jam() { const t = performance.now(); if (t - this.lastJam < 400) return; this.lastJam = t; this.noise(0.06, 0.06, 400); }
   roundEnd(good: boolean) { const n = good ? [523, 659, 784, 1046] : [392, 440]; n.forEach((f, i) => setTimeout(() => this.tone(f, 0.18, 'triangle', 0.12), i * 90)); }
   run() { this.tone(200, 0.3, 'sawtooth', 0.08, 300); }
+  /** draft lock-in: a machine joins the bin (two quick rising notes) */
+  lockIn() { this.tone(660, 0.06, 'square', 0.07); setTimeout(() => this.tone(990, 0.08, 'square', 0.07), 60); }
+  /** round settle: the line comes to rest after the last tick (one soft falling tone) */
+  settle() { this.tone(196, 0.25, 'triangle', 0.08, -40); }
 }
 
 export const audio = new Synth();

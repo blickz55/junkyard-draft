@@ -3,6 +3,8 @@ import { P } from './palette';
 import type { MachineKind, Material } from '../sim/types';
 
 export const CELL = 72;
+/** belt animation frames (belt-0 … belt-N-1); belt-0 is the rest frame reduced motion shows */
+export const BELT_FRAMES = 8;
 const C = CELL;
 const H = C / 2;
 
@@ -51,10 +53,10 @@ export function generateTextures(scene: Phaser.Scene) {
     g.fillStyle(P.steel, 1); g.fillRect(4, 14, C - 10, 4); g.fillRect(4, C - 20, C - 10, 4);
     bolt(g, 9, 19); bolt(g, C - 11, 19); bolt(g, 9, C - 18); bolt(g, C - 11, C - 18);
   });
-  // conveyor chevron overlay frames for belt motion (3 frames)
-  for (let f = 0; f < 3; f++) make(`belt-${f}`, C, C, (g) => {
+  // conveyor chevron overlay frames for belt motion (BELT_FRAMES frames, 2 px per step over a 16 px chevron pitch)
+  for (let f = 0; f < BELT_FRAMES; f++) make(`belt-${f}`, C, C, (g) => {
     g.fillStyle(0x3a4148, 1); g.fillRect(8, 20, C - 18, C - 42);
-    for (let i = -1; i < 4; i++) { const x = 20 + i * 16 + f * 5.33; if (x > 10 && x < C - 10) arrow(g, x, H, 11, P.amber, 0.85); }
+    for (let i = -1; i < 4; i++) { const x = 20 + i * 16 + f * (16 / BELT_FRAMES); if (x > 10 && x < C - 10) arrow(g, x, H, 11, P.amber, 0.85); }
   });
 
   // hopper: funnel, mouth east
@@ -76,6 +78,16 @@ export function generateTextures(scene: Phaser.Scene) {
     arrow(g, C - 12, H, 9, P.amber);
     bolt(g, 12, 12); bolt(g, C - 12, 12); bolt(g, 12, C - 12); bolt(g, C - 12, C - 12);
   });
+  // crusher, jaws closed (state frame while an item is held): the teeth meet at the middle
+  make('m-crusher-1', C, C, (g) => {
+    body(g, P.steelDark, 7, 6);
+    g.fillStyle(0x2b2f33, 1); g.fillRect(12, 18, C - 24, C - 36);
+    g.fillStyle(P.steel, 1);
+    for (let i = 0; i < 4; i++) { g.fillTriangle(16 + i * 11, 18, 22 + i * 11, 18, 19 + i * 11, H - 1); g.fillTriangle(16 + i * 11, C - 18, 22 + i * 11, C - 18, 19 + i * 11, H + 1); }
+    g.fillStyle(P.amber, 1); g.fillCircle(H, H, 5); g.fillStyle(0x000000, 0.5); g.fillCircle(H, H, 2);
+    arrow(g, C - 12, H, 9, P.amber);
+    bolt(g, 12, 12); bolt(g, C - 12, 12); bolt(g, 12, C - 12); bolt(g, C - 12, C - 12);
+  });
   // furnace: dark box with glowing mouth facing east, chimney
   make('m-furnace', C, C, (g) => {
     body(g, 0x4a3a30, 7, 6);
@@ -93,6 +105,17 @@ export function generateTextures(scene: Phaser.Scene) {
     g.fillStyle(P.steel, 1); g.fillRect(22, 12, C - 44, 14); // ram head
     g.fillStyle(P.steelDark, 1); g.fillRect(H - 5, 26, 10, 10); // piston rod
     g.fillStyle(P.plate, 1); g.fillRoundedRect(20, 38, C - 40, 8, 2); // plate being pressed
+    g.fillStyle(0x3a4a5a, 1); g.fillRect(16, 48, C - 32, 8); // anvil
+    arrow(g, C - 12, H, 9, P.amber);
+    bolt(g, 12, 12); bolt(g, C - 12, 12); bolt(g, 12, C - 12); bolt(g, C - 12, C - 12);
+  });
+  // press ram descending (state frames while pressing): head lower, rod longer, plate flatter
+  for (const [f, drop] of [[1, 8], [2, 16]] as const) make(`m-press-${f}`, C, C, (g) => {
+    body(g, 0x4f6b8a, 7, 6);
+    g.fillStyle(0x263340, 1); g.fillRoundedRect(14, 14, C - 28, C - 28, 5);
+    g.fillStyle(P.steel, 1); g.fillRect(22, 12 + drop, C - 44, 14); // ram head
+    g.fillStyle(P.steelDark, 1); g.fillRect(H - 5, 12, 10, 14 + drop); // piston rod
+    g.fillStyle(P.plate, 1); g.fillRoundedRect(20 - drop / 4, 40 + drop / 4, C - 40 + drop / 2, 8 - drop / 4, 2); // plate flattening
     g.fillStyle(0x3a4a5a, 1); g.fillRect(16, 48, C - 32, 8); // anvil
     arrow(g, C - 12, H, 9, P.amber);
     bolt(g, 12, 12); bolt(g, C - 12, 12); bolt(g, 12, C - 12); bolt(g, C - 12, C - 12);

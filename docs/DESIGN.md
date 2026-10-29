@@ -53,6 +53,29 @@ Colour audit (2026-10-25, `tools/a11y-audit.ts`, enforced by `tests/a11y.test.ts
 
 Accessibility (title screen, persisted): **Motion: Reduced** keeps belts on one frame, drops flashes, pops and travelling floats (the `+$n` still appears and fades in place) and snaps items between cells; it defaults to the OS `prefers-reduced-motion`. **Text size** 100 / 115 / 130 % scales every font through the UI helpers while the fixed 1120×700 layout stays put (the canvas already fits the window, so font size is the lever that helps).
 
+## Event → sound → visual (juice contract, PLAN-v1 0.4.4)
+One sound and at most one visual per event; intensity scales with value; nothing shakes the screen or trails; idle machines are still so a jam stays visible. Reduced motion keeps the sound, drops the motion.
+
+| Event / interaction | Sound | Visual (full motion) | Reduced motion |
+|---|---|---|---|
+| draft pick (lock-in) | `lockIn` two rising notes | card leaves the panel, part appears in the bin (panel rebuild) | same, no tween |
+| place | `place` click + noise | 90 ms settle, scale 1.06 → 1 | none |
+| rotate | `rotate` short blip | 60 ms snap, scale 0.94 → 1; facing updates | facing updates |
+| refused drop | `invalid` low saw | red cell flash 350 ms + reason in the hint strip | reason in the hint strip |
+| run start | `run` rising saw | panel switches to RUNNING | same |
+| `spawn` (hopper emits) | — | item appears at the hopper mouth | same |
+| `move` | — | item eases one cell per tick; belts cycle 8 chevron frames | item snaps; belts stay on frame 0 |
+| crusher holding | — | jaws alternate open/closed each tick (`m-crusher` / `m-crusher-1`) | base frame |
+| furnace holding | — | warm tint | warm tint (not motion) |
+| press holding | — | ram descends over the hold (`m-press-1`, `m-press-2`) | base frame |
+| `transform` | `transform` blip | one expanding ring in the output colour, 300 ms | texture swap only |
+| `absorb` (press takes a shard) | — | shard shrinks into the press, 220 ms | badge only |
+| `ship` | `ship` chime, pitch by value, ingot adds a fifth | +$ pop rises 38 px and fades (pooled); dock lid lift 60 ms; HUD total pulses | pop fades in place; HUD text changes |
+| `jam` first tick | `jam` throttled noise | red wash on the cell while jammed | same (static) |
+| stall (8 ticks, nothing shipped) | — | red frame on the first blocking cell, pulsing; HUD stall line | static frame + HUD line |
+| round end | `roundEnd` fanfare (good/bad) then `settle` | every machine eases 1 → 0.97 → 1, staggered 25 ms per column; result banner and badges | banner and badges only |
+| round summary → next | `click` | panel rebuild | same |
+
 ## Competitive foundation
 Identical seeds give identical offers; nothing in progression changes scoring. Local bests are labelled local/unverified. The verifier re-runs `verifyReplay` on submitted replays before any leaderboard shows a score. The daily challenge seed is `daily-YYYY-MM-DD` in UTC, derived by the same function (`game/src/sim/daily.ts`) on the client and the verifier; `GET /daily` returns today's seed with its verified board and the title screen shows it (or says the verifier is offline). The verifier is a single-file Node service (`server/README.md`): per-IP rate limit on submissions, duplicate-replay hash, CORS origin allow-list, request log; the game build bakes in `VERIFIER_URL`. Players choose a display name (`jd.player`, 32 chars, asked once before the first submission, editable on the title screen); it is a label only, never an identity. After a submission the results screen shows the verified rank (position by replay hash among the top 100 for that seed) and offers share text that states exactly what was verified; the title strip shows this device's own daily rank, found by replay hash, not by name. Every verified entry can be watched: the verifier stores the actions, `GET /replay?hash=` serves them, and the client re-verifies the replay locally before playing it back labelled "verified replay by <name> ($score)"; playback never records bests, saves or submits. While watching: a blue REPLAY marker in the HUD, the original run's per-round earnings beside the live total, speed 1/2/4×, Skip to the round result, and Stop (Esc returns to the title instead of pausing). The verifier keeps replay actions only for each seed's top 100 entries; lower entries keep their score.
 

@@ -13,7 +13,7 @@ import { tipForMachine } from '../../sim/tips';
 import { telemetry } from '../telemetry';
 import { DIR_DX, DIR_DY, MACHINE_INFO, RULES } from '../../sim/rules';
 import type { Machine, Material, SimEvent } from '../../sim/types';
-import { CELL, itemTexture, machineTexture } from '../textures';
+import { BELT_FRAMES, CELL, itemTexture, machineTexture } from '../textures';
 import { label, panel } from '../ui';
 import { CSS, FONT, P } from '../palette';
 import { audio } from '../audio';
@@ -387,6 +387,7 @@ export class GameScene extends Phaser.Scene {
   private onStateChange(a: Action | null) {
     if (!this.panel) return; // init() runs before create(): nothing to draw yet
     if (a && !this.replayLabel) { if (a.t === 'pick') telemetry.track('first_draft_pick'); else if (a.t === 'place') telemetry.track('first_place_attempt'); else if (a.t === 'rotate') telemetry.track('first_rotate'); }
+    if (a && !prefs.reducedMotion && (a.t === 'place' || a.t === 'rotate')) { const v = this.views.get(a.id); if (v) { this.tweens.killTweensOf(v.img); v.img.setScale(a.t === 'place' ? 1.06 : 0.94); this.tweens.add({ targets: v.img, scaleX: 1, scaleY: 1, duration: a.t === 'place' ? 90 : 60, ease: 'Quad.out' }); } }
     if (a?.t === 'pick' && !this.replayLabel) { const kind = this.run.picks[this.run.picks.length - 1]; const tip = kind ? tipForMachine(kind, loadReadTips()) : null; if (tip) this.suggestedTip = tip.id; }
     this.updateHud();
     if (!a || a.t === 'place' || a.t === 'pick' || a.t === 'rotate') this.updateHint();
@@ -394,7 +395,7 @@ export class GameScene extends Phaser.Scene {
   }
   pick(i: number) {
     if (this.run.phase !== 'draft') return;
-    if (this.act({ t: 'pick', i })) { audio.place(); this.selectedId = this.run.bin[this.run.bin.length - 1]?.id ?? null; this.syncMachines(); this.renderSide(); }
+    if (this.act({ t: 'pick', i })) { audio.lockIn(); this.selectedId = this.run.bin[this.run.bin.length - 1]?.id ?? null; this.syncMachines(); this.renderSide(); }
   }
 
   // ---------- undo / redo (build phase only; the replay stays a flat list of final actions) ----------
@@ -511,7 +512,9 @@ export class GameScene extends Phaser.Scene {
     for (const j of this.jamMarks.values()) j.destroy();
     this.jamMarks.clear();
     this.clearStall();
-    for (const v of this.views.values()) { v.img.setScale(1).setTint(0xffffff).setAngle(v.m.dir * 90); }
+    for (const v of this.views.values()) { v.img.setScale(1).setTint(0xffffff).setAngle(v.m.dir * 90); if (v.img.texture.key !== machineTexture(v.m.kind)) v.img.setTexture(machineTexture(v.m.kind)); }
+    if (!prefs.reducedMotion) for (const v of this.views.values()) if (!v.inBin) this.tweens.add({ targets: v.img, scaleX: 0.97, scaleY: 0.97, duration: 120, yoyo: true, delay: v.m.x * 25, ease: 'Quad.out' });
+    audio.settle();
     this.showSummary();
   }
 
@@ -536,7 +539,7 @@ export class GameScene extends Phaser.Scene {
       this.panel.setHud(this.run, this.run.score + sim.earned, true);
     }
     const phase = this.ctl.tickPhase;
-    this.beltFrame = (this.beltFrame + delta * this.speed * 0.012) % 3;
+    this.beltFrame = (this.beltFrame + delta * this.speed * 0.012 * (BELT_FRAMES / 3)) % BELT_FRAMES; // same cycle time as the old 3 frames, finer steps
     const bf = `belt-${Math.floor(this.beltFrame)}`;
     for (const v of this.views.values()) {
       if (v.inBin) continue;
@@ -544,9 +547,10 @@ export class GameScene extends Phaser.Scene {
       if (v.belt) v.belt.setTexture(bf);
       const cell = cellIndex(v.m.x, v.m.y, RULES.gridWidth);
       const held = sim.itemAt[cell];
-      if (v.m.kind === 'crusher') { v.img.setScale(held && held.hold > 0 ? 1 + 0.06 * Math.abs(Math.sin(_time / 45)) : 1); v.img.setAngle(v.m.dir * 90 + (held && held.hold > 0 ? Math.sin(_time / 30) * 2 : 0)); }
-      else if (v.m.kind === 'furnace') { v.img.setTint(held && held.hold > 0 ? 0xffd9a0 : 0xffffff); v.img.setScale(held && held.hold > 0 ? 1 + 0.04 * Math.abs(Math.sin(_time / 90)) : 1); }
-      else if (v.m.kind === 'press') { const busy = held && held.hold > 0; v.img.setScale(1, busy ? 0.9 + 0.08 * Math.abs(Math.sin(_time / 40)) : 1); v.img.setTint(!busy && (sim.pressStore[cell] ?? 0) > 0 ? 0xcfe3ff : 0xffffff); }
+      // state frames (0.4.4): a machine that holds an item shows it; idle machines are still so a jam stays visible
+      if (v.m.kind === 'crusher') { const key = held && held.hold > 0 && sim.tick % 2 === 1 ? 'm-crusher-1' : 'm-crusher'; if (v.img.texture.key !== key) v.img.setTexture(key); }
+      else if (v.m.kind === 'furnace') { v.img.setTint(held && held.hold > 0 ? 0xffd9a0 : 0xffffff); }
+      else if (v.m.kind === 'press') { const busy = held && held.hold > 0; const key = busy ? (held.hold >= 2 ? 'm-press-1' : 'm-press-2') : 'm-press'; if (v.img.texture.key !== key) v.img.setTexture(key); v.img.setTint(!busy && (sim.pressStore[cell] ?? 0) > 0 ? 0xcfe3ff : 0xffffff); }
       else if (v.m.kind === 'hopper') { v.img.setScale(sim.tick % RULES.hopperPeriod === 0 && phase < 0.3 ? 1.05 : 1); }
       else if (v.m.kind === 'splitter') { v.img.setAngle(v.m.dir * 90 + ((sim.splitterToggle[cell] ?? 0) === 0 ? -4 : 4)); }
     }

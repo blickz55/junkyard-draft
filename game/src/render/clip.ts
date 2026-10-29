@@ -9,7 +9,7 @@ import type Phaser from 'phaser';
 import { createSim, step, cellIndex, type SimState } from '../sim/sim';
 import { RULES } from '../sim/rules';
 import type { Layout, Material, SimEvent } from '../sim/types';
-import { CELL, itemTexture, machineTexture } from './textures';
+import { BELT_FRAMES, CELL, itemTexture, machineTexture } from './textures';
 import { CSS, FONT, MONO, P } from './palette';
 import { artFrame } from './atlas';
 
@@ -86,8 +86,11 @@ export class ClipPainter {
     for (const m of this.layout.machines) {
       const c = this.cellXY(cellIndex(m.x, m.y, this.layout.width));
       ctx.save(); ctx.translate(c.x, c.y); ctx.rotate((m.dir * Math.PI) / 2);
-      this.blit(machineTexture(m.kind), -CELL / 2, -CELL / 2, CELL, CELL);
-      if (m.kind === 'conveyor') this.blit(`belt-${beltFrame}`, -CELL / 2, -CELL / 2, CELL, CELL);
+      const heldItem = sim.itemAt[cellIndex(m.x, m.y, this.layout.width)];
+      const busy = !!heldItem && heldItem.hold > 0;
+      const key = m.kind === 'crusher' && busy && sim.tick % 2 === 1 ? 'm-crusher-1' : m.kind === 'press' && busy ? (heldItem!.hold >= 2 ? 'm-press-1' : 'm-press-2') : machineTexture(m.kind);
+      this.blit(key, -CELL / 2, -CELL / 2, CELL, CELL);
+      if (m.kind === 'conveyor') this.blit(`belt-${beltFrame % BELT_FRAMES}`, -CELL / 2, -CELL / 2, CELL, CELL);
       ctx.restore();
     }
     for (const it of sim.items) {
@@ -159,7 +162,7 @@ export function recordClip(game: Phaser.Game, run: { seed: string; score: number
         while (acc >= tickMs && guard++ < 10 && sim.tick < RULES.ticksPerRound) { acc -= tickMs; const evs = step(sim); painter.onTick(evs, now); }
         if (sim.tick >= RULES.ticksPerRound) holdUntil = now + holdMs;
       }
-      belt = (belt + delta * speed * 0.012) % 3;
+      belt = (belt + delta * speed * 0.012 * (BELT_FRAMES / 3)) % BELT_FRAMES;
       painter.draw(sim, Math.min(1, acc / tickMs), now, Math.floor(belt));
       frames++;
       o.onProgress?.(Math.min(1, (now - t0) / totalMs));
