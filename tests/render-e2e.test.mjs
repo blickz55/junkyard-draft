@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync('/opt/pw-browsers')) process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/pw-browsers';
 const { chromium } = await import('playwright');
-const { draftOffers } = await import('../game/src/sim/run.ts');
+const { draftOffers, TUTORIAL_SEED } = await import('../game/src/sim/run.ts');
 const PORT = 5198;
 const URL = `http://127.0.0.1:${PORT}`;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -19,7 +19,7 @@ const cell = (x, y) => ({ x: GX + x * CELL + CELL / 2, y: GY + y * CELL + CELL /
 
 async function waitServer() { for (let i = 0; i < 60; i++) { try { const r = await fetch(`${URL}/main.js`); if (r.ok) return; } catch {} await wait(500); } throw new Error('dev server did not start'); }
 
-test('renderer, run HUD and tips: HiDPI canvas, Canvas renderer, WebGL context loss, stall marker, tips badge', { timeout: 240000 }, async () => {
+test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL context loss, stall marker, tips badge, tutorial seed', { timeout: 300000 }, async () => {
   const server = spawn(process.execPath, [path.join(ROOT, 'scripts/dev.mjs')], { env: { ...process.env, GAME_PORT: String(PORT) }, stdio: 'ignore' });
   let browser;
   try {
@@ -146,6 +146,70 @@ test('renderer, run HUD and tips: HiDPI canvas, Canvas renderer, WebGL context l
       await api('pick', idx);
       assert.equal((await api('tips')).suggested, null, 'a read tip is never suggested again');
       assert.equal(await btnText(), 'Tips');
+      assert.deepEqual(errors, [], 'no page errors');
+      await context.close();
+    }
+    // 6) tutorial_seed_teaches_one_rule_per_round (PLAN-v1 0.3.4): a fresh profile sees Learn first; the scripted lesson reaches
+    //    round 4 in <= 40 actions with the hint strip as the only guidance surface; finishing round 3 marks the profile onboarded
+    {
+      const context = await browser.newContext({ viewport: { width: 1120, height: 700 } });
+      const page = await context.newPage();
+      const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
+      await page.goto(`${URL}/?dev=1`);
+      await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+      const learn = await page.evaluate(() => { const b = window.__jdGame.scene.getScene('Title').children.getByName('learn'); return { text: b?.label.text, amber: b?.bg.fillColor === 0xf0a030 || b?.bg.fillColor === window.__jdGame.scene.getScene('Title').children.getByName('daily').bg.fillColor }; });
+      assert.deepEqual(learn, { text: 'Learn to play (3 min)', amber: true }, 'a fresh profile gets the lesson as the highlighted secondary action');
+      await page.goto(`${URL}/?dev=1&scene=game&seed=${TUTORIAL_SEED}`);
+      await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
+      const api = (fn, ...args) => page.evaluate(({ fn, args }) => window.__jd[fn](...args), { fn, args });
+      const act = async (a) => { assert.equal(await api('act', a), true, `action accepted: ${JSON.stringify(a)}`); };
+      const hint = () => api('hint');
+      const at = async (x, y) => (await api('state')).layout.machines.find((m) => m.x === x && m.y === y);
+      const binKind = async (k) => (await api('state')).bin.find((m) => m.kind === k);
+      let st = await api('state');
+      assert.deepEqual(st.offers, ['crusher']); assert.equal(st.bin.length, 3, 'three spare conveyors in the bin');
+      assert.match(await hint(), /Pick the CRUSHER/);
+      // round 1: crusher replaces the conveyor after the hopper
+      await api('pick', 0); assert.match(await hint(), /Make room/);
+      await act({ t: 'unplace', id: (await at(2, 2)).id });
+      await act({ t: 'place', id: (await binKind('crusher')).id, x: 2, y: 2, dir: 1 });
+      assert.match(await hint(), /only takes items from behind/, 'a misoriented crusher is explained');
+      await act({ t: 'rotate', id: (await at(2, 2)).id }); await act({ t: 'rotate', id: (await at(2, 2)).id }); await act({ t: 'rotate', id: (await at(2, 2)).id });
+      assert.match(await hint(), /Good: the hopper feeds the crusher/);
+      await api('run'); await api('finishRun'); await page.waitForFunction(() => window.__jd.mode() === 'summary');
+      await api('next'); await page.waitForFunction(() => window.__jd.phase() === 'draft');
+      // round 2: furnace after the crusher, dock moved right
+      st = await api('state'); assert.deepEqual(st.offers, ['furnace']); assert.match(await hint(), /FURNACE/);
+      await api('pick', 0); assert.match(await hint(), /Move the dock/);
+      const dock = await at(5, 2); await act({ t: 'unplace', id: dock.id }); await act({ t: 'place', id: dock.id, x: 6, y: 2, dir: 0 });
+      await act({ t: 'place', id: (await binKind('furnace')).id, x: 5, y: 2, dir: 0 });
+      assert.match(await hint(), /Shards reach the furnace/);
+      await api('run'); await api('finishRun'); await page.waitForFunction(() => window.__jd.mode() === 'summary');
+      assert.ok((await api('state')).rounds[1].shipped.ingot >= 1, 'round 2 shipped ingots');
+      await api('next'); await page.waitForFunction(() => window.__jd.phase() === 'draft');
+      // round 3: splitter after the crusher, both branches merged back by side-loading, spare sold
+      st = await api('state'); assert.deepEqual(st.offers, ['splitter']);
+      await api('pick', 0); assert.match(await hint(), /Replace the conveyor after the crusher/);
+      await act({ t: 'unplace', id: (await at(3, 2)).id });
+      await act({ t: 'place', id: (await binKind('splitter')).id, x: 3, y: 2, dir: 0 });
+      assert.match(await hint(), /Not flowing yet/);
+      const convs = (await api('state')).bin.filter((m) => m.kind === 'conveyor');
+      assert.equal(convs.length, 5, 'three spares plus the two replaced conveyors');
+      await act({ t: 'place', id: convs[0].id, x: 3, y: 1, dir: 0 }); await act({ t: 'place', id: convs[1].id, x: 4, y: 1, dir: 1 });
+      await act({ t: 'place', id: convs[2].id, x: 3, y: 3, dir: 0 }); await act({ t: 'place', id: convs[3].id, x: 4, y: 3, dir: 3 });
+      assert.match(await hint(), /ingots flow/, 'the real simulation confirms the merge');
+      await act({ t: 'sell', id: convs[4].id });
+      await api('run'); await api('finishRun'); await page.waitForFunction(() => window.__jd.mode() === 'summary');
+      await api('next'); await page.waitForFunction(() => window.__jd.phase() === 'draft');
+      st = await api('state');
+      assert.equal(st.round, 4); assert.equal(st.offers.length, 3, 'round 4 is an ordinary draft');
+      assert.ok(st.actions <= 40, `reached round 4 in ${st.actions} actions`);
+      assert.match(await hint(), /ordinary draft/);
+      assert.equal(await page.evaluate(() => localStorage.getItem('jd.onboarded.v1')), '1', 'finishing the lesson marks the profile onboarded');
+      assert.equal((await api('tips')).open, false, 'no modal or panel interrupted the lesson');
+      await page.goto(`${URL}/?dev=1`);
+      await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+      assert.equal(await page.evaluate(() => window.__jdGame.scene.getScene('Title').children.getByName('learn')?.label.text), 'Learn (3 min)', 'afterwards the lesson stays offered, unhighlighted');
       assert.deepEqual(errors, [], 'no page errors');
       await context.close();
     }

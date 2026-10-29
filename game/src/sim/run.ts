@@ -34,7 +34,19 @@ export interface RunState {
   actions: Action[];
 }
 
+/**
+ * Tutorial seeds (PLAN-v1 0.3.4): `tutorial-*` constrains the first three drafts to one machine each so each round
+ * teaches one rule (crusher orientation, furnace chaining, splitter + side-load merge); rounds 4-6 are an ordinary
+ * draft from the seed's own stream. The bin starts with spare conveyors for the merge. Every other seed is byte-identical
+ * to before (snapshot-tested), so this is not a rules change.
+ */
+export const TUTORIAL_SEED = 'tutorial-1';
+export const isTutorialSeed = (seed: string): boolean => /^tutorial-/.test(seed);
+export const TUTORIAL_OFFERS: readonly (readonly MachineKind[])[] = [['crusher'], ['furnace'], ['splitter']];
+export const TUTORIAL_SPARE_CONVEYORS = 3;
+
 export function draftOffers(seed: string, round: number): MachineKind[] {
+  if (isTutorialSeed(seed) && round >= 1 && round <= TUTORIAL_OFFERS.length) return TUTORIAL_OFFERS[round - 1].slice();
   const rng = new Rng(`${seed}:draft:${round}`);
   const offers: MachineKind[] = [];
   if (round === 1) offers.push('crusher'); // first useful upgrade is always reachable
@@ -69,7 +81,9 @@ export function sanitizeSeed(raw: string | null | undefined, fallback = 'junkyar
 export function newRun(seed: string): RunState {
   if (!isValidSeed(seed)) throw new RunError('bad seed');
   const { layout, nextId } = starterLayout();
-  return { rulesVersion: RULES_VERSION, seed, round: 1, phase: 'draft', layout, bin: [], offers: draftOffers(seed, 1), picks: [], rounds: [], score: 0, sold: 0, nextId, actions: [] };
+  const s: RunState = { rulesVersion: RULES_VERSION, seed, round: 1, phase: 'draft', layout, bin: [], offers: draftOffers(seed, 1), picks: [], rounds: [], score: 0, sold: 0, nextId, actions: [] };
+  if (isTutorialSeed(seed)) for (let i = 0; i < TUTORIAL_SPARE_CONVEYORS; i++) s.bin.push({ id: s.nextId++, kind: 'conveyor', x: -1, y: -1, dir: 0 });
+  return s;
 }
 
 /**

@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { applyDpr, DPR } from '../dpr';
 import { decideQuality, QUALITY_PROBE_FRAMES } from '../quality';
 import { explainRunError, inputTravelDirs, outputDirs, placementWarning } from '../../sim/advice';
-import type { Action, RoundRecord, RunState } from '../../sim/run';
+import { isTutorialSeed, type Action, type RoundRecord, type RunState } from '../../sim/run';
+import { runLayout } from '../../sim/sim';
 import { cellIndex, type SimState } from '../../sim/sim';
 import { RoundController, type Mode } from '../RoundController';
 import { TipsPanel } from '../TipsPanel';
@@ -104,7 +105,7 @@ export class GameScene extends Phaser.Scene {
     });
     if (data.fresh && !data.replay) telemetry.gameStart(data.seed);
     if (this.ctl.resumeNotice) clearSave(); // a damaged save is dropped so the title stops offering it; the notice is shown once
-    this.tutorial = !isOnboarded() && !this.replayQueue;
+    this.tutorial = isTutorialSeed(data.seed) && !this.replayQueue; // the tutorial seed carries the lesson; other seeds get one pointer to it
     this.tutorialStep = 0;
     this.views.clear(); this.itemSprites.clear(); this.jamMarks.clear();
     this.selectedId = null; this.overlay = null; this.dragging = null;
@@ -565,16 +566,13 @@ export class GameScene extends Phaser.Scene {
     const r = this.run;
     let text = '';
     if (this.tutorial) {
-      if (r.round === 1 && r.phase === 'draft') text = 'Welcome! The hopper drops $1 scrap onto a belt that reaches the dock. Pick the CRUSHER (click it or press its number): it turns scrap into $3 shards.';
-      else if (r.round === 1 && r.phase === 'build' && r.bin.length) text = 'Drag the crusher from the bin onto the belt, e.g. replace the conveyor right after the hopper. Its arrow must point along the line (R rotates).';
-      else if (r.round === 1 && r.phase === 'build') text = this.chainHasCrusher() ? 'Good: scrap now reaches the crusher from behind. Press RUN and watch the shards sell for $3 each.' : 'The crusher only takes items from behind: line it up so the hopper feeds its back and its arrow points on toward the dock.';
-      else if (r.round === 2 && r.phase === 'draft') text = `Next upgrade: a FURNACE turns shards into $${RULES.value.ingot} ingots (raw scrap only melts into $${RULES.value.slag} slag). Splitters and extra hoppers raise throughput.`;
-      else if (r.round === 2) text = 'Machines are slow: a furnace handles one item every 3 ticks. Use a splitter to feed two furnaces, or add a second line.';
-      else text = '';
-      // funnel: which tutorial step is on screen (1 pick crusher, 2 place it, 3 line it up / run, 4 draft round 2, 5 build round 2)
-      const step = !text ? 0 : r.round === 1 && r.phase === 'draft' ? 1 : r.round === 1 && r.bin.length ? 2 : r.round === 1 ? 3 : r.phase === 'draft' ? 4 : 5;
-      if (step !== this.tutorialStep) { if (this.tutorialStep) telemetry.track('tutorial_step_complete', { n: this.tutorialStep }); if (step) telemetry.track('tutorial_step_start', { n: step }); this.tutorialStep = step; }
-      if (r.round >= 3) { this.tutorial = false; setOnboarded(); }
+      const t = this.tutorialHint();
+      text = t.text;
+      // funnel: which tutorial step is on screen (1 pick crusher, 2 place it, 3 run it, 4 furnace, 5 splitter merge, 6 free draft)
+      if (t.step !== this.tutorialStep) { if (this.tutorialStep) telemetry.track('tutorial_step_complete', { n: this.tutorialStep }); if (t.step) telemetry.track('tutorial_step_start', { n: t.step }); this.tutorialStep = t.step; }
+      if (r.round >= 4) { this.tutorial = false; setOnboarded(); }
+    } else if (!isOnboarded() && r.round === 1 && r.phase === 'draft' && !this.replayLabel) {
+      text = "New here? 'Learn (3 min)' on the title screen walks through every rule in three short rounds. Or dive in: pick a machine.";
     }
     if (this.ctl.resumeNotice) { text = this.ctl.resumeNotice; this.ctl.resumeNotice = null; }
     if (!text) {
@@ -582,6 +580,38 @@ export class GameScene extends Phaser.Scene {
       text = tips[(r.round + r.layout.machines.length) % tips.length];
     }
     this.setHint(text);
+  }
+  /**
+   * The tutorial seed's one guidance surface (PLAN-v1 0.3.4): one rule per round, the objective sufficient on its own, checked
+   * against the real layout (fed-ness via placementWarning, flow via a short real simulation), never a modal.
+   */
+  private tutorialHint(): { text: string; step: number } {
+    const r = this.run; const L = r.layout;
+    const find = (k: Machine['kind']) => L.machines.find((m) => m.kind === k);
+    const fed = (m: Machine) => placementWarning(L, m.kind, m.x, m.y, m.dir, m.id) == null;
+    const $ = (m: Material) => `$${RULES.value[m]}`;
+    if (r.round === 1) {
+      if (r.phase === 'draft') return { step: 1, text: `Welcome! The hopper drops ${$('scrap')} scrap onto a belt that ends at the dock. Pick the CRUSHER (click it or press 1): it turns scrap into ${$('shards')} shards. Three spare conveyors wait in the bin for round 3.` };
+      const crusher = find('crusher');
+      if (!crusher) return { step: 2, text: 'Make room: drag the conveyor right after the hopper down to the bin (or select it and press Delete), then drop the crusher there with its arrow pointing right. Then press RUN.' };
+      return fed(crusher) ? { step: 3, text: `Good: the hopper feeds the crusher from behind. Press RUN and watch every shard sell for ${$('shards')}.` } : { step: 3, text: 'The crusher only takes items from behind: put it in the belt so the hopper\'s line enters its back, arrow pointing on toward the dock (R rotates).' };
+    }
+    if (r.round === 2) {
+      if (r.phase === 'draft') return { step: 4, text: `A FURNACE turns shards into ${$('ingot')} ingots, but raw scrap melts into ${$('slag')} slag, so it belongs after the crusher. Pick it.` };
+      const furnace = find('furnace'); const crusher = find('crusher');
+      if (!furnace) return { step: 4, text: 'Move the dock one cell to the right to make room, then put the furnace just before it: crusher → belt → furnace → dock, every arrow pointing right.' };
+      if (crusher && furnace.y === crusher.y && furnace.x < crusher.x) return { step: 4, text: 'Raw scrap would reach the furnace first and melt into slag: move the furnace after the crusher.' };
+      return fed(furnace) ? { step: 4, text: `Shards reach the furnace from behind. Press RUN: each ingot sells for ${$('ingot')}.` } : { step: 4, text: 'Nothing feeds the furnace from behind yet: put it in the line with its arrow pointing right.' };
+    }
+    if (r.round === 3) {
+      if (r.phase === 'draft') return { step: 5, text: 'A SPLITTER sends items up and down in turn, so one line can feed two. Pick it; the spare conveyors will bring both branches back onto the belt.' };
+      const splitter = find('splitter');
+      if (!splitter) return { step: 5, text: 'Replace the conveyor after the crusher with the splitter. Its two outputs go up and down; from each, one conveyor along and one turning back onto the belt. Conveyors accept items from the side.' };
+      const flow = runLayout(L, 40);
+      if (flow.shipped.ingot > 0) return { step: 5, text: `Both branches rejoin the belt and ingots flow. Select the spare conveyor in the bin and sell it for ${$('scrap').replace('$1', `$${RULES.sellValue}`)}, then press RUN.` };
+      return { step: 5, text: 'Not flowing yet: from each splitter output, one conveyor along, then one turning back into the belt (R rotates). Items may enter a conveyor from behind or either side.' };
+    }
+    return { step: 6, text: 'You know every rule. Rounds 4 to 6 are an ordinary draft: pick what helps your line most, arrange, run. Parts you cannot use sell for $10. The daily challenge is waiting on the title screen.' };
   }
   /** Current hint text (typed accessor for the dev API and tests instead of private-field access). */
   hintText(): string { return this.hint?.text ?? ''; }

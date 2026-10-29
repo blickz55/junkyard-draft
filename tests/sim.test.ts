@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSim, runLayout, step } from '../game/src/sim/sim';
 import { RULES } from '../game/src/sim/rules';
-import { starterLayout, newRun, apply, replay, draftOffers, RunError, MAX_REPLAY_ACTIONS, actionBudget, sanitizeSeed } from '../game/src/sim/run';
+import { starterLayout, newRun, apply, replay, draftOffers, RunError, MAX_REPLAY_ACTIONS, actionBudget, sanitizeSeed, isTutorialSeed, TUTORIAL_SEED, TUTORIAL_SPARE_CONVEYORS } from '../game/src/sim/run';
+import { createHash } from 'node:crypto';
 import { exportReplay, decodeReplay, encodeReplay, verifyReplay, validateReplayFile } from '../game/src/sim/replay';
 import { RULES_VERSION, type Layout, type Machine, type Dir, type MachineKind } from '../game/src/sim/types';
 
@@ -233,4 +234,27 @@ test('every_live_save_remains_resumable: seed bounds apply at creation and the a
   assert.ok(s.actions.length <= MAX_REPLAY_ACTIONS);
   assert.equal(verifyReplay(exportReplay(s)).ok, true, 'a run played to the limit is still replayable');
   assert.equal(actionBudget(s).essential >= 0, true);
+});
+
+test('tutorial seed (PLAN-v1 0.3.4): rounds 1-3 offer one machine each, three spare conveyors start in the bin, rounds 4-6 draft normally; every other seed\'s offers are byte-identical to before', () => {
+  assert.equal(isTutorialSeed(TUTORIAL_SEED), true); assert.equal(isTutorialSeed('tutorial-x'), true); assert.equal(isTutorialSeed('junkyard'), false);
+  assert.deepEqual([1, 2, 3].map((r) => draftOffers(TUTORIAL_SEED, r)), [['crusher'], ['furnace'], ['splitter']]);
+  for (const r of [4, 5, 6]) assert.equal(draftOffers(TUTORIAL_SEED, r).length, 3, 'rounds 4-6 are an ordinary draft');
+  const s = newRun(TUTORIAL_SEED);
+  assert.equal(s.bin.length, TUTORIAL_SPARE_CONVEYORS); assert.ok(s.bin.every((m) => m.kind === 'conveyor'));
+  assert.equal(newRun('junkyard').bin.length, 0, 'ordinary seeds start with an empty bin');
+  // snapshot taken before the tutorial table existed: the offer streams of ordinary seeds are unchanged
+  const h = createHash('sha256'); for (let i = 0; i < 50; i++) for (let r = 1; r <= 6; r++) h.update(JSON.stringify(draftOffers('snap-' + i, r)));
+  for (const seed of ['junkyard', 'e2e-seed', 'auto-12', 'daily-2026-10-29']) for (let r = 1; r <= 6; r++) h.update(JSON.stringify(draftOffers(seed, r)));
+  assert.equal(h.digest('hex'), 'b016e31a9c475896802de783e19133a03b107d0538936e4b2dba473558f28144', 'OFFERS_SNAPSHOT: draftOffers for non-tutorial seeds must not change without a RULES_VERSION bump');
+  // a tutorial run replays and verifies like any other
+  apply(s, { t: 'pick', i: 0 });
+  assert.throws(() => apply(s, { t: 'pick', i: 1 }), RunError, 'only one offer exists');
+  const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!; apply(s, { t: 'unplace', id: conv.id });
+  apply(s, { t: 'place', id: s.bin.find((m) => m.kind === 'crusher')!.id, x: 2, y: 2, dir: 0 });
+  apply(s, { t: 'run' }); apply(s, { t: 'next' });
+  assert.ok(s.rounds[0].result.shipped.shards > 0, 'round 1 ships shards');
+  for (let r = 2; r <= RULES.rounds; r++) { apply(s, { t: 'pick', i: 0 }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); }
+  const v = verifyReplay(exportReplay(s));
+  assert.deepEqual({ ok: v.ok, score: v.score }, { ok: true, score: s.score });
 });

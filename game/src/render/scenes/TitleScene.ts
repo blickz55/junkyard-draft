@@ -5,8 +5,8 @@ import { telemetry } from '../telemetry';
 import { Button, label, mono, panel, slider } from '../ui';
 import { CSS, P } from '../palette';
 import { audio } from '../audio';
-import { clearSave, dailySeed, hasUnusableSave, loadBests, loadPlayer, loadSave, loadSettings, loadSubmissions, randomSeed, savePlayer, updateSettings } from '../storage';
-import { MAX_SEED_LENGTH, sanitizeSeed } from '../../sim/run';
+import { clearSave, dailySeed, hasUnusableSave, loadBests, loadPlayer, loadSave, loadSettings, loadSubmissions, randomSeed, savePlayer, updateSettings, isOnboarded } from '../storage';
+import { MAX_SEED_LENGTH, sanitizeSeed, TUTORIAL_SEED } from '../../sim/run';
 import { decodeReplay, verifyReplay } from '../../sim/replay';
 import { W, H } from '../layout';
 import { prefs } from '../prefs';
@@ -44,9 +44,11 @@ export class TitleScene extends Phaser.Scene {
     new Button(this, W / 2 - 130, y, "Today's challenge", () => this.start(dailySeed(), true), { w: 240, h: 48, name: 'daily' });
     new Button(this, W / 2 + 130, y, 'Random seed', () => this.start(randomSeed(), true), { w: 240, h: 48, color: P.steel, name: 'random' });
     y += 62;
-    const seedBtn = new Button(this, W / 2 - 130, y, 'Custom seed…', () => { const s = window.prompt(`Seed (same seed = same offers for everyone; up to ${MAX_SEED_LENGTH} characters):`, 'junkyard'); if (s && s.trim()) this.start(sanitizeSeed(s), true); }, { w: 240, h: 40, color: P.steelDark, textColor: CSS.text, size: 14, name: 'custom' });
+    const fresh = !isOnboarded();
+    new Button(this, W / 2 - 250, y, fresh ? 'Learn to play (3 min)' : 'Learn (3 min)', () => this.start(TUTORIAL_SEED, true), { w: 220, h: 40, color: fresh ? P.amber : P.steelDark, textColor: fresh ? '#1a1612' : CSS.text, size: 14, name: 'learn' });
+    const seedBtn = new Button(this, W / 2, y, 'Custom seed…', () => { const s = window.prompt(`Seed (same seed = same offers for everyone; up to ${MAX_SEED_LENGTH} characters):`, 'junkyard'); if (s && s.trim()) this.start(sanitizeSeed(s), true); }, { w: 220, h: 40, color: P.steelDark, textColor: CSS.text, size: 14, name: 'custom' });
     void seedBtn;
-    new Button(this, W / 2 + 130, y, 'Import replay…', () => this.importReplay(), { w: 240, h: 40, color: P.steelDark, textColor: CSS.text, size: 14, name: 'import' });
+    new Button(this, W / 2 + 250, y, 'Import replay…', () => this.importReplay(), { w: 220, h: 40, color: P.steelDark, textColor: CSS.text, size: 14, name: 'import' });
     y += 70;
 
     // how to play
@@ -98,7 +100,7 @@ export class TitleScene extends Phaser.Scene {
     new Button(this, 955, y + 156, prefs.textScaleLabel(), () => { telemetry.track('settings_changed', { key: 'textScale' }); prefs.setTextScale(prefs.nextTextScale()); this.scene.restart(); }, { w: 80, h: 28, color: P.steelDark, textColor: CSS.text, size: 12, name: 'textscale' });
 
     this.dailyBoard(H - 72); // fixed strip above the bottom edge, same place with or without a saved run
-    this.input.keyboard?.on('keydown-ENTER', () => { if (save) this.scene.start('Game', { seed: save.seed, fresh: false, actions: save.actions }); else this.start(dailySeed(), true); });
+    this.input.keyboard?.on('keydown-ENTER', () => { if (save) this.scene.start('Game', { seed: save.seed, fresh: false, actions: save.actions }); else this.start(fresh ? TUTORIAL_SEED : dailySeed(), true); });
   }
 
   /** Today's verified board from the local verifier (optional service). Shown separately from local bests; never mixes claimed scores in. */
