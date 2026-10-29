@@ -19,10 +19,11 @@ import { openPolicy } from './PolicyPanel';
 import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
 import { groupHeaders, groupParam, loadGroup } from '../render/groups';
 import { forkLabelOf } from '../sim/fork';
+import type { CardInput } from '../render/card';
 import { loadForkBests } from '../render/storage';
 
 /** What the scene keeps so tests and later screens can read it. */
-export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string; lastPercentile: number | null; lastN: number; lastMedal: string | null; verifiedHash: string | null; matchesStoredSubmission(): Promise<boolean>; exportClip(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number }>; exportGif(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number; frames: number }> }
+export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string; lastPercentile: number | null; lastN: number; lastMedal: string | null; cardInput: (() => CardInput) | null; exportCard(): Promise<{ size: number; width: number; height: number; filename: string; savedTo: string; footer: string }>; verifiedHash: string | null; matchesStoredSubmission(): Promise<boolean>; exportClip(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number }>; exportGif(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number; frames: number }> }
 
 export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: boolean; replayLabel?: string; newOverall: boolean; newSeed: boolean; challenge?: Challenge; replayHash?: string; replayPlayer?: string; newFork?: boolean }) {
   const fork = run.forkedFrom ?? null; // PLAN-v4 0.7.3
@@ -197,6 +198,13 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
   const linkToggle = h('input', { type: 'checkbox', tid: 'share-link', ariaLabel: 'append a link to this seed' });
   const permalink = () => (linkToggle.checked ? `${location.origin}${location.pathname}?scene=game&seed=${encodeURIComponent(run.seed)}` : undefined);
   const buildShare = (variant: 'grid' | 'detailed') => shareText({ seed: run.seed, score: run.score, rulesVersion: run.rulesVersion, rounds: run.rounds.map((r) => r.earned), player: scene.lastPlayer || undefined, rank: scene.lastRank, percentile: scene.lastPercentile, n: scene.lastN, daysPlayed: daysPlayed(), streak: currentStreak(), medal: scene.lastMedal ?? undefined, fork: fork ? { player: fork.player, round: fork.round } : undefined, challenge: o.challenge && !o.replayed ? { player: o.challenge.player, score: o.challenge.score } : undefined, permalink: permalink(), variant, rerolls: run.rerolls, badges: badgesFor(run, botPar).map((b) => b.title) });
+  scene.cardInput = () => ({ seed: run.seed, score: run.score, rounds: run.rounds.map((r) => r.earned), rulesVersion: run.rulesVersion, player: scene.lastPlayer || undefined, verified: !!scene.verifiedHash, rank: scene.lastRank, percentile: scene.lastPercentile, n: scene.lastN, medal: scene.lastMedal, group: loadGroup(), challenge: o.challenge && !o.replayed ? { player: o.challenge.player, score: o.challenge.score } : null, fork: fork ? { player: fork.player, round: fork.round } : null, permalink: permalink(), build: import.meta.env.BUILD }); // PLAN-v4 0.7.4
+  const cardBtn = btn('Share card', 'share-card', async () => {
+    cardBtn.disabled = true;
+    try { const c = await scene.exportCard(); setStatus(`Share card saved: ${c.savedTo} (${c.width}×${c.height}, ${Math.round(c.size / 1024)} KB) · ${c.footer}`, 'jd-green'); }
+    catch (e) { setStatus((e as Error).message, 'jd-red'); }
+    finally { cardBtn.disabled = false; }
+  }, { small: true, title: 'a 1200×630 picture of this run: seed, score, the six rounds, and only the standing this run actually has (verified, local, fork); rendered here, never uploaded' });
   const shareBtn = btn('Copy share text', 'share', () => {
     const text = buildShare('grid'); scene.lastShareText = text;
     telemetry.track('share_copied', { variant: 'grid' });
@@ -244,7 +252,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       btn('Retry this seed', 'retry', () => go(run.seed), { variant: 'primary' }),
       btn('New random seed', 'newseed', () => go(randomSeed()), { variant: 'steel' }),
       btn("Today's challenge", 'daily', () => go(todaySeed()), { variant: 'steel' })),
-    h('div', { class: 'jd-row jd-center' }, fork ? null : submitBtn, shareBtn, detailedBtn, shareLinkLabel, fork ? null : challengeBtn, clipBtn, gifBtn, fork ? null : exportBtn, fork ? null : downloadBtn, btn('Policy', 'policy', () => openPolicy(scene), { small: true, title: 'fairness and verification policy' }), btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
+    h('div', { class: 'jd-row jd-center' }, fork ? null : submitBtn, shareBtn, detailedBtn, shareLinkLabel, cardBtn, fork ? null : challengeBtn, clipBtn, gifBtn, fork ? null : exportBtn, fork ? null : downloadBtn, btn('Policy', 'policy', () => openPolicy(scene), { small: true, title: 'fairness and verification policy' }), btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
     status);
   ui.mount(scene, screen, (e) => { if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) go(run.seed); });
   void loadBoard();

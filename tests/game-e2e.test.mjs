@@ -300,6 +300,11 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.doesNotMatch(shared, /badges/, 'the spoiler-free grid never lists badges');
     const subs = await page.evaluate((v) => JSON.parse(localStorage.getItem('jd.submissions.v2')).byVersion[v], V);
     assert.equal(subs['e2e-seed'].replayHash, board.entries[0].replayHash, 'submission recorded locally by replay hash');
+    // share card (PLAN-v4 0.7.4): a 1200×630 PNG whose footer says verified only for this verified run
+    const card = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportCard().then((c) => ({ ...c })));
+    assert.deepEqual([card.width, card.height], [1200, 630]); assert.ok(card.size > 10_000, `card has bytes (${card.size})`); assert.match(card.filename, /^junkyard-e2e-seed-\$\d+-card\.png$/);
+    assert.match(card.footer, new RegExp(`^junkyard draft · verified by re-simulation · rules v${V} · build `)); assert.match(card.standing, /^(#1 of 1 on the verified board|1 verified run)/);
+    assert.deepEqual(card.extras, [], 'no group, no medal, no challenge, no link: nothing invented');
     // loop_clip_exports (PLAN-v1 0.4.2): the best round is re-simulated and recorded live in Chromium; the clip is non-empty, at least 3 s, and takes under 10 s to make
     const clip = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportClip().then((c) => ({ ...c })));
     assert.ok(clip.size > 0, `clip has bytes (${clip.size})`);
@@ -339,6 +344,8 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.match(prov.prior ?? '', /^This device's verified run on this seed: \$\d+ \(a different attempt/, JSON.stringify(prov));
     assert.doesNotMatch(prov.pct ?? '', /you are #|Better than/, 'no standing is claimed for an unverified attempt');
     assert.equal(prov.mine, 0, 'no bin is highlighted as this run'); assert.equal(prov.verifiedHash, null);
+    const localCard = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportCard().then((c) => ({ footer: c.footer, standing: c.standing, extras: c.extras })));
+    assert.equal(localCard.footer, `junkyard draft · local run · unverified score · rules v${V}`); assert.equal(localCard.standing, 'unverified score'); assert.doesNotMatch([localCard.footer, localCard.standing, ...localCard.extras].join('\n'), /\bverified\b/, 'a local card never claims verification (PLAN-v4 0.7.4)');
     const localGif = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportGif().then((g) => ({ footer: g.footer })));
     assert.equal(localGif.footer, 'junkyard draft · local run · not verified', 'a local export never claims verification');
     // 7) watch the verified replay from the board: fetched by hash, re-verified locally, played back labelled, never recorded as a best

@@ -5,6 +5,7 @@ import { P } from '../palette';
 import { audio } from '../audio';
 import { clearSave, recordBest, recordDayPlayed, recordForkBest } from '../storage';
 import type { Challenge } from '../challenge';
+import { makeCard, saveCard, type CardInput } from '../card';
 import type { Rank } from '../share';
 import { mountResults } from '../../ui/ResultsScreen';
 import { ui } from '../../ui/dom';
@@ -22,6 +23,16 @@ export class ResultsScene extends Phaser.Scene {
   lastPercentile: number | null = null;
   lastN = 0;
   lastMedal: string | null = null;
+  /** the results screen composes the card's input (it knows the share-link toggle, the challenge and the fork); exportCard renders and saves it (PLAN-v4 0.7.4) */
+  cardInput: (() => CardInput) | null = null;
+  lastCard: { size: number; width: number; height: number; filename: string; savedTo: string; footer: string; standing: string; extras: string[] } | null = null;
+  async exportCard(): Promise<NonNullable<ResultsScene['lastCard']>> {
+    if (!this.cardInput) throw new Error('results not mounted');
+    const card = await makeCard(this.cardInput());
+    const savedTo = await saveCard(card);
+    this.lastCard = { size: card.blob.size, width: card.width, height: card.height, filename: card.filename, savedTo, footer: card.footer, standing: card.text.standing, extras: card.text.extras };
+    return this.lastCard;
+  }
   /** last exported clip (size, duration, container) for the e2e; the blob itself is not kept */
   lastClip: { size: number; ms: number; mime: string; frames: number; round: number; width: number; height: number; filename: string; savedTo: string; elapsedMs: number; footer: string } | null = null;
   /** this exact run's replay hash once a verifier accepted it (set by a submission here, or found among this device's stored submissions); null = unverified (review F11) */
@@ -76,7 +87,7 @@ export class ResultsScene extends Phaser.Scene {
     const forkRec = fork ? recordForkBest(run.seed, run.score) : { newFork: false };
     if (!data.replayed && !fork) recordDayPlayed();
     audio.roundEnd(true);
-    this.lastRank = null; this.lastPlayer = ''; this.lastShareText = ''; this.lastPercentile = null; this.lastN = 0; this.lastMedal = null;
+    this.lastRank = null; this.lastPlayer = ''; this.lastShareText = ''; this.lastPercentile = null; this.lastN = 0; this.lastMedal = null; this.lastCard = null; this.cardInput = null;
     mountResults(this, run, { replayed: !!data.replayed, replayLabel: data.replayLabel, newOverall: rec.newOverall, newSeed: rec.newSeed, challenge: data.challenge, replayHash: data.replayHash, replayPlayer: data.replayPlayer, newFork: forkRec.newFork });
     this.events.once('shutdown', () => ui.unmount());
   }

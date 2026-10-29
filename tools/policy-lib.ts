@@ -59,6 +59,7 @@ export function buildPolicy(): Policy {
       'The recovery code is your key in base32 groups. Anyone with it can play as you: keep it private. Entering it on another device moves the player there.',
       'Deletion: DELETE /me with your key removes your name, anonymises your entries as "deleted" and drops their replays. Nothing else about you is stored.',
       `Groups: a group is an 8-character code; its boards, histograms and daily strip show only members\' verified entries with ranks and percentiles recomputed over the group. Membership is keyed by player id, group names pass the same filter as player names, at most ${MAX_GROUPS_PER_PLAYER} groups per player and ${MAX_GROUP_MEMBERS} members per group, and a code is never listed anywhere: whoever holds it can join.`,
+      'Share cards and clips are rendered on your device and saved as files; nothing is uploaded, and a card says "verified" only when this very run was re-simulated by the verifier.',
       'The verifier stores: verified entries (seed, score, label, time, replay hash, machine count, player id when claimed), replays for the retention window, claimed names, issued dailies, bot pars. It stores no addresses: play statistics, when you opt in, carry a daily-salted hash of the address that cannot be linked across days.',
     ] },
     { title: 'Play statistics (opt-in)', lines: [

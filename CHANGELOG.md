@@ -5,6 +5,10 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.7, PLAN-v4)
 
+### 0.7.4 Share card — 2026-10-30
+- **For players.** "Share card" on the results saves a 1200×630 PNG of the run: seed, score, the six rounds as bars and glyphs, and only the standing the run actually has: the verified rank or percentile (and your name) once this run's replay was accepted, the medal when the day is frozen, the group rank when a group board is in use, the challenge outcome when one was played, a link only when the share-link option is on. A local run's card reads "local run · unverified score" and a fork's reads "practice fork · not a ranked score". Rendered on your device and downloaded like the GIF; nothing is uploaded.
+- **For operators.** Client only; the policy page says cards are rendered locally. No protocol or rules change.
+
 ### 0.7.3 Fork from round N into practice — 2026-10-30
 - **For players.** After watching a replay, the results offer "Continue as practice from after round 1…5", and the replay's round summaries offer "Continue from here". A fork takes over that layout and bin on the same seed from the next round. It is labelled everywhere ("forked from Jon#7Q2M after round 3 · practice"), has no submit, export or download controls, never becomes your save, never touches your bests or days played, and keeps its own "fork best" per seed. Its share text says it is a practice fork, not a ranked score.
 - **For operators.** Client only; a fork's replay file is refused at export, so nothing a fork does can reach the verifier. No protocol or rules change: the run state gained an optional marker with no effect on the simulation.
