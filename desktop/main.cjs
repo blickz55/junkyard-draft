@@ -1,7 +1,18 @@
 // Electron shell for Junkyard Draft. Loads the production bundle from dist/ (run `npm run build` first).
 // Offline only: no remote content, no telemetry. The Control Room is a dev tool and is not packaged.
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs');
+
+// exported loop clips go straight to Downloads (no dialog); the name is sanitised and never leaves that folder
+ipcMain.handle('jd:save-clip', (_event, name, bytes) => {
+  const safe = String(name).replace(/[^a-z0-9._$-]+/gi, '_').slice(0, 80) || 'clip.webm';
+  const dir = process.env.JD_CLIP_DIR || app.getPath('downloads');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, safe);
+  fs.writeFileSync(file, Buffer.from(bytes));
+  return file;
+});
 
 function createWindow() {
   const win = new BrowserWindow({

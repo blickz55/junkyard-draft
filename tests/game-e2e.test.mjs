@@ -270,6 +270,14 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.match(shared, /#1 of 1 on the verified board as e2e player \(replay re-simulated, rules v2\)/);
     const subs = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.submissions.v1')));
     assert.equal(subs['e2e-seed'].replayHash, board.entries[0].replayHash, 'submission recorded locally by replay hash');
+    // loop_clip_exports (PLAN-v1 0.4.2): the best round is re-simulated and recorded live in Chromium; the clip is non-empty, at least 3 s, and takes under 10 s to make
+    const clip = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportClip().then((c) => ({ ...c })));
+    assert.ok(clip.size > 0, `clip has bytes (${clip.size})`);
+    assert.ok(clip.ms >= 3000, `clip recorded for at least 3 s (${clip.ms} ms)`);
+    assert.ok(clip.elapsedMs <= 10000, `export finished in under 10 s (${clip.elapsedMs} ms)`);
+    assert.match(clip.mime, /^video\/(webm|mp4)/); assert.match(clip.filename, /^junkyard-e2e-seed-\$\d+-r\d\.(webm|mp4)$/);
+    assert.ok(clip.frames >= 60 && clip.width >= 624 && clip.height >= 536, `frames ${clip.frames}, ${clip.width}x${clip.height}`);
+    assert.equal(await page.evaluate(() => document.querySelector('[data-testid=export-clip]')?.disabled), false, 'the export button is usable again');
     // 7) watch the verified replay from the board: fetched by hash, re-verified locally, played back labelled, never recorded as a best
     const bestsBefore = await page.evaluate(() => localStorage.getItem('jd.bests.v1'));
     // watched_replay_preserves_existing_save: plant an unrelated unfinished run; it must survive playback byte for byte

@@ -13,17 +13,20 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 test('packaged desktop app: launches, plays a round, no page errors', { skip: !fs.existsSync(EXE) && 'no packaged build (npm run desktop:pack)', timeout: 90000 }, async () => {
   const { _electron: electron } = await import('playwright');
-  const app = await electron.launch({ executablePath: EXE, env: { ...process.env, JD_DEV_API: '1' } });
+  const app = await electron.launch({ executablePath: EXE, env: { ...process.env, JD_DEV_API: '1', JD_CLIP_DIR: process.env.TEMP || process.env.TMPDIR || '.' } });
   const errors = [];
   try {
     const page = await app.firstWindow();
     page.on('pageerror', (e) => errors.push(String(e)));
-    page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+    page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); }); // the optional verifier is usually absent on a desktop: a refused connection is not a page error
     await page.waitForLoadState('domcontentloaded');
     assert.equal(await page.title(), 'Junkyard Draft');
     // the packaged shell exposes window.jdDesktop from the preload; the dev API comes from ?dev=1 (JD_DEV_API)
     const platform = await page.evaluate('window.jdDesktop && window.jdDesktop.platform');
     assert.equal(platform, process.platform, 'preload bridge present');
+    // clip sink (PLAN-v1 0.4.2): the bridge saves bytes into JD_CLIP_DIR without a dialog
+    const saved = await page.evaluate("window.jdDesktop.saveClip ? window.jdDesktop.saveClip('smoke-test.webm', new Uint8Array([1, 2, 3]).buffer) : 'no-bridge'");
+    if (saved !== 'no-bridge') { assert.ok(fs.existsSync(saved) && fs.statSync(saved).size === 3, `clip written through the bridge at ${saved}`); fs.rmSync(saved, { force: true }); }
     await page.evaluate("location.search = '?dev=1&scene=game&seed=smoke-seed'");
     await page.waitForFunction("!!window.__jd && window.__jd.phase() === 'draft'", null, { timeout: 20000 });
     const api = (fn, ...a) => page.evaluate(`window.__jd[${JSON.stringify(fn)}](...${JSON.stringify(a)})`);

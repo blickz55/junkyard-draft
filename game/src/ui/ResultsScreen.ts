@@ -11,7 +11,7 @@ import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { audio } from '../render/audio';
 
 /** What the scene keeps so tests and later screens can read it. */
-export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string }
+export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string; exportClip(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number }> }
 
 export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: boolean; replayLabel?: string; newOverall: boolean; newSeed: boolean }) {
   const bests = loadBests();
@@ -132,6 +132,16 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     copyWith(shareBtn, 'Copy share text', text, 'Share text:');
   }, { small: true });
   const exportBtn = btn('Copy replay JSON', 'export', () => copyWith(exportBtn, 'Copy replay JSON', encodeReplay(exportReplay(run, import.meta.env.BUILD)), 'Copy replay JSON:'), { small: true });
+  const best = run.rounds.reduce((b, r) => (r.earned > b.earned ? r : b), run.rounds[0]);
+  const clipBtn = btn(`Export clip (round ${best?.round ?? 1})`, 'export-clip', async () => {
+    clipBtn.disabled = true; const label = clipBtn.textContent ?? '';
+    setStatus('Recording a loop of your best round at 4× — about 7 seconds…');
+    try {
+      const c = await scene.exportClip(undefined, (f) => { clipBtn.textContent = `Recording… ${Math.round(f * 100)} %`; });
+      setStatus(`Clip saved: ${c.savedTo} (${Math.round(c.size / 1024)} KB, ${(c.ms / 1000).toFixed(1)} s). Share it anywhere; it loops.`, 'jd-green');
+    } catch (e) { setStatus((e as Error).message, 'jd-red'); }
+    finally { clipBtn.textContent = label; clipBtn.disabled = false; }
+  }, { small: true, title: 'a short looping video of the round, drawn from the real simulation; always full motion' });
   const downloadBtn = btn('Download replay', 'download', () => {
     const text = encodeReplay(exportReplay(run, import.meta.env.BUILD));
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = `junkyard-draft-${run.seed}-${run.score}.replay.json`; a.click();
@@ -146,7 +156,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       btn('Retry this seed', 'retry', () => go(run.seed), { variant: 'primary' }),
       btn('New random seed', 'newseed', () => go(randomSeed()), { variant: 'steel' }),
       btn("Today's challenge", 'daily', () => go(dailySeed()), { variant: 'steel' })),
-    h('div', { class: 'jd-row jd-center' }, submitBtn, shareBtn, exportBtn, downloadBtn, btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
+    h('div', { class: 'jd-row jd-center' }, submitBtn, shareBtn, clipBtn, exportBtn, downloadBtn, btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
     status);
   ui.mount(scene, screen, (e) => { if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) go(run.seed); });
   void loadBoard();
