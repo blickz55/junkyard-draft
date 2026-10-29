@@ -263,17 +263,21 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.equal(board.entries.length, 1, 'one verified entry');
     assert.equal(board.entries[0].player, 'e2e player', 'the stored player name is sent with the submission');
     // share text: copied to the clipboard with seed, score and verified rank
+    // without a clipboard (headless), copying opens the select-and-copy dialog (review F04): close it like a player would
+    const dismissCopyDialog = async () => { await wait(400); /* the clipboard promise rejects asynchronously before the dialog opens */ if (await page.locator('[data-testid=dialog]').count()) { await page.getByTestId('dialog-ok').click(); await wait(100); } };
     await page.getByTestId('share').click();
     await page.waitForFunction(() => !!window.__jdGame.scene.getScene('Results').lastShareText, null, { timeout: 5000 }); // clipboard availability varies in headless runs; the text itself is what matters
     const shared = await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText); // headless clipboard contents are not reliably readable
     // spoiler_free_share (PLAN-v1 0.4.3): label · score, six glyphs, the standing, days played; no URL, no per-round dollars, no layout
     assert.match(shared, /^Junkyard Draft · seed e2e-seed · \$\d+\n[░▒▓█]{6}\n#1 of 1 on the verified board as e2e player\n1 day played$/, `default share text: ${JSON.stringify(shared)}`);
     assert.doesNotMatch(shared, /https?:|rounds \$|hopper|conveyor|crusher/);
+    await dismissCopyDialog();
     await page.getByTestId('share-link').check();
     await page.getByTestId('share-detailed').click();
     await page.waitForFunction(() => /rounds \$/.test(window.__jdGame.scene.getScene('Results').lastShareText), null, { timeout: 5000 });
     const detailed = await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText);
     assert.match(detailed, /\nrounds \$\d+ · \$\d+ · \$\d+ · \$\d+ · \$\d+ · \$\d+\nreplay re-simulated by the verifier, rules v2(\nbadges: [^\n]+)?\n1 day played\nhttp:\/\/127\.0\.0\.1:\d+\/\?scene=game&seed=e2e-seed$/, `detailed share text with link: ${JSON.stringify(detailed)}`);
+    await dismissCopyDialog();
     await page.getByTestId('share-link').uncheck();
     // non_ranked_badges (PLAN-v1 0.4.6): pills are known badges and the detailed verified text lists exactly them
     const pills = await page.evaluate(() => [...document.querySelectorAll('[data-testid=badges] .jd-badge-pill')].map((p) => ({ id: p.dataset.testid, title: p.textContent })));
@@ -291,6 +295,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.match(clip.mime, /^video\/(webm|mp4)/); assert.match(clip.filename, /^junkyard-e2e-seed-\$\d+-r\d\.(webm|mp4)$/);
     assert.ok(clip.frames >= 60 && clip.width >= 624 && clip.height >= 536, `frames ${clip.frames}, ${clip.width}x${clip.height}`);
     assert.equal(await page.evaluate(() => document.querySelector('[data-testid=export-clip]')?.disabled), false, 'the export button is usable again');
+    assert.equal(clip.footer, 'junkyard draft · verified replay', 'this run was accepted by the verifier above, so its clip may say so (review F10)');
     // gif_clip_exports (PLAN-v1 0.4.11): the same round as a GIF89a drawn offline at 1x and 10 fps: real header, logical size,
     // a one-pass loop with a hold, ≤ 256 colours, under the 2 MB budget, in a few seconds
     const gif = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportGif().then((g) => ({ ...g })));
@@ -302,6 +307,27 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     assert.ok(gif.elapsedMs <= 15000, `GIF drawn and encoded in under 15 s (${gif.elapsedMs} ms)`);
     assert.match(gif.filename, /^junkyard-e2e-seed-\$\d+-r\d\.gif$/);
     assert.equal(await page.evaluate(() => document.querySelector('[data-testid=export-gif]')?.disabled), false, 'the GIF button is usable again');
+    assert.equal(gif.footer, 'junkyard draft · verified replay');
+    // results_provenance (review F11): a different, unsubmitted attempt on the same seed shows no rank for itself, names the earlier
+    // verified attempt as a different one, and its exports say local
+    await page.evaluate(() => window.__jdGame.scene.start('Game', { seed: 'e2e-seed', fresh: true }));
+    await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft' && window.__jd.state().round === 1 && window.__jd.state().rounds.length === 0, null, { timeout: 15000 });
+    for (let r = 0; r < 6; r++) {
+      await page.evaluate(() => { const j = window.__jd; const st = j.state(); j.pick(st.offers.length - 1); j.run(); });
+      await page.waitForFunction(() => window.__jd.mode() === 'running', null, { timeout: 10000 });
+      await page.evaluate(() => window.__jd.finishRun());
+      await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 10000 });
+      await page.evaluate(() => window.__jd.next());
+      await wait(150);
+    }
+    await page.waitForFunction(() => window.__jdGame.scene.isActive('Results'), null, { timeout: 10000 });
+    await page.waitForFunction(() => !!document.querySelector('[data-testid=prior-best]'), null, { timeout: 10000 });
+    const prov = await page.evaluate(() => ({ prior: document.querySelector('[data-testid=prior-best]')?.textContent, pct: document.querySelector('[data-testid=percentile]')?.textContent, mine: document.querySelectorAll('[data-testid=histogram] .jd-hist-mine').length, verifiedHash: window.__jdGame.scene.getScene('Results').verifiedHash }));
+    assert.match(prov.prior ?? '', /^This device's verified run on this seed: \$\d+ \(a different attempt/, JSON.stringify(prov));
+    assert.doesNotMatch(prov.pct ?? '', /you are #|Better than/, 'no standing is claimed for an unverified attempt');
+    assert.equal(prov.mine, 0, 'no bin is highlighted as this run'); assert.equal(prov.verifiedHash, null);
+    const localGif = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportGif().then((g) => ({ footer: g.footer })));
+    assert.equal(localGif.footer, 'junkyard draft · local run · not verified', 'a local export never claims verification');
     // 7) watch the verified replay from the board: fetched by hash, re-verified locally, played back labelled, never recorded as a best
     const bestsBefore = await page.evaluate(() => localStorage.getItem('jd.bests.v1'));
     // watched_replay_preserves_existing_save: plant an unrelated unfinished run; it must survive playback byte for byte

@@ -45,18 +45,21 @@ export function validateSave(raw: unknown): SaveGame | null {
   if (!Number.isInteger(raw.rulesVersion) || !isValidSeed(raw.seed) || !Array.isArray(raw.actions) || !raw.actions.every(validateAction)) return null;
   return { rulesVersion: raw.rulesVersion as number, seed: raw.seed, actions: raw.actions as Action[], savedAt: isStr(raw.savedAt) ? raw.savedAt : '' };
 }
+/** Dictionaries keyed by player-typed seeds use null prototypes and own-property checks: '__proto__', 'constructor' or 'toString' are valid seeds (review F14). */
+const dict = <T>(): Record<string, T> => Object.create(null) as Record<string, T>;
+const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
 export function validateBests(raw: unknown): Bests {
-  const out: Bests = { overall: null, bySeed: {}, runs: 0 };
+  const out: Bests = { overall: null, bySeed: dict(), runs: 0 };
   if (!isObj(raw)) return out;
   if (isObj(raw.overall) && isFiniteNum(raw.overall.score) && isStr(raw.overall.seed)) out.overall = { score: raw.overall.score, seed: raw.overall.seed, at: isStr(raw.overall.at) ? raw.overall.at : '' };
-  if (isObj(raw.bySeed)) for (const [seed, v] of Object.entries(raw.bySeed)) if (isObj(v) && isFiniteNum(v.score)) out.bySeed[seed] = { score: v.score, at: isStr(v.at) ? v.at : '' };
+  if (isObj(raw.bySeed)) for (const [seed, v] of Object.entries(raw.bySeed)) if (isObj(v) && isFiniteNum(v.score) && isValidSeed(seed)) out.bySeed[seed] = { score: v.score, at: isStr(v.at) ? v.at : '' };
   if (Number.isInteger(raw.runs) && (raw.runs as number) >= 0) out.runs = raw.runs as number;
   return out;
 }
 export function validateSubmissions(raw: unknown): Record<string, Submission> {
-  const out: Record<string, Submission> = {};
+  const out = dict<Submission>();
   if (!isObj(raw)) return out;
-  for (const [seed, v] of Object.entries(raw)) if (isObj(v) && isFiniteNum(v.score) && isStr(v.replayHash)) out[seed] = { score: v.score, replayHash: v.replayHash, verifiedAt: isStr(v.verifiedAt) ? v.verifiedAt : '', player: isStr(v.player) ? v.player : '' };
+  for (const [seed, v] of Object.entries(raw)) if (isObj(v) && isFiniteNum(v.score) && isStr(v.replayHash) && isValidSeed(seed)) out[seed] = { score: v.score, replayHash: v.replayHash, verifiedAt: isStr(v.verifiedAt) ? v.verifiedAt : '', player: isStr(v.player) ? v.player : '' };
   return out;
 }
 
@@ -83,7 +86,7 @@ export const loadBests = (): Bests => validateBests(readRaw(K.bests));
 export function recordBest(seed: string, score: number): { newOverall: boolean; newSeed: boolean } {
   const b = loadBests();
   const at = new Date().toISOString();
-  const newSeed = !b.bySeed[seed] || score > b.bySeed[seed].score;
+  const newSeed = !own(b.bySeed, seed) || score > b.bySeed[seed].score;
   if (newSeed) b.bySeed[seed] = { score, at };
   const newOverall = !b.overall || score > b.overall.score;
   if (newOverall) b.overall = { score, seed, at };
@@ -98,7 +101,7 @@ export const savePlayer = (name: string) => { try { const n = cleanPlayer(name);
 
 /** Verified submissions this device made, by seed: lets the title screen look up its own rank without trusting names. */
 export const loadSubmissions = (): Record<string, Submission> => validateSubmissions(readRaw(K.submissions));
-export const recordSubmission = (seed: string, s: Submission) => { const all = loadSubmissions(); if (!all[seed] || s.score >= all[seed].score) { all[seed] = s; write(K.submissions, all); } };
+export const recordSubmission = (seed: string, s: Submission) => { const all = loadSubmissions(); if (!own(all, seed) || s.score >= all[seed].score) { all[seed] = s; write(K.submissions, all); } };
 
 /** Opt-in funnel state (PLAN-v1 0.3.7): the random install id, once-per-install events already sent, games started. Exists only while consent is on. */
 export interface TelemetryState { installId: string | null; firsts: string[]; games: number; /** unsent events, so a page navigation never loses a batch */ pending: unknown[] }

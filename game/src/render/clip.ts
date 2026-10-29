@@ -19,6 +19,8 @@ import { encodeGif, quantize } from './gif';
 export interface ClipOptions {
   /** 1-based round to export; default the highest-earning round */
   round?: number;
+  /** true only when this exact run's replay was accepted by a verifier: the footer says so, otherwise it says local (review F10) */
+  verified?: boolean;
   speed?: number;
   passes?: number;
   holdMs?: number;
@@ -28,8 +30,10 @@ export interface ClipOptions {
   maxHeight?: number;
   onProgress?: (fraction: number) => void;
 }
-export interface ClipResult { blob: Blob; mime: string; ms: number; frames: number; round: number; width: number; height: number; filename: string }
-export interface GifOptions { round?: number; speed?: number; holdMs?: number; fps?: number; player?: string; onProgress?: (fraction: number) => void }
+export interface ClipResult { blob: Blob; mime: string; ms: number; frames: number; round: number; width: number; height: number; filename: string; footer: string }
+/** The wordmark line on every frame: a verification claim only for a verified replay (CLAUDE.md: never label local results verified). */
+export const clipFooter = (verified: boolean) => (verified ? 'junkyard draft · verified replay' : 'junkyard draft · local run · not verified');
+export interface GifOptions { round?: number; speed?: number; holdMs?: number; fps?: number; player?: string; verified?: boolean; onProgress?: (fraction: number) => void }
 export interface GifResult extends ClipResult { colours: number; magic: string }
 
 const MARGIN = 24;
@@ -57,7 +61,7 @@ export class ClipPainter {
   private img = new Map<string, { image: CanvasImageSource; x: number; y: number; w: number; h: number } | null>();
   private pops: { x: number; y: number; value: number; at: number }[] = [];
   private jammed = new Set<number>();
-  constructor(private readonly game: Phaser.Game, private readonly layout: Layout, private readonly label: { title: string; seed: string; player: string; round: number; totalBefore: number }, maxHeight = 720, scaleCap = Infinity) {
+  constructor(private readonly game: Phaser.Game, private readonly layout: Layout, private readonly label: { title: string; seed: string; player: string; round: number; totalBefore: number; footer: string }, maxHeight = 720, scaleCap = Infinity) {
     const w0 = layout.width * CELL + MARGIN * 2, h0 = layout.height * CELL + MARGIN * 2 + STRIP;
     this.scale = Math.min(Math.max(1, window.devicePixelRatio || 1), maxHeight / h0, scaleCap);
     this.width = Math.round(w0 * this.scale); this.height = Math.round(h0 * this.scale);
@@ -119,7 +123,7 @@ export class ClipPainter {
     ctx.textAlign = 'center'; ctx.fillStyle = CSS.gold; ctx.font = `bold 20px ${FONT}`; ctx.fillText(`$${sim.earned}`, this.width / scale / 2, sy + 26);
     ctx.fillStyle = CSS.dim; ctx.font = `11px ${FONT}`; ctx.fillText(`round ${this.label.round} · tick ${sim.tick}/${RULES.ticksPerRound} · total $${this.label.totalBefore + sim.earned}`, this.width / scale / 2, sy + 44);
     ctx.textAlign = 'right'; ctx.fillStyle = CSS.text; ctx.font = `bold 12px ${FONT}`; ctx.fillText(this.label.player, this.width / scale - 16, sy + 24);
-    ctx.fillStyle = CSS.dim; ctx.font = `10px ${MONO}`; ctx.fillText('junkyard draft · verified replay', this.width / scale - 16, sy + 42);
+    ctx.fillStyle = CSS.dim; ctx.font = `10px ${MONO}`; ctx.fillText(this.label.footer, this.width / scale - 16, sy + 42);
     ctx.restore();
   }
 }
@@ -134,7 +138,8 @@ export function recordClip(game: Phaser.Game, run: { seed: string; score: number
     if (!rec) return reject(new Error('No finished round to export.'));
     const totalBefore = run.rounds.filter((r) => r.round < rec.round).reduce((a, r) => a + r.earned, 0);
     const seedLabel = /^daily-(\d{4}-\d{2}-\d{2})$/.test(run.seed) ? `Daily ${run.seed.slice(6)}` : `seed ${run.seed}`;
-    const painter = new ClipPainter(game, rec.layout, { title: 'JUNKYARD DRAFT', seed: seedLabel, player: o.player || 'anonymous', round: rec.round, totalBefore }, o.maxHeight ?? 720);
+    const footer = clipFooter(o.verified === true);
+    const painter = new ClipPainter(game, rec.layout, { title: 'JUNKYARD DRAFT', seed: seedLabel, player: o.player || 'anonymous', round: rec.round, totalBefore, footer }, o.maxHeight ?? 720);
     const speed = o.speed ?? 4, passes = o.passes ?? 2, holdMs = o.holdMs ?? 300, fps = o.fps ?? 30;
     // the canvas must be painted to be captured: keep it in the document, out of sight
     painter.canvas.style.cssText = 'position:fixed;left:-10000px;top:0;pointer-events:none';
@@ -150,7 +155,7 @@ export function recordClip(game: Phaser.Game, run: { seed: string; score: number
     recorder.onstop = () => {
       cleanup();
       const blob = new Blob(chunks, { type: mime });
-      resolve({ blob, mime, ms: Math.round(performance.now() - t0), frames, round: rec.round, width: painter.width, height: painter.height, filename: clipFilename(run.seed, run.score, rec.round, mime) });
+      resolve({ blob, mime, ms: Math.round(performance.now() - t0), frames, round: rec.round, width: painter.width, height: painter.height, filename: clipFilename(run.seed, run.score, rec.round, mime), footer });
     };
     let sim: SimState = createSim(rec.layout);
     let pass = 0; let acc = 0; let last = 0; let holdUntil = 0; let belt = 0;
@@ -197,7 +202,8 @@ export async function renderGif(game: Phaser.Game, run: { seed: string; score: n
   const picked = pickRound(run, o.round);
   if (!picked) throw new Error('No finished round to export.');
   const { rec, totalBefore, seedLabel } = picked;
-  const painter = new ClipPainter(game, rec.layout, { title: 'JUNKYARD DRAFT', seed: seedLabel, player: o.player || 'anonymous', round: rec.round, totalBefore }, Infinity, 1);
+  const footer = clipFooter(o.verified === true);
+  const painter = new ClipPainter(game, rec.layout, { title: 'JUNKYARD DRAFT', seed: seedLabel, player: o.player || 'anonymous', round: rec.round, totalBefore, footer }, Infinity, 1);
   const speed = o.speed ?? 4, holdMs = o.holdMs ?? 400, fps = o.fps ?? 10;
   const tickMs = TICK_MS / speed, frameMs = 1000 / fps;
   const totalMs = RULES.ticksPerRound * tickMs + holdMs;
@@ -230,7 +236,7 @@ export async function renderGif(game: Phaser.Game, run: { seed: string; score: n
   const bytes = encodeGif(painter.width, painter.height, q.palette, frames, 0);
   const blob = new Blob([bytes as unknown as BlobPart], { type: 'image/gif' });
   o.onProgress?.(1);
-  return { blob, mime: 'image/gif', ms: Math.round(totalMs), frames: frames.length, round: rec.round, width: painter.width, height: painter.height, filename: clipFilename(run.seed, run.score, rec.round, 'image/gif'), colours: q.colours, magic: String.fromCharCode(...bytes.subarray(0, 6)), elapsed: Math.round(performance.now() - t0) } as GifResult & { elapsed: number };
+  return { blob, mime: 'image/gif', ms: Math.round(totalMs), frames: frames.length, round: rec.round, width: painter.width, height: painter.height, filename: clipFilename(run.seed, run.score, rec.round, 'image/gif'), footer, colours: q.colours, magic: String.fromCharCode(...bytes.subarray(0, 6)), elapsed: Math.round(performance.now() - t0) } as GifResult & { elapsed: number };
 }
 /** Index one RGBA frame against a fixed palette (nearest colour, cached per 15-bit bin). */
 function quantizeWith(palette: Uint8Array, colours: number, data: Uint8ClampedArray, n: number): Uint8Array {

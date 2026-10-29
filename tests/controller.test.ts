@@ -116,6 +116,34 @@ test('controller: a watched replay plays itself through scheduled steps, never p
   assert.equal(c2.speed, 4, 'runs play at 4× during playback');
 });
 
+test('controller: while watching, manual Space/advance cannot double the queue\'s own boundary (review F09), and callbacks scheduled before a stop are dropped', () => {
+  const s = newRun('ctl-space');
+  for (let round = 1; round <= RULES.rounds; round++) { apply(s, { t: 'pick', i: 0 }); if (round === 1) { const p = s.bin[0]; apply(s, { t: 'place', id: p.id, x: 5, y: 4, dir: 0 }); } apply(s, { t: 'run' }); apply(s, { t: 'next' }); }
+  const r = recorder();
+  const c = new RoundController({ seed: 'ctl-space', fresh: true, replay: s.actions.slice(), replayLabel: 'x' }, r.hooks);
+  let safety = 0;
+  c.advanceReplay();
+  while (c.playbackPending && safety++ < 200) {
+    if (c.mode === 'running') c.finishRun();
+    if (c.mode === 'summary') { assert.equal(c.nextRound(), null, 'a manual advance during playback is refused'); assert.equal(c.startRun(), false); }
+    if (c.mode === 'build') assert.equal(c.startRun(), false, 'a manual run start during playback is refused');
+    r.flush();
+  }
+  assert.equal(c.playbackPending, false);
+  assert.equal(c.run.rounds.length, RULES.rounds, 'exactly six rounds were recorded');
+  assert.equal(c.run.score, s.score, 'the verified score is reproduced despite the extra key presses');
+  assert.equal(c.run.phase, 'finished');
+  // stale callbacks: stop a fresh playback while an advance is scheduled; flushing it must not act
+  const r2 = recorder();
+  const c2 = new RoundController({ seed: 'ctl-space', fresh: true, replay: s.actions.slice(), replayLabel: 'x' }, r2.hooks);
+  c2.advanceReplay(); // picks + places, starts the run, schedules the 4× speed
+  const before = c2.run.actions.length;
+  c2.stopReplay();
+  r2.flush();
+  assert.equal(c2.run.actions.length, before, 'nothing applied after stopReplay');
+  assert.equal(c2.playbackPending, false);
+});
+
 test('controller: a damaged save starts fresh with a notice; a run saved mid-result resumes in summary mode', () => {
   const r = recorder();
   const bad = new RoundController({ seed: 'ctl-save', fresh: false, actions: [{ t: 'pick', i: 9 } as Action] }, r.hooks);

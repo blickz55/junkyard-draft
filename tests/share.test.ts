@@ -47,9 +47,9 @@ test('player names are trimmed, whitespace-collapsed and capped at 32 characters
 });
 
 test('badges in share text (PLAN-v1 0.4.6): only the detailed variant of a verified run lists them', () => {
-  const base = { seed: 'x', score: 500, rulesVersion: 2, rounds: [50, 50, 100, 100, 100, 100], badges: ['Clean', 'Full Grid'] };
+  const base = { seed: 'x', score: 500, rulesVersion: 2, rounds: [50, 50, 100, 100, 100, 100], badges: ['Clean', 'All Hands'] };
   assert.doesNotMatch(shareText(base), /badges/, 'unverified: never');
   assert.doesNotMatch(shareText({ ...base, rank: { n: 1, of: 1 } }), /badges/, 'verified grid variant: no');
-  assert.match(shareText({ ...base, rank: { n: 1, of: 1 }, variant: 'detailed' }), /\nbadges: Clean · Full Grid$/, 'verified detailed: yes');
+  assert.match(shareText({ ...base, rank: { n: 1, of: 1 }, variant: 'detailed' }), /\nbadges: Clean · All Hands$/, 'verified detailed: yes');
   assert.doesNotMatch(shareText({ ...base, badges: [], rank: { n: 1, of: 1 }, variant: 'detailed' }), /badges/);
 });

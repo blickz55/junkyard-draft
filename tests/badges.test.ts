@@ -6,7 +6,7 @@ import { runLayout } from '../game/src/sim/sim';
 import { RULES } from '../game/src/sim/rules';
 import type { Layout, Machine } from '../game/src/sim/types';
 
-const ids = (run: Pick<RunState, 'rounds' | 'score' | 'layout'>, par: number | null) => badgesFor(run, par).map((b) => b.id);
+const ids = (run: Pick<RunState, 'rounds' | 'score' | 'layout' | 'bin' | 'sold'>, par: number | null) => badgesFor(run, par).map((b) => b.id);
 
 function finish(seed: string, edit?: (s: RunState) => void): RunState {
   const s = newRun(seed);
@@ -20,10 +20,10 @@ test('badges (PLAN-v1 0.4.6): Clean needs zero waits and zero blocked ticks in e
   assert.ok(ids(clean, null).includes('clean'), 'the untouched starter line never jams');
   const jammed = finish('badge-jam', (s) => { const c = s.layout.machines.find((m) => m.x === 3 && m.y === 2)!; apply(s, { t: 'rotate', id: c.id }); apply(s, { t: 'rotate', id: c.id }); });
   assert.ok(!ids(jammed, null).includes('clean'), 'a round with waits forfeits Clean for the whole run');
-  assert.deepEqual(ids({ rounds: [], score: 0, layout: clean.layout }, 100), [], 'no rounds, no badges');
+  assert.deepEqual(ids({ rounds: [], score: 0, layout: clean.layout, bin: [], sold: 0 }, 100), [], 'no rounds, no badges');
 });
 
-test('badges: Minimalist needs the final round at or under the machine cap and a score at or above the bot par; Full Grid needs every cell used', () => {
+test('badges: Minimalist needs the final round at or under the machine cap and a score at or above the bot par; All Hands needs an empty bin and nothing sold at the end', () => {
   const s = finish('badge-min');
   assert.ok(s.rounds[RULES.rounds - 1].layout.machines.length <= MINIMALIST_MACHINES, 'the starter line is minimal');
   assert.ok(!ids(s, null).includes('minimalist'), 'without a par, Minimalist cannot be judged');
@@ -32,10 +32,9 @@ test('badges: Minimalist needs the final round at or under the machine cap and a
   // a final round crowded past the cap loses it even with the score
   const crowded = { ...s, rounds: s.rounds.map((r, i) => (i === RULES.rounds - 1 ? roundOf({ ...r.layout, machines: [...r.layout.machines, ...Array.from({ length: MINIMALIST_MACHINES }, (_, k): Machine => ({ id: 900 + k, kind: 'conveyor', x: k, y: 5, dir: 0 }))] }, r.round) : r)) };
   assert.ok(!ids(crowded, 0).includes('minimalist'));
-  // Full Grid: fill every cell of one round
-  const full: Machine[] = []; let id = 1;
-  for (let y = 0; y < RULES.gridHeight; y++) for (let x = 0; x < RULES.gridWidth; x++) full.push({ id: id++, kind: y === 2 && x === 0 ? 'hopper' : y === 2 && x === RULES.gridWidth - 1 ? 'dock' : 'conveyor', x, y, dir: 0 });
-  const fullRun = { ...s, rounds: [roundOf({ width: RULES.gridWidth, height: RULES.gridHeight, machines: full }, 1), ...s.rounds.slice(1)] };
-  assert.ok(ids(fullRun, null).includes('full-grid'));
-  assert.ok(!ids(s, null).includes('full-grid'), 'five machines is not a full grid');
+  // All Hands (review F16: Full Grid could never be earned with 11 machines on 48 cells): everything owned is on the grid at the end
+  assert.ok(ids({ ...s, bin: [], sold: 0 }, null).includes('all-hands'), 'empty bin, nothing sold: All Hands');
+  assert.ok(!ids({ ...s, bin: [{ id: 99, kind: 'conveyor', x: -1, y: -1, dir: 0 }], sold: 0 }, null).includes('all-hands'), 'a part left in the bin loses it');
+  assert.ok(!ids({ ...s, bin: [], sold: RULES.sellValue }, null).includes('all-hands'), 'a sold part loses it');
+  assert.ok(!ids({ ...s, rounds: s.rounds.slice(0, 2), bin: [], sold: 0 }, null).includes('all-hands'), 'only a finished run can earn it');
 });

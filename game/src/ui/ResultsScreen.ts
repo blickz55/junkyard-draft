@@ -1,6 +1,6 @@
 /** Results screen as DOM (DOSSIER-v1 0.4.0): score, round bars, what shipped, the local verified board, submission and sharing. */
 import type Phaser from 'phaser';
-import { h, btn, ui, textureImg } from './dom';
+import { h, btn, ui, textureImg, promptText, showText } from './dom';
 import type { RunState } from '../sim/run';
 import { encodeReplay, exportReplay } from '../sim/replay';
 import { RULES } from '../sim/rules';
@@ -12,7 +12,7 @@ import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { audio } from '../render/audio';
 
 /** What the scene keeps so tests and later screens can read it. */
-export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string; lastPercentile: number | null; lastN: number; exportClip(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number }>; exportGif(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number; frames: number }> }
+export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string; lastPercentile: number | null; lastN: number; verifiedHash: string | null; matchesStoredSubmission(): Promise<boolean>; exportClip(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number }>; exportGif(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number; frames: number }> }
 
 export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: boolean; replayLabel?: string; newOverall: boolean; newSeed: boolean }) {
   const bests = loadBests();
@@ -58,12 +58,18 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
   const setStatus = (text: string, cls = 'jd-dim') => { status.textContent = text; status.className = `jd-mono ${cls}`; };
 
   /** Histogram-first (PLAN-v1 0.4.1): where this run sits among real verified runs; with fewer than five, the entries that exist and never an invented population. */
+  let histGen = 0;
   const loadHistogram = async (attempt = 0) => {
+    const gen = ++histGen; // a response for an older request or a replaced screen is ignored (review F11)
     histBox.replaceChildren();
     try {
-      const mine = loadSubmissions()[run.seed]?.replayHash;
+      // standing is shown only for THIS run's replay: a submission made on this screen, or a stored one with the same identity
+      if (!scene.verifiedHash && (await scene.matchesStoredSubmission())) scene.verifiedHash = loadSubmissions()[run.seed]?.replayHash ?? null;
+      const mine = scene.verifiedHash ?? undefined;
+      const prior = !mine ? loadSubmissions()[run.seed] : undefined;
       const hres = await fetch(`${verifierUrl}/histogram?seed=${encodeURIComponent(run.seed)}${mine ? `&hash=${encodeURIComponent(mine)}` : ''}`);
       const hg = await hres.json() as { n: number; step: number; bins: { from: number; to: number; count: number }[]; mine: { score: number; rank: number; bin: number; percentile: number } | null; around: { rank: number; player: string; score: number; mine: boolean }[]; botPar?: number | null };
+      if (gen !== histGen || !histBox.isConnected) return;
       // the par is computed off the request path by the verifier the first time a seed is seen: poll a few times while it is pending
       if (hg.botPar == null && attempt < 6) setTimeout(() => { if (histBox.isConnected) void loadHistogram(attempt + 1); }, 4000);
       const parLine = hg.botPar != null ? h('div', { class: 'jd-mono jd-dim', tid: 'bot-par', style: 'font-size:0.75em; margin-top:0.3em' }, `Bot par $${hg.botPar} · the shipped autoplayer's median on this seed (a target, never ranked)${run.score > hg.botPar ? ' — you beat it' : run.score === hg.botPar ? ' — matched' : ''}`) : null;
@@ -77,6 +83,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       histBox.append(h('div', { class: hg.mine ? 'jd-amber' : 'jd-dim', tid: 'percentile', style: 'font-size:0.8125em; margin-top:0.3em; font-weight:700' }, pct));
       if (parLine) histBox.append(parLine);
       if (hg.mine && hg.around.length > 1) histBox.append(h('div', { class: 'jd-around', tid: 'around' }, ...hg.around.map((a) => h('div', { class: a.mine ? 'jd-mine' : '' }, `#${a.rank}  $${a.score}  ${a.mine ? 'you' : a.player}`))));
+      if (prior) histBox.append(h('div', { class: 'jd-mono jd-dim', tid: 'prior-best', style: 'font-size:0.7em; margin-top:0.3em' }, `This device's verified run on this seed: $${prior.score} (a different attempt; this run is unverified until submitted)`));
     } catch { /* histogram is decoration over the board; the status line already says whether the verifier is reachable */ }
   };
   const loadBoard = async (keepStatus = false) => {
@@ -97,13 +104,13 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     } catch { if (!keepStatus) setStatus('No local verifier running (optional: npm run verifier). Local bests are unverified.'); }
   };
 
-  const ensurePlayer = (): string => {
-    let player = loadPlayer();
-    if (!player) {
-      const typed = window.prompt('Name for the verified board (shown publicly, max 32 characters):', 'player');
-      player = (typed ?? '').trim() ? typed!.trim().slice(0, 32) : 'anonymous';
-      if (player !== 'anonymous') savePlayer(player);
-    }
+  /** The display name for the board: the saved one, or a dialog on the first submission; null when the player cancels. */
+  const ensurePlayer = async (): Promise<string | null> => {
+    const saved = loadPlayer(); if (saved) return saved;
+    const typed = await promptText(scene, 'Name for the verified board', 'Shown publicly next to your score (max 32 characters; empty = anonymous):', 'player', 32);
+    if (typed === null) return null;
+    const player = typed.trim() ? typed.trim().slice(0, 32) : 'anonymous';
+    if (player !== 'anonymous') savePlayer(player);
     return player;
   };
   const rankOf = async (replayHash: string): Promise<Rank> => {
@@ -113,17 +120,23 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     return { n: i >= 0 ? i + 1 : null, of: body.entries.length };
   };
   const submitBtn = btn('Submit to local verifier', 'submit', async () => {
-    submitBtn.disabled = true; setStatus('Submitting replay to the local verifier…');
-    const player = ensurePlayer();
-    let body: { ok: boolean; score?: number; error?: string; entry?: { replayHash: string; verifiedAt: string } };
+    submitBtn.disabled = true;
+    let verified = false;
     try {
-      const res = await fetch(`${verifierUrl}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(run, import.meta.env.BUILD), player }) });
-      body = await res.json() as typeof body;
-      if (res.status === 503 || res.status === 429) { telemetry.track('daily_submit_result', { result: 'busy' }); setStatus(`Verifier busy (${body.error || res.status}); nothing was recorded. Try again in a moment.`); submitBtn.disabled = false; return; }
-    } catch { setStatus(`Verifier unreachable at ${verifierUrl} (start it with: npm run verifier). Score stays local/unverified.`); submitBtn.disabled = false; return; }
-    if (!body.ok || !body.entry) { telemetry.track('daily_submit_result', { result: 'rejected' }); setStatus(`Verifier response: ${body.error || 'rejected'}`, 'jd-red'); return; }
+      const player = await ensurePlayer();
+      if (player === null) { setStatus('Submission cancelled.'); return; }
+      setStatus('Submitting replay to the local verifier…');
+      let body: { ok: boolean; score?: number; error?: string; entry?: { replayHash: string; verifiedAt: string } };
+      try {
+        const res = await fetch(`${verifierUrl}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(run, import.meta.env.BUILD), player }) });
+        body = await res.json() as typeof body;
+        if (res.status === 503 || res.status === 429) { telemetry.track('daily_submit_result', { result: 'busy' }); setStatus(`Verifier busy (${body.error || res.status}); nothing was recorded. Try again in a moment.`); return; }
+      } catch { setStatus(`Verifier unreachable at ${verifierUrl} (start it with: npm run verifier). Score stays local/unverified.`); return; }
+      if (!body.ok || !body.entry) { telemetry.track('daily_submit_result', { result: 'rejected' }); setStatus(`Verifier response: ${body.error || 'rejected'}`, 'jd-red'); return; }
+      verified = true;
     telemetry.track('daily_submit_result', { result: 'verified' });
     recordSubmission(run.seed, { score: body.score ?? run.score, replayHash: body.entry.replayHash, verifiedAt: body.entry.verifiedAt, player });
+    scene.verifiedHash = body.entry.replayHash; // this run, this replay: exports and standing may now say verified
     scene.lastPlayer = player;
     try {
       scene.lastRank = await rankOf(body.entry.replayHash);
@@ -131,11 +144,12 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       setStatus(`Verified by re-simulation: $${body.score} — ${r.n != null ? `#${r.n} of ${r.of}` : `beyond the top ${r.of}`} on the local verified board as ${player}.`, 'jd-green');
     } catch { setStatus(`Verified by re-simulation: $${body.score} as ${player} — recorded on the local verified board (rank unavailable right now).`, 'jd-green'); }
     try { await loadBoard(true); } catch { /* the board list is decoration; the status line already says what happened */ }
+    } finally { if (!verified) submitBtn.disabled = false; } // a cancelled, busy, unreachable or rejected attempt leaves the control usable (review F04)
   }, { disabled: o.replayed, small: true });
 
   const copyWith = (b: HTMLButtonElement, label: string, text: string, title: string) => {
     const done = () => { b.textContent = 'Copied!'; setTimeout(() => { b.textContent = label; }, 1500); };
-    const fallback = () => { try { window.prompt(title, text); } catch { b.textContent = 'Clipboard blocked'; setTimeout(() => { b.textContent = label; }, 2000); } };
+    const fallback = () => { void showText(scene, title, text); };
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
   };
   // share (PLAN-v1 0.4.3): spoiler-free glyph grid by default, per-round dollars in the detailed variant, link only on request

@@ -20,6 +20,11 @@ export function exportReplay(s: RunState, build?: string): ReplayFile {
 
 export function encodeReplay(r: ReplayFile): string { return JSON.stringify(r); }
 
+/** The exact bytes a replay's identity is hashed from (verifier and client agree on this; actions canonical). */
+export function canonicalReplayJson(r: Pick<ReplayFile, 'rulesVersion' | 'seed' | 'actions'>): string {
+  return JSON.stringify({ rulesVersion: r.rulesVersion, seed: r.seed, actions: r.actions.map(canonicalAction) });
+}
+
 /** The same action with its fields in canonical order (`t` first), so two equal actions serialise identically whatever key order they arrived in (review F03). */
 export function canonicalAction(a: Action): Action {
   switch (a.t) {

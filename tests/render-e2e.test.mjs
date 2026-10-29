@@ -153,7 +153,68 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       assert.equal(await btnText(), 'Tips');
       assert.deepEqual(errors, [], 'no page errors');
       await context.close();
-      // 5b) tips_panel_fits_at_130 (0.4.12): from the title at 130 % text, the dialog needs no scrolling and every control stays inside the overlay
+      // 5c) keyboard_ownership (review F05): Enter on a focused offer activates it; Tab from a focused button moves DOM
+    //     focus instead of taking a bin part; Space with Tips open does not start the run; Esc first blurs a focused control
+    {
+      const { context, page, api, errors } = await open('seed=kbd-own');
+      await page.focus('[data-testid=offer-1]');
+      await page.keyboard.press('Enter'); await wait(150);
+      const after = await api('state');
+      assert.equal(after.phase, 'build', 'Enter on the focused offer picked it');
+      assert.equal(after.bin.length, 1);
+      await page.focus('[data-testid=tips]');
+      await page.keyboard.press('Tab'); await wait(100);
+      const focusNow = await page.evaluate(() => document.activeElement && document.activeElement.dataset.testid);
+      assert.notEqual(focusNow, 'tips', 'Tab moved DOM focus');
+      assert.equal((await api('cursor')).held, null, 'Tab did not take a bin part while a button had focus');
+      await page.evaluate(() => document.activeElement.blur());
+      await api('openTips');
+      assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.dataset.testid), 'tips-close', 'Tips opened with focus on its Close button');
+      await page.keyboard.press('Tab'); await wait(100);
+      const inDialog = await page.evaluate(() => !!document.activeElement?.closest('[data-testid=tips-panel]'));
+      assert.equal(inDialog, true, 'Tab stays inside the dialog');
+      assert.equal((await api('cursor')).held, null, 'Tab inside Tips did not take a bin part');
+      await page.keyboard.press('ArrowRight'); await page.keyboard.press('Space'); await wait(200);
+      assert.equal(await api('mode'), 'build', 'arrows and Space with Tips open did not touch the run');
+      assert.equal((await api('tips')).open, true, 'Space on a focused tip button is the button\'s own click, not a run start');
+      await page.keyboard.press('Escape'); await wait(150);
+      assert.equal((await api('tips')).open, false);
+      await page.keyboard.press('Space'); await wait(300);
+      assert.equal(await api('mode'), 'running', 'with nothing focused and no dialog, Space starts the run');
+      assert.deepEqual(errors, [], 'no page errors');
+      await context.close();
+    }
+    // 5d) dom_dialogs (review F04): custom seed, player name and replay import use DOM dialogs (window.prompt does not exist in Electron)
+    {
+      const context = await browser.newContext({ viewport: { width: 1120, height: 700 } });
+      const page = await context.newPage();
+      await page.addInitScript(() => { window.prompt = () => { throw new Error('prompt() is not supported.'); }; window.alert = () => { throw new Error('alert() is not supported.'); }; });
+      const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
+      await page.goto(`${URL}/?dev=1`);
+      await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+      await page.getByTestId('player').click();
+      await page.getByTestId('dialog-input').fill('Kbd Tester');
+      await page.keyboard.press('Enter'); await wait(100);
+      assert.equal(await page.getByTestId('player').textContent(), 'Player: Kbd Tester');
+      assert.equal(await page.evaluate(() => localStorage.getItem('jd.player')), 'Kbd Tester');
+      await page.getByTestId('player').click();
+      await page.keyboard.press('Escape'); await wait(100);
+      assert.equal(await page.evaluate(() => !!document.querySelector('[data-testid=dialog]')), false, 'Esc cancels');
+      assert.equal(await page.getByTestId('player').textContent(), 'Player: Kbd Tester', 'cancel keeps the name');
+      await page.getByTestId('import').click();
+      await page.getByTestId('dialog-input').fill('{"not":"a replay"}');
+      await page.getByTestId('dialog-ok').click(); await wait(150);
+      assert.match(await page.evaluate(() => document.querySelector('[data-testid=dialog]')?.textContent ?? ''), /Could not read replay/, 'a bad paste is explained in a dialog');
+      await page.getByTestId('dialog-ok').click(); await wait(100);
+      await page.getByTestId('custom').click();
+      await page.getByTestId('dialog-input').fill('dialog-seed');
+      await page.getByTestId('dialog-ok').click();
+      await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
+      assert.equal((await page.evaluate(() => window.__jd.state())).seed, 'dialog-seed');
+      assert.deepEqual(errors, [], 'no page errors without window.prompt');
+      await context.close();
+    }
+    // 5b) tips_panel_fits_at_130 (0.4.12): from the title at 130 % text, the dialog needs no scrolling and every control stays inside the overlay
       const cBig = await browser.newContext({ viewport: { width: 1120, height: 700 } });
       const pBig = await cBig.newPage();
       await pBig.addInitScript(() => { try { localStorage.setItem('jd.settings.v1', JSON.stringify({ volume: 0.7, muted: false, reducedMotion: false, textScale: 1.3, renderQuality: 'auto', telemetry: false })); } catch {} });

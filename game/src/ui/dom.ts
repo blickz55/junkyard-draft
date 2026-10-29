@@ -77,6 +77,11 @@ const STYLE = `
 #ui .jd-btn-dark:hover:not(:disabled) { filter: brightness(0.88); }
 #ui .jd-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 1px 0 rgba(0,0,0,0.35); }
 #ui .jd-btn:disabled { opacity: 0.4; cursor: default; }
+#ui .jd-modal { position: absolute; inset: 0; pointer-events: auto; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 20; }
+#ui .jd-dialog { width: min(92%, 34em); display: flex; flex-direction: column; gap: 0.5em; }
+#ui .jd-dialog-label { font-size: 0.8125em; }
+#ui .jd-dialog input, #ui .jd-dialog textarea { font: inherit; font-size: 0.875em; width: 100%; box-sizing: border-box; background: #1a1612; color: ${CSS.text}; border: 1px solid #3f382d; border-radius: 0.2em; padding: 0.4em 0.5em; }
+#ui .jd-dialog textarea { min-height: 8em; resize: vertical; font-family: ${MONO}; font-size: 0.75em; }
 #ui .jd-tips { position: absolute; inset: 0; pointer-events: auto; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10; }
 #ui .jd-tips-box { width: min(92%, 50em); max-height: 94%; overflow: auto; display: flex; flex-direction: column; gap: 0.5em; }
 #ui .jd-tips-cols { display: flex; gap: 1em; align-items: flex-start; }
@@ -158,6 +163,8 @@ class UiLayer {
     if (this.keyHandler) { document.removeEventListener('keydown', this.keyHandler); this.keyHandler = null; }
     this.setHidden(false);
   }
+  /** True while a modal text dialog is open: gameplay shortcuts stand down (review F05). */
+  get dialogOpen(): boolean { return !!this.root?.querySelector('.jd-modal'); }
   /** Add an element above the current screen (a dialog such as the tips panel); the caller removes it. */
   layer(scene: Phaser.Scene, el: HTMLElement) {
     if (!this.root) this.attach(scene.game);
@@ -172,6 +179,53 @@ class UiLayer {
 }
 
 export const ui = new UiLayer();
+
+/**
+ * Modal text dialogs (review F04): Electron has no window.prompt, so naming, custom seeds, replay import and the
+ * clipboard fallback use these. Resolves with the entered text, or null when cancelled (Esc, Cancel, click outside).
+ * Keyboard events inside the dialog never reach the scenes (stopPropagation at the layer), focus goes to the field
+ * and returns to the control that opened the dialog.
+ */
+export interface DialogOptions { title: string; label?: string; value?: string; multiline?: boolean; readonly?: boolean; ok?: string; cancel?: string | null; maxLength?: number; placeholder?: string }
+export function dialog(scene: Phaser.Scene, o: DialogOptions): Promise<string | null> {
+  return new Promise((resolve) => {
+    const prev = document.activeElement as HTMLElement | null;
+    const field = o.multiline ? h('textarea', { tid: 'dialog-input', ariaLabel: o.label ?? o.title }) : h('input', { type: 'text', tid: 'dialog-input', ariaLabel: o.label ?? o.title });
+    field.value = o.value ?? '';
+    if (o.maxLength && field instanceof HTMLInputElement) field.maxLength = o.maxLength;
+    if (o.placeholder) field.placeholder = o.placeholder;
+    if (o.readonly) field.readOnly = true;
+    if (o.readonly && !o.multiline && !o.value) field.style.display = 'none'; // a plain message needs no field
+    let done = false;
+    const finish = (v: string | null) => { if (done) return; done = true; layer.remove(); prev?.focus?.(); resolve(v); };
+    const okBtn = btn(o.ok ?? 'OK', 'dialog-ok', () => finish(field.value), { variant: 'primary', small: true });
+    const cancelBtn = o.cancel === null ? null : btn(o.cancel ?? 'Cancel', 'dialog-cancel', () => finish(null), { small: true });
+    const box = h('div', { class: 'jd-dialog jd-panel', role: 'dialog', ariaLabel: o.title, tid: 'dialog' },
+      h('div', { class: 'jd-head' }, o.title),
+      o.label ? h('div', { class: 'jd-dim jd-dialog-label' }, o.label) : null,
+      field,
+      h('div', { class: 'jd-row', style: 'justify-content:flex-end; gap:0.5em' }, cancelBtn, okBtn));
+    const layer = h('div', { class: 'jd-modal', onClick: (e) => { if (e.target === layer) finish(null); } }, box);
+    layer.addEventListener('keydown', (e) => {
+      e.stopPropagation(); // the scenes' global shortcuts never see keys typed into a dialog
+      if (e.key === 'Escape') { e.preventDefault(); finish(null); }
+      else if (e.key === 'Enter' && (!o.multiline || e.ctrlKey || e.metaKey)) { e.preventDefault(); finish(field.value); }
+      else if (e.key === 'Tab') { // keep focus inside the dialog
+        const f = ([field, cancelBtn, okBtn] as (HTMLElement | null)[]).filter((x): x is HTMLElement => x != null);
+        const i = f.indexOf(document.activeElement as HTMLElement);
+        if (i >= 0) { e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length]?.focus(); }
+      }
+    });
+    ui.layer(scene, layer);
+    field.focus(); if (!o.multiline && field.value) (field as HTMLInputElement).select(); else if (o.readonly) field.select();
+  });
+}
+/** One-line text entry with a default; null when cancelled. */
+export const promptText = (scene: Phaser.Scene, title: string, label: string, value = '', maxLength?: number) => dialog(scene, { title, label, value, maxLength });
+/** A message the player acknowledges. */
+export const alertText = (scene: Phaser.Scene, title: string, text: string) => dialog(scene, { title, label: text, value: '', readonly: true, cancel: null, ok: 'OK', multiline: false }).then(() => undefined);
+/** Show text for manual copying when the clipboard API is unavailable (selected, read-only). */
+export const showText = (scene: Phaser.Scene, title: string, text: string) => dialog(scene, { title, label: 'Select and copy:', value: text, readonly: true, multiline: true, cancel: null, ok: 'Close' }).then(() => undefined);
 
 /** A material icon from the generated textures as an <img>, so the DOM shows exactly what the canvas draws. */
 export function textureImg(game: Phaser.Game, key: string, alt: string): HTMLImageElement {

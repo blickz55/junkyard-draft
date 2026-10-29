@@ -43,7 +43,7 @@ import { fileURLToPath } from 'node:url';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { playSeed } from '../tools/autoplay-lib';
 import { Rng } from '../game/src/sim/rng';
-import { decodeReplay, verifyReplay, type ReplayFile } from '../game/src/sim/replay';
+import { decodeReplay, verifyReplay, canonicalReplayJson, type ReplayFile } from '../game/src/sim/replay';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { dailySeedFor } from '../game/src/sim/daily';
 import { validateBatch, FUNNEL, type EventBatch, type EventName, type Props } from '../game/src/telemetry/events';
@@ -64,7 +64,7 @@ export const MAX_DAILY_LIMIT = 50;
 
 /** Replay identity: SHA-256 of the canonical verified content (actions in canonical field order, see replay.ts). Collision-free in practice, unlike the 32-bit FNV it replaces. */
 export const replayId = (r: Pick<ReplayFile, 'rulesVersion' | 'seed' | 'actions'>): string =>
-  createHash('sha256').update(JSON.stringify({ rulesVersion: r.rulesVersion, seed: r.seed, actions: r.actions })).digest('hex');
+  createHash('sha256').update(canonicalReplayJson(r)).digest('hex');
 
 /** Parse a query limit: finite integer clamped to [1, max]; anything else is the default. */
 export function clampInt(raw: string | null | undefined, def: number, max: number, min = 1): number {

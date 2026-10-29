@@ -36,6 +36,7 @@ export class TipsPanel {
   private raf = 0;
   private lastTickAt = 0;
   private current: string | null = null;
+  private prevFocus: HTMLElement | null = null;
 
   constructor(private readonly scene: Phaser.Scene, private readonly onClose?: () => void) {}
 
@@ -54,14 +55,23 @@ export class TipsPanel {
       h('div', { class: 'jd-row jd-between' }, h('div', { class: 'jd-head' }, 'Tips — each demo is the real simulation'), btn('Close (Esc)', 'tips-close', () => this.close(), { small: true })),
       h('div', { class: 'jd-tips-cols' }, list, this.body));
     this.root = h('div', { class: 'jd-tips', onClick: (e) => { if (e.target === this.root) this.close(); } }, box);
+    // modal focus: keys typed here never reach the scenes, Tab cycles inside the dialog, focus returns on close
+    this.prevFocus = document.activeElement as HTMLElement | null;
+    this.root.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); this.close(); }
+      else if (e.key === 'Tab') { const f = [...box.querySelectorAll<HTMLElement>('button, [tabindex]:not([tabindex="-1"])')]; const i = f.indexOf(document.activeElement as HTMLElement); if (f.length) { e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus(); } }
+      e.stopPropagation();
+    });
     ui.layer(this.scene, this.root);
     this.show(tipId ?? TIPS[0].id);
+    (box.querySelector('[data-testid=tips-close]') as HTMLElement | null)?.focus();
   }
 
   close() {
     if (!this.root) return;
     this.stopDemo();
     this.root.remove(); this.root = null; this.body = null; this.watch = null; this.canvas = null; this.current = null;
+    const back = this.prevFocus; this.prevFocus = null; if (back && back.isConnected) back.focus();
     this.onClose?.();
   }
 

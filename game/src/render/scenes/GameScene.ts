@@ -14,6 +14,7 @@ import { DIR_DX, DIR_DY, MACHINE_INFO, RULES } from '../../sim/rules';
 import type { Machine, Material, SimEvent } from '../../sim/types';
 import { BELT_FRAMES, CELL, itemTexture, machineTexture } from '../textures';
 import { baseScale, fit, setArt } from '../atlas';
+import { ui } from '../../ui/dom';
 import { label, panel } from '../ui';
 import { CSS, FONT, P } from '../palette';
 import { audio } from '../audio';
@@ -239,27 +240,32 @@ export class GameScene extends Phaser.Scene {
       if (p.rightButtonDown()) this.rotateSelected();
     });
     const kb = this.input.keyboard;
-    const KC = Phaser.Input.Keyboard.KeyCodes;
-    kb?.addCapture([KC.UP, KC.DOWN, KC.LEFT, KC.RIGHT, KC.ENTER, KC.TAB, KC.SPACE]);
-    kb?.on('keydown-R', () => this.rotateSelected());
+    // Gameplay shortcuts belong to the grid (review F05): they stand down while a DOM control has focus (Enter/Space/Tab
+    // then keep their native meaning on buttons and inputs) and while the tips panel or a dialog is open. No global
+    // capture: the handled keys call preventDefault themselves, so arrows never scroll and Tab never leaves the grid.
+    const domFocus = () => { const a = document.activeElement; return !!a && a !== document.body && a.tagName !== 'CANVAS' && !a.classList.contains('jd-screen'); };
+    const gridKeys = (e?: KeyboardEvent) => { if (this.tips.isOpen || ui.dialogOpen || domFocus()) return false; e?.preventDefault(); return true; };
+    kb?.on('keydown-R', (e: KeyboardEvent) => { if (gridKeys(e)) this.rotateSelected(); });
     // Phaser queues a modifier+key keydown twice in Chromium (two listeners, differing timeStamps slip past its own bailout); one shortcut per 30 ms
     const once = (e: KeyboardEvent) => { if (e.timeStamp - this.lastShortcutAt < 30) return false; this.lastShortcutAt = e.timeStamp; return true; };
-    kb?.on('keydown-Z', (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && once(e)) { e.preventDefault(); if (e.shiftKey) this.redo(); else this.undo(); } });
-    kb?.on('keydown-Y', (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && once(e)) { e.preventDefault(); this.redo(); } });
-    kb?.on('keydown-SPACE', () => { if (this.mode === 'build' && this.run.phase === 'build') this.startRun(); else if (this.mode === 'summary') this.nextRound(); });
-    kb?.on('keydown-ESC', () => { if (this.tips.isOpen) this.closeTips(); else if (this.replayLabel) this.stopReplay(); else if (this.mode === 'running') this.setPaused(true); else if (this.mode === 'paused') this.setPaused(false); else this.keyEscape(); });
-    kb?.on('keydown-M', () => audio.setMuted(!audio.muted));
-    kb?.on('keydown-DELETE', () => this.keyDelete());
-    kb?.on('keydown-BACKSPACE', () => this.keyDelete());
+    kb?.on('keydown-Z', (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && once(e) && gridKeys()) { e.preventDefault(); if (e.shiftKey) this.redo(); else this.undo(); } });
+    kb?.on('keydown-Y', (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && once(e) && gridKeys()) { e.preventDefault(); this.redo(); } });
+    kb?.on('keydown-SPACE', (e: KeyboardEvent) => { if (!gridKeys(e)) return; if (this.mode === 'build' && this.run.phase === 'build') this.startRun(); else if (this.mode === 'summary') this.nextRound(); });
+    kb?.on('keydown-ESC', () => { if (ui.dialogOpen) return; if (this.tips.isOpen) this.closeTips(); else if (domFocus()) (document.activeElement as HTMLElement).blur(); else if (this.replayLabel) this.stopReplay(); else if (this.mode === 'running') this.setPaused(true); else if (this.mode === 'paused') this.setPaused(false); else this.keyEscape(); });
+    kb?.on('keydown-M', () => { if (gridKeys()) audio.setMuted(!audio.muted); });
+    kb?.on('keydown-DELETE', (e: KeyboardEvent) => { if (gridKeys(e)) this.keyDelete(); });
+    kb?.on('keydown-BACKSPACE', (e: KeyboardEvent) => { if (gridKeys(e)) this.keyDelete(); });
     // keyboard-only placement: arrows move the cursor, Enter places / picks up, Tab cycles bin parts
-    kb?.on('keydown-UP', () => this.moveCursor(0, -1));
-    kb?.on('keydown-DOWN', () => this.moveCursor(0, 1));
-    kb?.on('keydown-LEFT', () => this.moveCursor(-1, 0));
-    kb?.on('keydown-RIGHT', () => this.moveCursor(1, 0));
-    kb?.on('keydown-ENTER', () => this.keyEnter());
-    kb?.on('keydown-TAB', () => this.keyTab());
-    for (const n of [1, 2, 3]) kb?.on(`keydown-${['ONE', 'TWO', 'THREE'][n - 1]}`, () => { if (this.run.phase === 'draft' && !this.replayQueue) this.pick(n - 1); });
-    this.game.events.on(Phaser.Core.Events.BLUR, () => { if (this.mode === 'running') this.setPaused(true); });
+    kb?.on('keydown-UP', (e: KeyboardEvent) => { if (gridKeys(e)) this.moveCursor(0, -1); });
+    kb?.on('keydown-DOWN', (e: KeyboardEvent) => { if (gridKeys(e)) this.moveCursor(0, 1); });
+    kb?.on('keydown-LEFT', (e: KeyboardEvent) => { if (gridKeys(e)) this.moveCursor(-1, 0); });
+    kb?.on('keydown-RIGHT', (e: KeyboardEvent) => { if (gridKeys(e)) this.moveCursor(1, 0); });
+    kb?.on('keydown-ENTER', (e: KeyboardEvent) => { if (gridKeys(e)) this.keyEnter(); });
+    kb?.on('keydown-TAB', (e: KeyboardEvent) => { if (gridKeys(e)) this.keyTab(); });
+    for (const n of [1, 2, 3]) kb?.on(`keydown-${['ONE', 'TWO', 'THREE'][n - 1]}`, () => { if (gridKeys() && this.run.phase === 'draft' && !this.replayQueue) this.pick(n - 1); });
+    const onBlur = () => { if (this.mode === 'running') this.setPaused(true); };
+    this.game.events.on(Phaser.Core.Events.BLUR, onBlur);
+    this.events.once('shutdown', () => this.game.events.off(Phaser.Core.Events.BLUR, onBlur)); // one handler per scene life, not one per create()
   }
   /** Abandon an in-progress pointer drag without applying anything: the view snaps back to its logical cell or bin slot. */
   private cancelDrag() {
@@ -609,7 +615,7 @@ export class GameScene extends Phaser.Scene {
       const c = this.centerOfCell(cell);
       this.popAt(c.x, c.y, value);
       const dockView = [...this.views.values()].find((v) => !v.inBin && cellIndex(v.m.x, v.m.y, RULES.gridWidth) === cell);
-      if (dockView && !prefs.reducedMotion) this.tweens.add({ targets: dockView.img, scale: 1.08, duration: 60, yoyo: true });
+      if (dockView && !prefs.reducedMotion) this.tweens.add({ targets: dockView.img, scale: 1.08 * baseScale(dockView.img.texture.key), duration: 60, yoyo: true }); // the pulse is relative to the HiDPI base scale (review F15)
     }
     if (ships.size && this.sim) {
       // money heartbeat: the running total ticks up as items ship (reduced motion: the text changes, nothing pulses)

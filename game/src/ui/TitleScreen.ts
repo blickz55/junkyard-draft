@@ -1,6 +1,6 @@
 /** Title screen as DOM (DOSSIER-v1 0.4.0). The Phaser TitleScene keeps the decorative belt and the tips panel; everything else lives here. */
 import type Phaser from 'phaser';
-import { h, btn, ui } from './dom';
+import { h, btn, ui, alertText, dialog, promptText } from './dom';
 import type { TipsPanel } from './TipsPanel';
 import { telemetry } from '../render/telemetry';
 import { audio } from '../render/audio';
@@ -21,7 +21,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
 
   // top bar: build, player, resolution, share stats
   const playerLabel = () => (loadPlayer() ? `Player: ${loadPlayer()}` : 'Set player name…');
-  const playerBtn = btn(playerLabel(), 'player', () => { const typed = window.prompt('Name shown on verified boards (max 32 characters, leave empty to clear):', loadPlayer() || 'player'); if (typed !== null) { savePlayer(typed); playerBtn.textContent = playerLabel(); } }, { small: true });
+  const playerBtn = btn(playerLabel(), 'player', () => { void promptText(scene, 'Player name', 'Name shown on verified boards (max 32 characters, leave empty to clear):', loadPlayer() || 'player', 32).then((typed) => { if (typed !== null) { savePlayer(typed); playerBtn.textContent = playerLabel(); } }); }, { small: true });
   const quality = loadSettings().renderQuality;
   const qualityLabel = quality === 'low' ? 'Resolution: Standard' : quality === 'high' ? 'Resolution: High' : `Resolution: Auto (${DPR}×)`;
   const qualityBtn = btn(qualityLabel, 'quality', () => { telemetry.track('settings_changed', { key: 'renderQuality' }); updateSettings({ renderQuality: quality === 'low' ? 'high' : 'low' }); location.reload(); }, { small: true, title: 'High = device pixel ratio (crisper), Standard = 1× (smoother on weak machines); applies on reload' });
@@ -52,7 +52,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     btn('Random seed', 'random', () => start(randomSeed(), true), { variant: 'steel' })));
   actions.append(h('div', { class: 'jd-row jd-center' },
     btn(fresh ? 'Learn to play (3 min)' : 'Learn (3 min)', 'learn', () => start(TUTORIAL_SEED, true), { variant: fresh ? 'primary' : 'dark' }),
-    btn('Custom seed…', 'custom', () => { const s = window.prompt(`Seed (same seed = same offers for everyone; up to ${MAX_SEED_LENGTH} characters):`, 'junkyard'); if (s && s.trim()) start(sanitizeSeed(s), true); }),
+    btn('Custom seed…', 'custom', () => { void promptText(scene, 'Custom seed', `Same seed = same offers for everyone; up to ${MAX_SEED_LENGTH} characters.`, 'junkyard', MAX_SEED_LENGTH).then((s) => { if (s && s.trim()) start(sanitizeSeed(s), true); }); }),
     btn('Import replay…', 'import', () => importReplay(scene))));
 
   // how to play + tips
@@ -119,19 +119,20 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
 
   const screen = h('div', { class: 'jd-title' }, top, statsNote, hero, actions, h('div', { class: 'jd-grid2', style: 'margin-top:0.4em' }, howto, bestsPanel), strip);
   ui.mount(scene, screen, (e) => {
-    if (e.key !== 'Enter' || tips.isOpen) return;
+    if (e.key !== 'Enter' || tips.isOpen || ui.dialogOpen) return;
     const t = e.target as HTMLElement | null; if (t && (t.tagName === 'BUTTON' || t.tagName === 'INPUT')) return; // the focused control handles its own Enter
     if (save) continueRun(); else start(fresh ? TUTORIAL_SEED : dailySeed(), true);
   });
 }
 
 function importReplay(scene: Phaser.Scene) {
-  const text = window.prompt('Paste replay JSON:');
-  if (!text) return;
-  try {
-    const r = decodeReplay(text);
-    const v = verifyReplay(r);
-    if (!v.ok) { window.alert(`Replay rejected: ${v.error || `score mismatch (claimed $${v.claimed}, re-simulated $${v.score})`}`); return; }
-    scene.scene.start('Game', { seed: r.seed, fresh: true, replay: r.actions });
-  } catch (e) { window.alert(`Could not read replay: ${(e as Error).message}`); }
+  void dialog(scene, { title: 'Import replay', label: 'Paste replay JSON (it is re-simulated before it plays):', multiline: true, ok: 'Verify and watch', placeholder: '{"format":1,"seed":…}' }).then((text) => {
+    if (!text || !text.trim()) return;
+    try {
+      const r = decodeReplay(text.trim());
+      const v = verifyReplay(r);
+      if (!v.ok) { void alertText(scene, 'Replay rejected', v.error || `score mismatch (claimed $${v.claimed}, re-simulated $${v.score})`); return; }
+      scene.scene.start('Game', { seed: r.seed, fresh: true, replay: r.actions });
+    } catch (e) { void alertText(scene, 'Could not read replay', (e as Error).message); }
+  });
 }

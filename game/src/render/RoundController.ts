@@ -84,7 +84,9 @@ export class RoundController {
   /** True while a watched replay still has actions to apply (input is ignored meanwhile). */
   get playbackPending(): boolean { return this.replayQueue != null; }
 
-  private schedule(ms: number, fn: () => void) { if (this.hooks.schedule) this.hooks.schedule(ms, fn); else fn(); }
+  /** bumped when playback stops: a callback scheduled by an earlier playback must not act on the new state (review F09) */
+  private generation = 0;
+  private schedule(ms: number, fn: () => void) { const g = this.generation; const run = () => { if (g === this.generation) fn(); }; if (this.hooks.schedule) this.hooks.schedule(ms, run); else run(); }
   private persist() { if (!this.isPlayback) this.hooks.persist?.(this.run.seed, this.run.actions); }
 
   // ---------- actions ----------
@@ -124,7 +126,8 @@ export class RoundController {
   // ---------- phases ----------
   canStartRun(): boolean { return this.mode === 'build' && this.run.phase === 'build'; }
   /** Freeze the layout and start the live simulation. */
-  startRun(): boolean {
+  startRun(byPlayback = false): boolean {
+    if (this.replayQueue && !byPlayback) return false; // while watching, only the replay advances the phase (review F09)
     if (!this.canStartRun()) return false;
     const layout = { width: this.run.layout.width, height: this.run.layout.height, machines: this.run.layout.machines.map((m) => ({ ...m })) };
     this.sim = createSim(layout);
@@ -174,7 +177,8 @@ export class RoundController {
     if (this.replayQueue) this.schedule(1200, () => this.advanceReplay());
   }
   /** Leave the summary: the next build phase, or 'finished' after the last round. */
-  nextRound(): 'build' | 'finished' | null {
+  nextRound(byPlayback = false): 'build' | 'finished' | null {
+    if (this.replayQueue && !byPlayback) return null; // the queue carries its own 'next'; a manual advance would double it (review F09)
     if (this.mode !== 'summary') return null;
     const last = this.run.round >= RULES.rounds;
     this.act({ t: 'next' });
@@ -194,13 +198,13 @@ export class RoundController {
     const q = this.replayQueue; if (!q) return;
     while (q.length) {
       const a = q[0];
-      if (a.t === 'run') { q.shift(); this.startRun(); this.schedule(200, () => this.setSpeed(4)); return; }
-      if (a.t === 'next') { q.shift(); if (this.mode === 'summary') this.nextRound(); else this.schedule(300, () => this.advanceReplay()); return; }
+      if (a.t === 'run') { q.shift(); this.startRun(true); this.schedule(200, () => this.setSpeed(4)); return; }
+      if (a.t === 'next') { q.shift(); if (this.mode === 'summary') this.nextRound(true); else this.schedule(300, () => this.advanceReplay()); return; }
       q.shift(); this.act(a);
     }
     this.replayQueue = null;
     this.hooks.onPlaybackDone?.();
   }
   /** Abandon a watched replay: nothing was recorded, nothing to save. */
-  stopReplay() { this.replayQueue = null; this.sim = null; }
+  stopReplay() { this.replayQueue = null; this.sim = null; this.generation++; }
 }

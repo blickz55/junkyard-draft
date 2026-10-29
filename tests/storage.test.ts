@@ -14,18 +14,20 @@ const store = new Map<string, string>();
 } as Storage;
 
 const storage = await import('../game/src/render/storage');
+/** seed dictionaries have no prototype (review F14); deep-equal against plain literals through a copy */
+const plain = <T extends { bySeed: object }>(b: T) => ({ ...b, bySeed: { ...b.bySeed } });
 const { RULES_VERSION } = await import('../game/src/sim/types');
 
 test('bests: null bySeed, wrong primitive types and extra junk fall back field by field (this shape crashed the title screen)', () => {
   store.set('jd.bests.v1', JSON.stringify({ bySeed: null }));
-  assert.deepEqual(storage.loadBests(), { overall: null, bySeed: {}, runs: 0 });
+  assert.deepEqual(plain(storage.loadBests()), { overall: null, bySeed: {}, runs: 0 });
   store.set('jd.bests.v1', JSON.stringify({ overall: { score: 'high', seed: 1 }, bySeed: { a: { score: 10, at: 't' }, b: 'nope', c: { score: 'x' } }, runs: -3 }));
   const b = storage.loadBests();
   assert.equal(b.overall, null); assert.deepEqual(Object.keys(b.bySeed), ['a']); assert.equal(b.runs, 0);
   store.set('jd.bests.v1', '[1,2,3]');
-  assert.deepEqual(storage.loadBests(), { overall: null, bySeed: {}, runs: 0 });
+  assert.deepEqual(plain(storage.loadBests()), { overall: null, bySeed: {}, runs: 0 });
   store.set('jd.bests.v1', '{not json');
-  assert.deepEqual(storage.loadBests(), { overall: null, bySeed: {}, runs: 0 });
+  assert.deepEqual(plain(storage.loadBests()), { overall: null, bySeed: {}, runs: 0 });
   // recording on top of a damaged file produces a clean file
   const rec = storage.recordBest('seed-z', 500);
   assert.deepEqual(rec, { newOverall: true, newSeed: true });
@@ -62,9 +64,27 @@ test('submissions and player name: junk entries are dropped, names are cleaned',
   store.set('jd.submissions.v1', JSON.stringify({ good: { score: 1, replayHash: 'h', verifiedAt: 't', player: 'p' }, bad: { score: 'x' }, worse: 5 }));
   assert.deepEqual(Object.keys(storage.loadSubmissions()), ['good']);
   store.set('jd.submissions.v1', '"string"');
-  assert.deepEqual(storage.loadSubmissions(), {});
+  assert.deepEqual({ ...storage.loadSubmissions() }, {});
   storage.savePlayer('  Jon   Flynn  ');
   assert.equal(storage.loadPlayer(), 'Jon Flynn');
+});
+
+test('seeds that collide with inherited object properties round-trip as ordinary records (review F14)', () => {
+  for (const seed of ['__proto__', 'constructor', 'toString', 'hasOwnProperty']) {
+    store.clear();
+    const r = storage.recordBest(seed, 150);
+    assert.deepEqual(r, { newOverall: true, newSeed: true }, `${seed}: first record is a new best`);
+    const b = storage.loadBests();
+    assert.equal(b.bySeed[seed]?.score, 150, `${seed}: best stored and read back`);
+    assert.deepEqual(storage.recordBest(seed, 120), { newOverall: false, newSeed: false }, `${seed}: a lower score is not a new best`);
+    assert.equal(storage.loadBests().bySeed[seed]?.score, 150);
+    storage.recordSubmission(seed, { score: 150, replayHash: 'h1', verifiedAt: '', player: 'p' });
+    assert.equal(storage.loadSubmissions()[seed]?.replayHash, 'h1', `${seed}: submission stored and read back`);
+    storage.recordSubmission(seed, { score: 100, replayHash: 'h2', verifiedAt: '', player: 'p' });
+    assert.equal(storage.loadSubmissions()[seed]?.replayHash, 'h1', `${seed}: a lower submission does not replace it`);
+    assert.equal(Object.getPrototypeOf(storage.loadBests().bySeed), null, 'dictionaries carry no prototype');
+  }
+  store.clear();
 });
 
 test('days played: one entry per UTC date, malformed rows dropped, bounded', () => {
