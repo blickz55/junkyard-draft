@@ -265,6 +265,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       assert.equal(a.reducedAudio, true); assert.equal(a.buses.factory, 0.4, 'bus levels load from settings');
       assert.ok(a.ticks >= 80 && a.maxPerTick <= 1 && a.chords === 0, `reduced audio: ${JSON.stringify(a)}`);
       assert.deepEqual([a.hum.on, a.hum.starts], [false, 0], 'reduced audio never starts the hum');
+      assert.equal(a.samples.played, 0, 'reduced audio is synth-only: no impact samples');
       await context.close();
       const c2 = await browser.newContext({ viewport: { width: 1120, height: 700 } });
       const p2 = await c2.newPage();
@@ -276,6 +277,33 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       const saved = JSON.parse(await p2.evaluate(() => localStorage.getItem('jd.settings.v1')));
       assert.equal(saved.buses.music, 0.25); assert.equal(saved.reducedAudio, true);
       assert.equal(await p2.getByTestId('reduced-audio').textContent(), 'Reduced audio: On');
+      await c2.close();
+    }
+    // 7d) impact_samples_under_the_synth (DOSSIER-v1 0.4.13): both WAVs load through the boot loader, decode once a context
+    //     exists, and the dock clink plays during a normal round; a blocked file falls back to synth-only without errors
+    {
+      const { context, page, api, errors } = await open('seed=auto-12');
+      await api('pick', 0); await api('run');
+      await page.getByTestId('speed-4').click();
+      await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 30000 });
+      const s = (await api('audio')).samples;
+      assert.deepEqual({ loaded: s.loaded, missing: s.missing, failed: s.failed }, { loaded: 2, missing: [], failed: [] }, JSON.stringify(s));
+      assert.ok(s.played >= 1, `the clink played with the ships (${s.played})`);
+      assert.deepEqual(errors, [], 'no page errors');
+      await context.close();
+      const c2 = await browser.newContext({ viewport: { width: 1120, height: 700 } });
+      const p2 = await c2.newPage();
+      const errs2 = []; p2.on('pageerror', (e) => errs2.push(String(e)));
+      await p2.route('**/sfx/press.wav', (route) => route.fulfill({ status: 404, body: 'gone' }));
+      await p2.goto(`${URL}/?dev=1&scene=game&seed=auto-12`);
+      await p2.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
+      await p2.evaluate(() => { window.__jd.pick(0); window.__jd.run(); });
+      await p2.getByTestId('speed-4').click();
+      await p2.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 30000 });
+      const s2 = await p2.evaluate(() => window.__jd.audio().samples);
+      assert.deepEqual({ loaded: s2.loaded, missing: s2.missing }, { loaded: 1, missing: ['press'] }, JSON.stringify(s2));
+      assert.ok(s2.played >= 1, 'the ship clink still plays when the press file is missing');
+      assert.deepEqual(errs2, [], 'a missing sample is not an error');
       await c2.close();
     }
     // 7c) throughput_hum_follows_the_line (DOSSIER-v1 0.4.10): no music during build; the drone starts at run on the round's

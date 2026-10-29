@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased — 2026-10-29 (v0.4: histogram-first results, PLAN-v1 0.4.1)
 
+### Impact samples under the synth (DOSSIER-v1 0.4.13)
+- Two tiny authored samples beneath the factory tones: a metallic clink when the dock ships and a dull thud when a press makes a plate (`game/public/sfx/ship.wav`, `press.wav`: mono 22 kHz 16-bit, 6 and 8 KB, rendered deterministically by `tools/make-sfx.ts`). They load with the boot loader like the art, decode once the audio context exists, play through the factory bus inside the tone's voice (so the polyphony caps and the bus slider cover both), and fall back silently to synth-only when a file is missing or undecodable. Reduced audio never uses them. The dev API reports `samples: { loaded, played, missing, failed }`.
+
 ### Tips panel in the DOM (PLAN-v1 0.4.12)
 - The tips & demos panel is a DOM dialog layered over the current screen (`game/src/ui/TipsPanel.ts`): tip list with unread dots and an active state, title and text in real type, Close (Esc), click outside to close. The live demo is a small 2D canvas stepped by the real simulation and drawn from the real textures (item slides between cells, reduced motion snaps). The last Phaser text/rectangle panel is gone, so the overlay no longer hides itself while tips are open and the text-size setting applies to tips too.
 

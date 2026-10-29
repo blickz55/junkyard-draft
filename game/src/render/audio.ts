@@ -1,7 +1,8 @@
 /**
  * Tiny WebAudio synth with three buses (DOSSIER-v1 §3, 0.4.9). Everything is generated; no asset files.
  *   ui      — clicks, place/rotate/invalid, lock-in
- *   factory — ship/transform/jam/stall: one call per tick (ship chord, capped transforms, throttled jam), value priority
+ *   factory — ship/transform/jam/stall: one call per tick (ship chord, capped transforms, throttled jam), value priority;
+ *             two authored samples (dock clink, press thud) sit beneath the tones inside the same voices (0.4.13)
  *   music   — run start, round fanfare, settle (the fanfare ducks the factory bus −6 dB for 600 ms) and the throughput hum:
  *             a drone of two detuned triangles through a low-pass filter that lives from run start to the settle (0.4.10)
  * Per-bus levels live in settings; reduced audio plays at most one sound per simulation tick and never a chord.
@@ -9,6 +10,7 @@
  */
 import { loadSettings, updateSettings, type Buses } from './storage';
 import { VoiceAllocator, planTick, humRoot, humTarget, HUM_RESOLVE_HZ, type TickSounds, type TickPlan, type HumInput } from './mixer';
+import { SampleBank, impactsForTick, type ImpactKind } from './samples';
 
 export type BusName = keyof Buses;
 const SHIP_NOTE = (value: number) => (value >= 12 ? 880 : value >= 8 ? 740 : value >= 3 ? 660 : 440);
@@ -21,6 +23,7 @@ class Synth {
   private lastJam = 0;
   private duckUntil = 0;
   private alloc = new VoiceAllocator();
+  readonly samples = new SampleBank();
   private stats = { sounds: 0, chords: 0, maxPerTick: 0, lastTick: 0, ticks: 0 };
   private hum: { osc: OscillatorNode[]; filter: BiquadFilterNode; gain: GainNode } | null = null;
   private humState = { on: false, round: 0, root: 0, freq: 0, cutoff: 0, detuned: false, starts: 0 };
@@ -42,6 +45,7 @@ class Synth {
     this.master.gain.value = this.muted ? 0 : this.volume;
     this.master.connect(this.ctx.destination);
     for (const b of ['ui', 'factory', 'music'] as BusName[]) { const g = this.ctx.createGain(); g.gain.value = this.buses[b]; g.connect(this.master); this.bus[b] = g; }
+    void this.samples.decode(this.ctx); // bytes arrived with the boot loader; decoding needs a context
     return this.ctx;
   }
   /** Call from a user gesture so the context can start. */
@@ -54,7 +58,7 @@ class Synth {
   suspend() { void this.ctx?.suspend(); }
   resume() { void this.ctx?.resume(); }
   /** Counters for the dev API / tests: sounds requested, chords played, the most sounds in one tick, ticks seen. */
-  info() { return { ...this.stats, reducedAudio: this.reducedAudio, buses: { ...this.buses }, muted: this.muted, volume: this.volume, duckedNow: performance.now() < this.duckUntil, hum: { ...this.humState } }; }
+  info() { return { ...this.stats, reducedAudio: this.reducedAudio, buses: { ...this.buses }, muted: this.muted, volume: this.volume, duckedNow: performance.now() < this.duckUntil, hum: { ...this.humState }, samples: this.samples.stats() }; }
 
   private out(bus: BusName): AudioNode | null { const c = this.ensure(); if (!c || !this.master) return null; return this.bus[bus] ?? this.master; }
   private tone(bus: BusName, freq: number, dur: number, type: OscillatorType = 'square', gain = 0.15, slide = 0) {
@@ -99,15 +103,26 @@ class Synth {
     const plan = planTick(t, this.reducedAudio);
     this.stats.ticks++; this.stats.maxPerTick = Math.max(this.stats.maxPerTick, plan.count); this.stats.lastTick = plan.count;
     const now = performance.now();
+    const impacts = impactsForTick(plan, this.reducedAudio);
     if (plan.chord.length > 1) this.stats.chords++;
     plan.chord.forEach((value, i) => {
       if (!this.alloc.acquire('ship', value, now, 120)) return;
       this.tone('factory', SHIP_NOTE(value), 0.09, 'triangle', i === 0 ? 0.1 : 0.06);
       if (value >= 12 && i === 0) this.tone('factory', SHIP_NOTE(value) * 1.5, 0.12, 'triangle', 0.08);
+      if (i === 0 && impacts.includes('ship')) this.impact('ship', value >= 12 ? 0.6 : 0.45);
     });
-    for (const tier of plan.transforms) if (this.alloc.acquire('transform', tier, now, 80)) this.tone('factory', TRANSFORM_NOTE(tier), 0.06, 'square', 0.05, 120);
+    let pressed = false;
+    for (const tier of plan.transforms) if (this.alloc.acquire('transform', tier, now, 80)) {
+      this.tone('factory', TRANSFORM_NOTE(tier), 0.06, 'square', 0.05, 120);
+      if (tier === 2 && !pressed && impacts.includes('press')) { pressed = true; this.impact('press', 0.5); }
+    }
     if (plan.jam && now - this.lastJam >= 400) { this.lastJam = now; this.noise('factory', 0.06, 0.06, 400); }
     return plan;
+  }
+  /** A sample beneath a tone whose voice was just granted; silent fallback when the file is missing or still decoding. */
+  private impact(kind: ImpactKind, gain: number) {
+    const dest = this.out('factory'); const c = this.ctx; if (!dest || !c || this.muted) return;
+    this.samples.trigger(kind, c, dest, gain);
   }
   /** A single ship outside the tick path (kept for callers such as selling a part). */
   ship(value: number) { this.tickSounds({ ships: [value], transforms: [], jams: 0 }); }
