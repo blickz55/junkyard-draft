@@ -7,6 +7,7 @@ import type { Action } from '../sim/run';
 import type { GameScene } from './scenes/GameScene';
 import { prefs } from './prefs';
 import { telemetry } from './telemetry';
+import { audio } from './audio';
 
 export interface DevApi {
   scene: () => string;
@@ -35,6 +36,8 @@ export interface DevApi {
   closeTips: () => void;
   /** opt-in funnel: enabled flag, install id presence, queue and send counters */
   telemetry: () => { enabled: boolean; hasInstallId: boolean; queued: number; sent: number; dropped: number; firsts: number; games: number };
+  /** synth counters: sounds requested, chords, most sounds in one tick, reduced-audio flag, bus levels */
+  audio: () => ReturnType<typeof audio.info>;
   flushTelemetry: () => Promise<boolean>;
 }
 
@@ -63,6 +66,7 @@ export function installDevApi(scene: GameScene) {
     openTips: (id) => scene.openTips(id),
     closeTips: () => scene.closeTips(),
     telemetry: () => telemetry.stats(),
+    audio: () => audio.info(),
     flushTelemetry: () => telemetry.flush(),
   };
   (window as unknown as { __jd: DevApi }).__jd = api;

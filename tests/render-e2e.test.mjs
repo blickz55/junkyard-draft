@@ -228,6 +228,34 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       assert.ok(geo.scroll <= 1, 'the title does not scroll');
       await context.close();
     }
+    // 7b) reduced_audio_one_sound_per_tick (DOSSIER-v1 0.4.9): with reduced audio on, no tick ever asks for more than one sound;
+    //     the bus controls persist their levels
+    {
+      const context = await browser.newContext({ viewport: { width: 1120, height: 700 } });
+      const page = await context.newPage();
+      await page.addInitScript(() => { try { localStorage.setItem('jd.settings.v1', JSON.stringify({ volume: 0.7, muted: false, reducedMotion: false, textScale: 1, renderQuality: 'auto', telemetry: false, buses: { ui: 1, factory: 0.4, music: 1 }, reducedAudio: true })); } catch {} });
+      await page.goto(`${URL}/?dev=1&scene=game&seed=auto-12`);
+      await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
+      const api = (fn, ...args) => page.evaluate(({ fn, args }) => window.__jd[fn](...args), { fn, args });
+      await api('pick', 0); await api('run');
+      await page.getByTestId('speed-4').click();
+      await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 30000 });
+      const a = await api('audio');
+      assert.equal(a.reducedAudio, true); assert.equal(a.buses.factory, 0.4, 'bus levels load from settings');
+      assert.ok(a.ticks >= 80 && a.maxPerTick <= 1 && a.chords === 0, `reduced audio: ${JSON.stringify(a)}`);
+      await context.close();
+      const c2 = await browser.newContext({ viewport: { width: 1120, height: 700 } });
+      const p2 = await c2.newPage();
+      await p2.goto(`${URL}/?dev=1`);
+      await p2.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
+      await p2.getByTestId('audio-buses').locator('summary').click();
+      await p2.getByTestId('bus-music').fill('0.25');
+      await p2.getByTestId('reduced-audio').click();
+      const saved = JSON.parse(await p2.evaluate(() => localStorage.getItem('jd.settings.v1')));
+      assert.equal(saved.buses.music, 0.25); assert.equal(saved.reducedAudio, true);
+      assert.equal(await p2.getByTestId('reduced-audio').textContent(), 'Reduced audio: On');
+      await c2.close();
+    }
     // 8) art_atlas_aliases_every_key (DOSSIER-v1 0.4.8): the SVG set loads, packs into one texture, every scene key is an
     //    alias into it, the texture-key snapshot is unchanged, and a missing file falls back to the procedural generator
     {

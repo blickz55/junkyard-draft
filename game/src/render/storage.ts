@@ -10,7 +10,9 @@ const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v1'
 export type RenderQuality = 'auto' | 'high' | 'low';
 /** renderQuality: 'auto' until the first run measures frame times at high resolution, then 'high' or 'low' (DPR 1); the title button sets it too. */
 /** telemetry: opt-in anonymous funnel events (PLAN-v1 0.3.7); false until the player turns it on */
-export interface Settings { volume: number; muted: boolean; reducedMotion: boolean; textScale: number; renderQuality: RenderQuality; telemetry: boolean }
+/** per-bus levels 0..1 (DOSSIER-v1 0.4.9) */
+export interface Buses { ui: number; factory: number; music: number }
+export interface Settings { volume: number; muted: boolean; reducedMotion: boolean; textScale: number; renderQuality: RenderQuality; telemetry: boolean; buses: Buses; reducedAudio: boolean }
 /** Default for reduced motion follows the OS preference until the player chooses. */
 const systemReducedMotion = () => { try { return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 export interface SaveGame { rulesVersion: number; seed: string; actions: Action[]; savedAt: string }
@@ -34,6 +36,8 @@ export function validateSettings(raw: unknown, fallback: Settings): Settings {
     textScale: isFiniteNum(raw.textScale) && TEXT_SCALES.has(raw.textScale) ? raw.textScale : fallback.textScale,
     renderQuality: raw.renderQuality === 'high' || raw.renderQuality === 'low' || raw.renderQuality === 'auto' ? raw.renderQuality : fallback.renderQuality,
     telemetry: raw.telemetry === true, // anything but an explicit true is off
+    buses: (() => { const b = isObj(raw.buses) ? raw.buses : {}; const lvl = (k: keyof Buses) => (isFiniteNum(b[k]) ? Math.min(1, Math.max(0, b[k] as number)) : fallback.buses[k]); return { ui: lvl('ui'), factory: lvl('factory'), music: lvl('music') }; })(),
+    reducedAudio: typeof raw.reducedAudio === 'boolean' ? raw.reducedAudio : fallback.reducedAudio,
   };
 }
 export function validateSave(raw: unknown): SaveGame | null {
@@ -62,7 +66,7 @@ function readRaw(key: string): unknown {
 }
 function write(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable */ } }
 
-export const loadSettings = (): Settings => validateSettings(readRaw(K.settings), { volume: 0.7, muted: false, reducedMotion: systemReducedMotion(), textScale: 1, renderQuality: 'auto', telemetry: false });
+export const loadSettings = (): Settings => validateSettings(readRaw(K.settings), { volume: 0.7, muted: false, reducedMotion: systemReducedMotion(), textScale: 1, renderQuality: 'auto', telemetry: false, buses: { ui: 1, factory: 1, music: 1 }, reducedAudio: false });
 export const saveSettings = (s: Settings) => write(K.settings, s);
 /** Read-modify-write so audio and accessibility settings never clobber each other. */
 export const updateSettings = (p: Partial<Settings>): Settings => { const s = { ...loadSettings(), ...p }; saveSettings(s); return s; };

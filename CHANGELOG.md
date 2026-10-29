@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased — 2026-10-29 (v0.4: histogram-first results, PLAN-v1 0.4.1)
 
+### Audio buses, voice caps and reduced audio (DOSSIER-v1 0.4.9)
+- Three buses (ui, factory, music) with per-bus levels in settings (title: "Audio buses" fold-out), master volume and mute as before. The factory bus plays one call per simulation tick: same-tick ships coalesce into one chord (distinct values, highest first, up to 8 voices with value priority), transforms keep the highest 4 tiers, jams are throttled; the fanfare ducks the factory bus −6 dB for 600 ms; a stall has its own low tone. Reduced audio plays at most one sound per tick (ship > transform > jam) and never a chord. The allocator is pure (`game/src/render/mixer.ts`) and unit-tested; the dev API exposes the synth's counters.
+
 ### Juice pass bound to sim events (PLAN-v1 0.4.4)
 - One sound and at most one visual per event, scaled by value, nothing shakes. New: a draft lock-in sound, a round-end settle (every machine eases 1 → 0.97 → 1 staggered by column, one soft tone), a 90 ms place settle and a 60 ms rotate snap. Machines show their state with frames instead of wobbles: crusher jaws alternate while holding (`m-crusher-1`), the press ram descends over its hold (`m-press-1`, `m-press-2`), the furnace keeps its warm tint; belts cycle 8 chevron frames (was 3) at the same speed. The clip exporter draws the same frames. Reduced motion keeps sounds and drops every tween and frame swap. The full event → sound → visual table is in `docs/DESIGN.md`.
 

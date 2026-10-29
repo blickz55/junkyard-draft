@@ -576,12 +576,13 @@ export class GameScene extends Phaser.Scene {
   private onTickEvents(evs: SimEvent[]) {
     const jammedNow = this.jammedNow; jammedNow.clear();
     const ships = this.shipsThisTick; ships.clear();
+    const sounds = { ships: [] as number[], transforms: [] as number[], jams: 0 };
     for (const e of evs) {
       if (e.kind === 'ship' && e.value != null) {
         ships.set(e.cell, (ships.get(e.cell) ?? 0) + e.value);
-        audio.ship(e.value);
+        sounds.ships.push(e.value);
       } else if (e.kind === 'transform') {
-        audio.transform();
+        sounds.transforms.push(e.to === 'ingot' ? 3 : e.to === 'plate' ? 2 : e.to === 'shards' ? 1 : 0);
         if (prefs.reducedMotion) continue; // the item sprite itself changes texture; no flash
         const c = this.centerOfCell(e.cell);
         const flash = this.add.circle(c.x, c.y, 16, e.to === 'ingot' ? P.gold : e.to === 'slag' ? P.red : e.to === 'plate' ? P.plate : P.shards, 0.6).setDepth(3);
@@ -597,7 +598,7 @@ export class GameScene extends Phaser.Scene {
         if (!this.jamMarks.has(e.cell)) {
           const { x, y } = this.centerOfCell(e.cell);
           const mk = this.add.image(x - CELL / 2, y - CELL / 2, 'tile-bad').setOrigin(0).setDepth(3).setAlpha(0.7);
-          this.jamMarks.set(e.cell, mk); audio.jam();
+          this.jamMarks.set(e.cell, mk); sounds.jams++;
         }
       }
     }
@@ -615,6 +616,7 @@ export class GameScene extends Phaser.Scene {
       this.hudDirty = true;
     }
     ships.clear();
+    audio.tickSounds(sounds); // one call per tick: chord, capped transforms, throttled jam; reduced audio keeps one sound
     this.updateStall(jammedNow);
   }
   /** No item shipped for STALL_TICKS while something is jammed or a hopper is blocked: flag the first blocking cell. */
@@ -630,6 +632,7 @@ export class GameScene extends Phaser.Scene {
     this.panel.setStall(`Stalled: ${what} at ${x + 1},${y + 1} ${m?.kind === 'hopper' ? 'is blocked' : 'is waiting'} — nothing shipped for ${GameScene.STALL_TICKS} ticks`);
     const { px, py } = this.cellXY(x, y);
     this.stallMark.setPosition(px, py).setAlpha(1).setVisible(true);
+    audio.stall();
     this.tweens.killTweensOf(this.stallMark);
     if (!prefs.reducedMotion) this.tweens.add({ targets: this.stallMark, alpha: 0.35, duration: 450, yoyo: true, repeat: -1 });
   }

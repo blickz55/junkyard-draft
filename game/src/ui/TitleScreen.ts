@@ -73,6 +73,14 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     h('div', { class: 'jd-dim', style: 'font-size:0.875em' }, todayBest ? `Today's challenge best: $${todayBest.score}` : "Today's challenge: not played yet"),
     h('div', { class: 'jd-mono jd-dim', style: 'font-size:0.75em' }, `${bests.runs} run(s) recorded locally · not verified online`),
     h('div', { class: 'jd-row', style: 'margin-top:0.6em' }, h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, 'Volume'), volume, muteBtn),
+    (() => {
+      // audio buses (DOSSIER-v1 0.4.9): collapsed so the title keeps its height at 130 % text
+      const bus = (name: 'ui' | 'factory' | 'music', label: string) => h('label', { class: 'jd-dim', style: 'font-size:0.75em; display:inline-flex; align-items:center; gap:0.3em' }, label, h('input', { type: 'range', min: '0', max: '1', step: '0.05', value: String(audio.buses[name]), tid: `bus-${name}`, ariaLabel: `${label} volume`, style: 'width:5em', onInput: (e) => audio.setBus(name, Number((e.target as HTMLInputElement).value)) }));
+      const quiet = btn(audio.reducedAudio ? 'Reduced audio: On' : 'Reduced audio: Off', 'reduced-audio', () => { audio.setReducedAudio(!audio.reducedAudio); quiet.textContent = audio.reducedAudio ? 'Reduced audio: On' : 'Reduced audio: Off'; }, { small: true, title: 'at most one sound per tick, no chords' });
+      const d = h('details', { style: 'margin-top:0.3em' }, h('summary', { class: 'jd-dim', style: 'font-size:0.75em; cursor:pointer' }, 'Audio buses'), h('div', { class: 'jd-row', style: 'margin-top:0.3em; gap:0.6em' }, bus('ui', 'UI'), bus('factory', 'Factory'), bus('music', 'Music'), quiet));
+      d.dataset.testid = 'audio-buses';
+      return d;
+    })(),
     h('div', { class: 'jd-row', style: 'margin-top:0.4em' }, h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, 'Motion'), motionBtn, h('span', { class: 'jd-dim', style: 'font-size:0.8125em; margin-left:0.5em' }, 'Text size'), textBtn));
 
   // today's verified board (optional verifier)
