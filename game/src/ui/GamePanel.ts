@@ -30,7 +30,8 @@ export interface PanelActions {
   undo(): void; redo(): void; openTips(): void; rotateSelected(): void; toBin(id: number): void; sell(id: number): void; nextRound(): void; toTitle(): void; toggleMute(): boolean;
 }
 
-const em = (px: number) => `${(px / 16).toFixed(4)}em`;
+/** Canvas-logical pixels → CSS length that follows the canvas scale and ignores local font-size (em would shrink inside small-text elements). */
+const em = (px: number) => `calc(${px} * var(--px))`;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export class GamePanel {

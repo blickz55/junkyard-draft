@@ -50,7 +50,7 @@ export function btn(text: string, tid: string, onClick: () => void, o: { variant
 
 const STYLE = `
 #game { position: relative; }
-#ui { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 5; font-family: ${FONT}; color: ${CSS.text};
+#ui { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 5; font-family: ${FONT}; color: ${CSS.text}; --px: calc(1px * var(--k, 1));
   font-size: calc(16px * var(--k, 1) * var(--text-scale, 1)); line-height: 1.3; }
 #ui.jd-hidden { display: none; }
 #ui * { box-sizing: border-box; }
