@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { applyDpr } from '../dpr';
+import { fit } from '../atlas';
 import { TipsPanel } from '../TipsPanel';
 import { P } from '../palette';
 import { W, H } from '../layout';
@@ -16,9 +17,9 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(P.bg);
     applyDpr(this);
     // decorative belt
-    for (let i = 0; i < 16; i++) this.add.image(i * 72 + 36, H - 36, 'm-conveyor').setAlpha(0.25);
+    for (let i = 0; i < 16; i++) fit(this.add.image(i * 72 + 36, H - 36, 'm-conveyor')).setAlpha(0.25);
     const scrapBelt = this.add.group();
-    for (let i = 0; i < 6; i++) scrapBelt.add(this.add.image(-40 + i * 200, H - 36, ['i-scrap', 'i-shards', 'i-ingot'][i % 3]).setScale(1.4).setAlpha(0.6));
+    for (let i = 0; i < 6; i++) scrapBelt.add(fit(this.add.image(-40 + i * 200, H - 36, ['i-scrap', 'i-shards', 'i-ingot'][i % 3]), 1.4).setAlpha(0.6));
     if (!prefs.reducedMotion) this.time.addEvent({ delay: 16, loop: true, callback: () => scrapBelt.getChildren().forEach((c) => { const img = c as Phaser.GameObjects.Image; img.x += 1.2; if (img.x > W + 40) img.x = -40; }) });
     // the tips panel is Phaser (it animates real textures); the DOM screen hides while it is open
     this.tips = new TipsPanel(this, () => ui.setHidden(false));

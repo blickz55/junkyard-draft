@@ -1,0 +1,40 @@
+{
+ "seed": "auto-12",
+ "score": 2088,
+ "picks": [
+  "crusher",
+  "furnace",
+  "hopper",
+  "crusher",
+  "hopper",
+  "conveyor"
+ ],
+ "speed": 4,
+ "device": "D",
+ "budgetMs": 16.7,
+ "droppedMs": 25,
+ "samples": [
+  {
+   "label": "device D webgl 915x412@2.6 cpu×4 @4×",
+   "renderer": "webgl",
+   "frames": 71,
+   "p50": 50,
+   "p95": 50.1,
+   "max": 66.7,
+   "dropped": 71,
+   "cpuMsPerFrame": 49.73,
+   "scriptMsPerFrame": 5.24,
+   "drawsPerFrame": 1.1,
+   "bindsPerFrame": 4.1,
+   "maxObjects": 102,
+   "textObjectsCreated": 13,
+   "heapMB": 51,
+   "runMs": 3437,
+   "machines": 10,
+   "peakItems": 4,
+   "withinBudget": false
+  }
+ ],
+ "allWithinBudget": false,
+ "at": "2026-10-29T16:48:29.247Z"
+}

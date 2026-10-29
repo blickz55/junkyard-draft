@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased — 2026-10-29 (v0.4: histogram-first results, PLAN-v1 0.4.1)
 
+### HiDPI art atlas (DOSSIER-v1 0.4.8b)
+- The SVG atlas is rasterised and packed at `min(DPR, 2)` times the logical size, so on HiDPI screens the WebGL batch samples sharp pixels instead of upscaling 1× frames. Scenes keep their logical geometry through a per-key base scale (`baseScale`, `fit`, `setArt` in `atlas.ts`) applied at every image site in the game, title and tips panel; scale tweens multiply by it. A procedural fallback texture stays at 1× and is drawn at scale 1. The clip exporter, the DOM item images and the audit sheet already draw frames into logical-size rectangles, so their output is unchanged at 1× and sharper at 2×.
+
 ### Throughput hum (DOSSIER-v1 0.4.10)
 - A drone on the music bus from run start to the settle: two detuned triangle oscillators through a low-pass filter. The cutoff follows items in flight (0 → 300 Hz, 12+ → 2 kHz), a jam detunes it a quarter tone while it lasts, the last ten ticks rise an octave, and the settle glides it to the fanfare's root (C4). The round number picks the root up a major pentatonic scale from C3 (round 6 is the octave). Absent under reduced audio; nothing plays during build or on the title; leaving the scene stops it. The model is pure (`humRoot`, `humCutoff`, `humTarget` in `mixer.ts`) and the dev API reports `hum: { on, cutoff, detuned, freq, root, starts }`.
 

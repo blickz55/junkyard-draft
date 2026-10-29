@@ -301,6 +301,27 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       const fb = await p2.evaluate(() => ({ status: window.__jdArt, pressExists: window.__jdGame.textures.exists('m-press'), pressShared: window.__jdGame.textures.get('m-press').source[0] === window.__jdGame.textures.get('art').source[0] }));
       assert.deepEqual({ built: fb.status.built, packed: fb.status.packed.length, missing: fb.status.missing, pressExists: fb.pressExists, pressShared: fb.pressShared }, { built: true, packed: 27, missing: ['m-press'], pressExists: true, pressShared: false }, JSON.stringify(fb));
       await c2.close();
+      // 8b) hidpi_atlas_keeps_logical_size (DOSSIER-v1 0.4.8b): at ?dpr=2 the atlas is twice the 1x snapshot and every packed
+      //     frame is cut at 2x, yet machines, items and tiles display at their logical 72 / 24 px; a procedural fallback stays 1x
+      const c3 = await browser.newContext({ viewport: { width: 1120, height: 700 }, deviceScaleFactor: 2 });
+      const p3 = await c3.newPage();
+      await p3.route('**/art/m-dock.svg', (route) => route.fulfill({ status: 404, body: 'gone' }));
+      await p3.goto(`${URL}/?dev=1&scene=game&seed=atlas-seed&dpr=2`);
+      await p3.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 15000 });
+      await p3.evaluate(() => window.__jd.pick(0));
+      const hi = await p3.evaluate(() => {
+        const g = window.__jdGame; const tm = g.textures; const scene = g.scene.getScene('Game');
+        const imgs = []; const walk = (list) => { for (const o of list) { if (o.type === 'Image') imgs.push(o); if (o.list) walk(o.list); } }; walk(scene.children.list);
+        const by = (prefix) => imgs.find((o) => o.texture.key.startsWith(prefix));
+        const m = by('m-'); const tile = by('tile');
+        const dock = tm.exists('m-dock') ? tm.getFrame('m-dock') : null;
+        return { status: window.__jdArt, crusherCut: [tm.getFrame('m-crusher').cutWidth, tm.getFrame('m-crusher').cutHeight], plateCut: tm.getFrame('i-plate').cutWidth,
+          machine: m && [m.texture.key, m.displayWidth, m.displayHeight], tile: tile && [tile.displayWidth, tile.displayHeight], dockCut: dock && dock.cutWidth, dockShared: tm.get('m-dock').source[0] === tm.get('art').source[0] };
+      });
+      assert.deepEqual({ built: hi.status.built, scale: hi.status.scale, packed: hi.status.packed.length, atlas: hi.status.atlas, crusherCut: hi.crusherCut, plateCut: hi.plateCut, machine: hi.machine && hi.machine.slice(1), tile: hi.tile, dockCut: hi.dockCut, dockShared: hi.dockShared },
+        { built: true, scale: 2, packed: 27, atlas: { width: art.status.atlas.width * 2, height: art.status.atlas.height * 2 }, crusherCut: [144, 144], plateCut: 48, machine: [72, 72], tile: [72, 72], dockCut: 72, dockShared: false }, JSON.stringify(hi));
+      assert.ok(hi.machine && hi.machine[0].startsWith('m-'), 'a machine sprite is on screen');
+      await c3.close();
     }
   } finally {
     if (browser) await browser.close();

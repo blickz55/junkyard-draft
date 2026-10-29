@@ -14,6 +14,7 @@ import { telemetry } from '../telemetry';
 import { DIR_DX, DIR_DY, MACHINE_INFO, RULES } from '../../sim/rules';
 import type { Machine, Material, SimEvent } from '../../sim/types';
 import { BELT_FRAMES, CELL, itemTexture, machineTexture } from '../textures';
+import { baseScale, fit, setArt } from '../atlas';
 import { label, panel } from '../ui';
 import { CSS, FONT, P } from '../palette';
 import { audio } from '../audio';
@@ -113,11 +114,11 @@ export class GameScene extends Phaser.Scene {
     applyDpr(this);
     this.input.mouse?.disableContextMenu();
     this.buildStatic();
-    this.hover = this.add.image(0, 0, 'tile-ok').setOrigin(0).setVisible(false).setDepth(5);
+    this.hover = fit(this.add.image(0, 0, 'tile-ok')).setOrigin(0).setVisible(false).setDepth(5);
     this.ghostGfx = this.add.graphics().setDepth(6);
-    this.stallMark = this.add.image(0, 0, 'tile-sel').setOrigin(0).setDepth(7).setTint(P.red).setVisible(false).setName('stall-mark');
-    this.selection = this.add.image(0, 0, 'tile-sel').setOrigin(0).setVisible(false).setDepth(6);
-    this.cursorImg = this.add.image(0, 0, 'tile-cursor').setOrigin(0).setVisible(false).setDepth(6);
+    this.stallMark = fit(this.add.image(0, 0, 'tile-sel')).setOrigin(0).setDepth(7).setTint(P.red).setVisible(false).setName('stall-mark');
+    this.selection = fit(this.add.image(0, 0, 'tile-sel')).setOrigin(0).setVisible(false).setDepth(6);
+    this.cursorImg = fit(this.add.image(0, 0, 'tile-cursor')).setOrigin(0).setVisible(false).setDepth(6);
     this.panel = new GamePanel(this, {
       pick: (i) => this.pick(i), startRun: () => this.startRun(), setPaused: (p) => this.setPaused(p), finishRun: () => this.finishRun(), stopReplay: () => this.stopReplay(),
       setSpeed: (s) => this.ctl.setSpeed(s), undo: () => this.undo(), redo: () => this.redo(), openTips: () => this.openTips(this.suggestedTip ?? undefined), rotateSelected: () => this.rotateSelected(),
@@ -140,7 +141,7 @@ export class GameScene extends Phaser.Scene {
 
   // ---------- static scenery ----------
   private buildStatic() {
-    for (let y = 0; y < RULES.gridHeight; y++) for (let x = 0; x < RULES.gridWidth; x++) this.add.image(GRID_X + x * CELL, GRID_Y + y * CELL, 'tile').setOrigin(0);
+    for (let y = 0; y < RULES.gridHeight; y++) for (let x = 0; x < RULES.gridWidth; x++) fit(this.add.image(GRID_X + x * CELL, GRID_Y + y * CELL, 'tile')).setOrigin(0);
     this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H).setOrigin(0).setStrokeStyle(2, P.panelLine);
     panel(this, GRID_X, BIN_Y, GRID_W, 100, 0.9);
     label(this, GRID_X + 10, BIN_Y + 6, 'PARTS BIN  — drag parts onto the grid, or arrow keys + Enter', 12, CSS.amber, { fontStyle: 'bold', letterSpacing: 1 });
@@ -159,10 +160,10 @@ export class GameScene extends Phaser.Scene {
 
   private makeView(m: Machine): MachineView {
     const c = this.add.container(0, 0).setDepth(2);
-    const img = this.add.image(CELL / 2, CELL / 2, machineTexture(m.kind));
+    const img = fit(this.add.image(CELL / 2, CELL / 2, machineTexture(m.kind)));
     c.add(img);
     let belt: Phaser.GameObjects.Image | undefined;
-    if (m.kind === 'conveyor') { belt = this.add.image(CELL / 2, CELL / 2, 'belt-0'); c.add(belt); }
+    if (m.kind === 'conveyor') { belt = fit(this.add.image(CELL / 2, CELL / 2, 'belt-0')); c.add(belt); }
     c.setSize(CELL, CELL);
     img.setInteractive({ useHandCursor: true, draggable: true });
     this.input.setDraggable(img);
@@ -216,7 +217,7 @@ export class GameScene extends Phaser.Scene {
       if (cell) {
         const occ = this.run.layout.machines.find((m) => m.x === cell.x && m.y === cell.y && m.id !== v.m.id);
         const { px, py } = this.cellXY(cell.x, cell.y);
-        this.hover.setTexture(occ ? 'tile-bad' : 'tile-ok').setPosition(px, py).setVisible(true);
+        setArt(this.hover, occ ? 'tile-bad' : 'tile-ok').setPosition(px, py).setVisible(true);
         if (occ) { this.hideGhost(); } else this.showGhost(v.m, cell.x, cell.y);
       } else { this.hover.setVisible(false); this.hideGhost(); }
     });
@@ -298,7 +299,7 @@ export class GameScene extends Phaser.Scene {
   private hideGhost() { this.ghostGfx.clear(); }
   private flashBad(x: number, y: number) {
     const { px, py } = this.cellXY(x, y);
-    const f = this.add.image(px, py, 'tile-bad').setOrigin(0).setDepth(7);
+    const f = fit(this.add.image(px, py, 'tile-bad')).setOrigin(0).setDepth(7);
     this.tweens.add({ targets: f, alpha: 0, duration: 350, onComplete: () => f.destroy() });
   }
   rotateSelected() {
@@ -330,7 +331,7 @@ export class GameScene extends Phaser.Scene {
     this.cursorImg.setPosition(px, py).setVisible(true);
     if (this.heldId != null) {
       const occ = this.occupantAt(this.cursor.x, this.cursor.y);
-      this.hover.setTexture(occ && occ.id !== this.heldId ? 'tile-bad' : 'tile-ok').setPosition(px, py).setVisible(true);
+      setArt(this.hover, occ && occ.id !== this.heldId ? 'tile-bad' : 'tile-ok').setPosition(px, py).setVisible(true);
       const held = this.machineById(this.heldId);
       if (held && !(occ && occ.id !== held.id)) this.showGhost(held, this.cursor.x, this.cursor.y); else this.hideGhost();
     } else if (!this.dragging) { this.hover.setVisible(false); this.hideGhost(); }
@@ -387,7 +388,7 @@ export class GameScene extends Phaser.Scene {
   private onStateChange(a: Action | null) {
     if (!this.panel) return; // init() runs before create(): nothing to draw yet
     if (a && !this.replayLabel) { if (a.t === 'pick') telemetry.track('first_draft_pick'); else if (a.t === 'place') telemetry.track('first_place_attempt'); else if (a.t === 'rotate') telemetry.track('first_rotate'); }
-    if (a && !prefs.reducedMotion && (a.t === 'place' || a.t === 'rotate')) { const v = this.views.get(a.id); if (v) { this.tweens.killTweensOf(v.img); v.img.setScale(a.t === 'place' ? 1.06 : 0.94); this.tweens.add({ targets: v.img, scaleX: 1, scaleY: 1, duration: a.t === 'place' ? 90 : 60, ease: 'Quad.out' }); } }
+    if (a && !prefs.reducedMotion && (a.t === 'place' || a.t === 'rotate')) { const v = this.views.get(a.id); if (v) { const b = baseScale(v.img.texture.key); this.tweens.killTweensOf(v.img); fit(v.img, a.t === 'place' ? 1.06 : 0.94); this.tweens.add({ targets: v.img, scaleX: b, scaleY: b, duration: a.t === 'place' ? 90 : 60, ease: 'Quad.out' }); } }
     if (a?.t === 'pick' && !this.replayLabel) { const kind = this.run.picks[this.run.picks.length - 1]; const tip = kind ? tipForMachine(kind, loadReadTips()) : null; if (tip) this.suggestedTip = tip.id; }
     this.updateHud();
     if (!a || a.t === 'place' || a.t === 'pick' || a.t === 'rotate') this.updateHint();
@@ -512,8 +513,8 @@ export class GameScene extends Phaser.Scene {
     for (const j of this.jamMarks.values()) j.destroy();
     this.jamMarks.clear();
     this.clearStall();
-    for (const v of this.views.values()) { v.img.setScale(1).setTint(0xffffff).setAngle(v.m.dir * 90); if (v.img.texture.key !== machineTexture(v.m.kind)) v.img.setTexture(machineTexture(v.m.kind)); }
-    if (!prefs.reducedMotion) for (const v of this.views.values()) if (!v.inBin) this.tweens.add({ targets: v.img, scaleX: 0.97, scaleY: 0.97, duration: 120, yoyo: true, delay: v.m.x * 25, ease: 'Quad.out' });
+    for (const v of this.views.values()) { fit(v.img).setTint(0xffffff).setAngle(v.m.dir * 90); if (v.img.texture.key !== machineTexture(v.m.kind)) setArt(v.img, machineTexture(v.m.kind)); }
+    if (!prefs.reducedMotion) for (const v of this.views.values()) if (!v.inBin) { const b = baseScale(v.img.texture.key); this.tweens.add({ targets: v.img, scaleX: 0.97 * b, scaleY: 0.97 * b, duration: 120, yoyo: true, delay: v.m.x * 25, ease: 'Quad.out' }); }
     audio.humStop(true); // the drone resolves to the fanfare's root under the settle
     audio.settle();
     this.showSummary();
@@ -545,14 +546,14 @@ export class GameScene extends Phaser.Scene {
     for (const v of this.views.values()) {
       if (v.inBin) continue;
       if (prefs.reducedMotion) continue; // belts stay on frame 0, machines do not wobble
-      if (v.belt) v.belt.setTexture(bf);
+      if (v.belt) setArt(v.belt, bf);
       const cell = cellIndex(v.m.x, v.m.y, RULES.gridWidth);
       const held = sim.itemAt[cell];
       // state frames (0.4.4): a machine that holds an item shows it; idle machines are still so a jam stays visible
-      if (v.m.kind === 'crusher') { const key = held && held.hold > 0 && sim.tick % 2 === 1 ? 'm-crusher-1' : 'm-crusher'; if (v.img.texture.key !== key) v.img.setTexture(key); }
+      if (v.m.kind === 'crusher') { const key = held && held.hold > 0 && sim.tick % 2 === 1 ? 'm-crusher-1' : 'm-crusher'; if (v.img.texture.key !== key) setArt(v.img, key); }
       else if (v.m.kind === 'furnace') { v.img.setTint(held && held.hold > 0 ? 0xffd9a0 : 0xffffff); }
-      else if (v.m.kind === 'press') { const busy = held && held.hold > 0; const key = busy ? (held.hold >= 2 ? 'm-press-1' : 'm-press-2') : 'm-press'; if (v.img.texture.key !== key) v.img.setTexture(key); v.img.setTint(!busy && (sim.pressStore[cell] ?? 0) > 0 ? 0xcfe3ff : 0xffffff); }
-      else if (v.m.kind === 'hopper') { v.img.setScale(sim.tick % RULES.hopperPeriod === 0 && phase < 0.3 ? 1.05 : 1); }
+      else if (v.m.kind === 'press') { const busy = held && held.hold > 0; const key = busy ? (held.hold >= 2 ? 'm-press-1' : 'm-press-2') : 'm-press'; if (v.img.texture.key !== key) setArt(v.img, key); v.img.setTint(!busy && (sim.pressStore[cell] ?? 0) > 0 ? 0xcfe3ff : 0xffffff); }
+      else if (v.m.kind === 'hopper') { fit(v.img, sim.tick % RULES.hopperPeriod === 0 && phase < 0.3 ? 1.05 : 1); }
       else if (v.m.kind === 'splitter') { v.img.setAngle(v.m.dir * 90 + ((sim.splitterToggle[cell] ?? 0) === 0 ? -4 : 4)); }
     }
     // item positions
@@ -560,15 +561,15 @@ export class GameScene extends Phaser.Scene {
     for (const it of sim.items) {
       alive.add(it.id);
       let s = this.itemSprites.get(it.id);
-      if (!s) { s = this.add.image(0, 0, itemTexture(it.mat)).setDepth(4); this.itemSprites.set(it.id, s); }
-      if (s.texture.key !== itemTexture(it.mat)) s.setTexture(itemTexture(it.mat));
+      if (!s) { s = fit(this.add.image(0, 0, itemTexture(it.mat))).setDepth(4); this.itemSprites.set(it.id, s); }
+      if (s.texture.key !== itemTexture(it.mat)) setArt(s, itemTexture(it.mat));
       const to = this.centerOfCell(it.cell);
       if (!prefs.reducedMotion && it.movedAt === sim.tick && it.from >= 0) {
         const from = this.centerOfCell(it.from);
         const e = Phaser.Math.Easing.Quadratic.InOut(phase);
         s.setPosition(from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e);
       } else s.setPosition(to.x, to.y);
-      if (it.hold > 0) { s.setScale(prefs.reducedMotion ? 0.85 : 0.8 + 0.1 * Math.sin(_time / 60)); } else s.setScale(1);
+      if (it.hold > 0) { fit(s, prefs.reducedMotion ? 0.85 : 0.8 + 0.1 * Math.sin(_time / 60)); } else fit(s);
     }
     for (const [id, s] of this.itemSprites) if (!alive.has(id)) { this.itemSprites.delete(id); if (prefs.reducedMotion) s.destroy(); else this.tweens.add({ targets: s, scale: 1.6, alpha: 0, duration: 200, onComplete: () => s.destroy() }); }
     this.panel.setProgress(sim.tick, sim.earned);
@@ -592,13 +593,13 @@ export class GameScene extends Phaser.Scene {
         if (prefs.reducedMotion) continue;
         // a press swallowed a shard: shrink a shard marker into the machine
         const c = this.centerOfCell(e.cell);
-        const spark = this.add.image(c.x, c.y, itemTexture('shards')).setDepth(4).setAlpha(0.9);
-        this.tweens.add({ targets: spark, scale: 0.2, alpha: 0, duration: 220, onComplete: () => spark.destroy() });
+        const spark = fit(this.add.image(c.x, c.y, itemTexture('shards'))).setDepth(4).setAlpha(0.9);
+        this.tweens.add({ targets: spark, scale: 0.2 * baseScale(spark.texture.key), alpha: 0, duration: 220, onComplete: () => spark.destroy() });
       } else if (e.kind === 'jam') {
         jammedNow.add(e.cell);
         if (!this.jamMarks.has(e.cell)) {
           const { x, y } = this.centerOfCell(e.cell);
-          const mk = this.add.image(x - CELL / 2, y - CELL / 2, 'tile-bad').setOrigin(0).setDepth(3).setAlpha(0.7);
+          const mk = fit(this.add.image(x - CELL / 2, y - CELL / 2, 'tile-bad')).setOrigin(0).setDepth(3).setAlpha(0.7);
           this.jamMarks.set(e.cell, mk); sounds.jams++;
         }
       }

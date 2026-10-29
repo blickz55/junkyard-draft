@@ -8,6 +8,7 @@ import Phaser from 'phaser';
 import { TIPS, type Tip } from '../sim/tips';
 import { createSim, step, type SimState } from '../sim/sim';
 import { CELL, itemTexture, machineTexture } from './textures';
+import { fit, setArt } from './atlas';
 import { Button, label, panel } from './ui';
 import { CSS, FONT, P } from './palette';
 import { loadReadTips, markTipRead } from './storage';
@@ -86,7 +87,7 @@ export class TipsPanel {
     for (let y = 0; y < tip.layout.height; y++) for (let x = 0; x < tip.layout.width; x++) demoBox.add(s.add.image(x * DEMO_CELL, y * DEMO_CELL, 'tile').setOrigin(0).setDisplaySize(DEMO_CELL, DEMO_CELL));
     demoBox.add(s.add.rectangle(0, 0, gw, gh).setOrigin(0).setStrokeStyle(2, P.panelLine));
     for (const m of tip.layout.machines) {
-      const img = s.add.image(m.x * DEMO_CELL + DEMO_CELL / 2, m.y * DEMO_CELL + DEMO_CELL / 2, machineTexture(m.kind)).setScale(DEMO_CELL / CELL).setAngle(m.dir * 90);
+      const img = fit(s.add.image(m.x * DEMO_CELL + DEMO_CELL / 2, m.y * DEMO_CELL + DEMO_CELL / 2, machineTexture(m.kind)), DEMO_CELL / CELL).setAngle(m.dir * 90);
       demoBox.add(img);
     }
     this.demoLine = label(s, x0, ly + gh + 12, tip.watch, 12, CSS.amber).setName('tips-watch');
@@ -111,8 +112,8 @@ export class TipsPanel {
       for (const it of sim.items) {
         alive.add(it.id);
         let img = this.demoItems.get(it.id);
-        if (!img) { img = s.add.image(0, 0, itemTexture(it.mat)).setScale(DEMO_CELL / CELL).setDepth(1); box.add(img); this.demoItems.set(it.id, img); }
-        if (img.texture.key !== itemTexture(it.mat)) img.setTexture(itemTexture(it.mat));
+        if (!img) { img = fit(s.add.image(0, 0, itemTexture(it.mat)), DEMO_CELL / CELL).setDepth(1); box.add(img); this.demoItems.set(it.id, img); }
+        if (img.texture.key !== itemTexture(it.mat)) setArt(img, itemTexture(it.mat), DEMO_CELL / CELL);
         const tx = (it.cell % sim.width) * DEMO_CELL + DEMO_CELL / 2, ty = Math.floor(it.cell / sim.width) * DEMO_CELL + DEMO_CELL / 2;
         if (prefs.reducedMotion || it.movedAt !== sim.tick) img.setPosition(tx, ty);
         else s.tweens.add({ targets: img, x: tx, y: ty, duration: DEMO_TICK_MS * 0.7 });
