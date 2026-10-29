@@ -9,6 +9,7 @@ keeps only verified scores. One Node process, a JSON file for storage, no databa
 | POST | `/verify` `{ replay, player? }` | `{ ok, score, entry }` or `{ ok: false, error }` (422 rejected, 429 rate-limited, 413 too large) |
 | GET | `/board?seed=…&limit=20` | verified entries for a seed |
 | GET | `/daily?limit=10` | today's UTC daily seed + its verified board |
+| GET | `/histogram?seed=…&hash=…` | verified score distribution for a seed: `{ n, step, bins[{from,to,count}], mine{score,rank,bin,percentile}?, around[] }` — the player's own entry located by replay hash, never by name |
 | GET | `/replay?hash=…` | the stored actions of a **verified** entry `{ ok, hash, seed, player, score, rulesVersion, actions, verifiedAt }` (404 otherwise) |
 | GET | `/health` | `{ ok, rulesVersion, entries, uptimeSec }` |
 | POST | `/events` `{ installId, consent: true, events[] }` | opt-in funnel events (PLAN-v1 0.3.7): only the fixed vocabulary in `game/src/telemetry/events.ts`, consent explicit, ≤ 100 events, 30 req/min/IP; appended to `events.jsonl` with a daily-salted IP hash (422 rejected, 429 limited, 503 storage) |

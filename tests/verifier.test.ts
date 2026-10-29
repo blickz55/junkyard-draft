@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, loadBoard, StorageError, EventStore } from '../server/verify';
+import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, loadBoard, StorageError, EventStore, histogramOf, niceStep, type BoardEntry } from '../server/verify';
 import { build as esbuild } from 'esbuild';
 import net from 'node:net';
 import { RULES_VERSION } from '../game/src/sim/types';
@@ -300,5 +300,44 @@ test('events: POST /events accepts only consented batches from the fixed vocabul
     assert.equal(store.prune(), 1);
     assert.equal(store.rows().length, 6);
     assert.equal(store.prune(), 0);
+  } finally { server.close(); }
+});
+
+test('histogram (PLAN-v1 0.4.1): bins and percentile for 1, 4 and 200 entries; nice steps; the caller located by hash; never a fabricated population', async () => {
+  const mk = (scores: number[]): BoardEntry[] => scores.slice().sort((a, b) => b - a).map((score, i) => ({ seed: 'h', score, player: `p${i}`, verifiedAt: new Date(2026, 0, 1, 0, 0, i).toISOString(), rulesVersion: RULES_VERSION, actions: 10, replayHash: `hash-${score}-${i}` }));
+  assert.deepEqual(histogramOf([]), { n: 0, step: 1, bins: [], mine: null, around: [] }, 'no entries: empty, nothing invented');
+  assert.deepEqual([niceStep(0), niceStep(3), niceStep(17), niceStep(42), niceStep(70), niceStep(230), niceStep(0.4)], [1, 5, 20, 50, 100, 250, 1]);
+  // one entry: one bin that holds it, rank 1, percentile 0 (nobody to beat)
+  const one = histogramOf(mk([228]), 'hash-228-0');
+  assert.equal(one.n, 1); assert.equal(one.bins.reduce((a, b) => a + b.count, 0), 1); assert.deepEqual(one.mine, { score: 228, rank: 1, bin: one.bins.length - 1, percentile: 0 });
+  assert.deepEqual(one.around, [{ rank: 1, player: 'p0', score: 228, mine: true }]);
+  // four entries: the third-best beats one of three others
+  const four = histogramOf(mk([2088, 1697, 1210, 400]), 'hash-1210-2');
+  assert.equal(four.n, 4); assert.equal(four.mine?.rank, 3); assert.equal(four.mine?.percentile, 33);
+  assert.equal(four.bins.reduce((a, b) => a + b.count, 0), 4, 'every entry lands in exactly one bin');
+  assert.ok(four.bins.every((b) => b.to - b.from === four.step) && four.bins[0].from === 0, 'bins are contiguous from zero');
+  assert.equal(four.around.length, 4); assert.equal(four.around.filter((a) => a.mine).length, 1);
+  assert.equal(histogramOf(mk([1, 2, 3]), 'unknown').mine, null, 'an unknown hash gets no "mine" and no neighbours');
+  // two hundred entries: percentile of the median is about 50, ties are not beaten, around has 11 rows
+  const scores = Array.from({ length: 200 }, (_, i) => 100 + i * 10); scores[57] = scores[58]; // a tie
+  const two = histogramOf(mk(scores), 'hash-' + scores[100] + '-99');
+  assert.equal(two.n, 200); assert.ok(two.bins.length >= 8 && two.bins.length <= 12, `about ten nice bins (${two.bins.length} of ${two.step})`);
+  assert.ok(two.mine && two.mine.percentile >= 48 && two.mine.percentile <= 51, `median percentile ${two.mine?.percentile}`);
+  assert.equal(two.around.length, 11); assert.equal(two.around[5].mine, true);
+  const tieHash = mk(scores).find((e) => e.score === scores[57] && e.player !== 'p0')!.replayHash;
+  const tied = histogramOf(mk(scores), tieHash);
+  assert.ok(tied.mine && tied.mine.percentile === Math.floor((100 * scores.filter((s) => s < scores[57]).length) / 199), 'a tied score does not count as beaten');
+  // the route: a real verified entry shows up with mine located by its hash
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-hist-'));
+  const v = new Verifier(path.join(dir, 'board.json'));
+  const run = finishedRun('hist-seed'); const sub = v.submit(encodeReplay(exportReplay(run)), 'alice');
+  const server = createServer(v, { log: null, rateLimit: null });
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
+  const port = (server.address() as net.AddressInfo).port;
+  try {
+    const h = await (await fetch(`http://127.0.0.1:${port}/histogram?seed=hist-seed&hash=${sub.entry!.replayHash}`)).json() as { ok: boolean; n: number; mine: { rank: number; score: number } | null; seed: string };
+    assert.equal(h.ok, true); assert.equal(h.seed, 'hist-seed'); assert.equal(h.n, 1); assert.deepEqual({ rank: h.mine?.rank, score: h.mine?.score }, { rank: 1, score: run.score });
+    const empty = await (await fetch(`http://127.0.0.1:${port}/histogram?seed=nobody-played`)).json() as { n: number; bins: unknown[] };
+    assert.deepEqual([empty.n, empty.bins], [0, []]);
   } finally { server.close(); }
 });

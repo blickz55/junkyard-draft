@@ -86,6 +86,13 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     if (d.seed !== dailySeed()) { line.textContent = `Verifier day differs (${d.seed}); board hidden.`; return; }
     const top = d.entries.length ? d.entries.map((e, i) => `${i + 1}. $${e.score} ${e.player}`).join('   ·   ') + `   ·   re-simulated by the verifier (rules v${d.rulesVersion})` : 'No verified scores yet today. Finish a run and submit the replay from the results screen.';
     line.textContent = top; line.classList.toggle('jd-dim', !d.entries.length);
+    if (d.entries.length) {
+      fetch(`${url}/histogram?seed=${encodeURIComponent(dailySeed())}`).then((r) => r.json()).then((hg: { n: number; bins: { count: number }[] }) => {
+        if (!alive() || !hg.n) return;
+        const max = Math.max(1, ...hg.bins.map((b) => b.count));
+        stripHead.firstElementChild?.append(h('span', { class: 'jd-hist-mini', tid: 'daily-hist', title: `${hg.n} verified runs today` }, ...hg.bins.map((b) => h('span', { class: 'jd-hist-bar', style: `height:${Math.max(8, Math.round((100 * b.count) / max))}%` }))));
+      }).catch(() => { /* decoration */ });
+    }
     const bestIdx = d.entries.findIndex((e) => e.replayAvailable);
     const best = bestIdx >= 0 ? d.entries[bestIdx] : undefined;
     if (best) {

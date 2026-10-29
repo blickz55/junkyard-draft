@@ -3,6 +3,12 @@
 All notable changes to Junkyard Draft. Dates are UTC. Rules changes bump `RULES_VERSION`, which invalidates
 older replays and saves on purpose.
 
+## Unreleased — 2026-10-29 (v0.4: histogram-first results, PLAN-v1 0.4.1)
+
+### Histogram-first results and daily strip
+- Verifier `GET /histogram?seed=&hash=`: the verified score distribution in nice-width bins (1 / 2 / 2.5 / 5 × 10^k), N, and, when the caller's replay hash is on the board, its rank, bin, percentile (share of other verified runs with a strictly lower score; ties are not beaten) and up to five neighbours above and below. Empty when nobody has played: nothing is ever invented.
+- Results screen: the distribution with the player's bin highlighted, "Better than X % of N verified runs · #R" once five or more runs exist, otherwise "N verified runs so far · you are #R", and an "around you" slice. The title's daily strip shows a miniature of today's distribution once a verified run exists.
+
 ## Unreleased — 2026-10-29 (v0.4 begins: DOM UI shell, DOSSIER-v1 0.4.0, slice 1)
 
 ### DOM UI shell (title and results)

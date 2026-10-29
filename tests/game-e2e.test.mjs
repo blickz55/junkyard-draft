@@ -252,6 +252,10 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     for (let i = 0; i < 20; i++) { try { if ((await fetch(`http://127.0.0.1:${VPORT}/health`)).ok) break; } catch {} await wait(300); }
     await page.getByTestId('submit').click();
     await page.waitForFunction(() => /Verified by re-simulation: \$\d+ — #1 of 1 on the local verified board as e2e player/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
+    // histogram_first (PLAN-v1 0.4.1): the only verified run is highlighted and the text says so without inventing a population
+    await page.waitForFunction(() => /^1 verified run so far · you are #1$/.test(document.querySelector('[data-testid=percentile]')?.textContent || ''), null, { timeout: 10000 });
+    const hist = await page.evaluate(() => ({ bins: document.querySelectorAll('[data-testid=histogram] .jd-hist-bin').length, mine: document.querySelectorAll('[data-testid=histogram] .jd-hist-mine').length, mineCount: document.querySelector('[data-testid=histogram] .jd-hist-mine .jd-hist-count')?.textContent }));
+    assert.ok(hist.bins >= 1 && hist.mine === 1 && hist.mineCount === '1', `histogram shows the player's bin: ${JSON.stringify(hist)}`);
     const board = await (await fetch(`http://127.0.0.1:${VPORT}/board?seed=e2e-seed`)).json();
     assert.equal(board.entries.length, 1, 'one verified entry');
     assert.equal(board.entries[0].player, 'e2e player', 'the stored player name is sent with the submission');
@@ -310,6 +314,8 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => { const t = document.querySelector('[data-testid=daily-board]')?.textContent || ''; return /^You: #1 of 1 \(\$\d+\)/.test(t) && /1\. \$\d+ e2e player/.test(t); }, null, { timeout: 15000 });
     assert.equal(await page.getByTestId('player').textContent(), 'Player: e2e player');
+    await page.waitForSelector('[data-testid=daily-hist] .jd-hist-bar', { timeout: 10000 });
+    assert.ok((await page.locator('[data-testid=daily-hist] .jd-hist-bar').count()) >= 1, 'the daily strip shows a mini histogram once a verified run exists');
     // large_text_layout_fits (HUD): a maximum-length seed at 130 % keeps round, score and local-best on the canvas
     await page.evaluate(() => localStorage.setItem('jd.settings.v1', JSON.stringify({ volume: 0.7, muted: false, reducedMotion: true, textScale: 1.3 })));
     await page.goto(`${URL}/?dev=1&scene=game&seed=${'m'.repeat(64)}&verifier=http://127.0.0.1:${VPORT}`);

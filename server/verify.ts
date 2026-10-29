@@ -5,6 +5,8 @@
  * - GET  /daily?limit=10 → today's UTC daily seed (same rule as the client) with its verified board.
  * - GET  /replay?hash=<replayHash> → the stored actions of a VERIFIED entry (for playback); 404 otherwise.
  * - GET  /health → { ok, version, rulesVersion, entries, uptimeSec }
+ * - GET  /histogram?seed=<seed>&hash=<replayHash> → the verified score distribution for a seed (PLAN-v1 0.4.1): bins, N, and
+ *                 the caller's rank / percentile / neighbours when its replay hash is on the board. Never a fabricated population.
  * - POST /events  { installId, consent: true, events[] } → opt-in funnel events (PLAN-v1 0.3.7), appended to events.jsonl with a
  *                 daily-salted IP hash; only the fixed vocabulary in game/src/telemetry/events.ts is accepted; 30-day retention.
  * - GET  /funnel  → unique installs per funnel step and event counts (what tools/funnel.ts prints).
@@ -65,6 +67,47 @@ export function clampInt(raw: string | null | undefined, def: number, max: numbe
 }
 
 export class StorageError extends Error {}
+
+/** One bin of a score histogram: [from, to) except the last, which includes its upper edge. */
+export interface HistogramBin { from: number; to: number; count: number }
+export interface Histogram {
+  seed: string; n: number; step: number; bins: HistogramBin[];
+  /** the caller's own verified entry, when its hash is on this seed's board */
+  mine: { score: number; rank: number; bin: number; percentile: number } | null;
+  /** up to five entries above and five below the caller (board order), for the "around you" slice */
+  around: { rank: number; player: string; score: number; mine: boolean }[];
+}
+/** A bin width that reads well on an axis: 1, 2, 2.5, 5 × 10^k, at least 1. */
+export function niceStep(raw: number): number {
+  if (!(raw > 0)) return 1;
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  const m = raw / pow;
+  const nice = m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10;
+  return Math.max(1, nice * pow);
+}
+/**
+ * Pure histogram over board-ordered entries (best first). `binCount` is a target: the step is rounded to a nice width,
+ * so the bin count may differ. Percentile = share of other verified runs with a strictly lower score (ties do not count
+ * as beaten). With no entries the histogram is empty; nothing is ever invented.
+ */
+export function histogramOf(ranked: BoardEntry[], hash?: string, binCount = 10): Omit<Histogram, 'seed'> {
+  const n = ranked.length;
+  if (n === 0) return { n: 0, step: 1, bins: [], mine: null, around: [] };
+  const max = Math.max(...ranked.map((e) => e.score), 1);
+  const step = niceStep(max / binCount);
+  const count = Math.floor(max / step) + 1;
+  const bins: HistogramBin[] = Array.from({ length: count }, (_, i) => ({ from: i * step, to: (i + 1) * step, count: 0 }));
+  for (const e of ranked) bins[Math.min(count - 1, Math.floor(e.score / step))].count++;
+  const idx = hash ? ranked.findIndex((e) => e.replayHash === hash) : -1;
+  let mine: Histogram['mine'] = null; let around: Histogram['around'] = [];
+  if (idx >= 0) {
+    const score = ranked[idx].score;
+    const lower = ranked.filter((e) => e.score < score).length;
+    mine = { score, rank: idx + 1, bin: Math.min(count - 1, Math.floor(score / step)), percentile: n > 1 ? Math.floor((100 * lower) / (n - 1)) : 0 };
+    around = ranked.slice(Math.max(0, idx - 5), idx + 6).map((e, k, arr) => { const rank = idx - (arr.indexOf(e) - k) + (k - arr.indexOf(e)) + 1; void rank; return { rank: ranked.indexOf(e) + 1, player: e.player, score: e.score, mine: e.replayHash === hash }; });
+  }
+  return { n, step, bins, mine, around };
+}
 
 export interface VerifierOptions {
   /** stored replays are kept only for each seed's top N entries (by the board order); default 100 = the /board cap */
@@ -160,6 +203,8 @@ export class Verifier {
     const r = this.data.replays?.[hash];
     return r && r.rulesVersion === RULES_VERSION ? { hash, ...r } : null;
   }
+  /** Verified score distribution for a seed; `hash` locates the caller's own entry. */
+  histogram(seed: string, hash?: string): Histogram { return { seed, ...histogramOf(this.rank(seed), hash) }; }
   /** Today's challenge: the seed every client derives for this UTC date, plus its verified board. */
   daily(limit = 10, now = new Date()): { seed: string; date: string; rulesVersion: number; verified: true; entries: BoardEntry[] } {
     const seed = dailySeedFor(now);
@@ -285,6 +330,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, uptimeSec: Math.round((Date.now() - started) / 1000) });
       if (req.method === 'GET' && url.pathname === '/replay') { const r = verifier.replay(url.searchParams.get('hash') || ''); return r ? json(200, { ok: true, ...r }) : json(404, { ok: false, error: 'no verified replay with that hash' }); }
       if (req.method === 'GET' && url.pathname === '/daily') return json(200, verifier.daily(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT)));
+      if (req.method === 'GET' && url.pathname === '/histogram') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { ok: true, ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined) }); }
       if (req.method === 'GET' && url.pathname === '/board') { const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { seed, verified: true, entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT)) }); }
       if (req.method === 'POST' && url.pathname === '/verify') {
         if (rl) { const r = rl.take(ip); if (!r.ok) { req.resume(); return json(429, { ok: false, error: `rate limited: ${rl.limit} submissions per ${rl.windowMs / 1000}s` }, { 'Retry-After': String(r.retryAfterSec) }); } }
