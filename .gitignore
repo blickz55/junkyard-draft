@@ -38,3 +38,8 @@ _delivery/
 # deep-research scratch (final reports are copied into docs/research/)
 research_notes/
 reports/
+
+# browser-pane downloads and preview scratch land in the working directory
+/junkyard-*.gif
+/junkyard-*.webm
+/_tmp-*
