@@ -13,8 +13,12 @@ import type { Dir, Layout, Machine, MachineKind } from '../game/src/sim/types';
 import { improve, score } from './autoplay-lib';
 
 const args = process.argv.slice(2);
-const opt = (k: string, d: string) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i + 1] : d; };
-const TRIES = Number(opt('tries', '400')); const STREAMS = Number(opt('streams', '6'));
+const opt = (k: string, d: string) => {
+  const i = args.indexOf(`--${k}`);
+  return i >= 0 ? args[i + 1] : d;
+};
+const TRIES = Number(opt('tries', '400'));
+const STREAMS = Number(opt('streams', '6'));
 
 let nid = 1;
 const m = (kind: MachineKind, x = -1, y = -1, dir: Dir = 0): Machine => ({ id: nid++, kind, x, y, dir });
@@ -53,12 +57,52 @@ function exportPricing(l: Layout): number {
   return earned;
 }
 
-const draw = (l: Layout) => { const g: string[][] = Array.from({ length: l.height }, () => Array(l.width).fill('.')); const sym: Record<MachineKind, string> = { hopper: 'H', conveyor: '>', splitter: 'S', crusher: 'C', furnace: 'F', press: 'P', dock: 'D', sieve: 'V', tuner: 'T' }; const arrow = ['>', 'v', '<', '^']; for (const x of l.machines) g[x.y][x.x] = x.kind === 'conveyor' ? arrow[x.dir] : sym[x.kind] + ''; return g.map((r) => r.join('')).join('\n'); };
+const draw = (l: Layout) => {
+  const g: string[][] = Array.from({ length: l.height }, () => Array(l.width).fill('.'));
+  const sym: Record<MachineKind, string> = {
+    hopper: 'H',
+    conveyor: '>',
+    splitter: 'S',
+    crusher: 'C',
+    furnace: 'F',
+    press: 'P',
+    dock: 'D',
+    sieve: 'V',
+    tuner: 'T',
+  };
+  const arrow = ['>', 'v', '<', '^'];
+  for (const x of l.machines) g[x.y][x.x] = x.kind === 'conveyor' ? arrow[x.dir] : sym[x.kind] + '';
+  return g.map((r) => r.join('')).join('\n');
+};
 
 // hand-authored Sieve line: hopper B → crusher side-loads shards onto hopper A's belt; the Sieve sends scrap on to dock 1 and shards right into a furnace that ships ingots into dock 2
-const hand = lay(m('hopper', 0, 2, 0), m('conveyor', 1, 2, 0), m('sieve', 2, 2, 0), m('conveyor', 3, 2, 0), m('dock', 4, 2), m('hopper', 1, 0, 1), m('crusher', 1, 1, 1), m('furnace', 2, 3, 1), m('dock', 2, 4), m('conveyor', 6, 5, 0), m('conveyor', 7, 5, 0));
+const hand = lay(
+  m('hopper', 0, 2, 0),
+  m('conveyor', 1, 2, 0),
+  m('sieve', 2, 2, 0),
+  m('conveyor', 3, 2, 0),
+  m('dock', 4, 2),
+  m('hopper', 1, 0, 1),
+  m('crusher', 1, 1, 1),
+  m('furnace', 2, 3, 1),
+  m('dock', 2, 4),
+  m('conveyor', 6, 5, 0),
+  m('conveyor', 7, 5, 0),
+);
 // hand-authored separated routes with the same inventory minus the Sieve plus a conveyor
-const handSep = lay(m('hopper', 0, 2, 0), m('conveyor', 1, 2, 0), m('conveyor', 2, 2, 0), m('conveyor', 3, 2, 0), m('dock', 4, 2), m('hopper', 0, 4, 0), m('crusher', 1, 4, 0), m('furnace', 2, 4, 0), m('dock', 3, 4), m('conveyor', 6, 5, 0), m('conveyor', 7, 5, 0));
+const handSep = lay(
+  m('hopper', 0, 2, 0),
+  m('conveyor', 1, 2, 0),
+  m('conveyor', 2, 2, 0),
+  m('conveyor', 3, 2, 0),
+  m('dock', 4, 2),
+  m('hopper', 0, 4, 0),
+  m('crusher', 1, 4, 0),
+  m('furnace', 2, 4, 0),
+  m('dock', 3, 4),
+  m('conveyor', 6, 5, 0),
+  m('conveyor', 7, 5, 0),
+);
 
 const t0 = Date.now();
 const sieve = searchBest(withSieve(), 'sieve');
@@ -66,9 +110,22 @@ const sep = searchBest(withConveyor(), 'conveyor');
 const sieveExport = searchBest(withSieve(), 'sieve-export', exportPricing);
 const sepExport = searchBest(withConveyor(), 'conveyor-export', exportPricing);
 const out = {
-  tries: TRIES, streams: STREAMS, ms: Date.now() - t0,
-  plain: { hand: { sieve: score(hand), separated: score(handSep) }, search: { sieve: sieve.earned, separated: sep.earned }, liftPct: Math.round((100 * (Math.max(sieve.earned, score(hand)) - Math.max(sep.earned, score(handSep)))) / Math.max(sep.earned, score(handSep))) },
-  exportDock: { hand: { sieve: exportPricing(hand), separated: exportPricing(handSep) }, search: { sieve: sieveExport.earned, separated: sepExport.earned }, liftPct: Math.round((100 * (Math.max(sieveExport.earned, exportPricing(hand)) - Math.max(sepExport.earned, exportPricing(handSep)))) / Math.max(sepExport.earned, exportPricing(handSep))) },
+  tries: TRIES,
+  streams: STREAMS,
+  ms: Date.now() - t0,
+  plain: {
+    hand: { sieve: score(hand), separated: score(handSep) },
+    search: { sieve: sieve.earned, separated: sep.earned },
+    liftPct: Math.round((100 * (Math.max(sieve.earned, score(hand)) - Math.max(sep.earned, score(handSep)))) / Math.max(sep.earned, score(handSep))),
+  },
+  exportDock: {
+    hand: { sieve: exportPricing(hand), separated: exportPricing(handSep) },
+    search: { sieve: sieveExport.earned, separated: sepExport.earned },
+    liftPct: Math.round(
+      (100 * (Math.max(sieveExport.earned, exportPricing(hand)) - Math.max(sepExport.earned, exportPricing(handSep)))) /
+        Math.max(sepExport.earned, exportPricing(handSep)),
+    ),
+  },
 };
 console.log(JSON.stringify(out, null, 1));
 console.log('\nhand Sieve line ($' + score(hand) + '):\n' + draw(hand));

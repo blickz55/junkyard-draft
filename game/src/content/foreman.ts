@@ -9,24 +9,100 @@ import { STRINGS, t, type StringKey, type Params } from './strings';
 import { loadSettings } from '../render/storage';
 
 export type Situation =
-  | 'welcome' | 'dailyOpen' | 'dailyFinal' | 'firstDraft'
-  | 'lesson1' | 'lesson2' | 'lesson3' | 'lesson4' | 'lesson5' | 'lesson6'
+  | 'welcome'
+  | 'dailyOpen'
+  | 'dailyFinal'
+  | 'firstDraft'
+  | 'lesson1'
+  | 'lesson2'
+  | 'lesson3'
+  | 'lesson4'
+  | 'lesson5'
+  | 'lesson6'
   | 'refused'
-  | 'bottleneckDisconnected' | 'bottleneckDeadEnd' | 'bottleneckSlag' | 'bottleneckSaturated' | 'bottleneckMerge' | 'bottleneckStarved' | 'bottleneckBalanced'
-  | 'roundGood' | 'roundFlat'
-  | 'resultsTop' | 'resultsUpper' | 'resultsLower' | 'resultsFew' | 'resultsOffline' | 'resultsFirst'
-  | 'streak3' | 'streak7' | 'streak30' | 'firstShare' | 'firstCrew';
+  | 'bottleneckDisconnected'
+  | 'bottleneckDeadEnd'
+  | 'bottleneckSlag'
+  | 'bottleneckSaturated'
+  | 'bottleneckMerge'
+  | 'bottleneckStarved'
+  | 'bottleneckBalanced'
+  | 'roundGood'
+  | 'roundFlat'
+  | 'resultsTop'
+  | 'resultsUpper'
+  | 'resultsLower'
+  | 'resultsFew'
+  | 'resultsOffline'
+  | 'resultsFirst'
+  | 'streak3'
+  | 'streak7'
+  | 'streak30'
+  | 'firstShare'
+  | 'firstCrew';
 
-export const SITUATIONS: readonly Situation[] = ['welcome', 'dailyOpen', 'dailyFinal', 'firstDraft', 'lesson1', 'lesson2', 'lesson3', 'lesson4', 'lesson5', 'lesson6', 'refused', 'bottleneckDisconnected', 'bottleneckDeadEnd', 'bottleneckSlag', 'bottleneckSaturated', 'bottleneckMerge', 'bottleneckStarved', 'bottleneckBalanced', 'roundGood', 'roundFlat', 'resultsTop', 'resultsUpper', 'resultsLower', 'resultsFew', 'resultsOffline', 'resultsFirst', 'streak3', 'streak7', 'streak30', 'firstShare', 'firstCrew'];
+export const SITUATIONS: readonly Situation[] = [
+  'welcome',
+  'dailyOpen',
+  'dailyFinal',
+  'firstDraft',
+  'lesson1',
+  'lesson2',
+  'lesson3',
+  'lesson4',
+  'lesson5',
+  'lesson6',
+  'refused',
+  'bottleneckDisconnected',
+  'bottleneckDeadEnd',
+  'bottleneckSlag',
+  'bottleneckSaturated',
+  'bottleneckMerge',
+  'bottleneckStarved',
+  'bottleneckBalanced',
+  'roundGood',
+  'roundFlat',
+  'resultsTop',
+  'resultsUpper',
+  'resultsLower',
+  'resultsFew',
+  'resultsOffline',
+  'resultsFirst',
+  'streak3',
+  'streak7',
+  'streak30',
+  'firstShare',
+  'firstCrew',
+];
 /** Situations that teach: kept under "lessons only". */
-export const TEACHING: ReadonlySet<Situation> = new Set<Situation>(['firstDraft', 'lesson1', 'lesson2', 'lesson3', 'lesson4', 'lesson5', 'lesson6', 'refused', 'bottleneckDisconnected', 'bottleneckDeadEnd', 'bottleneckSlag', 'bottleneckSaturated', 'bottleneckMerge', 'bottleneckStarved', 'bottleneckBalanced']);
+export const TEACHING: ReadonlySet<Situation> = new Set<Situation>([
+  'firstDraft',
+  'lesson1',
+  'lesson2',
+  'lesson3',
+  'lesson4',
+  'lesson5',
+  'lesson6',
+  'refused',
+  'bottleneckDisconnected',
+  'bottleneckDeadEnd',
+  'bottleneckSlag',
+  'bottleneckSaturated',
+  'bottleneckMerge',
+  'bottleneckStarved',
+  'bottleneckBalanced',
+]);
 
 export const foremanName = (): string => t('foreman.name');
 
 /** The keys of a situation's variants, in order (`foreman.welcome.1`, `.2`, …). */
 export function variantKeys(situation: Situation): StringKey[] {
   const out: StringKey[] = [];
-  for (let i = 1; i <= 9; i++) { const k = `foreman.${situation}.${i}` as StringKey; if (k in STRINGS) out.push(k); else break; }
+  for (let i = 1; i <= 9; i++) {
+    const k = `foreman.${situation}.${i}` as StringKey;
+    if (k in STRINGS) out.push(k);
+    else break;
+  }
   return out;
 }
 

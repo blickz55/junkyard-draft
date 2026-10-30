@@ -25,6 +25,7 @@ export const MINTED_DAILY = /^daily-(\d{4}-\d{2}-\d{2})-([a-z2-7]{8})$/;
 export const isMintedDailySeed = (seed: string): boolean => MINTED_DAILY.test(seed);
 /** The UTC date a daily seed (either format) is for; null for any other seed. */
 export function dailyDateOf(seed: string): string | null {
-  const m = MINTED_DAILY.exec(seed); if (m) return m[1];
+  const m = MINTED_DAILY.exec(seed);
+  if (m) return m[1];
   return isDailySeed(seed) ? seed.slice(DAILY_PREFIX.length) : null;
 }

@@ -12,7 +12,11 @@ import { verifierUrl as resolveVerifierUrl } from './config';
 import { REPORT_REASONS } from '../identity/identity';
 
 /** The watched replay's identity, so a try can name its origin. */
-export interface ReplayOrigin { hash: string | null; player: string; actions: Action[] }
+export interface ReplayOrigin {
+  hash: string | null;
+  player: string;
+  actions: Action[];
+}
 
 /** The Game scene's data for a try from after the round just finished; null when nothing was watched, no round is done yet, or the game is over. */
 export function forkPayload(run: RunState, origin: ReplayOrigin | null) {
@@ -23,8 +27,22 @@ export function forkPayload(run: RunState, origin: ReplayOrigin | null) {
 
 /** Report the watched replay's player name: one reason from the fixed list, no free text; the server's answer in a dialog. */
 export function reportPlayer(scene: Phaser.Scene, origin: ReplayOrigin) {
-  const hash = origin.hash; if (!hash) return;
+  const hash = origin.hash;
+  if (!hash) return;
   const verifierUrl = resolveVerifierUrl();
-  void dialog(scene, { title: t('report.title', { player: origin.player }), label: t('report.label'), value: '', readonly: true, ok: t('common.closeShort'), cancel: null,
-    extra: REPORT_REASONS.map((reason) => ({ label: reason, tid: `report-${reason}`, onClick: () => { void reportName(verifierUrl, hash, reason).then((line) => alertText(scene, t('report.result'), line)); } })) });
+  void dialog(scene, {
+    title: t('report.title', { player: origin.player }),
+    label: t('report.label'),
+    value: '',
+    readonly: true,
+    ok: t('common.closeShort'),
+    cancel: null,
+    extra: REPORT_REASONS.map((reason) => ({
+      label: reason,
+      tid: `report-${reason}`,
+      onClick: () => {
+        void reportName(verifierUrl, hash, reason).then((line) => alertText(scene, t('report.result'), line));
+      },
+    })),
+  });
 }

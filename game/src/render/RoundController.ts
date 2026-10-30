@@ -15,7 +15,13 @@ import { canUndo, undo as undoEdit } from '../sim/undo';
 
 export type Mode = 'build' | 'running' | 'paused' | 'summary';
 
-export interface ControllerInit { seed: string; fresh: boolean; replay?: Action[]; actions?: Action[]; replayLabel?: string }
+export interface ControllerInit {
+  seed: string;
+  fresh: boolean;
+  replay?: Action[];
+  actions?: Action[];
+  replayLabel?: string;
+}
 
 export interface ControllerHooks {
   /** a tick of the live simulation was stepped (render its events) */
@@ -62,15 +68,25 @@ export class RoundController {
   private redoStack: Action[] = [];
   private redoing = false;
 
-  constructor(data: ControllerInit, private readonly hooks: ControllerHooks = {}) {
-    this.replayLabel = data.replay ? data.replayLabel ?? 'replay playback' : null;
+  constructor(
+    data: ControllerInit,
+    private readonly hooks: ControllerHooks = {},
+  ) {
+    this.replayLabel = data.replay ? (data.replayLabel ?? 'replay playback') : null;
     let rounds: number[] | null = null;
-    if (data.replay) { try { rounds = replayRun(data.seed, data.replay, RULES_VERSION).rounds.map((r) => r.earned); } catch { rounds = null; } }
+    if (data.replay) {
+      try {
+        rounds = replayRun(data.seed, data.replay, RULES_VERSION).rounds.map((r) => r.earned);
+      } catch {
+        rounds = null;
+      }
+    }
     this.replayRounds = rounds;
     this.run = newRun(data.seed);
     if (!data.fresh && data.actions) {
-      try { this.run = replayRun(data.seed, data.actions, RULES_VERSION); }
-      catch (e) {
+      try {
+        this.run = replayRun(data.seed, data.actions, RULES_VERSION);
+      } catch (e) {
         // a damaged save must not silently start over: say so (the scene drops the save so the title stops offering it)
         this.run = newRun(data.seed);
         this.resumeNotice = t('hint.resumeFailed', { error: (e as Error).message });
@@ -81,35 +97,64 @@ export class RoundController {
   }
 
   /** True while watching someone else's run: nothing is saved, recorded or submitted. */
-  get isPlayback(): boolean { return this.replayLabel != null; }
+  get isPlayback(): boolean {
+    return this.replayLabel != null;
+  }
   /** True while a watched replay still has actions to apply (input is ignored meanwhile). */
-  get playbackPending(): boolean { return this.replayQueue != null; }
+  get playbackPending(): boolean {
+    return this.replayQueue != null;
+  }
 
   /** bumped when playback stops: a callback scheduled by an earlier playback must not act on the new state (review F09) */
   private generation = 0;
-  private schedule(ms: number, fn: () => void) { const g = this.generation; const run = () => { if (g === this.generation) fn(); }; if (this.hooks.schedule) this.hooks.schedule(ms, run); else run(); }
-  private persist() { if (!this.isPlayback) this.hooks.persist?.(this.run.seed, this.run.actions); }
+  private schedule(ms: number, fn: () => void) {
+    const g = this.generation;
+    const run = () => {
+      if (g === this.generation) fn();
+    };
+    if (this.hooks.schedule) this.hooks.schedule(ms, run);
+    else run();
+  }
+  private persist() {
+    if (!this.isPlayback) this.hooks.persist?.(this.run.seed, this.run.actions);
+  }
 
   // ---------- actions ----------
   /** Apply an action to the run; false (state unchanged) if the rules reject it or the layout is frozen. */
   act(a: Action): boolean {
     if (LAYOUT_EDITS.has(a.t) && this.mode !== 'build') return false; // frozen: a drop, key or dev-API call during a run changes nothing
-    try { apply(this.run, a); } catch (e) { if (e instanceof RunError) { this.hooks.onReject?.(a, e.message); return false; } throw e; }
+    try {
+      apply(this.run, a);
+    } catch (e) {
+      if (e instanceof RunError) {
+        this.hooks.onReject?.(a, e.message);
+        return false;
+      }
+      throw e;
+    }
     if (!this.redoing) this.redoStack.length = 0; // a new edit forks history: stale redos are dropped
     this.persist();
     this.hooks.onStateChange?.(a);
     return true;
   }
-  pick(i: number): boolean { return this.run.phase === 'draft' && this.act({ t: 'pick', i }); }
+  pick(i: number): boolean {
+    return this.run.phase === 'draft' && this.act({ t: 'pick', i });
+  }
 
   // ---------- undo / redo (build phase only; the replay stays a flat list of final actions) ----------
-  canUndo(): boolean { return this.mode === 'build' && !this.playbackPending && canUndo(this.run); }
-  canRedo(): boolean { return this.mode === 'build' && !this.playbackPending && this.redoStack.length > 0; }
+  canUndo(): boolean {
+    return this.mode === 'build' && !this.playbackPending && canUndo(this.run);
+  }
+  canRedo(): boolean {
+    return this.mode === 'build' && !this.playbackPending && this.redoStack.length > 0;
+  }
   /** Remove the last layout edit of this build phase (never across a run); false when there is nothing to undo. */
   undo(): boolean {
     if (!this.canUndo()) return false;
-    const u = undoEdit(this.run); if (!u) return false;
-    this.run = u.state; this.redoStack.push(u.undone);
+    const u = undoEdit(this.run);
+    if (!u) return false;
+    this.run = u.state;
+    this.redoStack.push(u.undone);
     this.persist();
     this.hooks.onStateChange?.(null);
     return true;
@@ -118,30 +163,49 @@ export class RoundController {
   redo(): boolean {
     if (!this.canRedo()) return false;
     const a = this.redoStack.pop()!;
-    this.redoing = true; const ok = this.act(a); this.redoing = false;
-    if (!ok) { this.redoStack.length = 0; return false; }
+    this.redoing = true;
+    const ok = this.act(a);
+    this.redoing = false;
+    if (!ok) {
+      this.redoStack.length = 0;
+      return false;
+    }
     this.hooks.onStateChange?.(null);
     return true;
   }
 
   // ---------- phases ----------
-  canStartRun(): boolean { return this.mode === 'build' && this.run.phase === 'build'; }
+  canStartRun(): boolean {
+    return this.mode === 'build' && this.run.phase === 'build';
+  }
   /** Freeze the layout and start the live simulation. */
   startRun(byPlayback = false): boolean {
     if (this.replayQueue && !byPlayback) return false; // while watching, only the replay advances the phase (review F09)
     if (!this.canStartRun()) return false;
     const layout = { width: this.run.layout.width, height: this.run.layout.height, machines: this.run.layout.machines.map((m) => ({ ...m })) };
     this.sim = createSim(layout);
-    this.acc = 0; this.mode = 'running';
+    this.acc = 0;
+    this.mode = 'running';
     this.hooks.onRunStart?.();
     return true;
   }
   setPaused(p: boolean): boolean {
-    if (p && this.mode === 'running') { this.mode = 'paused'; this.hooks.onPause?.(true); return true; }
-    if (!p && this.mode === 'paused') { this.mode = 'running'; this.hooks.onPause?.(false); return true; }
+    if (p && this.mode === 'running') {
+      this.mode = 'paused';
+      this.hooks.onPause?.(true);
+      return true;
+    }
+    if (!p && this.mode === 'paused') {
+      this.mode = 'running';
+      this.hooks.onPause?.(false);
+      return true;
+    }
     return false;
   }
-  setSpeed(s: number) { this.speed = s; this.hooks.onStateChange?.(null); }
+  setSpeed(s: number) {
+    this.speed = s;
+    this.hooks.onStateChange?.(null);
+  }
   /**
    * Single step (production roadmap 0.8.12): while paused, in play and in replay playback alike, advance exactly one tick and
    * report it like any other; the round ends normally when the tick limit is reached. Watching only: the simulation does
@@ -153,7 +217,10 @@ export class RoundController {
     const evs = step(this.sim);
     this.acc = this.tickMs;
     this.hooks.onTick?.(evs, this.sim);
-    if (this.sim.tick >= RULES.ticksPerRound) { this.endRun(); return true; }
+    if (this.sim.tick >= RULES.ticksPerRound) {
+      this.endRun();
+      return true;
+    }
     this.hooks.onStateChange?.(null);
     return false;
   }
@@ -170,12 +237,17 @@ export class RoundController {
       this.acc -= this.tickMs;
       const evs = step(this.sim);
       this.hooks.onTick?.(evs, this.sim);
-      if (this.sim.tick >= RULES.ticksPerRound) { this.endRun(); return true; }
+      if (this.sim.tick >= RULES.ticksPerRound) {
+        this.endRun();
+        return true;
+      }
     }
     return false;
   }
   /** Fraction of the current tick elapsed (for interpolating item movement). */
-  get tickPhase(): number { return Math.min(1, this.acc / this.tickMs); }
+  get tickPhase(): number {
+    return Math.min(1, this.acc / this.tickMs);
+  }
   /** Complete the round instantly (the authoritative result still comes from the run orchestrator). */
   finishRun(): boolean {
     if (this.mode !== 'running' && this.mode !== 'paused') return false;
@@ -199,8 +271,12 @@ export class RoundController {
     const last = this.run.round >= RULES.rounds;
     this.act({ t: 'next' });
     if (last || this.run.phase === 'finished') {
-      if (this.replayQueue) { this.replayQueue = null; this.hooks.onPlaybackDone?.(); } // a watched run ends with its last 'next'
-      this.hooks.onFinished?.(); return 'finished';
+      if (this.replayQueue) {
+        this.replayQueue = null;
+        this.hooks.onPlaybackDone?.();
+      } // a watched run ends with its last 'next'
+      this.hooks.onFinished?.();
+      return 'finished';
     }
     this.mode = 'build';
     this.hooks.onNextRound?.();
@@ -211,16 +287,32 @@ export class RoundController {
   // ---------- replay playback ----------
   /** Apply queued replay actions up to the next run/next boundary; runs play live at 4×. */
   advanceReplay() {
-    const q = this.replayQueue; if (!q) return;
+    const q = this.replayQueue;
+    if (!q) return;
     while (q.length) {
       const a = q[0];
-      if (a.t === 'run') { q.shift(); this.startRun(true); this.schedule(200, () => this.setSpeed(4)); return; }
-      if (a.t === 'next') { q.shift(); if (this.mode === 'summary') this.nextRound(true); else this.schedule(300, () => this.advanceReplay()); return; }
-      q.shift(); this.act(a);
+      if (a.t === 'run') {
+        q.shift();
+        this.startRun(true);
+        this.schedule(200, () => this.setSpeed(4));
+        return;
+      }
+      if (a.t === 'next') {
+        q.shift();
+        if (this.mode === 'summary') this.nextRound(true);
+        else this.schedule(300, () => this.advanceReplay());
+        return;
+      }
+      q.shift();
+      this.act(a);
     }
     this.replayQueue = null;
     this.hooks.onPlaybackDone?.();
   }
   /** Abandon a watched replay: nothing was recorded, nothing to save. */
-  stopReplay() { this.replayQueue = null; this.sim = null; this.generation++; }
+  stopReplay() {
+    this.replayQueue = null;
+    this.sim = null;
+    this.generation++;
+  }
 }

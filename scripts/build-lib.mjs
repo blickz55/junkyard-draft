@@ -16,9 +16,19 @@ export async function buildDist({ root, dist, verifierUrl = process.env.VERIFIER
   fs.rmSync(dist, { recursive: true, force: true });
   fs.mkdirSync(dist, { recursive: true });
   let commit = 'unknown';
-  try { commit = execSync('git rev-parse --short HEAD', { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch {}
+  try {
+    commit = execSync('git rev-parse --short HEAD', { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+  } catch {}
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  const result = await build({ ...buildOptions({ root, outdir: dist, dev: false, commit, version: pkg.version, verifierUrl, entryNames: 'main-[hash]' }), minify: true, sourcemap: false, metafile: true, logLevel: reports ? 'info' : 'warning' });
+  const result = await build({
+    ...buildOptions({ root, outdir: dist, dev: false, commit, version: pkg.version, verifierUrl, entryNames: 'main-[hash]' }),
+    minify: true,
+    sourcemap: false,
+    metafile: true,
+    logLevel: reports ? 'info' : 'warning',
+  });
   const bundle = path.basename(Object.keys(result.metafile.outputs).find((k) => k.endsWith('.js') && result.metafile.outputs[k].entryPoint) || '');
   if (!/^main-[A-Z0-9]{8}.js$/.test(bundle)) throw new Error(`unexpected bundle name ${JSON.stringify(bundle)}`);
   if (reports) {
@@ -27,13 +37,17 @@ export async function buildDist({ root, dist, verifierUrl = process.env.VERIFIER
     fs.writeFileSync(path.join(dir, 'build-meta.json'), JSON.stringify(result.metafile, null, 1));
   }
   if (fs.existsSync(path.join(root, 'game', 'public'))) fs.cpSync(path.join(root, 'game', 'public'), dist, { recursive: true });
-  const html = fs.readFileSync(path.join(root, 'game', 'index.html'), 'utf8')
+  const html = fs
+    .readFileSync(path.join(root, 'game', 'index.html'), 'utf8')
     .replace('/src/main.ts', `./${bundle}`)
     .replace('__BUILD__', `${pkg.version}+${commit}`)
     .replace('__CSP__', cspFor({ dev: false, verifierUrl }));
   fs.writeFileSync(path.join(dist, 'index.html'), html);
   fs.writeFileSync(path.join(dist, '_headers'), renderHeaders(fs.readFileSync(path.join(root, 'deploy', '_headers'), 'utf8'), { verifierUrl, bundle }));
-  fs.writeFileSync(path.join(dist, 'build.json'), JSON.stringify({ version: pkg.version, commit, builtAt: new Date().toISOString(), dev: false, verifierUrl, bundle }, null, 2));
+  fs.writeFileSync(
+    path.join(dist, 'build.json'),
+    JSON.stringify({ version: pkg.version, commit, builtAt: new Date().toISOString(), dev: false, verifierUrl, bundle }, null, 2),
+  );
   const size = fs.statSync(path.join(dist, bundle)).size;
   return { size, commit, version: pkg.version, bundle };
 }

@@ -7,14 +7,25 @@ import type { Action } from '../sim/run';
 import type { ControllerHooks } from './RoundController';
 import type { EventName, Props } from '../telemetry/events';
 
-export interface TelemetrySink { track(name: EventName, props?: Props): unknown }
-export interface TelemetryContext { /** a recording is being watched */ watching(): boolean; seed(): string; round(): number }
+export interface TelemetrySink {
+  track(name: EventName, props?: Props): unknown;
+}
+export interface TelemetryContext {
+  /** a recording is being watched */ watching(): boolean;
+  seed(): string;
+  round(): number;
+}
 
 export class GameTelemetry {
-  constructor(private readonly sink: TelemetrySink, private readonly ctx: TelemetryContext) {}
+  constructor(
+    private readonly sink: TelemetrySink,
+    private readonly ctx: TelemetryContext,
+  ) {}
 
   observe(hooks: ControllerHooks): ControllerHooks {
-    const track = (name: EventName, props?: Props) => { this.sink.track(name, props); };
+    const track = (name: EventName, props?: Props) => {
+      this.sink.track(name, props);
+    };
     return {
       ...hooks,
       onStateChange: (a) => {
@@ -27,12 +38,21 @@ export class GameTelemetry {
         hooks.onStateChange?.(a);
       },
       onReject: (a, message) => {
-        if (a.t === 'place') { track('first_place_attempt'); track('first_place_rejected', { reason: rejectReason(message) }); }
+        if (a.t === 'place') {
+          track('first_place_attempt');
+          track('first_place_rejected', { reason: rejectReason(message) });
+        }
         hooks.onReject?.(a, message);
       },
-      onRunStart: () => { if (!this.ctx.watching()) track('first_run_start'); hooks.onRunStart?.(); },
+      onRunStart: () => {
+        if (!this.ctx.watching()) track('first_run_start');
+        hooks.onRunStart?.();
+      },
       onRoundEnd: (rec, visual) => {
-        if (!this.ctx.watching()) { track('round_complete', { n: rec.round }); track('first_run_complete', { money: rec.earned }); }
+        if (!this.ctx.watching()) {
+          track('round_complete', { n: rec.round });
+          track('first_run_complete', { money: rec.earned });
+        }
         hooks.onRoundEnd?.(rec, visual);
       },
       onFinished: () => {
@@ -42,9 +62,14 @@ export class GameTelemetry {
     };
   }
   /** Ctrl+Z was used (an undo is not an action the controller reports). */
-  undoUsed() { this.sink.track('undo_used'); }
+  undoUsed() {
+    this.sink.track('undo_used');
+  }
   /** The lesson moved from one step to another (0 = none). */
-  tutorialStep(prev: number, next: number) { if (prev) this.sink.track('tutorial_step_complete', { n: prev }); if (next) this.sink.track('tutorial_step_start', { n: next }); }
+  tutorialStep(prev: number, next: number) {
+    if (prev) this.sink.track('tutorial_step_complete', { n: prev });
+    if (next) this.sink.track('tutorial_step_start', { n: next });
+  }
 }
 
 /** The refusal's coarse reason for the funnel (never the message itself). */

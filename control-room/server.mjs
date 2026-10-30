@@ -37,7 +37,14 @@ function ingest(chunk) {
   const fresh = [];
   for (const line of lines) {
     if (!line.trim()) continue;
-    try { const e = JSON.parse(line); seq++; reduce(state, e, seq); fresh.push(state.feed[state.feed.length - 1]); } catch { /* skip malformed line */ }
+    try {
+      const e = JSON.parse(line);
+      seq++;
+      reduce(state, e, seq);
+      fresh.push(state.feed[state.feed.length - 1]);
+    } catch {
+      /* skip malformed line */
+    }
   }
   return fresh;
 }
@@ -46,9 +53,16 @@ function readNew() {
   try {
     if (!fs.existsSync(EVENTS)) return [];
     const size = fs.statSync(EVENTS).size;
-    if (size < offset) { // truncated/rotated: rebuild
-      state = createState(); seq = 0; offset = 0; partial = '';
-      ingest(fs.readFileSync(EVENTS, 'utf8')); offset = size; broadcast('state', snapshot(state)); return [];
+    if (size < offset) {
+      // truncated/rotated: rebuild
+      state = createState();
+      seq = 0;
+      offset = 0;
+      partial = '';
+      ingest(fs.readFileSync(EVENTS, 'utf8'));
+      offset = size;
+      broadcast('state', snapshot(state));
+      return [];
     }
     if (size === offset) return [];
     const fd = fs.openSync(EVENTS, 'r');
@@ -57,12 +71,20 @@ function readNew() {
     fs.closeSync(fd);
     offset = size;
     return ingest(buf.toString('utf8'));
-  } catch (err) { return []; }
+  } catch (err) {
+    return [];
+  }
 }
 
 function broadcast(type, data) {
   const msg = `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const res of clients) { try { res.write(msg); } catch { clients.delete(res); } }
+  for (const res of clients) {
+    try {
+      res.write(msg);
+    } catch {
+      clients.delete(res);
+    }
+  }
 }
 
 function poll() {
@@ -73,20 +95,44 @@ function poll() {
 
 // Initial load, then watch + poll fallback.
 readNew();
-try { fs.watch(DATA_DIR, { persistent: true }, (_t, f) => { if (f === 'events.jsonl') poll(); }); } catch { /* polling covers it */ }
+try {
+  fs.watch(DATA_DIR, { persistent: true }, (_t, f) => {
+    if (f === 'events.jsonl') poll();
+  });
+} catch {
+  /* polling covers it */
+}
 setInterval(poll, 1000);
-setInterval(() => { for (const res of clients) { try { res.write(': ping\n\n'); } catch { clients.delete(res); } } }, 15000);
+setInterval(() => {
+  for (const res of clients) {
+    try {
+      res.write(': ping\n\n');
+    } catch {
+      clients.delete(res);
+    }
+  }
+}, 15000);
 
 let gitCache = { at: 0, data: null };
 function gitLog() {
   return new Promise((resolve) => {
     if (Date.now() - gitCache.at < 10000 && gitCache.data) return resolve(gitCache.data);
     execFile('git', ['log', '--date=iso-strict', '--pretty=format:%h%x1f%ad%x1f%s%x1f%an', '-n', '25'], { cwd: ROOT, timeout: 4000 }, (err, out) => {
-      if (err) { const empty = /does not have any commits|bad default revision|unknown revision/i.test(String(err.stderr || err.message)); return resolve({ available: empty, error: empty ? null : 'git log unavailable', commits: [], dirtyFiles: null }); }
-      const commits = out.split('\n').filter(Boolean).map((l) => { const [hash, date, subject, author] = l.split('\x1f'); return { hash, date, subject, author }; });
+      if (err) {
+        const empty = /does not have any commits|bad default revision|unknown revision/i.test(String(err.stderr || err.message));
+        return resolve({ available: empty, error: empty ? null : 'git log unavailable', commits: [], dirtyFiles: null });
+      }
+      const commits = out
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => {
+          const [hash, date, subject, author] = l.split('\x1f');
+          return { hash, date, subject, author };
+        });
       execFile('git', ['status', '--porcelain'], { cwd: ROOT, timeout: 4000 }, (e2, st) => {
         const data = { available: true, commits, dirtyFiles: e2 ? null : st.split('\n').filter(Boolean).length };
-        gitCache = { at: Date.now(), data }; resolve(data);
+        gitCache = { at: Date.now(), data };
+        resolve(data);
       });
     });
   });
@@ -95,41 +141,96 @@ function gitLog() {
 function milestones() {
   try {
     const md = fs.readFileSync(path.join(ROOT, 'docs', 'ROADMAP.md'), 'utf8');
-    const sections = []; let cur = null;
+    const sections = [];
+    let cur = null;
     for (const line of md.split('\n')) {
       const h = line.match(/^##\s+(.*)/);
-      if (h) { cur = { title: h[1].trim(), items: [] }; sections.push(cur); continue; }
+      if (h) {
+        cur = { title: h[1].trim(), items: [] };
+        sections.push(cur);
+        continue;
+      }
       const m = line.match(/^\s*[-*]\s+\[([ xX~])\]\s+(.*)/);
       if (m && cur) cur.items.push({ done: m[1].toLowerCase() === 'x', active: m[1] === '~', text: m[2].trim() });
     }
-    return { available: true, sections: sections.filter((s) => s.items.length).map((s) => ({ ...s, done: s.items.filter((i) => i.done).length, total: s.items.length })) };
-  } catch { return { available: false, sections: [] }; }
+    return {
+      available: true,
+      sections: sections.filter((s) => s.items.length).map((s) => ({ ...s, done: s.items.filter((i) => i.done).length, total: s.items.length })),
+    };
+  } catch {
+    return { available: false, sections: [] };
+  }
 }
 
 function summary() {
-  return { now: new Date().toISOString(), lastHookAt: state.lastHookAt, lastReportedAt: state.lastReportedAt, counts: state.counts, objective: state.objective, lastActivity: state.lastActivity, clients: clients.size, collectorStartedAt: startedAt, eventsFile: path.relative(ROOT, EVENTS), fileBytes: offset };
+  return {
+    now: new Date().toISOString(),
+    lastHookAt: state.lastHookAt,
+    lastReportedAt: state.lastReportedAt,
+    counts: state.counts,
+    objective: state.objective,
+    lastActivity: state.lastActivity,
+    clients: clients.size,
+    collectorStartedAt: startedAt,
+    eventsFile: path.relative(ROOT, EVENTS),
+    fileBytes: offset,
+  };
 }
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.wasm': 'application/wasm' };
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.json': 'application/json',
+  '.txt': 'text/plain; charset=utf-8',
+  '.md': 'text/plain; charset=utf-8',
+  '.wasm': 'application/wasm',
+};
 function serveFile(res, base, rel) {
   const p = path.resolve(base, rel);
   const inside = path.relative(base, p); // path-boundary containment: a sibling directory sharing the prefix is outside (review)
-  if (!inside || inside.startsWith('..') || path.isAbsolute(inside)) { res.writeHead(403); return res.end(); }
+  if (!inside || inside.startsWith('..') || path.isAbsolute(inside)) {
+    res.writeHead(403);
+    return res.end();
+  }
   fs.stat(p, (err, st) => {
-    if (err || !st.isFile()) { res.writeHead(404); return res.end('not found'); }
+    if (err || !st.isFile()) {
+      res.writeHead(404);
+      return res.end('not found');
+    }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(p)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
     fs.createReadStream(p).pipe(res);
   });
 }
-function json(res, data) { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' }); res.end(JSON.stringify(data)); }
+function json(res, data) {
+  res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+  res.end(JSON.stringify(data));
+}
 
 /** decodeURIComponent that answers a malformed escape with null instead of throwing out of the request handler */
-const dec = (s) => { try { return decodeURIComponent(s); } catch { return null; } };
+const dec = (s) => {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return null;
+  }
+};
 const server = http.createServer(async (req, res) => {
   let url;
-  try { url = new URL(req.url, `http://${HOST}:${PORT}`); } catch { res.writeHead(400); return res.end('bad request'); }
+  try {
+    url = new URL(req.url, `http://${HOST}:${PORT}`);
+  } catch {
+    res.writeHead(400);
+    return res.end('bad request');
+  }
   const p = url.pathname;
-  if (/%[0-9a-f]{0,2}/i.test(p) && dec(p) === null) { res.writeHead(400); return res.end('bad request: malformed escape'); }
+  if (/%[0-9a-f]{0,2}/i.test(p) && dec(p) === null) {
+    res.writeHead(400);
+    return res.end('bad request: malformed escape');
+  }
   if (p === '/events') {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
     res.write(`event: state\ndata: ${JSON.stringify({ ...snapshot(state), summary: summary(), gameDevUrl: GAME_DEV_URL })}\n\n`);
@@ -141,11 +242,17 @@ const server = http.createServer(async (req, res) => {
   if (p === '/api/summary') return json(res, summary());
   if (p === '/api/git') return json(res, await gitLog());
   if (p === '/api/milestones') return json(res, milestones());
-  if (p === '/api/events') { const n = Math.min(Number(url.searchParams.get('limit') || 200), 3000); return json(res, state.feed.slice(-n)); }
+  if (p === '/api/events') {
+    const n = Math.min(Number(url.searchParams.get('limit') || 200), 3000);
+    return json(res, state.feed.slice(-n));
+  }
   if (p.startsWith('/screenshots/')) return serveFile(res, SHOTS, dec(p.slice('/screenshots/'.length)));
   if (p.startsWith('/reports/')) return serveFile(res, REPORTS, dec(p.slice('/reports/'.length)));
   if (p.startsWith('/verified/')) return serveFile(res, DIST, dec(p.slice('/verified/'.length)) || 'index.html');
-  if (p === '/verified') { res.writeHead(302, { Location: '/verified/index.html' }); return res.end(); }
+  if (p === '/verified') {
+    res.writeHead(302, { Location: '/verified/index.html' });
+    return res.end();
+  }
   if (p === '/') return serveFile(res, UI, 'index.html');
   return serveFile(res, UI, dec(p.slice(1)));
 });

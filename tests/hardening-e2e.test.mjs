@@ -10,7 +10,15 @@ import path from 'node:path';
 import { chromium, settle, ROOT, SHOTS } from './e2e/fixture.mjs';
 
 const { buildDist } = await import('../scripts/build-lib.mjs');
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.wav': 'audio/wav', '.png': 'image/png', '.ico': 'image/x-icon' };
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.wav': 'audio/wav',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+};
 const ORIGIN = 'https://game.example';
 const VERIFIER = 'https://verifier.example';
 const EVIL = 'https://evil.invalid';
@@ -19,7 +27,8 @@ test('hardened production build: ?verifier= ignored off loopback, CSP holds thro
   const dist = fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-dist-'));
   const { size, bundle } = await buildDist({ root: ROOT, dist, verifierUrl: VERIFIER, reports: false });
   assert.ok(size > 100000, 'bundle built');
-  assert.match(bundle, /^main-[A-Z0-9]{8}.js$/, 'the production bundle carries a content hash (0.8.5)'); assert.ok(fs.existsSync(path.join(dist, bundle)));
+  assert.match(bundle, /^main-[A-Z0-9]{8}.js$/, 'the production bundle carries a content hash (0.8.5)');
+  assert.ok(fs.existsSync(path.join(dist, bundle)));
   const html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
   assert.ok(html.includes(`./${bundle}`), 'the page references the hashed bundle');
   const csp = /http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(html)?.[1];
@@ -42,13 +51,24 @@ test('hardened production build: ?verifier= ignored off loopback, CSP holds thro
       if (!file.startsWith(dist) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return route.fulfill({ status: 404, body: 'not found' });
       return route.fulfill({ status: 200, contentType: MIME[path.extname(file)] || 'application/octet-stream', body: fs.readFileSync(file) });
     });
-    await ctx.route(`${EVIL}/**`, (route) => { hits.evil++; return route.abort(); });
-    await ctx.route(`${VERIFIER}/**`, (route) => { hits.verifier++; return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'test verifier is down' }) }); });
-    await ctx.addInitScript(() => { window.__cspViolations = []; document.addEventListener('securitypolicyviolation', (e) => window.__cspViolations.push(`${e.violatedDirective} ${e.blockedURI}`)); });
+    await ctx.route(`${EVIL}/**`, (route) => {
+      hits.evil++;
+      return route.abort();
+    });
+    await ctx.route(`${VERIFIER}/**`, (route) => {
+      hits.verifier++;
+      return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'test verifier is down' }) });
+    });
+    await ctx.addInitScript(() => {
+      window.__cspViolations = [];
+      document.addEventListener('securitypolicyviolation', (e) => window.__cspViolations.push(`${e.violatedDirective} ${e.blockedURI}`));
+    });
     if (initScript) await ctx.addInitScript(initScript);
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push(String(e)));
-    page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource|503/.test(m.text())) errors.push(m.text()); }); // the stub verifier answers 503 on purpose
+    page.on('console', (m) => {
+      if (m.type() === 'error' && !/Failed to load resource|503/.test(m.text())) errors.push(m.text());
+    }); // the stub verifier answers 503 on purpose
     return { ctx, page };
   }
   const api = (page, fn, ...args) => page.evaluate(({ fn, args }) => window.__jd[fn](...args), { fn, args });
@@ -74,8 +94,8 @@ test('hardened production build: ?verifier= ignored off loopback, CSP holds thro
     await page.goto(`${ORIGIN}/?dev=1&verifier=${EVIL}`);
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 30000 });
     await page.waitForFunction(() => !!document.querySelector('[data-testid=daily-board]'), null, { timeout: 20000 });
-    await settle(1500, 'the title asked its verifier on load; a request to the link\'s host would have gone out by now too');
-    assert.equal(hits.evil, 0, 'no request reached the link\'s verifier');
+    await settle(1500, "the title asked its verifier on load; a request to the link's host would have gone out by now too");
+    assert.equal(hits.evil, 0, "no request reached the link's verifier");
     assert.ok(hits.verifier >= 1, `the baked verifier was asked (${hits.verifier} requests)`);
     assert.deepEqual(await page.evaluate(() => window.__cspViolations), [], 'no CSP violation on the title (a blocked evil.invalid fetch would show here too)');
     const pageCsp = await page.evaluate(() => document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute('content'));
@@ -88,7 +108,11 @@ test('hardened production build: ?verifier= ignored off loopback, CSP holds thro
     await page.screenshot({ path: path.join(SHOTS, 'e2e-hardening-csp-round.png') });
     await ctx.close();
     // 3. storage that refuses every write: the banner says so and the game still plays
-    const broken = await context(() => { Storage.prototype.setItem = function () { throw new DOMException('the quota has been exceeded', 'QuotaExceededError'); }; });
+    const broken = await context(() => {
+      Storage.prototype.setItem = function () {
+        throw new DOMException('the quota has been exceeded', 'QuotaExceededError');
+      };
+    });
     await broken.page.goto(`${ORIGIN}/?dev=1`);
     await broken.page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 30000 });
     const banner = broken.page.getByTestId('banner-storage');

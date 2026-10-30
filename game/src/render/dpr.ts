@@ -17,7 +17,9 @@ function computeDpr(): number {
     if (q != null && Number.isFinite(Number(q)) && Number(q) >= 1) return Math.min(MAX_DPR, Number(q));
     if (loadSettings().renderQuality === 'low') return 1;
     return Math.min(MAX_DPR, Math.max(1, window.devicePixelRatio || 1));
-  } catch { return 1; }
+  } catch {
+    return 1;
+  }
 }
 
 /** Effective device pixel ratio for this page load (fixed at boot; a change needs a reload). */

@@ -22,24 +22,48 @@ const would = (phrases: string[]): string => {
 export function bottleneckLine(b: Bottleneck): string {
   const m = b.machine;
   switch (b.kind) {
-    case 'disconnected': return t('bottleneck.disconnected');
+    case 'disconnected':
+      return t('bottleneck.disconnected');
     case 'dead-end':
       if (m!.kind === 'hopper') return t('bottleneck.deadEndHopper', { pos: pos(m!), held: int(b.heldTicks), tries: int(b.count) });
       return t('bottleneck.deadEnd', { name: machineWord(m!.kind), pos: pos(m!), held: int(b.heldTicks), total: int(b.ticks) });
     case 'slag':
-      return t('bottleneck.slag', { pos: pos(m!), n: int(b.count), slag: money(RULES.value.slag), fix: b.fixes.includes('crusher') ? t('bottleneck.slagFix', { ingot: money(RULES.value.ingot) }) : t('bottleneck.slagNoFix') });
+      return t('bottleneck.slag', {
+        pos: pos(m!),
+        n: int(b.count),
+        slag: money(RULES.value.slag),
+        fix: b.fixes.includes('crusher') ? t('bottleneck.slagFix', { ingot: money(RULES.value.ingot) }) : t('bottleneck.slagNoFix'),
+      });
     case 'saturated': {
       if (m!.kind === 'conveyor') {
         const fixes = [b.fixes.includes('dock') ? t('bottleneck.mergeDock') : '', b.fixes.includes('press') ? t('bottleneck.mergePress') : ''].filter(Boolean);
-        return t('bottleneck.merge', { pos: pos(m!), held: int(b.heldTicks), total: int(b.ticks), feeders: int(b.feeders), fix: would(fixes) || t('bottleneck.mergeNoFix') });
+        return t('bottleneck.merge', {
+          pos: pos(m!),
+          held: int(b.heldTicks),
+          total: int(b.ticks),
+          feeders: int(b.feeders),
+          fix: would(fixes) || t('bottleneck.mergeNoFix'),
+        });
       }
       const name = machineWord(m!.kind);
-      const fixes = [b.fixes.includes('tuner') ? t('bottleneck.fixTuner') : '', b.fixes.includes('splitter') ? t('bottleneck.fixSecond', { name }) : ''].filter(Boolean);
+      const fixes = [b.fixes.includes('tuner') ? t('bottleneck.fixTuner') : '', b.fixes.includes('splitter') ? t('bottleneck.fixSecond', { name }) : ''].filter(
+        Boolean,
+      );
       return t('bottleneck.saturated', { name, pos: pos(m!), held: int(b.heldTicks), total: int(b.ticks), fix: would(fixes) || t('bottleneck.fixNone') });
     }
     case 'starved':
-      return t('bottleneck.starved', { name: machineWord(m!.kind), pos: pos(m!), pct: int(Math.round((1 - b.utilisation) * 100)), n: int(b.count), total: int(b.ticks), fix: b.fixes.includes('hopper') ? t('bottleneck.starvedFix') : t('bottleneck.starvedNoFix') });
+      return t('bottleneck.starved', {
+        name: machineWord(m!.kind),
+        pos: pos(m!),
+        pct: int(Math.round((1 - b.utilisation) * 100)),
+        n: int(b.count),
+        total: int(b.ticks),
+        fix: b.fixes.includes('hopper') ? t('bottleneck.starvedFix') : t('bottleneck.starvedNoFix'),
+      });
     default:
-      return t('bottleneck.balanced', { hoppers: b.count === 1 ? t('common.hopperOne') : t('common.hopperMany'), fix: b.fixes.includes('hopper') ? t('bottleneck.balancedFix') : t('bottleneck.balancedNoFix') });
+      return t('bottleneck.balanced', {
+        hoppers: b.count === 1 ? t('common.hopperOne') : t('common.hopperMany'),
+        fix: b.fixes.includes('hopper') ? t('bottleneck.balancedFix') : t('bottleneck.balancedNoFix'),
+      });
   }
 }

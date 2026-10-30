@@ -17,8 +17,17 @@ export type Action =
   | { t: 'reroll' };
 
 /** Where a fork came from: the verified replay's hash (null for an imported file), its player label, and the round it continues after. */
-export interface ForkOrigin { hash: string | null; player: string; round: number }
-export interface RoundRecord { round: number; earned: number; layout: Layout; result: RunResult }
+export interface ForkOrigin {
+  hash: string | null;
+  player: string;
+  round: number;
+}
+export interface RoundRecord {
+  round: number;
+  earned: number;
+  layout: Layout;
+  result: RunResult;
+}
 
 export interface RunState {
   rulesVersion: number;
@@ -58,7 +67,9 @@ export function draftOffers(seed: string, round: number): MachineKind[] {
   return offersFrom(new Rng(`${seed}:draft:${round}`), round, round === 1);
 }
 /** The offers a reroll buys: a purpose-specific stream, so buying one can never change a later round's draft; no crusher guarantee. */
-export function rerollOffers(seed: string, round: number): MachineKind[] { return offersFrom(new Rng(`${seed}:draft:${round}:reroll:1`), round, false); }
+export function rerollOffers(seed: string, round: number): MachineKind[] {
+  return offersFrom(new Rng(`${seed}:draft:${round}:reroll:1`), round, false);
+}
 /** Why a reroll is not allowed right now, or null when it is. */
 export function canReroll(s: Pick<RunState, 'phase' | 'seed' | 'round' | 'rerolledRound' | 'score'>): string | null {
   if (s.phase !== 'draft') return 'not drafting';
@@ -78,7 +89,10 @@ function offersFrom(rng: Rng, round: number, guaranteeCrusher: boolean): Machine
     if (!offers.includes(k)) offers.push(k);
   }
   // deterministic shuffle so the forced crusher is not always first
-  for (let i = offers.length - 1; i > 0; i--) { const j = rng.int(i + 1); [offers[i], offers[j]] = [offers[j], offers[i]]; }
+  for (let i = offers.length - 1; i > 0; i--) {
+    const j = rng.int(i + 1);
+    [offers[i], offers[j]] = [offers[j], offers[i]];
+  }
   return offers;
 }
 
@@ -102,7 +116,23 @@ export function sanitizeSeed(raw: string | null | undefined, fallback = 'junkyar
 export function newRun(seed: string): RunState {
   if (!isValidSeed(seed)) throw new RunError('bad seed');
   const { layout, nextId } = starterLayout();
-  const s: RunState = { rulesVersion: RULES_VERSION, seed, round: 1, phase: 'draft', layout, bin: [], offers: draftOffers(seed, 1), picks: [], rounds: [], score: 0, sold: 0, rerolls: 0, rerolledRound: 0, nextId, actions: [] };
+  const s: RunState = {
+    rulesVersion: RULES_VERSION,
+    seed,
+    round: 1,
+    phase: 'draft',
+    layout,
+    bin: [],
+    offers: draftOffers(seed, 1),
+    picks: [],
+    rounds: [],
+    score: 0,
+    sold: 0,
+    rerolls: 0,
+    rerolledRound: 0,
+    nextId,
+    actions: [],
+  };
   if (isTutorialSeed(seed)) for (let i = 0; i < TUTORIAL_SPARE_CONVEYORS; i++) s.bin.push({ id: s.nextId++, kind: 'conveyor', x: -1, y: -1, dir: 0 });
   return s;
 }
@@ -137,10 +167,18 @@ export function validateAction(a: unknown): a is Action {
   const o = a as Record<string, unknown>;
   if (typeof o.t !== 'string' || !ACTION_TYPES.has(o.t)) return false;
   switch (o.t) {
-    case 'pick': return isInt(o.i) && o.i >= 0 && o.i < 3 && Object.keys(o).length === 2;
-    case 'place': return isInt(o.id) && isInt(o.x) && isInt(o.y) && isInt(o.dir) && o.dir >= 0 && o.dir <= 3 && Object.keys(o).length === 5;
-    case 'rotate': case 'unplace': case 'sell': return isInt(o.id) && Object.keys(o).length === 2;
-    case 'run': case 'next': case 'reroll': return Object.keys(o).length === 1;
+    case 'pick':
+      return isInt(o.i) && o.i >= 0 && o.i < 3 && Object.keys(o).length === 2;
+    case 'place':
+      return isInt(o.id) && isInt(o.x) && isInt(o.y) && isInt(o.dir) && o.dir >= 0 && o.dir <= 3 && Object.keys(o).length === 5;
+    case 'rotate':
+    case 'unplace':
+    case 'sell':
+      return isInt(o.id) && Object.keys(o).length === 2;
+    case 'run':
+    case 'next':
+    case 'reroll':
+      return Object.keys(o).length === 1;
   }
   return false;
 }
@@ -149,7 +187,8 @@ export function validateAction(a: unknown): a is Action {
 export function apply(s: RunState, a: Action): RunState {
   if (!validateAction(a)) throw new RunError('malformed action');
   const budget = actionBudget(s);
-  if (ESSENTIAL.has(a.t) ? budget.essential <= 0 : budget.edits <= 0) throw new RunError('action limit reached for this run: finish the round (pick, run, next) rather than editing further');
+  if (ESSENTIAL.has(a.t) ? budget.essential <= 0 : budget.edits <= 0)
+    throw new RunError('action limit reached for this run: finish the round (pick, run, next) rather than editing further');
   switch (a.t) {
     case 'pick': {
       if (s.phase !== 'draft') throw new RunError('not drafting');
@@ -166,8 +205,13 @@ export function apply(s: RunState, a: Action): RunState {
       const { m, where } = findMachine(s, a.id);
       const occupant = s.layout.machines.find((o) => o.x === a.x && o.y === a.y && o.id !== a.id);
       if (occupant) throw new RunError('cell occupied');
-      if (where === 'bin') { s.bin.splice(s.bin.indexOf(m), 1); s.layout.machines.push(m); }
-      m.x = a.x; m.y = a.y; m.dir = a.dir;
+      if (where === 'bin') {
+        s.bin.splice(s.bin.indexOf(m), 1);
+        s.layout.machines.push(m);
+      }
+      m.x = a.x;
+      m.y = a.y;
+      m.dir = a.dir;
       break;
     }
     case 'rotate': {
@@ -179,7 +223,12 @@ export function apply(s: RunState, a: Action): RunState {
     case 'unplace': {
       if (s.phase !== 'build') throw new RunError('not building');
       const { m, where } = findMachine(s, a.id);
-      if (where === 'grid') { s.layout.machines.splice(s.layout.machines.indexOf(m), 1); m.x = -1; m.y = -1; s.bin.push(m); }
+      if (where === 'grid') {
+        s.layout.machines.splice(s.layout.machines.indexOf(m), 1);
+        m.x = -1;
+        m.y = -1;
+        s.bin.push(m);
+      }
       break;
     }
     case 'sell': {
@@ -187,7 +236,8 @@ export function apply(s: RunState, a: Action): RunState {
       const { m, where } = findMachine(s, a.id);
       if (where !== 'bin') throw new RunError('only bin parts can be sold');
       s.bin.splice(s.bin.indexOf(m), 1);
-      s.sold += RULES.sellValue; s.score += RULES.sellValue;
+      s.sold += RULES.sellValue;
+      s.score += RULES.sellValue;
       break;
     }
     case 'run': {
@@ -202,20 +252,27 @@ export function apply(s: RunState, a: Action): RunState {
       break;
     }
     case 'reroll': {
-      const why = canReroll(s); if (why) throw new RunError(why);
-      s.score -= RULES.rerollCost; s.rerolls++; s.rerolledRound = s.round;
+      const why = canReroll(s);
+      if (why) throw new RunError(why);
+      s.score -= RULES.rerollCost;
+      s.rerolls++;
+      s.rerolledRound = s.round;
       s.offers = rerollOffers(s.seed, s.round);
       break;
     }
     case 'next': {
       if (s.phase !== 'result') throw new RunError('round not finished');
-      if (s.round >= RULES.rounds) { s.phase = 'finished'; break; }
+      if (s.round >= RULES.rounds) {
+        s.phase = 'finished';
+        break;
+      }
       s.round++;
       s.offers = draftOffers(s.seed, s.round);
       s.phase = 'draft';
       break;
     }
-    default: throw new RunError('unknown action');
+    default:
+      throw new RunError('unknown action');
   }
   s.actions.push(a);
   return s;

@@ -23,5 +23,10 @@ export function undo(s: RunState): { state: RunState; undone: Action } | null {
 
 /** Re-applies an undone action in place; false when the rules no longer accept it (the state moved on). */
 export function redo(s: RunState, a: Action): boolean {
-  try { apply(s, a); return true; } catch { return false; }
+  try {
+    apply(s, a);
+    return true;
+  } catch {
+    return false;
+  }
 }

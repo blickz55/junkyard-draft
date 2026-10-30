@@ -18,6 +18,14 @@ export function panel(scene: Phaser.Scene, x: number, y: number, w: number, h: n
   return r;
 }
 
-export function label(scene: Phaser.Scene, x: number, y: number, text: string, size = 14, color = CSS.text, style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) {
+export function label(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  text: string,
+  size = 14,
+  color = CSS.text,
+  style: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {},
+) {
   return scene.add.text(x, y, text, { fontFamily: FONT, fontSize: px(size), color, ...style });
 }

@@ -9,12 +9,20 @@ import { RULES } from '../sim/rules';
 import { t } from '../content/strings';
 import { money, int } from '../content/format';
 import { shareYardLabel } from '../content/yard';
-export interface Rank { n: number | null; of: number }
+export interface Rank {
+  n: number | null;
+  of: number;
+}
 export interface ShareInput {
-  seed: string; score: number; rulesVersion: number; rounds: number[];
-  player?: string; rank?: Rank | null;
+  seed: string;
+  score: number;
+  rulesVersion: number;
+  rounds: number[];
+  player?: string;
+  rank?: Rank | null;
   /** checked standing from the chart: share of other checked games beaten and the population */
-  percentile?: number | null; n?: number;
+  percentile?: number | null;
+  n?: number;
   /** UTC days with at least one finished game on this device */
   daysPlayed?: number;
   /** consecutive checked dailies (PLAN-v3 0.6.3); the detailed variant says "17 days · 5 in a row" from two */
@@ -63,7 +71,11 @@ export function standingText(s: Pick<ShareInput, 'rank' | 'percentile' | 'n' | '
 /** "beat Jon#7Q2M's $1200 by $50", "short of … by $50", or "tied …". */
 export function outcomeText(score: number, c: { player: string; score: number }): string {
   const d = score - c.score;
-  return d > 0 ? t('share.beat', { player: c.player, score: money(c.score), d: money(d) }) : d < 0 ? t('share.short', { player: c.player, score: money(c.score), d: money(-d) }) : t('share.tied', { player: c.player, score: money(c.score) });
+  return d > 0
+    ? t('share.beat', { player: c.player, score: money(c.score), d: money(d) })
+    : d < 0
+      ? t('share.short', { player: c.player, score: money(c.score), d: money(-d) })
+      : t('share.tied', { player: c.player, score: money(c.score) });
 }
 
 export function shareText(s: ShareInput): string {
@@ -78,7 +90,12 @@ export function shareText(s: ShareInput): string {
     if (s.rank && s.medal) lines.push(t('share.medal', { medal: s.medal }));
     if (s.challenge) lines.push(outcomeText(s.score, s.challenge));
   }
-  if (s.daysPlayed && s.daysPlayed > 0) lines.push(s.variant === 'detailed' && s.streak && s.streak >= 2 ? t('share.streak', { days: int(s.daysPlayed), streak: int(s.streak) }) : t('share.days', { n: s.daysPlayed }));
+  if (s.daysPlayed && s.daysPlayed > 0)
+    lines.push(
+      s.variant === 'detailed' && s.streak && s.streak >= 2
+        ? t('share.streak', { days: int(s.daysPlayed), streak: int(s.streak) })
+        : t('share.days', { n: s.daysPlayed }),
+    );
   if (s.permalink) lines.push(s.permalink);
   return lines.join('\n');
 }

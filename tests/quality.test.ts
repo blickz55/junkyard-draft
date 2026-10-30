@@ -5,7 +5,8 @@ import { decideQuality, QUALITY_PROBE_FRAMES } from '../game/src/render/quality'
 test('adaptive resolution: a smooth first run keeps high resolution, a struggling one drops to standard', () => {
   const smooth = Array.from({ length: QUALITY_PROBE_FRAMES }, () => 16.7);
   assert.equal(decideQuality(smooth), 'high');
-  const oneHitch = smooth.slice(); oneHitch[40] = 90; // a single long frame is below the 95th percentile
+  const oneHitch = smooth.slice();
+  oneHitch[40] = 90; // a single long frame is below the 95th percentile
   assert.equal(decideQuality(oneHitch), 'high');
   const struggling = smooth.map((d, i) => (i % 10 === 0 ? 34 : d)); // 10 % of frames miss two vsyncs
   assert.equal(decideQuality(struggling), 'low');

@@ -7,7 +7,15 @@
 const MONEY = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0, useGrouping: false });
 const INT = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0, useGrouping: false });
 const DEC1 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: false });
-const UTC_DATE_TIME = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+const UTC_DATE_TIME = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'UTC',
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
 const UTC_DATE = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' });
 const UTC_DAY = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', month: 'long', day: 'numeric' });
 
@@ -16,8 +24,17 @@ export const money = (n: number): string => (n < 0 ? `−${MONEY.format(-n)}` : 
 export const int = (n: number): string => INT.format(n);
 export const dec1 = (n: number): string => DEC1.format(n);
 /** "30 Oct 2026, 00:00 UTC" from an ISO instant; the input unchanged when it does not parse. */
-export function utcDateTime(iso: string): string { const t = Date.parse(iso); return Number.isFinite(t) ? `${UTC_DATE_TIME.format(t).replace(',', ',')} UTC` : iso; }
+export function utcDateTime(iso: string): string {
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? `${UTC_DATE_TIME.format(t).replace(',', ',')} UTC` : iso;
+}
 /** "30 Oct 2026" from an ISO instant or a YYYY-MM-DD date. */
-export function utcDate(isoOrDate: string): string { const t = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(isoOrDate) ? `${isoOrDate}T00:00:00Z` : isoOrDate); return Number.isFinite(t) ? UTC_DATE.format(t) : isoOrDate; }
+export function utcDate(isoOrDate: string): string {
+  const t = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(isoOrDate) ? `${isoOrDate}T00:00:00Z` : isoOrDate);
+  return Number.isFinite(t) ? UTC_DATE.format(t) : isoOrDate;
+}
 /** "30 October" for a yard named by its date (the glossary: "the yard of 12 March"). */
-export function utcDay(date: string): string { const t = Date.parse(`${date}T00:00:00Z`); return Number.isFinite(t) ? UTC_DAY.format(t) : date; }
+export function utcDay(date: string): string {
+  const t = Date.parse(`${date}T00:00:00Z`);
+  return Number.isFinite(t) ? UTC_DAY.format(t) : date;
+}

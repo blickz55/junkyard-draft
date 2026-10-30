@@ -26,23 +26,28 @@ test('deploy: _headers template renders the CSP header (with frame-ancestors) an
   assert.match(root['Content-Security-Policy'], /; frame-ancestors 'none'$/, 'the header variant forbids framing (a meta policy cannot)');
   assert.match(root['Content-Security-Policy'], /connect-src 'self' https:\/\/verify\.example\.com;/, 'the same connect-src as the page');
   assert.equal(cspFor({ dev: false, verifierUrl: 'https://verify.example.com' }).includes('frame-ancestors'), false, 'the meta variant stays without it');
-  assert.equal(root['Cache-Control'], 'no-cache'); assert.equal(root['X-Frame-Options'], 'DENY'); assert.equal(root['X-Content-Type-Options'], 'nosniff');
+  assert.equal(root['Cache-Control'], 'no-cache');
+  assert.equal(root['X-Frame-Options'], 'DENY');
+  assert.equal(root['X-Content-Type-Options'], 'nosniff');
   assert.equal(headersFor(rules, '/index.html')['Cache-Control'], 'no-cache');
   assert.equal(headersFor(rules, '/build.json')['Cache-Control'], 'no-cache');
   assert.equal(headersFor(rules, '/policy.json')['Cache-Control'], 'no-cache');
   const js = headersFor(rules, '/main-ABCDEFGH.js');
-  assert.equal(js['Cache-Control'], 'public, max-age=31536000, immutable'); assert.ok(js['Content-Security-Policy'], 'the /* rules apply to the bundle too');
-  assert.equal(headersFor(rules, '/main-OTHERHSH.js')['Cache-Control'], undefined, 'only this build\'s bundle name is immutable');
+  assert.equal(js['Cache-Control'], 'public, max-age=31536000, immutable');
+  assert.ok(js['Content-Security-Policy'], 'the /* rules apply to the bundle too');
+  assert.equal(headersFor(rules, '/main-OTHERHSH.js')['Cache-Control'], undefined, "only this build's bundle name is immutable");
   assert.equal(headersFor(rules, '/sfx/hit.wav')['Cache-Control'], 'public, max-age=86400');
   assert.equal(headersFor(rules, '/art/x/y.png')['Cache-Control'], 'public, max-age=86400', '* spans path segments');
   // the matcher: literal dots, * and :segment
   assert.equal(patternToRegExp('/build.json').test('/buildxjson'), false);
   assert.equal(patternToRegExp('/sfx/*').test('/sfx/a/b.wav'), true);
-  assert.equal(patternToRegExp('/p/:id/x').test('/p/42/x'), true); assert.equal(patternToRegExp('/p/:id/x').test('/p/4/2/x'), false);
+  assert.equal(patternToRegExp('/p/:id/x').test('/p/42/x'), true);
+  assert.equal(patternToRegExp('/p/:id/x').test('/p/4/2/x'), false);
   assert.throws(() => renderHeaders(template, { verifierUrl: 'https://v', bundle: '' }), /bundle file name required/);
   // Cache-Control rules never overlap, so no rule's value depends on Cloudflare's merge order
   const cacheRules = rules.filter((r) => 'Cache-Control' in r.headers).map((r) => r.path);
-  for (const p of ['/', '/index.html', '/build.json', '/policy.json', '/main-ABCDEFGH.js', '/sfx/hit.wav', '/art/a.png']) assert.equal(cacheRules.filter((cp) => patternToRegExp(cp).test(p)).length, 1, `exactly one Cache-Control rule for ${p}`);
+  for (const p of ['/', '/index.html', '/build.json', '/policy.json', '/main-ABCDEFGH.js', '/sfx/hit.wav', '/art/a.png'])
+    assert.equal(cacheRules.filter((cp) => patternToRegExp(cp).test(p)).length, 1, `exactly one Cache-Control rule for ${p}`);
 });
 
 test('deploy: compose, Caddyfile, env templates, cron and the deploy workflow say what the runbook promises', () => {
@@ -60,64 +65,144 @@ test('deploy: compose, Caddyfile, env templates, cron and the deploy workflow sa
   assert.match(caddy, /^verify\.\{\$DOMAIN\} \{/m, 'the verifier on a subdomain');
   assert.match(caddy, /Strict-Transport-Security "max-age=31536000; includeSubDomains"/);
   assert.match(caddy, /reverse_proxy verifier:4400 \{\s*header_up X-Real-IP \{remote_host\}/, 'the client address reaches the verifier as X-Real-IP');
-  assert.match(caddy, /email \{\$ACME_EMAIL\}/); assert.match(caddy, /admin off/);
-  assert.match(caddy, /format filter \{\s*wrap json\s*fields \{[^}]*request>remote_ip delete[^}]*request>client_ip delete[^}]*request>headers>X-Forwarded-For delete/, 'the access log drops the client address (0.8.6: the privacy notice promises no log stores it)');
-  const env = read('deploy/.env.example'); for (const k of ['DOMAIN', 'ACME_EMAIL', 'VERIFIER_TAG']) assert.match(env, new RegExp(`^${k}=`, 'm'));
-  const venv = read('deploy/verifier.env.example'); for (const k of ['DAILY_SECRET', 'MODERATION_TOKEN', 'CORS_ORIGIN', 'DISCORD_WEBHOOK_URL']) assert.match(venv, new RegExp(`^${k}=`, 'm'));
+  assert.match(caddy, /email \{\$ACME_EMAIL\}/);
+  assert.match(caddy, /admin off/);
+  assert.match(
+    caddy,
+    /format filter \{\s*wrap json\s*fields \{[^}]*request>remote_ip delete[^}]*request>client_ip delete[^}]*request>headers>X-Forwarded-For delete/,
+    'the access log drops the client address (0.8.6: the privacy notice promises no log stores it)',
+  );
+  const env = read('deploy/.env.example');
+  for (const k of ['DOMAIN', 'ACME_EMAIL', 'VERIFIER_TAG']) assert.match(env, new RegExp(`^${k}=`, 'm'));
+  const venv = read('deploy/verifier.env.example');
+  for (const k of ['DAILY_SECRET', 'MODERATION_TOKEN', 'CORS_ORIGIN', 'DISCORD_WEBHOOK_URL']) assert.match(venv, new RegExp(`^${k}=`, 'm'));
   assert.doesNotMatch(venv, /^DAILY_SECRET=.+/m, 'the template carries no secret value');
-  const ignore = read('.gitignore'); assert.match(ignore, /^deploy\/\.env$/m); assert.match(ignore, /^deploy\/verifier\.env$/m);
-  const cron = read('deploy/backup.cron'); assert.match(cron, /docker volume inspect -f '\{\{\.Mountpoint\}\}' junkyard_verifier-data/, 'backups read the compose volume'); assert.match(cron, /--live http:\/\/127\.0\.0\.1:4400/);
+  const ignore = read('.gitignore');
+  assert.match(ignore, /^deploy\/\.env$/m);
+  assert.match(ignore, /^deploy\/verifier\.env$/m);
+  const cron = read('deploy/backup.cron');
+  assert.match(cron, /docker volume inspect -f '\{\{\.Mountpoint\}\}' junkyard_verifier-data/, 'backups read the compose volume');
+  assert.match(cron, /--live http:\/\/127\.0\.0\.1:4400/);
   const wf = read('.github/workflows/deploy.yml');
-  assert.match(wf, /workflows: \[ci\]/, 'deploys follow a ci run'); assert.match(wf, /workflow_run\.conclusion == 'success'/, 'only a green one');
-  assert.match(wf, /vars\.CF_PAGES_PROJECT != ''/); assert.match(wf, /vars\.DEPLOY_HOST != ''/); assert.match(wf, /vars\.VERIFIER_URL/);
-  assert.match(wf, /cloudflare\/wrangler-action@v3/); assert.match(wf, /pages deploy dist --project-name=/);
-  assert.match(wf, /docker compose pull --quiet verifier/); assert.match(wf, /StrictHostKeyChecking=yes/, 'host key pinned from a secret, never accepted blindly');
+  assert.match(wf, /workflows: \[ci\]/, 'deploys follow a ci run');
+  assert.match(wf, /workflow_run\.conclusion == 'success'/, 'only a green one');
+  assert.match(wf, /vars\.CF_PAGES_PROJECT != ''/);
+  assert.match(wf, /vars\.DEPLOY_HOST != ''/);
+  assert.match(wf, /vars\.VERIFIER_URL/);
+  assert.match(wf, /cloudflare\/wrangler-action@v3/);
+  assert.match(wf, /pages deploy dist --project-name=/);
+  assert.match(wf, /docker compose pull --quiet verifier/);
+  assert.match(wf, /StrictHostKeyChecking=yes/, 'host key pinned from a secret, never accepted blindly');
   assert.match(wf, /tools\/mint-check\.ts "\$VERIFIER_URL"/, 'the public verifier is checked after a deploy');
   assert.doesNotMatch(wf, /DAILY_SECRET|MODERATION_TOKEN/, 'the workflow never touches the verifier secrets');
-  const ci = read('.github/workflows/ci.yml'); assert.match(ci, /docker compose -f deploy\/docker-compose\.yml --env-file deploy\/\.env\.example config --quiet/); assert.match(ci, /caddy validate --config \/etc\/caddy\/Caddyfile/);
+  const ci = read('.github/workflows/ci.yml');
+  assert.match(ci, /docker compose -f deploy\/docker-compose\.yml --env-file deploy\/\.env\.example config --quiet/);
+  assert.match(ci, /caddy validate --config \/etc\/caddy\/Caddyfile/);
 });
 
-test('deploy: hosted rehearsal: a production build behind the rendered headers, a verifier with CORS for the site, hosted-check passes with a daily submission', { timeout: 240000 }, async () => {
-  const WEB = await freePort(), VPORT = await freePort();
-  const site = `http://127.0.0.1:${WEB}`, verifierUrl = `http://127.0.0.1:${VPORT}`;
-  const scratch = fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-deploy-'));
-  const dist = path.join(scratch, 'dist');
-  const { bundle } = await buildDist({ root: ROOT, dist, verifierUrl, reports: false });
-  const rules = parseHeaders(fs.readFileSync(path.join(dist, '_headers'), 'utf8'));
-  assert.equal(headersFor(rules, `/${bundle}`)['Cache-Control'], 'public, max-age=31536000, immutable', 'the rendered file names this build\'s bundle');
-  const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.wav': 'audio/wav', '.png': 'image/png' };
-  // a static server that applies dist/_headers like Pages (and, like Pages, never serves the _headers file itself)
-  const server = http.createServer((req, res) => {
-    const u = new URL(req.url, site);
-    const rel = u.pathname === '/' ? 'index.html' : decodeURIComponent(u.pathname.slice(1));
-    const file = path.join(dist, rel);
-    if (rel === '_headers' || !file.startsWith(dist) || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); return res.end('not found'); }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', ...headersFor(rules, u.pathname) });
-    res.end(fs.readFileSync(file));
-  });
-  await new Promise((r) => server.listen(WEB, '127.0.0.1', r));
-  const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), DATA_DIR: path.join(scratch, 'data'), CORS_ORIGIN: site, DAILY_SECRET: 'deploy-test-secret', BOT_PAR: '0', VERIFIER_LOG: '0' }, stdio: 'ignore' });
-  try {
-    await until(async () => { try { return (await fetch(`${verifierUrl}/health`)).ok; } catch { return false; } }, { timeout: 60000, every: 300, what: 'the verifier' });
-    const report = path.join(scratch, 'hosted.json');
-    const out = await new Promise((resolve) => {
-      const p = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'tools/hosted-check.ts'), site, '--submit-daily', '--name', 'deploy test', '--json', report], { cwd: ROOT, env: process.env });
-      let text = ''; p.stdout.on('data', (d) => { text += d; }); p.stderr.on('data', (d) => { text += d; });
-      p.on('close', (code) => resolve({ code, text }));
+test(
+  'deploy: hosted rehearsal: a production build behind the rendered headers, a verifier with CORS for the site, hosted-check passes with a daily submission',
+  { timeout: 240000 },
+  async () => {
+    const WEB = await freePort(),
+      VPORT = await freePort();
+    const site = `http://127.0.0.1:${WEB}`,
+      verifierUrl = `http://127.0.0.1:${VPORT}`;
+    const scratch = fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-deploy-'));
+    const dist = path.join(scratch, 'dist');
+    const { bundle } = await buildDist({ root: ROOT, dist, verifierUrl, reports: false });
+    const rules = parseHeaders(fs.readFileSync(path.join(dist, '_headers'), 'utf8'));
+    assert.equal(headersFor(rules, `/${bundle}`)['Cache-Control'], 'public, max-age=31536000, immutable', "the rendered file names this build's bundle");
+    const MIME = {
+      '.html': 'text/html; charset=utf-8',
+      '.js': 'text/javascript; charset=utf-8',
+      '.json': 'application/json',
+      '.svg': 'image/svg+xml',
+      '.wav': 'audio/wav',
+      '.png': 'image/png',
+    };
+    // a static server that applies dist/_headers like Pages (and, like Pages, never serves the _headers file itself)
+    const server = http.createServer((req, res) => {
+      const u = new URL(req.url, site);
+      const rel = u.pathname === '/' ? 'index.html' : decodeURIComponent(u.pathname.slice(1));
+      const file = path.join(dist, rel);
+      if (rel === '_headers' || !file.startsWith(dist) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+        res.writeHead(404);
+        return res.end('not found');
+      }
+      res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', ...headersFor(rules, u.pathname) });
+      res.end(fs.readFileSync(file));
     });
-    assert.equal(out.code, 0, `hosted-check exit 0:\n${out.text}`);
-    const r = JSON.parse(fs.readFileSync(report, 'utf8'));
-    assert.equal(r.ok, true); assert.equal(r.checks.filter((c) => !c.ok).length, 0);
-    const names = r.checks.map((c) => c.name);
-    for (const n of ['site: Content-Security-Policy header present', "site: CSP header carries frame-ancestors 'none'", 'site: bundle Cache-Control immutable', 'verifier: CORS preflight allows the site origin', 'page: daily board line filled from the verifier', 'page: zero CSP violations', 'daily: legal run verified by the hosted verifier', 'daily: the run is on the daily board']) assert.ok(names.includes(n), `check ran: ${n}`);
-    assert.equal(r.build.bundle, bundle); assert.equal(r.verifierUrl, verifierUrl);
-    const daily = await (await fetch(`${verifierUrl}/daily`)).json();
-    assert.equal(daily.entries.length, 1); assert.match(daily.entries[0].player, /^deploy test/);
-    // the header-aware server really sent the rules (not just the tool's reading of them)
-    const res = await fetch(`${site}/${bundle}`); assert.equal(res.headers.get('cache-control'), 'public, max-age=31536000, immutable'); assert.match(res.headers.get('content-security-policy'), /frame-ancestors 'none'/);
-    assert.equal((await fetch(`${site}/_headers`)).status, 404, 'the header file itself is not served');
-  } finally {
-    verifier.kill(); server.close();
-    fs.rmSync(scratch, { recursive: true, force: true });
-  }
-});
+    await new Promise((r) => server.listen(WEB, '127.0.0.1', r));
+    const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], {
+      env: {
+        ...process.env,
+        PORT: String(VPORT),
+        DATA_DIR: path.join(scratch, 'data'),
+        CORS_ORIGIN: site,
+        DAILY_SECRET: 'deploy-test-secret',
+        BOT_PAR: '0',
+        VERIFIER_LOG: '0',
+      },
+      stdio: 'ignore',
+    });
+    try {
+      await until(
+        async () => {
+          try {
+            return (await fetch(`${verifierUrl}/health`)).ok;
+          } catch {
+            return false;
+          }
+        },
+        { timeout: 60000, every: 300, what: 'the verifier' },
+      );
+      const report = path.join(scratch, 'hosted.json');
+      const out = await new Promise((resolve) => {
+        const p = spawn(
+          process.execPath,
+          ['--import', 'tsx', path.join(ROOT, 'tools/hosted-check.ts'), site, '--submit-daily', '--name', 'deploy test', '--json', report],
+          { cwd: ROOT, env: process.env },
+        );
+        let text = '';
+        p.stdout.on('data', (d) => {
+          text += d;
+        });
+        p.stderr.on('data', (d) => {
+          text += d;
+        });
+        p.on('close', (code) => resolve({ code, text }));
+      });
+      assert.equal(out.code, 0, `hosted-check exit 0:\n${out.text}`);
+      const r = JSON.parse(fs.readFileSync(report, 'utf8'));
+      assert.equal(r.ok, true);
+      assert.equal(r.checks.filter((c) => !c.ok).length, 0);
+      const names = r.checks.map((c) => c.name);
+      for (const n of [
+        'site: Content-Security-Policy header present',
+        "site: CSP header carries frame-ancestors 'none'",
+        'site: bundle Cache-Control immutable',
+        'verifier: CORS preflight allows the site origin',
+        'page: daily board line filled from the verifier',
+        'page: zero CSP violations',
+        'daily: legal run verified by the hosted verifier',
+        'daily: the run is on the daily board',
+      ])
+        assert.ok(names.includes(n), `check ran: ${n}`);
+      assert.equal(r.build.bundle, bundle);
+      assert.equal(r.verifierUrl, verifierUrl);
+      const daily = await (await fetch(`${verifierUrl}/daily`)).json();
+      assert.equal(daily.entries.length, 1);
+      assert.match(daily.entries[0].player, /^deploy test/);
+      // the header-aware server really sent the rules (not just the tool's reading of them)
+      const res = await fetch(`${site}/${bundle}`);
+      assert.equal(res.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+      assert.match(res.headers.get('content-security-policy'), /frame-ancestors 'none'/);
+      assert.equal((await fetch(`${site}/_headers`)).status, 404, 'the header file itself is not served');
+    } finally {
+      verifier.kill();
+      server.close();
+      fs.rmSync(scratch, { recursive: true, force: true });
+    }
+  },
+);

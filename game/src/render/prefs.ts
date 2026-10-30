@@ -14,10 +14,21 @@ const s = loadSettings();
 export const prefs = {
   reducedMotion: s.reducedMotion,
   textScale: (TEXT_SCALES as readonly number[]).includes(s.textScale) ? (s.textScale as TextScale) : (1 as TextScale),
-  setReducedMotion(v: boolean) { this.reducedMotion = v; updateSettings({ reducedMotion: v }); },
-  setTextScale(v: TextScale) { this.textScale = v; updateSettings({ textScale: v }); },
-  nextTextScale(): TextScale { const i = TEXT_SCALES.indexOf(this.textScale); return TEXT_SCALES[(i + 1) % TEXT_SCALES.length]; },
-  textScaleLabel(): string { return `${Math.round(this.textScale * 100)}%`; },
+  setReducedMotion(v: boolean) {
+    this.reducedMotion = v;
+    updateSettings({ reducedMotion: v });
+  },
+  setTextScale(v: TextScale) {
+    this.textScale = v;
+    updateSettings({ textScale: v });
+  },
+  nextTextScale(): TextScale {
+    const i = TEXT_SCALES.indexOf(this.textScale);
+    return TEXT_SCALES[(i + 1) % TEXT_SCALES.length];
+  },
+  textScaleLabel(): string {
+    return `${Math.round(this.textScale * 100)}%`;
+  },
 };
 
 /** Font size in px for a base size, scaled by the text-size preference. */

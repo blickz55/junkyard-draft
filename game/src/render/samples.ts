@@ -19,7 +19,13 @@ export interface SampleContext {
   createBufferSource(): AudioBufferSourceNode;
   createGain(): GainNode;
 }
-export interface SampleStats { loaded: number; played: number; missing: ImpactKind[]; failed: ImpactKind[]; decoding: boolean }
+export interface SampleStats {
+  loaded: number;
+  played: number;
+  missing: ImpactKind[];
+  failed: ImpactKind[];
+  decoding: boolean;
+}
 
 /** Which impacts one tick carries: a ship when anything shipped (the chord), a press when a plate was made. */
 export function impactsForTick(plan: TickPlan, reducedAudio: boolean): ImpactKind[] {
@@ -38,28 +44,51 @@ export class SampleBank {
   private played = 0;
 
   /** Hand over fetched bytes (null when the file did not load). Decoding waits for `decode(ctx)`. */
-  provide(kind: ImpactKind, bytes: ArrayBuffer | null) { if (bytes && bytes.byteLength > 44) this.raw.set(kind, bytes); }
-  has(kind: ImpactKind) { return this.buffers.has(kind); }
+  provide(kind: ImpactKind, bytes: ArrayBuffer | null) {
+    if (bytes && bytes.byteLength > 44) this.raw.set(kind, bytes);
+  }
+  has(kind: ImpactKind) {
+    return this.buffers.has(kind);
+  }
   /** Decode everything provided and not yet decoded; safe to call repeatedly. */
   decode(ctx: SampleContext): Promise<void> {
     if (this.decoding) return this.decoding;
     const pending = [...this.raw].filter(([k]) => !this.buffers.has(k) && !this.failed.has(k));
     if (!pending.length) return Promise.resolve();
-    this.decoding = Promise.all(pending.map(async ([kind, bytes]) => {
-      try { this.buffers.set(kind, await ctx.decodeAudioData(bytes.slice(0))); } catch { this.failed.add(kind); }
-    })).then(() => { this.decoding = null; });
+    this.decoding = Promise.all(
+      pending.map(async ([kind, bytes]) => {
+        try {
+          this.buffers.set(kind, await ctx.decodeAudioData(bytes.slice(0)));
+        } catch {
+          this.failed.add(kind);
+        }
+      }),
+    ).then(() => {
+      this.decoding = null;
+    });
     return this.decoding;
   }
   /** Play one impact beneath the tones; false when no buffer is ready (the synth alone carries the beat). */
   trigger(kind: ImpactKind, ctx: SampleContext, dest: AudioNode, gain = 0.5): boolean {
-    const buf = this.buffers.get(kind); if (!buf) return false;
-    const src = ctx.createBufferSource(); src.buffer = buf;
-    const g = ctx.createGain(); g.gain.value = gain;
-    src.connect(g); g.connect(dest); src.start(ctx.currentTime);
+    const buf = this.buffers.get(kind);
+    if (!buf) return false;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const g = ctx.createGain();
+    g.gain.value = gain;
+    src.connect(g);
+    g.connect(dest);
+    src.start(ctx.currentTime);
     this.played++;
     return true;
   }
   stats(): SampleStats {
-    return { loaded: this.buffers.size, played: this.played, missing: IMPACTS.filter((k) => !this.raw.has(k)), failed: [...this.failed], decoding: this.decoding != null };
+    return {
+      loaded: this.buffers.size,
+      played: this.played,
+      missing: IMPACTS.filter((k) => !this.raw.has(k)),
+      failed: [...this.failed],
+      decoding: this.decoding != null,
+    };
   }
 }

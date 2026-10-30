@@ -30,16 +30,38 @@ export type PanelMode = 'build' | 'running' | 'paused' | 'summary';
 
 /** Everything the panel renders from; the scene builds it on demand. */
 export interface PanelState {
-  run: RunState; mode: PanelMode; speed: number;
-  replayLabel: string | null; replayRounds: number[] | null; playbackPending: boolean;
+  run: RunState;
+  mode: PanelMode;
+  speed: number;
+  replayLabel: string | null;
+  replayRounds: number[] | null;
+  playbackPending: boolean;
   /** the challenge being played, if any (PLAN-v4 0.7.1) */
   challenge?: Challenge | null;
-  canUndo: boolean; canRedo: boolean; selected: Machine | undefined; tipsBadge: boolean; tipsOpen: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  selected: Machine | undefined;
+  tipsBadge: boolean;
+  tipsOpen: boolean;
 }
 /** What the panel asks the scene to do. */
 export interface PanelActions {
-  pick(i: number): void; startRun(): void; setPaused(p: boolean): void; finishRun(): void; stopReplay(): void; setSpeed(s: number): void; /** one tick while paused (0.8.12) */ stepTick(): void;
-  undo(): void; redo(): void; /** the Tips panel, at one tip when the hint names a demo (0.9.3) */ openTips(id?: string): void; rotateSelected(): void; toBin(id: number): void; sell(id: number): void; nextRound(): void; toTitle(): void; toggleMute(): boolean;
+  pick(i: number): void;
+  startRun(): void;
+  setPaused(p: boolean): void;
+  finishRun(): void;
+  stopReplay(): void;
+  setSpeed(s: number): void;
+  /** one tick while paused (0.8.12) */ stepTick(): void;
+  undo(): void;
+  redo(): void;
+  /** the Tips panel, at one tip when the hint names a demo (0.9.3) */ openTips(id?: string): void;
+  rotateSelected(): void;
+  toBin(id: number): void;
+  sell(id: number): void;
+  nextRound(): void;
+  toTitle(): void;
+  toggleMute(): boolean;
   /** buy new offers (rules v3): the scene applies { t: 'reroll' } through the controller */
   reroll(): void;
   /** continue the watched recording from the round just finished as a practice try (PLAN-v4 0.7.3) */
@@ -66,7 +88,8 @@ export class GamePanel {
   private replayMode = false;
   private progress: HTMLElement | null = null;
   private earned: HTMLElement | null = null;
-  private lastEarned = -1; private lastTick = -1;
+  private lastEarned = -1;
+  private lastTick = -1;
   private legendEl: HTMLElement | null = null;
   hintText = '';
   stallText = '';
@@ -75,32 +98,79 @@ export class GamePanel {
   /** the foreman's line for the round-end banner (0.9.1) */
   bannerForeman = '';
 
-  constructor(private readonly scene: Phaser.Scene, private readonly actions: PanelActions, seed: string, replayLabel: string | null, muted: boolean, forkLabelText: string | null = null) {
-    const suffix = forkLabelText ? ` · ${forkLabelText}` : replayLabel ? ` · ${replayLabel}` : isWeeklySeed(seed) ? (weeklyClosed(seed, new Date()) ? t('game.suffixArchivedWeekly') : t('game.suffixThisWeek')) : isMintedDailySeed(seed) ? (dailyDateOf(seed) === new Date().toISOString().slice(0, 10) ? t('game.suffixToday') : t('game.suffixArchivedDaily')) : isDailySeed(seed) ? t('game.suffixPractice') : ''; // PLAN-v3 0.6.1/0.6.2: the HUD says which daily this is
+  constructor(
+    private readonly scene: Phaser.Scene,
+    private readonly actions: PanelActions,
+    seed: string,
+    replayLabel: string | null,
+    muted: boolean,
+    forkLabelText: string | null = null,
+  ) {
+    const suffix = forkLabelText
+      ? ` · ${forkLabelText}`
+      : replayLabel
+        ? ` · ${replayLabel}`
+        : isWeeklySeed(seed)
+          ? weeklyClosed(seed, new Date())
+            ? t('game.suffixArchivedWeekly')
+            : t('game.suffixThisWeek')
+          : isMintedDailySeed(seed)
+            ? dailyDateOf(seed) === new Date().toISOString().slice(0, 10)
+              ? t('game.suffixToday')
+              : t('game.suffixArchivedDaily')
+            : isDailySeed(seed)
+              ? t('game.suffixPractice')
+              : ''; // PLAN-v3 0.6.1/0.6.2: the HUD says which daily this is
     this.hud = {
-      seed: h('span', { class: `jd-mono jd-hud-seed ${replayLabel ? 'jd-blue' : 'jd-dim'}`, tid: 'hud-seed', title: seed }, t('game.hudYard', { yard: t('common.yard', { seed }), suffix })),
+      seed: h(
+        'span',
+        { class: `jd-mono jd-hud-seed ${replayLabel ? 'jd-blue' : 'jd-dim'}`, tid: 'hud-seed', title: seed },
+        t('game.hudYard', { yard: t('common.yard', { seed }), suffix }),
+      ),
       round: h('span', { class: 'jd-hud-round', tid: 'hud-round' }, ''),
       score: h('span', { class: 'jd-gold jd-hud-score', tid: 'hud-score' }, money(0)),
       best: h('span', { class: 'jd-mono jd-dim jd-hud-best' }, ''),
       stall: h('span', { class: 'jd-mono jd-red jd-hud-stall', tid: 'stall' }, ''),
-      mute: btn(muted ? t('common.unmute') : t('common.mute'), 'mute', () => { this.hud.mute.textContent = this.actions.toggleMute() ? t('common.unmute') : t('common.mute'); }, { small: true }),
+      mute: btn(
+        muted ? t('common.unmute') : t('common.mute'),
+        'mute',
+        () => {
+          this.hud.mute.textContent = this.actions.toggleMute() ? t('common.unmute') : t('common.mute');
+        },
+        { small: true },
+      ),
     };
-    const hudBar = h('div', { class: 'jd-hud' },
+    const hudBar = h(
+      'div',
+      { class: 'jd-hud' },
       h('span', { class: 'jd-amber jd-hud-title' }, t('title.name')),
       this.hud.seed,
       this.hud.round,
       h('div', { class: 'jd-hud-scoreblock' }, this.hud.score, this.hud.best, this.hud.stall),
-      h('div', { class: 'jd-row jd-hud-right' }, btn(t('common.title'), 'title', () => this.actions.toTitle(), { small: true }), this.hud.mute));
+      h(
+        'div',
+        { class: 'jd-row jd-hud-right' },
+        btn(t('common.title'), 'title', () => this.actions.toTitle(), { small: true }),
+        this.hud.mute,
+      ),
+    );
     this.side = h('div', { class: 'jd-side' });
     this.hintEl = h('div', { class: 'jd-hint', tid: 'hint' }, '');
     this.gridLayer = h('div', { class: 'jd-gridlayer' });
     this.toastEl = h('div', { class: 'jd-toast', tid: 'toast', role: 'status', style: 'display:none' });
     this.root = h('div', { class: 'jd-game' }, hudBar, this.side, this.gridLayer, this.hintEl, this.toastEl);
-    if (!document.getElementById('jd-game-style')) { const st = document.createElement('style'); st.id = 'jd-game-style'; st.textContent = GAME_STYLE; document.head.append(st); }
+    if (!document.getElementById('jd-game-style')) {
+      const st = document.createElement('style');
+      st.id = 'jd-game-style';
+      st.textContent = GAME_STYLE;
+      document.head.append(st);
+    }
     ui.mount(scene, this.root);
   }
 
-  destroy() { ui.unmount(); }
+  destroy() {
+    ui.unmount();
+  }
 
   // ---------- HUD ----------
   setHud(run: RunState, total: number, pulse: boolean) {
@@ -108,17 +178,31 @@ export class GamePanel {
     const next = money(total);
     if (this.hud.score.textContent !== next) {
       this.hud.score.textContent = next;
-      if (pulse && !prefs.reducedMotion) { this.hud.score.classList.remove('jd-pulse'); void this.hud.score.offsetWidth; this.hud.score.classList.add('jd-pulse'); }
+      if (pulse && !prefs.reducedMotion) {
+        this.hud.score.classList.remove('jd-pulse');
+        void this.hud.score.offsetWidth;
+        this.hud.score.classList.add('jd-pulse');
+      }
     }
     const b = loadBests().bySeed[run.seed];
     this.hud.best.textContent = b ? t('game.bestForYard', { score: money(b.score) }) : t('game.noBestForYard');
   }
-  setStall(text: string) { this.stallText = text; this.hud.stall.textContent = text; }
-  setHint(text: string, demo?: string) { this.hintText = text; this.hintEl.replaceChildren(text, ...(demo ? [btn(t('hint.showMe'), 'show-me', () => this.actions.openTips(demo), { small: true })] : [])); }
+  setStall(text: string) {
+    this.stallText = text;
+    this.hud.stall.textContent = text;
+  }
+  setHint(text: string, demo?: string) {
+    this.hintText = text;
+    this.hintEl.replaceChildren(text, ...(demo ? [btn(t('hint.showMe'), 'show-me', () => this.actions.openTips(demo), { small: true })] : []));
+  }
   /** A refusal or a warning at a cell (0.9.3): above the cell, below it on the top row; null hides it. Never on a timer: the scene clears it on the next action. */
   setToast(toast: { text: string; kind: 'refusal' | 'warning'; x: number; y: number } | null) {
     const el = this.toastEl;
-    if (!toast) { el.style.display = 'none'; el.textContent = ''; return; }
+    if (!toast) {
+      el.style.display = 'none';
+      el.textContent = '';
+      return;
+    }
     const cx = Math.min(GRID_X + GRID_W - 150, Math.max(GRID_X + 150, GRID_X + toast.x * CELL + CELL / 2));
     const below = toast.y === 0;
     el.className = `jd-toast jd-toast-${toast.kind}${below ? ' jd-toast-below' : ''}`;
@@ -127,19 +211,49 @@ export class GamePanel {
     el.textContent = toast.text;
   }
   /** The foreman speaks in the side panel (0.9.1); the panel re-renders so the box sits at the top. */
-  setForeman(text: string) { if (text === this.foremanText) return; this.foremanText = text; this.key = ''; if (this.lastState) this.render(this.lastState); }
+  setForeman(text: string) {
+    if (text === this.foremanText) return;
+    this.foremanText = text;
+    this.key = '';
+    if (this.lastState) this.render(this.lastState);
+  }
   private lastState: PanelState | null = null;
 
   // ---------- per-frame ----------
   setProgress(tick: number, earned: number) {
-    if (this.progress && tick !== this.lastTick) { this.lastTick = tick; this.progress.style.width = `${(100 * tick) / RULES.ticksPerRound}%`; }
-    if (this.earned && earned !== this.lastEarned) { this.lastEarned = earned; this.earned.textContent = t('game.earned', { amount: money(earned) }); }
+    if (this.progress && tick !== this.lastTick) {
+      this.lastTick = tick;
+      this.progress.style.width = `${(100 * tick) / RULES.ticksPerRound}%`;
+    }
+    if (this.earned && earned !== this.lastEarned) {
+      this.lastEarned = earned;
+      this.earned.textContent = t('game.earned', { amount: money(earned) });
+    }
   }
 
   // ---------- side panel ----------
   private keyOf(s: PanelState): string {
     const sel = s.selected;
-    return JSON.stringify([s.mode, s.run.phase, s.run.round, s.run.offers, s.run.rerolledRound, s.run.score, s.challenge?.hash ?? null, s.run.bin.length, s.run.layout.machines.length, s.speed, s.replayLabel, !!s.replayRounds, sel ? [sel.id, sel.kind, sel.dir, sel.x >= 0] : null, s.playbackPending, s.canUndo, s.canRedo, s.tipsBadge, s.tipsOpen]);
+    return JSON.stringify([
+      s.mode,
+      s.run.phase,
+      s.run.round,
+      s.run.offers,
+      s.run.rerolledRound,
+      s.run.score,
+      s.challenge?.hash ?? null,
+      s.run.bin.length,
+      s.run.layout.machines.length,
+      s.speed,
+      s.replayLabel,
+      !!s.replayRounds,
+      sel ? [sel.id, sel.kind, sel.dir, sel.x >= 0] : null,
+      s.playbackPending,
+      s.canUndo,
+      s.canRedo,
+      s.tipsBadge,
+      s.tipsOpen,
+    ]);
   }
   /** Rebuild the side panel if its inputs changed. */
   render(s: PanelState) {
@@ -149,34 +263,117 @@ export class GamePanel {
     this.lastState = s;
     this.replayMode = !!s.replayLabel;
     this.side.replaceChildren();
-    this.progress = null; this.earned = null; this.lastEarned = -1; this.lastTick = -1;
+    this.progress = null;
+    this.earned = null;
+    this.lastEarned = -1;
+    this.lastTick = -1;
     const r = s.run;
-    if (this.foremanText && r.phase !== 'result' && s.mode !== 'running' && s.mode !== 'paused') this.side.append(foremanBox(this.foremanText, 'foreman', 'margin-bottom:0.5em; font-size:0.8em'));
-    if (s.challenge) { // PLAN-v4 0.7.1: the challenger's earnings, round by round, next to yours
-      const c = s.challenge; const idx = Math.min(r.round, c.rounds.length) - 1; const done = r.rounds.length >= RULES.rounds;
-      const text = done ? t('game.challengeDone', { player: c.player, score: money(c.score), yours: money(r.score) }) : t('game.challengeLive', { player: c.player, theirs: money(c.rounds[idx] ?? 0), round: r.round, total: money(challengerTotal(c, r.round)), yours: money(r.score) });
-      this.side.append(h('div', { class: 'jd-mono jd-amber', tid: 'challenge-line', style: 'font-size:0.75em; margin-bottom:0.4em', title: t('game.challengeTitle', { player: c.player, score: money(c.score) }) }, text));
+    if (this.foremanText && r.phase !== 'result' && s.mode !== 'running' && s.mode !== 'paused')
+      this.side.append(foremanBox(this.foremanText, 'foreman', 'margin-bottom:0.5em; font-size:0.8em'));
+    if (s.challenge) {
+      // PLAN-v4 0.7.1: the challenger's earnings, round by round, next to yours
+      const c = s.challenge;
+      const idx = Math.min(r.round, c.rounds.length) - 1;
+      const done = r.rounds.length >= RULES.rounds;
+      const text = done
+        ? t('game.challengeDone', { player: c.player, score: money(c.score), yours: money(r.score) })
+        : t('game.challengeLive', {
+            player: c.player,
+            theirs: money(c.rounds[idx] ?? 0),
+            round: r.round,
+            total: money(challengerTotal(c, r.round)),
+            yours: money(r.score),
+          });
+      this.side.append(
+        h(
+          'div',
+          {
+            class: 'jd-mono jd-amber',
+            tid: 'challenge-line',
+            style: 'font-size:0.75em; margin-bottom:0.4em',
+            title: t('game.challengeTitle', { player: c.player, score: money(c.score) }),
+          },
+          text,
+        ),
+      );
     }
-    const head = (text: string, right?: HTMLElement | null) => h('div', { class: 'jd-row jd-between', style: 'margin-bottom:0.4em' }, h('div', { class: 'jd-head' }, text), right ?? null);
-    const tipsBtn = s.replayLabel ? null : btn(s.tipsBadge ? t('game.tipsBadge') : t('game.tips'), 'tips', () => this.actions.openTips(), { small: true, variant: s.tipsBadge ? 'primary' : 'dark' });
+    const head = (text: string, right?: HTMLElement | null) =>
+      h('div', { class: 'jd-row jd-between', style: 'margin-bottom:0.4em' }, h('div', { class: 'jd-head' }, text), right ?? null);
+    const tipsBtn = s.replayLabel
+      ? null
+      : btn(s.tipsBadge ? t('game.tipsBadge') : t('game.tips'), 'tips', () => this.actions.openTips(), {
+          small: true,
+          variant: s.tipsBadge ? 'primary' : 'dark',
+        });
     const replayBanner = s.replayLabel ? h('span', { class: 'jd-replay-banner jd-blue', tid: 'replay-banner' }, t('game.recordingBanner')) : null;
     if (s.mode === 'running' || s.mode === 'paused') {
       this.side.append(head(s.mode === 'paused' ? t('game.paused') : t('game.running'), replayBanner));
       this.side.append(h('div', { class: 'jd-dim', style: 'font-size:0.875em' }, t('game.watchLine', { n: r.round })));
       this.progress = h('div', { class: 'jd-progress-fill', tid: 'progress' });
       this.side.append(h('div', { class: 'jd-progress' }, this.progress));
-      this.earned = h('div', { class: 'jd-gold', tid: 'earned', style: 'font-size:1.125em; font-weight:700; margin-top:0.4em' }, t('game.earned', { amount: money(0) }));
+      this.earned = h(
+        'div',
+        { class: 'jd-gold', tid: 'earned', style: 'font-size:1.125em; font-weight:700; margin-top:0.4em' },
+        t('game.earned', { amount: money(0) }),
+      );
       this.side.append(this.earned);
       if (s.replayRounds) {
-        const idx = r.round - 1; const orig = s.replayRounds[idx] ?? 0; const total = s.replayRounds.slice(0, idx + 1).reduce((a, b) => a + b, 0);
-        this.side.append(h('div', { class: 'jd-blue', tid: 'replay-original', style: 'font-size:0.6875em; margin-top:0.25em' }, t('game.original', { orig: money(orig), total: money(total), n: r.round, final: money(s.replayRounds.reduce((a, b) => a + b, 0)) })));
+        const idx = r.round - 1;
+        const orig = s.replayRounds[idx] ?? 0;
+        const total = s.replayRounds.slice(0, idx + 1).reduce((a, b) => a + b, 0);
+        this.side.append(
+          h(
+            'div',
+            { class: 'jd-blue', tid: 'replay-original', style: 'font-size:0.6875em; margin-top:0.25em' },
+            t('game.original', { orig: money(orig), total: money(total), n: r.round, final: money(s.replayRounds.reduce((a, b) => a + b, 0)) }),
+          ),
+        );
       }
-      this.side.append(h('div', { class: 'jd-row', style: 'margin-top:0.6em' }, h('span', { class: 'jd-dim', style: 'font-size:0.75em' }, t('game.speed')),
-        ...[1, 2, 4].map((sp) => btn(t('game.speedX', { n: sp }), `speed-${sp}`, () => this.actions.setSpeed(sp), { small: true, variant: s.speed === sp ? 'primary' : 'dark' }))));
-      this.side.append(h('div', { class: 'jd-row jd-center', style: 'margin-top:0.6em' }, btn(s.mode === 'paused' ? t('game.resume') : s.replayLabel ? t('game.pause') : t('game.pauseEsc'), 'pause', () => this.actions.setPaused(s.mode !== 'paused')), s.mode === 'paused' ? btn(t('game.step'), 'step', () => { this.actions.stepTick(); (document.activeElement as HTMLElement | null)?.blur?.(); }, { small: true, title: t('game.stepTitle') }) : null)); // the button gives focus back so the . key works right after a click
-      this.side.append(h('div', { class: 'jd-row jd-center' }, btn(t('game.skip'), 'skip', () => this.actions.finishRun(), { small: true })));
+      this.side.append(
+        h(
+          'div',
+          { class: 'jd-row', style: 'margin-top:0.6em' },
+          h('span', { class: 'jd-dim', style: 'font-size:0.75em' }, t('game.speed')),
+          ...[1, 2, 4].map((sp) =>
+            btn(t('game.speedX', { n: sp }), `speed-${sp}`, () => this.actions.setSpeed(sp), { small: true, variant: s.speed === sp ? 'primary' : 'dark' }),
+          ),
+        ),
+      );
+      this.side.append(
+        h(
+          'div',
+          { class: 'jd-row jd-center', style: 'margin-top:0.6em' },
+          btn(s.mode === 'paused' ? t('game.resume') : s.replayLabel ? t('game.pause') : t('game.pauseEsc'), 'pause', () =>
+            this.actions.setPaused(s.mode !== 'paused'),
+          ),
+          s.mode === 'paused'
+            ? btn(
+                t('game.step'),
+                'step',
+                () => {
+                  this.actions.stepTick();
+                  (document.activeElement as HTMLElement | null)?.blur?.();
+                },
+                { small: true, title: t('game.stepTitle') },
+              )
+            : null,
+        ),
+      ); // the button gives focus back so the . key works right after a click
+      this.side.append(
+        h(
+          'div',
+          { class: 'jd-row jd-center' },
+          btn(t('game.skip'), 'skip', () => this.actions.finishRun(), { small: true }),
+        ),
+      );
       if (s.replayLabel) {
-        this.side.append(h('div', { class: 'jd-row jd-center' }, btn(t('game.stopWatching'), 'stop', () => this.actions.stopReplay(), { small: true })));
+        this.side.append(
+          h(
+            'div',
+            { class: 'jd-row jd-center' },
+            btn(t('game.stopWatching'), 'stop', () => this.actions.stopReplay(), { small: true }),
+          ),
+        );
         this.side.append(h('div', { class: 'jd-blue', style: 'font-size:0.75em; margin-top:0.3em; overflow-wrap:anywhere' }, s.replayLabel));
       }
       this.side.append(this.legend());
@@ -185,16 +382,49 @@ export class GamePanel {
     if (r.phase === 'draft') {
       this.side.append(head(t('game.pickHead', { n: r.round }), replayBanner ?? tipsBtn));
       r.offers.forEach((kind, i) => {
-        const card = h('button', { class: 'jd-offer', tid: `offer-${i}`, type: 'button', onClick: () => { if (!s.playbackPending) this.actions.pick(i); } },
+        const card = h(
+          'button',
+          {
+            class: 'jd-offer',
+            tid: `offer-${i}`,
+            type: 'button',
+            onClick: () => {
+              if (!s.playbackPending) this.actions.pick(i);
+            },
+          },
           textureImg(this.scene.game, machineTexture(kind), machineName(kind)),
-          h('div', { class: 'jd-offer-text' }, h('div', { style: 'font-weight:700; font-size:1.0625em' }, machineName(kind)), h('div', { class: 'jd-dim', style: 'font-size:0.8125em' }, machineBlurb(kind))),
-          h('span', { class: 'jd-dim jd-offer-key' }, t('game.offerKey', { n: i + 1 })));
+          h(
+            'div',
+            { class: 'jd-offer-text' },
+            h('div', { style: 'font-weight:700; font-size:1.0625em' }, machineName(kind)),
+            h('div', { class: 'jd-dim', style: 'font-size:0.8125em' }, machineBlurb(kind)),
+          ),
+          h('span', { class: 'jd-dim jd-offer-key' }, t('game.offerKey', { n: i + 1 })),
+        );
         this.side.append(card);
       });
       if (!s.replayLabel) {
         const why = canReroll(r);
-        const rerollBtn = btn(t('game.newOffers', { cost: money(RULES.rerollCost) }), 'reroll', () => { if (!s.playbackPending) this.actions.reroll(); }, { small: true, disabled: !!why || s.playbackPending, title: why ? explainRunError(why) : t('game.newOffersTitle') });
-        this.side.append(h('div', { class: 'jd-row', style: 'margin-top:0.5em; gap:0.6em; align-items:center' }, rerollBtn, h('span', { class: 'jd-dim', tid: 'reroll-note', style: 'font-size:0.75em' }, why ? explainRunError(why) : t('game.newOffersNote', { score: money(r.score) }))));
+        const rerollBtn = btn(
+          t('game.newOffers', { cost: money(RULES.rerollCost) }),
+          'reroll',
+          () => {
+            if (!s.playbackPending) this.actions.reroll();
+          },
+          { small: true, disabled: !!why || s.playbackPending, title: why ? explainRunError(why) : t('game.newOffersTitle') },
+        );
+        this.side.append(
+          h(
+            'div',
+            { class: 'jd-row', style: 'margin-top:0.5em; gap:0.6em; align-items:center' },
+            rerollBtn,
+            h(
+              'span',
+              { class: 'jd-dim', tid: 'reroll-note', style: 'font-size:0.75em' },
+              why ? explainRunError(why) : t('game.newOffersNote', { score: money(r.score) }),
+            ),
+          ),
+        );
       }
       this.side.append(this.legend());
       return;
@@ -203,19 +433,59 @@ export class GamePanel {
       this.side.append(head(t('game.buildHead', { n: r.round }), replayBanner ?? tipsBtn));
       const sel = s.selected;
       if (sel) {
-        const img = textureImg(this.scene.game, machineTexture(sel.kind), machineName(sel.kind)); img.style.transform = `rotate(${sel.dir * 90}deg)`;
-        this.side.append(h('div', { class: 'jd-sel' }, img,
-          h('div', { style: 'flex:1' }, h('div', { style: 'font-weight:700; font-size:1.0625em' }, machineName(sel.kind)), h('div', { class: 'jd-dim', style: 'font-size:0.78em' }, machineBlurb(sel.kind)),
-            h('div', { class: 'jd-row', style: 'margin-top:0.4em; gap:0.4em' }, btn(t('game.rotate'), 'rotate', () => this.actions.rotateSelected(), { small: true }),
-              sel.x >= 0 ? btn(t('game.toShelf'), 'tobin', () => this.actions.toBin(sel.id), { small: true }) : btn(t('game.sellFor', { amount: money(RULES.sellValue) }), 'sell', () => this.actions.sell(sel.id), { small: true })))));
+        const img = textureImg(this.scene.game, machineTexture(sel.kind), machineName(sel.kind));
+        img.style.transform = `rotate(${sel.dir * 90}deg)`;
+        this.side.append(
+          h(
+            'div',
+            { class: 'jd-sel' },
+            img,
+            h(
+              'div',
+              { style: 'flex:1' },
+              h('div', { style: 'font-weight:700; font-size:1.0625em' }, machineName(sel.kind)),
+              h('div', { class: 'jd-dim', style: 'font-size:0.78em' }, machineBlurb(sel.kind)),
+              h(
+                'div',
+                { class: 'jd-row', style: 'margin-top:0.4em; gap:0.4em' },
+                btn(t('game.rotate'), 'rotate', () => this.actions.rotateSelected(), { small: true }),
+                sel.x >= 0
+                  ? btn(t('game.toShelf'), 'tobin', () => this.actions.toBin(sel.id), { small: true })
+                  : btn(t('game.sellFor', { amount: money(RULES.sellValue) }), 'sell', () => this.actions.sell(sel.id), { small: true }),
+              ),
+            ),
+          ),
+        );
       } else {
         this.side.append(h('div', { class: 'jd-dim', style: 'font-size:0.875em' }, t('game.buildHelp')));
         this.side.append(h('div', { class: 'jd-dim', style: 'font-size:0.875em; margin-top:0.4em' }, t('game.keyboardHelp')));
       }
-      this.side.append(h('div', { class: 'jd-row jd-between', style: 'margin-top:0.5em' }, h('span', { class: 'jd-dim', style: 'font-size:0.75em' }, t('game.placed', { placed: int(r.layout.machines.length), shelf: int(r.bin.length) })),
-        h('div', { class: 'jd-row', style: 'gap:0.4em' }, btn(t('game.undo'), 'undo', () => this.actions.undo(), { small: true, disabled: !s.canUndo }), btn(t('game.redo'), 'redo', () => this.actions.redo(), { small: true, disabled: !s.canRedo }))));
-      this.side.append(h('div', { style: 'margin-top:0.6em' }, h('button', { class: 'jd-btn jd-btn-primary jd-run', tid: 'run', type: 'button', onClick: () => this.actions.startRun() }, t('game.startShift', { n: r.round }))));
-      if (r.bin.length > 0) this.side.append(h('div', { class: 'jd-dim', style: 'font-size:0.75em; margin-top:0.4em' }, t('game.shelfNote', { amount: money(RULES.sellValue) })));
+      this.side.append(
+        h(
+          'div',
+          { class: 'jd-row jd-between', style: 'margin-top:0.5em' },
+          h('span', { class: 'jd-dim', style: 'font-size:0.75em' }, t('game.placed', { placed: int(r.layout.machines.length), shelf: int(r.bin.length) })),
+          h(
+            'div',
+            { class: 'jd-row', style: 'gap:0.4em' },
+            btn(t('game.undo'), 'undo', () => this.actions.undo(), { small: true, disabled: !s.canUndo }),
+            btn(t('game.redo'), 'redo', () => this.actions.redo(), { small: true, disabled: !s.canRedo }),
+          ),
+        ),
+      );
+      this.side.append(
+        h(
+          'div',
+          { style: 'margin-top:0.6em' },
+          h(
+            'button',
+            { class: 'jd-btn jd-btn-primary jd-run', tid: 'run', type: 'button', onClick: () => this.actions.startRun() },
+            t('game.startShift', { n: r.round }),
+          ),
+        ),
+      );
+      if (r.bin.length > 0)
+        this.side.append(h('div', { class: 'jd-dim', style: 'font-size:0.75em; margin-top:0.4em' }, t('game.shelfNote', { amount: money(RULES.sellValue) })));
       this.side.append(this.legend());
       return;
     }
@@ -226,41 +496,105 @@ export class GamePanel {
   private legend(): HTMLElement {
     if (this.legendEl) return this.legendEl;
     const mats: Material[] = ['scrap', 'shards', 'plate', 'ingot', 'slag'];
-    const notes: Record<Material, string> = { scrap: t('game.valueScrap'), shards: t('game.valueShards'), plate: t('game.valuePlate', { n: RULES.pressShards }), ingot: t('game.valueIngot'), slag: t('game.valueSlag') };
-    this.legendEl = h('div', { class: 'jd-legend' }, h('div', { class: 'jd-head', style: 'font-size:0.75em' }, t('game.values')),
-      ...mats.map((m) => h('div', { class: 'jd-row', style: 'gap:0.5em; margin-top:0.15em; font-size:0.8125em' }, textureImg(this.scene.game, `i-${m}`, materialName(m)), h('span', { style: 'width:6.5em' }, t('game.valueRow', { name: cap(materialName(m)), price: money(RULES.value[m]) })), h('span', { class: 'jd-dim', style: 'font-size:0.9em' }, notes[m]))),
-      h('div', { class: 'jd-dim', style: 'font-size:0.6875em; margin-top:0.4em' }, t('game.timing', { hopper: RULES.hopperPeriod, crusher: RULES.process.crusher, press: RULES.process.press, furnace: RULES.process.furnace, round: RULES.ticksPerRound })));
+    const notes: Record<Material, string> = {
+      scrap: t('game.valueScrap'),
+      shards: t('game.valueShards'),
+      plate: t('game.valuePlate', { n: RULES.pressShards }),
+      ingot: t('game.valueIngot'),
+      slag: t('game.valueSlag'),
+    };
+    this.legendEl = h(
+      'div',
+      { class: 'jd-legend' },
+      h('div', { class: 'jd-head', style: 'font-size:0.75em' }, t('game.values')),
+      ...mats.map((m) =>
+        h(
+          'div',
+          { class: 'jd-row', style: 'gap:0.5em; margin-top:0.15em; font-size:0.8125em' },
+          textureImg(this.scene.game, `i-${m}`, materialName(m)),
+          h('span', { style: 'width:6.5em' }, t('game.valueRow', { name: cap(materialName(m)), price: money(RULES.value[m]) })),
+          h('span', { class: 'jd-dim', style: 'font-size:0.9em' }, notes[m]),
+        ),
+      ),
+      h(
+        'div',
+        { class: 'jd-dim', style: 'font-size:0.6875em; margin-top:0.4em' },
+        t('game.timing', {
+          hopper: RULES.hopperPeriod,
+          crusher: RULES.process.crusher,
+          press: RULES.process.press,
+          furnace: RULES.process.furnace,
+          round: RULES.ticksPerRound,
+        }),
+      ),
+    );
     return this.legendEl;
   }
 
   // ---------- round summary (side) + banner and badges over the grid ----------
   private renderSummary(r: RunState) {
-    const rec = r.rounds[r.rounds.length - 1]; const res = rec.result;
+    const rec = r.rounds[r.rounds.length - 1];
+    const res = rec.result;
     const notes = this.badgeNotes(r);
     this.side.append(h('div', { class: 'jd-head' }, t('game.shippedHead')));
     const mats: Material[] = ['ingot', 'plate', 'shards', 'scrap', 'slag'];
     let any = false;
-    for (const m of mats) if (res.shipped[m]) { any = true; this.side.append(h('div', { class: 'jd-row', style: 'gap:0.5em; margin-top:0.25em; font-size:0.875em' }, textureImg(this.scene.game, `i-${m}`, materialName(m)), t('game.shippedRow', { n: res.shipped[m], mat: materialName(m), each: money(RULES.value[m]), total: money(res.shipped[m] * RULES.value[m]) }))); }
+    for (const m of mats)
+      if (res.shipped[m]) {
+        any = true;
+        this.side.append(
+          h(
+            'div',
+            { class: 'jd-row', style: 'gap:0.5em; margin-top:0.25em; font-size:0.875em' },
+            textureImg(this.scene.game, `i-${m}`, materialName(m)),
+            t('game.shippedRow', { n: res.shipped[m], mat: materialName(m), each: money(RULES.value[m]), total: money(res.shipped[m] * RULES.value[m]) }),
+          ),
+        );
+      }
     if (!any) this.side.append(h('div', { class: 'jd-dim', style: 'font-size:0.875em' }, t('game.nothing')));
     // the bottleneck line (production roadmap 0.8.8): what held the line and the pool fixes; the next draft repeats it as the hint
     const bottleneck = analyseRound(rec.layout, res, rec.round + 1);
     this.side.append(h('div', { class: 'jd-head', style: 'margin-top:0.6em' }, t('game.heldHead')));
-    this.side.append(h('div', { class: bottleneck.kind === 'balanced' ? 'jd-green' : 'jd-amber', tid: 'bottleneck', style: 'font-size:0.8125em' }, bottleneckLine(bottleneck)));
+    this.side.append(
+      h('div', { class: bottleneck.kind === 'balanced' ? 'jd-green' : 'jd-amber', tid: 'bottleneck', style: 'font-size:0.8125em' }, bottleneckLine(bottleneck)),
+    );
     this.side.append(h('div', { class: 'jd-head', style: 'margin-top:0.6em' }, t('game.diagnostics')));
-    this.side.append(h('div', { class: notes.length ? 'jd-red' : 'jd-green', style: 'font-size:0.8125em; white-space:pre-line' }, notes.slice(0, 5).join('\n') || t('game.cleanRound')));
+    this.side.append(
+      h(
+        'div',
+        { class: notes.length ? 'jd-red' : 'jd-green', style: 'font-size:0.8125em; white-space:pre-line' },
+        notes.slice(0, 5).join('\n') || t('game.cleanRound'),
+      ),
+    );
     this.side.append(h('div', { class: 'jd-head', style: 'margin-top:0.6em' }, t('game.historyHead')));
-    this.side.append(h('div', { class: 'jd-history' }, ...r.rounds.map((rr, i) => h('span', { class: i === r.rounds.length - 1 ? 'jd-gold' : '' }, t('game.historyCell', { n: rr.round, score: money(rr.earned) })))));
+    this.side.append(
+      h(
+        'div',
+        { class: 'jd-history' },
+        ...r.rounds.map((rr, i) =>
+          h('span', { class: i === r.rounds.length - 1 ? 'jd-gold' : '' }, t('game.historyCell', { n: rr.round, score: money(rr.earned) })),
+        ),
+      ),
+    );
     if (r.sold) this.side.append(h('div', { class: 'jd-dim', style: 'font-size:0.8125em' }, t('game.soldParts', { amount: money(r.sold) })));
     this.side.append(this.legend());
   }
   /** Diagnostics text shared by the side panel and the badges. */
   private badgeNotes(r: RunState): string[] {
-    const rec = r.rounds[r.rounds.length - 1]; const res = rec.result; const g = r.layout; const notes: string[] = [];
+    const rec = r.rounds[r.rounds.length - 1];
+    const res = rec.result;
+    const g = r.layout;
+    const notes: string[] = [];
     for (const m of g.machines) {
       const st = res.cellStats[cellIndex(m.x, m.y, g.width)];
-      if (m.kind === 'hopper') { if (st && st.blockedTicks > 5) notes.push(t('game.noteHopperBlocked', { pos: pos(m), n: int(st.blockedTicks) })); if (!st) notes.push(t('game.noteHopperIdle', { pos: pos(m) })); }
-      else if (m.kind === 'crusher' || m.kind === 'furnace' || m.kind === 'press') { if (st && st.jammedTicks > 8) notes.push(t('game.noteBlocked', { name: machineName(m.kind), pos: pos(m), n: int(st.jammedTicks) })); }
-      else if (m.kind === 'tuner') { if (!st || !st.tuned) notes.push(t('game.noteTuner', { pos: pos(m) })); }
+      if (m.kind === 'hopper') {
+        if (st && st.blockedTicks > 5) notes.push(t('game.noteHopperBlocked', { pos: pos(m), n: int(st.blockedTicks) }));
+        if (!st) notes.push(t('game.noteHopperIdle', { pos: pos(m) }));
+      } else if (m.kind === 'crusher' || m.kind === 'furnace' || m.kind === 'press') {
+        if (st && st.jammedTicks > 8) notes.push(t('game.noteBlocked', { name: machineName(m.kind), pos: pos(m), n: int(st.jammedTicks) }));
+      } else if (m.kind === 'tuner') {
+        if (!st || !st.tuned) notes.push(t('game.noteTuner', { pos: pos(m) }));
+      }
     }
     const inTransit = res.spawned - res.absorbed - Object.values(res.shipped).reduce((a, b) => a + b, 0);
     if (inTransit > 6) notes.push(t('game.noteTransit', { n: int(inTransit) }));
@@ -269,35 +603,127 @@ export class GamePanel {
   }
   /** Banner across the top of the grid plus a badge under each machine: what it actually did this round. */
   showSummaryOverlay(r: RunState) {
-    const rec = r.rounds[r.rounds.length - 1]; const res = rec.result; const g = r.layout;
+    const rec = r.rounds[r.rounds.length - 1];
+    const res = rec.result;
+    const g = r.layout;
     const last = r.round >= RULES.rounds;
-    const layer = this.gridLayer; layer.replaceChildren();
+    const layer = this.gridLayer;
+    layer.replaceChildren();
     layer.append(h('div', { class: 'jd-grid-dim' }));
     for (const m of g.machines) {
       const st = res.cellStats[cellIndex(m.x, m.y, g.width)];
-      let line1 = ''; let line2 = ''; let cls = ''; let warn = true;
-      if (m.kind === 'hopper') { line1 = st ? t('game.badgeOut', { n: int(st.spawned) }) : t('game.badgeIdle'); if (st && st.blockedTicks > 5) line2 = t('game.badgeBlocked', { n: int(st.blockedTicks) }); if (!st) cls = 'jd-dim'; }
-      else if (m.kind === 'dock') { if (st && st.shipped) { line1 = money(st.earned); line2 = t('game.badgeShipped', { n: int(st.shipped) }); cls = 'jd-green'; warn = false; } else { line1 = t('game.badgeNoItems'); cls = 'jd-dim'; } }
-      else if (m.kind === 'crusher' || m.kind === 'furnace' || m.kind === 'press') {
-        line1 = st && st.passed ? t('game.badgeMade', { n: int(st.processed) }) : t('game.badgeUnused'); if (!st || !st.processed) cls = 'jd-dim';
-        if (st && st.jammedTicks > 8) line2 = t('game.badgeWaited', { n: int(st.jammedTicks) }); else if (m.kind === 'press' && st && st.stored) { line2 = t('game.badgeHeld', { n: int(st.stored) }); warn = false; }
-      } else if (m.kind === 'tuner') { if (st && st.tuned) { line1 = t('game.badgeSped', { n: int(st.tuned) }); cls = 'jd-green'; warn = false; } else { line1 = t('game.badgeNothingToTune'); cls = 'jd-dim'; } }
-      else { if (st && st.jammedTicks > 8) line2 = t('game.badgeWaited', { n: int(st.jammedTicks) }); else if (!st || !st.passed) { line1 = t('game.badgeUnused'); cls = 'jd-dim'; } }
+      let line1 = '';
+      let line2 = '';
+      let cls = '';
+      let warn = true;
+      if (m.kind === 'hopper') {
+        line1 = st ? t('game.badgeOut', { n: int(st.spawned) }) : t('game.badgeIdle');
+        if (st && st.blockedTicks > 5) line2 = t('game.badgeBlocked', { n: int(st.blockedTicks) });
+        if (!st) cls = 'jd-dim';
+      } else if (m.kind === 'dock') {
+        if (st && st.shipped) {
+          line1 = money(st.earned);
+          line2 = t('game.badgeShipped', { n: int(st.shipped) });
+          cls = 'jd-green';
+          warn = false;
+        } else {
+          line1 = t('game.badgeNoItems');
+          cls = 'jd-dim';
+        }
+      } else if (m.kind === 'crusher' || m.kind === 'furnace' || m.kind === 'press') {
+        line1 = st && st.passed ? t('game.badgeMade', { n: int(st.processed) }) : t('game.badgeUnused');
+        if (!st || !st.processed) cls = 'jd-dim';
+        if (st && st.jammedTicks > 8) line2 = t('game.badgeWaited', { n: int(st.jammedTicks) });
+        else if (m.kind === 'press' && st && st.stored) {
+          line2 = t('game.badgeHeld', { n: int(st.stored) });
+          warn = false;
+        }
+      } else if (m.kind === 'tuner') {
+        if (st && st.tuned) {
+          line1 = t('game.badgeSped', { n: int(st.tuned) });
+          cls = 'jd-green';
+          warn = false;
+        } else {
+          line1 = t('game.badgeNothingToTune');
+          cls = 'jd-dim';
+        }
+      } else {
+        if (st && st.jammedTicks > 8) line2 = t('game.badgeWaited', { n: int(st.jammedTicks) });
+        else if (!st || !st.passed) {
+          line1 = t('game.badgeUnused');
+          cls = 'jd-dim';
+        }
+      }
       if (!line1 && !line2) continue;
-      layer.append(h('div', { class: 'jd-badge', style: `left:${em(m.x * CELL + CELL / 2)}; top:${em((m.y + 1) * CELL - 2)}` },
-        line1 ? h('div', { class: cls }, line1) : null, line2 ? h('div', { class: warn ? 'jd-red' : 'jd-dim' }, line2) : null));
+      layer.append(
+        h(
+          'div',
+          { class: 'jd-badge', style: `left:${em(m.x * CELL + CELL / 2)}; top:${em((m.y + 1) * CELL - 2)}` },
+          line1 ? h('div', { class: cls }, line1) : null,
+          line2 ? h('div', { class: warn ? 'jd-red' : 'jd-dim' }, line2) : null,
+        ),
+      );
     }
-    layer.append(h('div', { class: 'jd-banner' },
-      h('div', { style: 'min-width:0' }, h('div', { class: 'jd-head' }, t('game.roundResult', { n: rec.round })), h('div', { class: 'jd-row', style: 'gap:0.6em; align-items:baseline; flex-wrap:nowrap' }, h('span', { class: 'jd-gold', style: 'font-size:1.875em; font-weight:700; line-height:1' }, money(rec.earned)), h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, t('game.thisRoundTotal', { total: money(r.score) })), this.bannerForeman ? h('span', { class: 'jd-foreman-text jd-dim', tid: 'foreman-banner', title: this.bannerForeman, style: 'font-size:0.8125em; margin-left:0.6em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap' }, `${t('foreman.name')} · ${this.bannerForeman}`) : null)),
-      btn(last ? t('game.finalScore') : t('game.nextRound'), 'next', () => this.actions.nextRound(), { variant: 'primary' }),
-      this.replayMode && !last ? btn(t('game.tryHere', { n: r.rounds.length }), 'fork-here', () => this.actions.forkHere(), { small: true, title: t('game.tryHereTitle') }) : null, // PLAN-v4 0.7.3
-      this.replayMode && this.actions.reportName ? btn(t('game.reportName'), 'report-name', () => this.actions.reportName!(), { small: true, title: t('game.reportNameTitle') }) : null));
+    layer.append(
+      h(
+        'div',
+        { class: 'jd-banner' },
+        h(
+          'div',
+          { style: 'min-width:0' },
+          h('div', { class: 'jd-head' }, t('game.roundResult', { n: rec.round })),
+          h(
+            'div',
+            { class: 'jd-row', style: 'gap:0.6em; align-items:baseline; flex-wrap:nowrap' },
+            h('span', { class: 'jd-gold', style: 'font-size:1.875em; font-weight:700; line-height:1' }, money(rec.earned)),
+            h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, t('game.thisRoundTotal', { total: money(r.score) })),
+            this.bannerForeman
+              ? h(
+                  'span',
+                  {
+                    class: 'jd-foreman-text jd-dim',
+                    tid: 'foreman-banner',
+                    title: this.bannerForeman,
+                    style: 'font-size:0.8125em; margin-left:0.6em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap',
+                  },
+                  `${t('foreman.name')} · ${this.bannerForeman}`,
+                )
+              : null,
+          ),
+        ),
+        btn(last ? t('game.finalScore') : t('game.nextRound'), 'next', () => this.actions.nextRound(), { variant: 'primary' }),
+        this.replayMode && !last
+          ? btn(t('game.tryHere', { n: r.rounds.length }), 'fork-here', () => this.actions.forkHere(), { small: true, title: t('game.tryHereTitle') })
+          : null, // PLAN-v4 0.7.3
+        this.replayMode && this.actions.reportName
+          ? btn(t('game.reportName'), 'report-name', () => this.actions.reportName!(), { small: true, title: t('game.reportNameTitle') })
+          : null,
+      ),
+    );
   }
   showPauseVeil(on: boolean, tick?: number) {
     this.gridLayer.replaceChildren();
-    if (on) this.gridLayer.append(h('div', { class: 'jd-grid-dim jd-grid-dim-strong' }, h('div', { class: 'jd-paused', tid: 'paused-veil' }, t('game.pausedVeil'), h('div', { style: 'font-size:0.5em; font-weight:400' }, tick != null ? t('game.pausedHelp', { tick: int(tick), total: RULES.ticksPerRound }) : t('game.pausedHelpNoTick')))));
+    if (on)
+      this.gridLayer.append(
+        h(
+          'div',
+          { class: 'jd-grid-dim jd-grid-dim-strong' },
+          h(
+            'div',
+            { class: 'jd-paused', tid: 'paused-veil' },
+            t('game.pausedVeil'),
+            h(
+              'div',
+              { style: 'font-size:0.5em; font-weight:400' },
+              tick != null ? t('game.pausedHelp', { tick: int(tick), total: RULES.ticksPerRound }) : t('game.pausedHelpNoTick'),
+            ),
+          ),
+        ),
+      );
   }
-  clearGridLayer() { this.gridLayer.replaceChildren(); }
+  clearGridLayer() {
+    this.gridLayer.replaceChildren();
+  }
 }
 
 /** Stylesheet for the game chrome (appended to the shared one by dom.ts consumers). */

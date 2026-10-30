@@ -13,16 +13,30 @@ import { buildLegal, legalJson, renderLegalHtml, legalHtmlPath, LEGAL_JSON_PATH 
 const check = process.argv.includes('--check');
 const p = buildPolicy();
 const legal = buildLegal();
-const want: [string, string][] = [[POLICY_JSON_PATH, policyJson(p)], [POLICY_MD_PATH, renderPolicyMarkdown(p)], [LEGAL_JSON_PATH, legalJson(legal)], ...legal.docs.map((d): [string, string] => [legalHtmlPath(d.id), renderLegalHtml(d, legal)])];
+const want: [string, string][] = [
+  [POLICY_JSON_PATH, policyJson(p)],
+  [POLICY_MD_PATH, renderPolicyMarkdown(p)],
+  [LEGAL_JSON_PATH, legalJson(legal)],
+  ...legal.docs.map((d): [string, string] => [legalHtmlPath(d.id), renderLegalHtml(d, legal)]),
+];
 let stale = 0;
 for (const [rel, text] of want) {
   const file = path.resolve(rel);
   const have = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n') : null;
-  if (have === text) { console.log(`up to date  ${rel}`); continue; }
+  if (have === text) {
+    console.log(`up to date  ${rel}`);
+    continue;
+  }
   stale++;
-  if (check) { console.log(`STALE       ${rel}`); continue; }
+  if (check) {
+    console.log(`STALE       ${rel}`);
+    continue;
+  }
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, text);
   console.log(`wrote       ${rel}`);
 }
-if (check && stale) { console.error(`${stale} policy file(s) stale: run node --import tsx tools/make-policy.ts`); process.exitCode = 1; }
+if (check && stale) {
+  console.error(`${stale} policy file(s) stale: run node --import tsx tools/make-policy.ts`);
+  process.exitCode = 1;
+}

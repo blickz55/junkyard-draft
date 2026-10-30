@@ -10,13 +10,40 @@ function stubContext() {
   const started: { buffer: unknown; when: number; gain: number }[] = [];
   const ctx = {
     currentTime: 1.25,
-    async decodeAudioData(data: ArrayBuffer) { if (new Uint8Array(data)[0] === 0xff) throw new Error('bad bytes'); return { duration: data.byteLength / 44100, length: data.byteLength } as unknown as AudioBuffer; },
-    createBufferSource() { const src = { buffer: null as unknown, dest: null as unknown, connect(n: unknown) { src.dest = n; }, start(when: number) { started.push({ buffer: src.buffer, when, gain: (src.dest as { gain: { value: number } }).gain.value }); } }; return src as unknown as AudioBufferSourceNode; },
-    createGain() { const g = { gain: { value: 1 }, connect() { /* noop */ } }; return g as unknown as GainNode; },
+    async decodeAudioData(data: ArrayBuffer) {
+      if (new Uint8Array(data)[0] === 0xff) throw new Error('bad bytes');
+      return { duration: data.byteLength / 44100, length: data.byteLength } as unknown as AudioBuffer;
+    },
+    createBufferSource() {
+      const src = {
+        buffer: null as unknown,
+        dest: null as unknown,
+        connect(n: unknown) {
+          src.dest = n;
+        },
+        start(when: number) {
+          started.push({ buffer: src.buffer, when, gain: (src.dest as { gain: { value: number } }).gain.value });
+        },
+      };
+      return src as unknown as AudioBufferSourceNode;
+    },
+    createGain() {
+      const g = {
+        gain: { value: 1 },
+        connect() {
+          /* noop */
+        },
+      };
+      return g as unknown as GainNode;
+    },
   };
   return { ctx, started };
 }
-const bytes = (first: number, n = 400) => { const b = new Uint8Array(n); b[0] = first; return b.buffer; };
+const bytes = (first: number, n = 400) => {
+  const b = new Uint8Array(n);
+  b[0] = first;
+  return b.buffer;
+};
 
 test('sample bank: provided bytes decode once a context exists, a bad file fails quietly, a missing kind falls back to synth-only, plays are counted', async () => {
   const bank = new SampleBank();
@@ -32,11 +59,14 @@ test('sample bank: provided bytes decode once a context exists, a bad file fails
   assert.deepEqual({ ...bank.stats() }, { loaded: 1, played: 0, missing: [], failed: ['press'], decoding: false });
   assert.equal(bank.trigger('ship', ctx, dest, 0.4), true);
   assert.equal(bank.trigger('press', ctx, dest), false, 'the failed sample leaves the beat to the synth');
-  assert.equal(started.length, 1); assert.equal(started[0].when, 1.25); assert.equal(started[0].gain, 0.4);
+  assert.equal(started.length, 1);
+  assert.equal(started[0].when, 1.25);
+  assert.equal(started[0].gain, 0.4);
   assert.equal(bank.stats().played, 1);
   await bank.decode(ctx); // idempotent: nothing pending, no re-decode of the failed one
   assert.deepEqual(bank.stats().failed, ['press']);
-  const empty = new SampleBank(); empty.provide('ship', bytes(0x52, 10)); // too small to be a WAV: ignored
+  const empty = new SampleBank();
+  empty.provide('ship', bytes(0x52, 10)); // too small to be a WAV: ignored
   assert.deepEqual(empty.stats().missing, ['ship', 'press']);
 });
 
@@ -53,9 +83,16 @@ test('authored WAVs exist, are mono 22 kHz 16-bit PCM and small', () => {
     assert.ok(fs.existsSync(file), `${rel} is checked in`);
     const b = fs.readFileSync(file);
     assert.ok(b.length <= 20 * 1024, `${kind}: ${b.length} bytes ≤ 20 KB`);
-    assert.equal(b.toString('ascii', 0, 4), 'RIFF'); assert.equal(b.toString('ascii', 8, 12), 'WAVE');
-    assert.deepEqual([b.readUInt16LE(20), b.readUInt16LE(22), b.readUInt32LE(24), b.readUInt16LE(34)], [1, 1, 22050, 16], `${kind}: PCM, mono, 22050 Hz, 16-bit`);
-    assert.equal(b.toString('ascii', 36, 40), 'data'); assert.equal(b.readUInt32LE(40), b.length - 44);
-    const ms = (b.length - 44) / 2 / 22050 * 1000; assert.ok(ms >= 80 && ms <= 300, `${kind}: ${ms | 0} ms`);
+    assert.equal(b.toString('ascii', 0, 4), 'RIFF');
+    assert.equal(b.toString('ascii', 8, 12), 'WAVE');
+    assert.deepEqual(
+      [b.readUInt16LE(20), b.readUInt16LE(22), b.readUInt32LE(24), b.readUInt16LE(34)],
+      [1, 1, 22050, 16],
+      `${kind}: PCM, mono, 22050 Hz, 16-bit`,
+    );
+    assert.equal(b.toString('ascii', 36, 40), 'data');
+    assert.equal(b.readUInt32LE(40), b.length - 44);
+    const ms = ((b.length - 44) / 2 / 22050) * 1000;
+    assert.ok(ms >= 80 && ms <= 300, `${kind}: ${ms | 0} ms`);
   }
 });

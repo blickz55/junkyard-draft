@@ -19,13 +19,28 @@ import { recommendFirstPick } from '../content/firstpick';
 import type { Situation } from '../content/foreman';
 
 /** One step of the lesson: the text, the funnel step (1 pick crusher, 2 place it, 3 run it, 4 furnace, 5 splitter, 6 free draft) and the demo to show. */
-export interface LessonStep { text: string; step: number; demo?: string }
-export interface GuideContext { tutorial: boolean; onboarded: boolean; /** watching a recording: no advice, no first pick */ watching: boolean; resumeNotice?: string | null }
-export interface Guidance { text: string; demo?: string; /** lesson step on screen, 0 outside the lesson */ step: number; /** the foreman's situation for this moment, or null to leave his line as it is */ foreman: Situation | null }
+export interface LessonStep {
+  text: string;
+  step: number;
+  demo?: string;
+}
+export interface GuideContext {
+  tutorial: boolean;
+  onboarded: boolean;
+  /** watching a recording: no advice, no first pick */ watching: boolean;
+  resumeNotice?: string | null;
+}
+export interface Guidance {
+  text: string;
+  demo?: string;
+  /** lesson step on screen, 0 outside the lesson */ step: number;
+  /** the foreman's situation for this moment, or null to leave his line as it is */ foreman: Situation | null;
+}
 
 /** The tutorial seed's lesson, one rule per round, checked against the layout. Round 3 comes in three short steps (0.9.3). */
 export function lessonStep(run: RunState): LessonStep {
-  const r = run; const L = r.layout;
+  const r = run;
+  const L = r.layout;
   const find = (k: Machine['kind']) => L.machines.find((m) => m.kind === k);
   const at = (x: number, y: number) => L.machines.find((m) => m.x === x && m.y === y);
   const fed = (m: Machine) => placementWarning(L, m.kind, m.x, m.y, m.dir, m.id) == null;
@@ -38,7 +53,8 @@ export function lessonStep(run: RunState): LessonStep {
   }
   if (r.round === 2) {
     if (r.phase === 'draft') return { step: 4, text: t('lesson.2draft', { ingot: $('ingot'), slag: $('slag') }) };
-    const furnace = find('furnace'); const crusher = find('crusher');
+    const furnace = find('furnace');
+    const crusher = find('crusher');
     if (!furnace) return { step: 4, text: t('lesson.2place') };
     if (crusher && furnace.y === crusher.y && furnace.x < crusher.x) return { step: 4, text: t('lesson.2order') };
     return fed(furnace) ? { step: 4, text: t('lesson.2fed', { ingot: $('ingot') }) } : { step: 4, text: t('lesson.2unfed') };
@@ -48,7 +64,14 @@ export function lessonStep(run: RunState): LessonStep {
     const splitter = find('splitter');
     if (!splitter) return { step: 5, text: t('lesson.3place'), demo: 'splitter' };
     // a branch is back on the belt when: a conveyor on the output cell, a conveyor where it points, and that one points into something that takes it
-    const joined = (out: Dir) => { const a = at(splitter.x + DIR_DX[out], splitter.y + DIR_DY[out]); if (!a || a.kind !== 'conveyor') return false; const b = at(a.x + DIR_DX[a.dir], a.y + DIR_DY[a.dir]); if (!b || b.kind !== 'conveyor') return false; const c = at(b.x + DIR_DX[b.dir], b.y + DIR_DY[b.dir]); return !!c && inputTravelDirs(c.kind, c.dir).includes(b.dir); };
+    const joined = (out: Dir) => {
+      const a = at(splitter.x + DIR_DX[out], splitter.y + DIR_DY[out]);
+      if (!a || a.kind !== 'conveyor') return false;
+      const b = at(a.x + DIR_DX[a.dir], a.y + DIR_DY[a.dir]);
+      if (!b || b.kind !== 'conveyor') return false;
+      const c = at(b.x + DIR_DX[b.dir], b.y + DIR_DY[b.dir]);
+      return !!c && inputTravelDirs(c.kind, c.dir).includes(b.dir);
+    };
     if (!joined(leftOf(splitter.dir))) return { step: 5, text: t('lesson.3top'), demo: 'sideload' };
     if (!joined(rightOf(splitter.dir))) return { step: 5, text: t('lesson.3bottom'), demo: 'sideload' };
     const flow = runLayout(L, 40);
@@ -60,12 +83,31 @@ export function lessonStep(run: RunState): LessonStep {
 
 /** Which of the foreman's openers fits a round's bottleneck (0.9.1). */
 export function situationFor(b: Bottleneck): Situation {
-  return b.kind === 'disconnected' ? 'bottleneckDisconnected' : b.kind === 'dead-end' ? 'bottleneckDeadEnd' : b.kind === 'slag' ? 'bottleneckSlag' : b.kind === 'saturated' ? (b.machine?.kind === 'conveyor' ? 'bottleneckMerge' : 'bottleneckSaturated') : b.kind === 'starved' ? 'bottleneckStarved' : 'bottleneckBalanced';
+  return b.kind === 'disconnected'
+    ? 'bottleneckDisconnected'
+    : b.kind === 'dead-end'
+      ? 'bottleneckDeadEnd'
+      : b.kind === 'slag'
+        ? 'bottleneckSlag'
+        : b.kind === 'saturated'
+          ? b.machine?.kind === 'conveyor'
+            ? 'bottleneckMerge'
+            : 'bottleneckSaturated'
+          : b.kind === 'starved'
+            ? 'bottleneckStarved'
+            : 'bottleneckBalanced';
 }
 
 /** The idle hints, rotated by round and machine count so the strip is never blank. */
 export function idleTip(run: RunState): string {
-  const tips = [t('hint.tip1'), t('hint.tip2'), t('hint.tip3'), t('hint.tip4'), t('hint.tip5'), t('hint.tip6', { shards: money(RULES.value.shards), plate: money(RULES.value.plate) })];
+  const tips = [
+    t('hint.tip1'),
+    t('hint.tip2'),
+    t('hint.tip3'),
+    t('hint.tip4'),
+    t('hint.tip5'),
+    t('hint.tip6', { shards: money(RULES.value.shards), plate: money(RULES.value.plate) }),
+  ];
   return tips[(run.round + run.layout.machines.length) % tips.length];
 }
 
@@ -76,15 +118,24 @@ export function idleTip(run: RunState): string {
  */
 export function hintFor(run: RunState, ctx: GuideContext): Guidance {
   const r = run;
-  let text = ''; let demo: string | undefined; let step = 0; let foreman: Situation | null = null;
-  if (ctx.tutorial) { const s = lessonStep(r); text = s.text; demo = s.demo; step = s.step; }
-  else if (r.round === 1 && r.phase === 'draft' && !ctx.watching) { // 0.9.3: the first draft says which card to take and why
+  let text = '';
+  let demo: string | undefined;
+  let step = 0;
+  let foreman: Situation | null = null;
+  if (ctx.tutorial) {
+    const s = lessonStep(r);
+    text = s.text;
+    demo = s.demo;
+    step = s.step;
+  } else if (r.round === 1 && r.phase === 'draft' && !ctx.watching) {
+    // 0.9.3: the first draft says which card to take and why
     const rec = recommendFirstPick(r.offers);
     const pick = rec ? t('hint.firstPick', { n: rec.index + 1, name: machineName(rec.kind), why: rec.why }) : '';
     text = ctx.onboarded ? pick : `${t('hint.newHere')} ${pick}`.trim();
   }
   if (ctx.resumeNotice) text = ctx.resumeNotice;
-  if (!text && r.phase === 'draft' && r.rounds.length && !ctx.watching) { // 0.8.8: the last round's bottleneck line is the draft's hint
+  if (!text && r.phase === 'draft' && r.rounds.length && !ctx.watching) {
+    // 0.8.8: the last round's bottleneck line is the draft's hint
     const last = r.rounds[r.rounds.length - 1];
     const b = analyseRound(last.layout, last.result, r.round);
     text = t('hint.lastRound', { line: bottleneckLine(b) });

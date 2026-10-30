@@ -33,7 +33,8 @@ export function formatAnnouncement(ev: AnnounceEvent): string {
 }
 
 /** The dedupe key: one message per event type per seed, and per leader for a new #1. */
-export const announceKey = (ev: AnnounceEvent): string => `${ev.kind}:${ev.record.kind === 'weekly' ? ev.record.week : ev.record.date}${ev.kind === 'lead' ? `:${ev.entry.replayHash}` : ''}`;
+export const announceKey = (ev: AnnounceEvent): string =>
+  `${ev.kind}:${ev.record.kind === 'weekly' ? ev.record.week : ev.record.date}${ev.kind === 'lead' ? `:${ev.entry.replayHash}` : ''}`;
 
 export interface AnnouncerOptions {
   /** the webhook URL; null disables posting entirely (events are still deduplicated and counted) */
@@ -50,37 +51,74 @@ export interface AnnouncerOptions {
 export class Announcer {
   private readonly sent = new Set<string>();
   private queue: Promise<void> = Promise.resolve();
-  private readonly f: typeof fetch; private readonly log: (line: string) => void; private readonly sleep: (ms: number) => Promise<void>; private readonly maxRetries: number;
+  private readonly f: typeof fetch;
+  private readonly log: (line: string) => void;
+  private readonly sleep: (ms: number) => Promise<void>;
+  private readonly maxRetries: number;
   /** messages posted (2xx), dropped (non-429 failure or retries exhausted) and skipped as duplicates, for /health and tests */
   readonly stats = { posted: 0, dropped: 0, deduped: 0, retried: 0 };
   constructor(private readonly opts: AnnouncerOptions) {
-    this.f = opts.fetch ?? fetch; this.log = opts.log === null ? () => {} : opts.log ?? ((l) => console.log(l)); this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))); this.maxRetries = opts.maxRetries ?? 3;
+    this.f = opts.fetch ?? fetch;
+    this.log = opts.log === null ? () => {} : (opts.log ?? ((l) => console.log(l)));
+    this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+    this.maxRetries = opts.maxRetries ?? 3;
   }
-  get enabled(): boolean { return !!this.opts.url || !!this.opts.dryRun; }
+  get enabled(): boolean {
+    return !!this.opts.url || !!this.opts.dryRun;
+  }
   /** Queue one announcement; returns at once. Duplicates (same key) are skipped. */
   announce(ev: AnnounceEvent): void {
     if (!this.enabled) return;
     const key = announceKey(ev);
-    if (this.sent.has(key)) { this.stats.deduped++; return; }
+    if (this.sent.has(key)) {
+      this.stats.deduped++;
+      return;
+    }
     this.sent.add(key);
     const text = formatAnnouncement(ev);
-    this.queue = this.queue.then(() => this.post(text, key)).catch(() => { /* post() never throws; belt and braces so the chain survives */ });
+    this.queue = this.queue
+      .then(() => this.post(text, key))
+      .catch(() => {
+        /* post() never throws; belt and braces so the chain survives */
+      });
   }
   /** Resolves when every queued message has been posted or dropped (tests, shutdown). */
-  idle(): Promise<void> { return this.queue; }
+  idle(): Promise<void> {
+    return this.queue;
+  }
   private async post(text: string, key: string): Promise<void> {
-    if (this.opts.dryRun || !this.opts.url) { this.log(`discord (dry run) ${key}: ${text}`); this.stats.posted++; return; }
+    if (this.opts.dryRun || !this.opts.url) {
+      this.log(`discord (dry run) ${key}: ${text}`);
+      this.stats.posted++;
+      return;
+    }
     for (let attempt = 0; ; attempt++) {
       let res: Response;
-      try { res = await this.f(this.opts.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: text, allowed_mentions: { parse: [] } }) }); }
-      catch (e) { this.log(`discord ${key}: dropped, request failed: ${(e as Error).message}`); this.stats.dropped++; return; }
-      if (res.ok) { this.stats.posted++; return; }
+      try {
+        res = await this.f(this.opts.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: text, allowed_mentions: { parse: [] } }),
+        });
+      } catch (e) {
+        this.log(`discord ${key}: dropped, request failed: ${(e as Error).message}`);
+        this.stats.dropped++;
+        return;
+      }
+      if (res.ok) {
+        this.stats.posted++;
+        return;
+      }
       if (res.status === 429 && attempt < this.maxRetries) {
         const ms = await retryAfterMs(res);
-        this.stats.retried++; this.log(`discord ${key}: rate limited, retrying in ${ms} ms (${attempt + 1}/${this.maxRetries})`);
-        await this.sleep(ms); continue;
+        this.stats.retried++;
+        this.log(`discord ${key}: rate limited, retrying in ${ms} ms (${attempt + 1}/${this.maxRetries})`);
+        await this.sleep(ms);
+        continue;
       }
-      this.log(`discord ${key}: dropped, HTTP ${res.status}${res.status === 429 ? ' after retries' : ''}`); this.stats.dropped++; return;
+      this.log(`discord ${key}: dropped, HTTP ${res.status}${res.status === 429 ? ' after retries' : ''}`);
+      this.stats.dropped++;
+      return;
     }
   }
 }
@@ -88,7 +126,17 @@ export class Announcer {
 /** Retry-After as milliseconds: a delay in seconds, an HTTP date, or Discord's JSON `retry_after` (seconds); 1 s when absent. */
 export async function retryAfterMs(res: Response, now = Date.now()): Promise<number> {
   const h = res.headers.get('retry-after');
-  if (h) { const s = Number(h); if (Number.isFinite(s)) return Math.max(0, Math.round(s * 1000)); const t = Date.parse(h); if (Number.isFinite(t)) return Math.max(0, t - now); }
-  try { const b = await res.json() as { retry_after?: number }; if (typeof b.retry_after === 'number') return Math.max(0, Math.round(b.retry_after * 1000)); } catch { /* no body */ }
+  if (h) {
+    const s = Number(h);
+    if (Number.isFinite(s)) return Math.max(0, Math.round(s * 1000));
+    const t = Date.parse(h);
+    if (Number.isFinite(t)) return Math.max(0, t - now);
+  }
+  try {
+    const b = (await res.json()) as { retry_after?: number };
+    if (typeof b.retry_after === 'number') return Math.max(0, Math.round(b.retry_after * 1000));
+  } catch {
+    /* no body */
+  }
   return 1000;
 }

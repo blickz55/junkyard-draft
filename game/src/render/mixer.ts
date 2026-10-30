@@ -8,14 +8,23 @@
 export type Group = 'ship' | 'transform' | 'ui' | 'jam' | 'misc';
 export const CAPS: Record<Group, number> = { ship: 8, transform: 4, ui: 4, jam: 1, misc: 2 };
 
-interface Voice { group: Group; priority: number; until: number }
+interface Voice {
+  group: Group;
+  priority: number;
+  until: number;
+}
 
 export class VoiceAllocator {
   private voices: Voice[] = [];
   constructor(private readonly caps: Record<Group, number> = CAPS) {}
-  private expire(now: number) { this.voices = this.voices.filter((v) => v.until > now); }
+  private expire(now: number) {
+    this.voices = this.voices.filter((v) => v.until > now);
+  }
   /** Active voices in a group at `now`. */
-  active(group: Group, now: number): number { this.expire(now); return this.voices.filter((v) => v.group === group).length; }
+  active(group: Group, now: number): number {
+    this.expire(now);
+    return this.voices.filter((v) => v.group === group).length;
+  }
   /** Ask for a voice; true when it may play (a lower-priority active voice is stolen if the group is full). */
   acquire(group: Group, priority: number, now: number, durMs: number): boolean {
     this.expire(now);
@@ -30,8 +39,17 @@ export class VoiceAllocator {
   }
 }
 
-export interface TickSounds { ships: number[]; transforms: number[]; jams: number }
-export interface TickPlan { chord: number[]; transforms: number[]; jam: boolean; count: number }
+export interface TickSounds {
+  ships: number[];
+  transforms: number[];
+  jams: number;
+}
+export interface TickPlan {
+  chord: number[];
+  transforms: number[];
+  jam: boolean;
+  count: number;
+}
 
 /** Distinct ship values, highest first, capped: the notes of this tick's chord. */
 export function coalesceShips(values: number[], cap = CAPS.ship): number[] {
@@ -39,7 +57,10 @@ export function coalesceShips(values: number[], cap = CAPS.ship): number[] {
 }
 /** Transform tiers (1 shard, 2 plate, 3 ingot, 0 slag) kept highest first, capped. */
 export function capTransforms(tiers: number[], cap = CAPS.transform): number[] {
-  return tiers.slice().sort((a, b) => b - a).slice(0, cap);
+  return tiers
+    .slice()
+    .sort((a, b) => b - a)
+    .slice(0, cap);
 }
 /** What one simulation tick should sound like. Reduced audio collapses it to a single highest-priority sound. */
 export function planTick(t: TickSounds, reducedAudio: boolean): TickPlan {
@@ -68,8 +89,18 @@ export function humCutoff(inFlight: number): number {
   const x = Math.max(0, Math.min(1, inFlight / 12));
   return 300 * Math.pow(2000 / 300, x);
 }
-export interface HumInput { inFlight: number; jammed: boolean; tick: number; ticksPerRound: number }
-export interface HumTarget { freq: number; cutoff: number; detuned: boolean; rise: number }
+export interface HumInput {
+  inFlight: number;
+  jammed: boolean;
+  tick: number;
+  ticksPerRound: number;
+}
+export interface HumTarget {
+  freq: number;
+  cutoff: number;
+  detuned: boolean;
+  rise: number;
+}
 /** What the drone should do this tick: a jam detunes it a quarter tone; the last ten ticks rise one octave. */
 export function humTarget(root: number, i: HumInput): HumTarget {
   const rise = Math.max(0, Math.min(1, (i.tick - (i.ticksPerRound - 10)) / 10));

@@ -2,7 +2,23 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSim, runLayout, step, cellIndex } from '../game/src/sim/sim';
 import { RULES } from '../game/src/sim/rules';
-import { starterLayout, newRun, apply, replay, draftOffers, rerollOffers, canReroll, validateAction, RunError, MAX_REPLAY_ACTIONS, actionBudget, sanitizeSeed, isTutorialSeed, TUTORIAL_SEED, TUTORIAL_SPARE_CONVEYORS } from '../game/src/sim/run';
+import {
+  starterLayout,
+  newRun,
+  apply,
+  replay,
+  draftOffers,
+  rerollOffers,
+  canReroll,
+  validateAction,
+  RunError,
+  MAX_REPLAY_ACTIONS,
+  actionBudget,
+  sanitizeSeed,
+  isTutorialSeed,
+  TUTORIAL_SEED,
+  TUTORIAL_SPARE_CONVEYORS,
+} from '../game/src/sim/run';
 import { createHash } from 'node:crypto';
 import { exportReplay, decodeReplay, encodeReplay, verifyReplay, validateReplayFile } from '../game/src/sim/replay';
 import { RULES_VERSION, type Layout, type Machine, type Dir, type MachineKind } from '../game/src/sim/types';
@@ -44,11 +60,10 @@ test('furnace: shards → ingot ($12), raw scrap → slag ($2), furnace is the b
 test('splitter doubles furnace throughput', () => {
   // hopper → crusher → splitter → two furnaces (left/right) → docks
   const single = runLayout(lay(m('hopper', 0, 2), m('crusher', 1, 2), m('furnace', 2, 2), m('dock', 3, 2)), 80);
-  const split = runLayout(lay(
-    m('hopper', 0, 2), m('crusher', 1, 2), m('splitter', 2, 2, 0),
-    m('furnace', 2, 1, 3), m('dock', 2, 0),
-    m('furnace', 2, 3, 1), m('dock', 2, 4),
-  ), 80);
+  const split = runLayout(
+    lay(m('hopper', 0, 2), m('crusher', 1, 2), m('splitter', 2, 2, 0), m('furnace', 2, 1, 3), m('dock', 2, 0), m('furnace', 2, 3, 1), m('dock', 2, 4)),
+    80,
+  );
   assert.ok(split.shipped.ingot > single.shipped.ingot * 1.35, `split ${split.shipped.ingot} vs single ${single.shipped.ingot}`);
 });
 
@@ -106,12 +121,17 @@ test('run: pick → place → run → next, invalid actions rejected, replay rep
   assert.ok(s.rounds[0].earned > 38, 'crusher chain beats starter');
   apply(s, { t: 'next' });
   assert.equal(s.round, 2);
-  for (let r = 2; r <= RULES.rounds; r++) { apply(s, { t: 'pick', i: 0 }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); }
+  for (let r = 2; r <= RULES.rounds; r++) {
+    apply(s, { t: 'pick', i: 0 });
+    apply(s, { t: 'run' });
+    apply(s, { t: 'next' });
+  }
   assert.equal(s.phase, 'finished');
   const file = exportReplay(s);
   const roundTrip = decodeReplay(encodeReplay(file));
   const v = verifyReplay(roundTrip);
-  assert.equal(v.ok, true); assert.equal(v.score, s.score);
+  assert.equal(v.ok, true);
+  assert.equal(v.score, s.score);
   // tampered claim is rejected
   assert.equal(verifyReplay({ ...roundTrip, claimedScore: s.score + 1 }).ok, false);
   // tampered action (placing on occupied cell) is rejected
@@ -131,10 +151,25 @@ test('long east-moving chains advance as a unit (no false jams from a pass cap)'
 
 test('malformed actions are rejected by apply and by decodeReplay', () => {
   const s = newRun('v');
-  for (const bad of [{ t: 'pick', i: 0.5 }, { t: 'pick', i: -1 }, { t: 'place', id: 1, x: null, y: 2, dir: 0 }, { t: 'place', id: 1, x: 1, y: 1, dir: 4 }, { t: 'foo' }, { t: 'run', extra: 1 }, null, 'run'])
+  for (const bad of [
+    { t: 'pick', i: 0.5 },
+    { t: 'pick', i: -1 },
+    { t: 'place', id: 1, x: null, y: 2, dir: 0 },
+    { t: 'place', id: 1, x: 1, y: 1, dir: 4 },
+    { t: 'foo' },
+    { t: 'run', extra: 1 },
+    null,
+    'run',
+  ])
     assert.throws(() => apply(s, bad as never), RunError, JSON.stringify(bad));
-  assert.throws(() => decodeReplay(JSON.stringify({ format: 1, rulesVersion: 1, seed: 'x', claimedScore: 0, actions: [{ t: 'pick', i: 'a' }] })), /malformed action/);
-  assert.throws(() => decodeReplay(JSON.stringify({ format: 1, rulesVersion: 1, seed: 'x', claimedScore: 0, actions: new Array(5000).fill({ t: 'rotate', id: 1 }) })), /too long/);
+  assert.throws(
+    () => decodeReplay(JSON.stringify({ format: 1, rulesVersion: 1, seed: 'x', claimedScore: 0, actions: [{ t: 'pick', i: 'a' }] })),
+    /malformed action/,
+  );
+  assert.throws(
+    () => decodeReplay(JSON.stringify({ format: 1, rulesVersion: 1, seed: 'x', claimedScore: 0, actions: new Array(5000).fill({ t: 'rotate', id: 1 }) })),
+    /too long/,
+  );
 });
 
 test('selling a bin part adds the sell bonus to the score and is replay-verified; placed machines cannot be sold', () => {
@@ -143,9 +178,15 @@ test('selling a bin part adds the sell bonus to the score and is replay-verified
   const id = s.bin[0].id;
   assert.throws(() => apply(s, { t: 'sell', id: 1 }), /only bin parts/);
   apply(s, { t: 'sell', id });
-  assert.equal(s.bin.length, 0); assert.equal(s.score, RULES.sellValue); assert.equal(s.sold, RULES.sellValue);
+  assert.equal(s.bin.length, 0);
+  assert.equal(s.score, RULES.sellValue);
+  assert.equal(s.sold, RULES.sellValue);
   assert.throws(() => apply(s, { t: 'sell', id }), RunError);
-  for (let r = 1; r <= RULES.rounds; r++) { if (r > 1) apply(s, { t: 'pick', i: 0 }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); }
+  for (let r = 1; r <= RULES.rounds; r++) {
+    if (r > 1) apply(s, { t: 'pick', i: 0 });
+    apply(s, { t: 'run' });
+    apply(s, { t: 'next' });
+  }
   assert.equal(verifyReplay(exportReplay(s)).ok, true);
 });
 
@@ -155,7 +196,10 @@ test('press: two shards become one $8 plate, scrap passes through, absorbed shar
   assert.equal(line.shipped.shards, 0, 'no loose shards leave a fed press');
   assert.equal(line.earned, line.shipped.plate * RULES.value.plate);
   // every plate consumed one extra shard; at most one more sits in the press store at the end
-  assert.ok(line.absorbed === line.shipped.plate || line.absorbed === line.shipped.plate + 1 || line.absorbed === line.shipped.plate + 2, `absorbed ${line.absorbed} vs plates ${line.shipped.plate}`);
+  assert.ok(
+    line.absorbed === line.shipped.plate || line.absorbed === line.shipped.plate + 1 || line.absorbed === line.shipped.plate + 2,
+    `absorbed ${line.absorbed} vs plates ${line.shipped.plate}`,
+  );
   const inTransit = line.spawned - line.absorbed - Object.values(line.shipped).reduce((a, b) => a + b, 0);
   assert.ok(inTransit >= 0 && inTransit <= 4, `in transit ${inTransit}`);
   assert.ok(line.events.some((e) => e.kind === 'absorb') && line.events.some((e) => e.kind === 'transform' && e.to === 'plate'));
@@ -178,15 +222,22 @@ test('rules version 2: new runs carry it, replays from other versions are reject
   assert.equal(s.rulesVersion, RULES_VERSION); // the current version, whatever it is (rules-v3 branch: 3)
   // play a run that places a press whenever one is offered
   for (let r = 1; r <= RULES.rounds; r++) {
-    const pi = s.offers.indexOf('press'); apply(s, { t: 'pick', i: pi >= 0 ? pi : 0 });
+    const pi = s.offers.indexOf('press');
+    apply(s, { t: 'pick', i: pi >= 0 ? pi : 0 });
     const part = s.bin[s.bin.length - 1];
-    if (part.kind === 'press') { const conv = s.layout.machines.find((x) => x.x === 3 && x.y === 2); if (conv) apply(s, { t: 'unplace', id: conv.id }); apply(s, { t: 'place', id: part.id, x: 3, y: 2, dir: 0 }); }
-    apply(s, { t: 'run' }); apply(s, { t: 'next' });
+    if (part.kind === 'press') {
+      const conv = s.layout.machines.find((x) => x.x === 3 && x.y === 2);
+      if (conv) apply(s, { t: 'unplace', id: conv.id });
+      apply(s, { t: 'place', id: part.id, x: 3, y: 2, dir: 0 });
+    }
+    apply(s, { t: 'run' });
+    apply(s, { t: 'next' });
   }
   const file = exportReplay(s);
   assert.equal(verifyReplay(file).ok, true);
   const old = verifyReplay({ ...file, rulesVersion: 1 });
-  assert.equal(old.ok, false); assert.match(old.error ?? '', /rules version/);
+  assert.equal(old.ok, false);
+  assert.match(old.error ?? '', /rules version/);
   // a press is offered somewhere in the first rounds across a handful of seeds (weight 10 of 106)
   const seen = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].some((seed) => [1, 2, 3, 4, 5, 6].some((r) => draftOffers(seed, r).includes('press')));
   assert.ok(seen, 'press appears in draft offers');
@@ -196,7 +247,11 @@ test('rules version 2: new runs carry it, replays from other versions are reject
 
 test('all_replay_entry_points_require_explicit_version: missing, null or foreign rules versions are rejected everywhere', () => {
   const s = newRun('ver-seed');
-  for (let r = 1; r <= RULES.rounds; r++) { apply(s, { t: 'pick', i: 0 }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); }
+  for (let r = 1; r <= RULES.rounds; r++) {
+    apply(s, { t: 'pick', i: 0 });
+    apply(s, { t: 'run' });
+    apply(s, { t: 'next' });
+  }
   const file = exportReplay(s);
   assert.equal(verifyReplay(file).ok, true);
   for (const bad of [undefined, null, '2', 2.5, 1, 99]) {
@@ -224,12 +279,24 @@ test('every_live_save_remains_resumable: seed bounds apply at creation and the a
   apply(s, { t: 'pick', i: 0 });
   const dock = s.layout.machines.find((m) => m.kind === 'dock')!;
   let rejected: Error | null = null;
-  for (let i = 0; i < MAX_REPLAY_ACTIONS; i++) { try { apply(s, { t: 'rotate', id: dock.id }); } catch (e) { rejected = e as Error; break; } }
+  for (let i = 0; i < MAX_REPLAY_ACTIONS; i++) {
+    try {
+      apply(s, { t: 'rotate', id: dock.id });
+    } catch (e) {
+      rejected = e as Error;
+      break;
+    }
+  }
   assert.ok(rejected instanceof RunError && /action limit/.test(rejected.message), 'edits stop before the replay cap');
   assert.ok(s.actions.length < MAX_REPLAY_ACTIONS, `${s.actions.length} actions leave headroom`);
   // the game can still be finished: pick/run/next are always allowed, and the result verifies
-  apply(s, { t: 'run' }); apply(s, { t: 'next' });
-  for (let r = 2; r <= RULES.rounds; r++) { apply(s, { t: 'pick', i: 0 }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); }
+  apply(s, { t: 'run' });
+  apply(s, { t: 'next' });
+  for (let r = 2; r <= RULES.rounds; r++) {
+    apply(s, { t: 'pick', i: 0 });
+    apply(s, { t: 'run' });
+    apply(s, { t: 'next' });
+  }
   assert.equal(s.phase, 'finished');
   assert.ok(s.actions.length <= MAX_REPLAY_ACTIONS);
   assert.equal(verifyReplay(exportReplay(s)).ok, true, 'a run played to the limit is still replayable');
@@ -239,10 +306,18 @@ test('every_live_save_remains_resumable: seed bounds apply at creation and the a
 test('tuner (rules v3, PLAN-v2 0.5.3): adjacent processors hold one tick less on any side, never under one tick, tuners do not stack, nothing else is affected, no item ever enters a tuner', () => {
   const line = (extra: Machine[]) => runLayout(lay(m('hopper', 0, 1), m('crusher', 1, 1), m('furnace', 2, 1), m('dock', 3, 1), ...extra), 60);
   const plain = line([]);
-  for (const [x, y] of [[2, 0], [2, 2]] as const) { // above and below the furnace
+  for (const [x, y] of [
+    [2, 0],
+    [2, 2],
+  ] as const) {
+    // above and below the furnace
     const tuned = line([m('tuner', x, y)]);
     assert.ok(tuned.shipped.ingot > plain.shipped.ingot, `tuner at ${x},${y}: ${tuned.shipped.ingot} ingots > ${plain.shipped.ingot}`);
-    assert.equal(tuned.cellStats[cellIndex(x, y, 8)]?.tuned, tuned.cellStats[cellIndex(2, 1, 8)]!.processed, 'every item the furnace processed was credited to the tuner');
+    assert.equal(
+      tuned.cellStats[cellIndex(x, y, 8)]?.tuned,
+      tuned.cellStats[cellIndex(2, 1, 8)]!.processed,
+      'every item the furnace processed was credited to the tuner',
+    );
   }
   // left/right of a processor: a tuner beside the crusher (whose hold is 2 → 1) speeds the crusher, not the furnace
   const side = runLayout(lay(m('hopper', 0, 1), m('crusher', 1, 1), m('dock', 2, 1), m('tuner', 1, 0)), 40);
@@ -252,14 +327,20 @@ test('tuner (rules v3, PLAN-v2 0.5.3): adjacent processors hold one tick less on
   // two tuners do not stack and the hold never drops under one tick: crusher 2 → 1 with one tuner equals two tuners
   const two = runLayout(lay(m('hopper', 0, 1), m('crusher', 1, 1), m('dock', 2, 1), m('tuner', 1, 0), m('tuner', 1, 2)), 40);
   assert.equal(two.shipped.shards, side.shipped.shards, 'the second tuner adds nothing');
-  assert.equal((two.cellStats[cellIndex(1, 0, 8)]?.tuned ?? 0) + (two.cellStats[cellIndex(1, 2, 8)]?.tuned ?? 0), side.cellStats[cellIndex(1, 0, 8)]?.tuned, 'one credit per item, to one tuner');
+  assert.equal(
+    (two.cellStats[cellIndex(1, 0, 8)]?.tuned ?? 0) + (two.cellStats[cellIndex(1, 2, 8)]?.tuned ?? 0),
+    side.cellStats[cellIndex(1, 0, 8)]?.tuned,
+    'one credit per item, to one tuner',
+  );
   // non-processors are untouched: a tuner beside conveyors and the dock changes nothing
   const conv = runLayout(lay(m('hopper', 0, 1), m('conveyor', 1, 1), m('conveyor', 2, 1), m('dock', 3, 1), m('tuner', 1, 0), m('tuner', 3, 0)), 40);
   const convPlain = runLayout(lay(m('hopper', 0, 1), m('conveyor', 1, 1), m('conveyor', 2, 1), m('dock', 3, 1)), 40);
-  assert.equal(conv.earned, convPlain.earned); assert.equal((conv.cellStats[cellIndex(1, 0, 8)]?.tuned ?? 0) + (conv.cellStats[cellIndex(3, 0, 8)]?.tuned ?? 0), 0);
+  assert.equal(conv.earned, convPlain.earned);
+  assert.equal((conv.cellStats[cellIndex(1, 0, 8)]?.tuned ?? 0) + (conv.cellStats[cellIndex(3, 0, 8)]?.tuned ?? 0), 0);
   // nothing enters a tuner: a hopper facing it is blocked
   const blocked = runLayout(lay(m('hopper', 0, 1), m('tuner', 1, 1)), 10);
-  assert.equal(blocked.spawned, 0); assert.ok((blocked.cellStats[cellIndex(0, 1, 8)]?.blockedTicks ?? 0) > 0);
+  assert.equal(blocked.spawned, 0);
+  assert.ok((blocked.cellStats[cellIndex(0, 1, 8)]?.blockedTicks ?? 0) > 0);
   // conservation holds with tuners in the line
   const t = line([m('tuner', 2, 0)]);
   assert.ok(t.spawned >= Object.values(t.shipped).reduce((a, b) => a + b, 0) + t.absorbed);
@@ -275,15 +356,32 @@ test('reroll (rules v3, PLAN-v2 0.5.4): once per round in the draft for RULES.re
   assert.match(canReroll({ ...base, score: 999, rerolledRound: 1 }) ?? '', /already used/);
   assert.match(canReroll({ ...newRun(TUTORIAL_SEED), score: 999 }) ?? '', /tutorial/);
   // through apply: a starter round earns $38, which cannot buy a $40 reroll in round 2
-  const poor = newRun('reroll-poor'); apply(poor, { t: 'pick', i: 0 }); apply(poor, { t: 'run' }); apply(poor, { t: 'next' });
-  assert.ok(poor.score < RULES.rerollCost); assert.throws(() => apply(poor, { t: 'reroll' }), RunError);
+  const poor = newRun('reroll-poor');
+  apply(poor, { t: 'pick', i: 0 });
+  apply(poor, { t: 'run' });
+  apply(poor, { t: 'next' });
+  assert.ok(poor.score < RULES.rerollCost);
+  assert.throws(() => apply(poor, { t: 'reroll' }), RunError);
   // a crusher round affords one: offers change, score drops by the cost, a second reroll is refused, rounds 3–6 are identical to a run that never rerolled
   const play = (reroll: boolean) => {
     const s = newRun('reroll-rich');
     for (let r = 1; r <= RULES.rounds; r++) {
-      if (r === 2 && reroll) { const before = s.offers.slice(); const score = s.score; apply(s, { t: 'reroll' }); assert.equal(s.score, score - RULES.rerollCost); assert.equal(s.rerolls, 1); assert.notDeepEqual(s.offers, before, 'new offers'); assert.throws(() => apply(s, { t: 'reroll' }), RunError, 'once per round'); }
+      if (r === 2 && reroll) {
+        const before = s.offers.slice();
+        const score = s.score;
+        apply(s, { t: 'reroll' });
+        assert.equal(s.score, score - RULES.rerollCost);
+        assert.equal(s.rerolls, 1);
+        assert.notDeepEqual(s.offers, before, 'new offers');
+        assert.throws(() => apply(s, { t: 'reroll' }), RunError, 'once per round');
+      }
       apply(s, { t: 'pick', i: Math.max(0, s.offers.indexOf('crusher')) });
-      if (r === 1) { const old = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!; const pick = s.bin[s.bin.length - 1]; apply(s, { t: 'unplace', id: old.id }); apply(s, { t: 'place', id: pick.id, x: 2, y: 2, dir: 0 }); }
+      if (r === 1) {
+        const old = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!;
+        const pick = s.bin[s.bin.length - 1];
+        apply(s, { t: 'unplace', id: old.id });
+        apply(s, { t: 'place', id: pick.id, x: 2, y: 2, dir: 0 });
+      }
       assert.throws(() => apply(s, { t: 'reroll' }), RunError, 'not in the build phase');
       apply(s, { t: 'run' });
       assert.throws(() => apply(s, { t: 'reroll' }), RunError, 'not in the result phase');
@@ -291,48 +389,76 @@ test('reroll (rules v3, PLAN-v2 0.5.4): once per round in the draft for RULES.re
     }
     return s;
   };
-  const a = play(true), b = play(false);
+  const a = play(true),
+    b = play(false);
   assert.ok(a.score >= RULES.rerollCost + 38, 'round 1 with a crusher affords the reroll');
   for (const r of [3, 4, 5, 6]) assert.deepEqual(draftOffers('reroll-rich', r), draftOffers('reroll-rich', r), 'offers are a pure function of (seed, round)');
-  assert.deepEqual(a.rounds.map((x) => x.round), b.rounds.map((x) => x.round));
+  assert.deepEqual(
+    a.rounds.map((x) => x.round),
+    b.rounds.map((x) => x.round),
+  );
   assert.notDeepEqual(rerollOffers('reroll-rich', 2), draftOffers('reroll-rich', 2), 'the reroll stream differs from the draft stream');
   // accounting: score = production + sales − rerolls
   assert.equal(a.score, a.rounds.reduce((t, x) => t + x.earned, 0) + a.sold - a.rerolls * RULES.rerollCost);
   // the replay carries the reroll and verifies; a permuted-key copy is the same canonical action
-  const v = verifyReplay(exportReplay(a)); assert.deepEqual({ ok: v.ok, score: v.score }, { ok: true, score: a.score });
+  const v = verifyReplay(exportReplay(a));
+  assert.deepEqual({ ok: v.ok, score: v.score }, { ok: true, score: a.score });
   assert.ok(exportReplay(a).actions.some((x) => x.t === 'reroll'));
-  assert.equal(validateAction({ t: 'reroll' }), true); assert.equal(validateAction({ t: 'reroll', i: 1 }), false);
+  assert.equal(validateAction({ t: 'reroll' }), true);
+  assert.equal(validateAction({ t: 'reroll', i: 1 }), false);
 });
 
 test('round-tiered offers (PLAN-v2 0.5.3): the tuner is never offered before round 3, the seven 0.2.0 machines are available in every round, offers depend on seed and round only', () => {
   const seen: Record<number, Set<string>> = {};
   for (let i = 0; i < 300; i++) for (let r = 1; r <= RULES.rounds; r++) for (const k of draftOffers(`tier-${i}`, r)) (seen[r] ||= new Set()).add(k);
   for (const r of [1, 2]) assert.ok(!seen[r].has('tuner'), `no tuner in round ${r}`);
-  assert.ok([3, 4, 5, 6].some((r) => seen[r].has('tuner')), 'the tuner is offered from round 3');
-  for (let r = 1; r <= RULES.rounds; r++) for (const k of ['conveyor', 'crusher', 'furnace', 'splitter', 'hopper', 'press', 'dock']) assert.ok(seen[r].has(k), `${k} is offered in round ${r} over 300 seeds`);
+  assert.ok(
+    [3, 4, 5, 6].some((r) => seen[r].has('tuner')),
+    'the tuner is offered from round 3',
+  );
+  for (let r = 1; r <= RULES.rounds; r++)
+    for (const k of ['conveyor', 'crusher', 'furnace', 'splitter', 'hopper', 'press', 'dock'])
+      assert.ok(seen[r].has(k), `${k} is offered in round ${r} over 300 seeds`);
   assert.ok(![...Object.values(seen)].some((s) => s.has('sieve')), 'the experimental sieve is never offered');
   assert.deepEqual(draftOffers('tier-7', 4), draftOffers('tier-7', 4), 'deterministic per (seed, round)');
 });
 
-test('tutorial seed (PLAN-v1 0.3.4): rounds 1-3 offer one machine each, three spare conveyors start in the bin, rounds 4-6 draft normally; every other seed\'s offers are byte-identical to before', () => {
-  assert.equal(isTutorialSeed(TUTORIAL_SEED), true); assert.equal(isTutorialSeed('tutorial-x'), true); assert.equal(isTutorialSeed('junkyard'), false);
-  assert.deepEqual([1, 2, 3].map((r) => draftOffers(TUTORIAL_SEED, r)), [['crusher'], ['furnace'], ['splitter']]);
+test("tutorial seed (PLAN-v1 0.3.4): rounds 1-3 offer one machine each, three spare conveyors start in the bin, rounds 4-6 draft normally; every other seed's offers are byte-identical to before", () => {
+  assert.equal(isTutorialSeed(TUTORIAL_SEED), true);
+  assert.equal(isTutorialSeed('tutorial-x'), true);
+  assert.equal(isTutorialSeed('junkyard'), false);
+  assert.deepEqual(
+    [1, 2, 3].map((r) => draftOffers(TUTORIAL_SEED, r)),
+    [['crusher'], ['furnace'], ['splitter']],
+  );
   for (const r of [4, 5, 6]) assert.equal(draftOffers(TUTORIAL_SEED, r).length, 3, 'rounds 4-6 are an ordinary draft');
   const s = newRun(TUTORIAL_SEED);
-  assert.equal(s.bin.length, TUTORIAL_SPARE_CONVEYORS); assert.ok(s.bin.every((m) => m.kind === 'conveyor'));
+  assert.equal(s.bin.length, TUTORIAL_SPARE_CONVEYORS);
+  assert.ok(s.bin.every((m) => m.kind === 'conveyor'));
   assert.equal(newRun('junkyard').bin.length, 0, 'ordinary seeds start with an empty bin');
   // snapshot taken before the tutorial table existed: the offer streams of ordinary seeds are unchanged
-  const h = createHash('sha256'); for (let i = 0; i < 50; i++) for (let r = 1; r <= 6; r++) h.update(JSON.stringify(draftOffers('snap-' + i, r)));
+  const h = createHash('sha256');
+  for (let i = 0; i < 50; i++) for (let r = 1; r <= 6; r++) h.update(JSON.stringify(draftOffers('snap-' + i, r)));
   for (const seed of ['junkyard', 'e2e-seed', 'auto-12', 'daily-2026-10-29']) for (let r = 1; r <= 6; r++) h.update(JSON.stringify(draftOffers(seed, r)));
-  assert.equal(h.digest('hex'), 'f02d6c589664e9af03d5f484f8db16d5d2ce9458c8da941acbea0228712a9959', 'OFFERS_SNAPSHOT: draftOffers for non-tutorial seeds must not change without a RULES_VERSION bump (rules v3: the tuner joins the pool from round 3, so the v2 snapshot b016e31a… was retired with the bump)');
+  assert.equal(
+    h.digest('hex'),
+    'f02d6c589664e9af03d5f484f8db16d5d2ce9458c8da941acbea0228712a9959',
+    'OFFERS_SNAPSHOT: draftOffers for non-tutorial seeds must not change without a RULES_VERSION bump (rules v3: the tuner joins the pool from round 3, so the v2 snapshot b016e31a… was retired with the bump)',
+  );
   // a tutorial run replays and verifies like any other
   apply(s, { t: 'pick', i: 0 });
   assert.throws(() => apply(s, { t: 'pick', i: 1 }), RunError, 'only one offer exists');
-  const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!; apply(s, { t: 'unplace', id: conv.id });
+  const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!;
+  apply(s, { t: 'unplace', id: conv.id });
   apply(s, { t: 'place', id: s.bin.find((m) => m.kind === 'crusher')!.id, x: 2, y: 2, dir: 0 });
-  apply(s, { t: 'run' }); apply(s, { t: 'next' });
+  apply(s, { t: 'run' });
+  apply(s, { t: 'next' });
   assert.ok(s.rounds[0].result.shipped.shards > 0, 'round 1 ships shards');
-  for (let r = 2; r <= RULES.rounds; r++) { apply(s, { t: 'pick', i: 0 }); apply(s, { t: 'run' }); apply(s, { t: 'next' }); }
+  for (let r = 2; r <= RULES.rounds; r++) {
+    apply(s, { t: 'pick', i: 0 });
+    apply(s, { t: 'run' });
+    apply(s, { t: 'next' });
+  }
   const v = verifyReplay(exportReplay(s));
   assert.deepEqual({ ok: v.ok, score: v.score }, { ok: true, score: s.score });
 });

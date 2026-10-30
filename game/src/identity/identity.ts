@@ -26,12 +26,24 @@ export const labelFor = (name: string, tag: string) => `${name}#${tag}`;
 export function normaliseName(raw: unknown): string {
   if (typeof raw !== 'string') return '';
   // eslint-disable-next-line no-control-regex -- control characters are exactly what a display name must not carry
-  return raw.normalize('NFKC').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202f\ufeff]/g, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
+  return raw
+    .normalize('NFKC')
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202f\ufeff]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, NAME_MAX);
 }
-const LEET: Record<string, string> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', '$': 's', '!': 'i', '|': 'l', '+': 't' };
+const LEET: Record<string, string> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', $: 's', '!': 'i', '|': 'l', '+': 't' };
 /** Lowercase, leetspeak folded, non-letters removed: the form the blocklist is matched against. */
 export function foldName(name: string): string {
-  return name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').split('').map((c) => LEET[c] ?? c).join('').replace(/[^a-z]/g, '');
+  return name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split('')
+    .map((c) => LEET[c] ?? c)
+    .join('')
+    .replace(/[^a-z]/g, '');
 }
 /** A short server-side list; the full moderation flow is v0.9. Matched as substrings of the folded name. */
 export const NAME_BLOCKLIST: readonly string[] = ['admin', 'moderator', 'verified', 'official', 'junkyardstaff', 'nigg', 'fagg', 'hitler', 'rapist'];
@@ -47,7 +59,7 @@ export function nameProblem(raw: unknown): string | null {
 
 /** Report reasons (PLAN-v4 0.7.7): a fixed list, never free text; the verifier refuses anything else. */
 export const REPORT_REASONS = ['offensive', 'impersonation', 'personal-info', 'spam', 'other'] as const;
-export type ReportReason = typeof REPORT_REASONS[number];
+export type ReportReason = (typeof REPORT_REASONS)[number];
 /** what every board shows instead of a reported name until a moderator acts */
 export const HIDDEN_LABEL = 'player';
 
@@ -55,8 +67,17 @@ export const HIDDEN_LABEL = 'player';
 export function recoveryCodeFor(tokenHex: string): string {
   if (!TOKEN_HEX.test(tokenHex)) throw new Error('bad token');
   const bytes = tokenHex.match(/../g)!.map((h) => parseInt(h, 16));
-  let bits = 0, acc = 0, out = '';
-  for (const b of bytes) { acc = (acc << 8) | b; bits += 8; while (bits >= 5) { bits -= 5; out += B32[(acc >> bits) & 31]; } }
+  let bits = 0,
+    acc = 0,
+    out = '';
+  for (const b of bytes) {
+    acc = (acc << 8) | b;
+    bits += 8;
+    while (bits >= 5) {
+      bits -= 5;
+      out += B32[(acc >> bits) & 31];
+    }
+  }
   if (bits > 0) out += B32[(acc << (5 - bits)) & 31];
   return [out.slice(0, 5), out.slice(5, 10), out.slice(10, 15), out.slice(15, 20), out.slice(20)].join('-'); // 5-5-5-5-6
 }
@@ -65,8 +86,19 @@ export function tokenFromRecoveryCode(code: unknown): string | null {
   if (typeof code !== 'string') return null;
   const clean = code.toUpperCase().replace(/[\s-]/g, '').replace(/[IL]/g, '1').replace(/O/g, '0');
   if (clean.length !== 26) return null;
-  let bits = 0, acc = 0; const bytes: number[] = [];
-  for (const ch of clean) { const v = B32.indexOf(ch); if (v < 0) return null; acc = (acc << 5) | v; bits += 5; if (bits >= 8) { bits -= 8; bytes.push((acc >> bits) & 255); } }
+  let bits = 0,
+    acc = 0;
+  const bytes: number[] = [];
+  for (const ch of clean) {
+    const v = B32.indexOf(ch);
+    if (v < 0) return null;
+    acc = (acc << 5) | v;
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push((acc >> bits) & 255);
+    }
+  }
   if (bytes.length !== 16) return null;
   return bytes.map((b) => b.toString(16).padStart(2, '0')).join('');
 }

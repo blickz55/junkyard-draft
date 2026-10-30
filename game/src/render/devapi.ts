@@ -37,7 +37,13 @@ export interface DevApi {
   /** one tick while paused (0.8.12); false when not paused */
   stepTick: () => boolean;
   /** tips panel: open state, the tip suggested by the last draft (unread), read ids, demo progress */
-  tips: () => { open: boolean; current: string | null; suggested: string | null; read: string[]; demo: { tip: string | null; tick: number; shipped: Record<string, number> } | null };
+  tips: () => {
+    open: boolean;
+    current: string | null;
+    suggested: string | null;
+    read: string[];
+    demo: { tip: string | null; tick: number; shipped: Record<string, number> } | null;
+  };
   openTips: (id?: string) => void;
   closeTips: () => void;
   /** opt-in funnel: enabled flag, install id presence, queue and send counters */
@@ -52,11 +58,28 @@ export const devEnabled = () => import.meta.env.DEV || new URLSearchParams(locat
 export function installDevApi(scene: GameScene) {
   if (!devEnabled()) return;
   const api: DevApi = {
-    scene: () => (scene.scene.isActive('Game') ? 'Game' : scene.scene.manager.getScenes(true)[0]?.scene.key ?? 'unknown'),
+    scene: () => (scene.scene.isActive('Game') ? 'Game' : (scene.scene.manager.getScenes(true)[0]?.scene.key ?? 'unknown')),
     phase: () => scene.run.phase,
     mode: () => scene.mode,
-    state: () => ({ seed: scene.run.seed, round: scene.run.round, phase: scene.run.phase, score: scene.run.score, rerolls: scene.run.rerolls, rerolledRound: scene.run.rerolledRound, offers: scene.run.offers, bin: scene.run.bin, layout: scene.run.layout, rounds: scene.run.rounds.map((r) => ({ round: r.round, earned: r.earned, shipped: r.result.shipped })), actions: scene.run.actions.length }),
-    act: (a) => { const ok = scene.act(a); scene.syncMachines(); scene.renderSide(); return ok; },
+    state: () => ({
+      seed: scene.run.seed,
+      round: scene.run.round,
+      phase: scene.run.phase,
+      score: scene.run.score,
+      rerolls: scene.run.rerolls,
+      rerolledRound: scene.run.rerolledRound,
+      offers: scene.run.offers,
+      bin: scene.run.bin,
+      layout: scene.run.layout,
+      rounds: scene.run.rounds.map((r) => ({ round: r.round, earned: r.earned, shipped: r.result.shipped })),
+      actions: scene.run.actions.length,
+    }),
+    act: (a) => {
+      const ok = scene.act(a);
+      scene.syncMachines();
+      scene.renderSide();
+      return ok;
+    },
     run: () => scene.startRun(),
     finishRun: () => scene.finishRun(),
     next: () => scene.nextRound(),
@@ -70,7 +93,11 @@ export function installDevApi(scene: GameScene) {
     undo: () => scene.undo(),
     redo: () => scene.redo(),
     stall: () => scene.stallInfo(),
-    stepTick: () => { const before = scene.stallInfo().tick; scene.stepTick(); return scene.stallInfo().tick === before + 1 || scene.stallInfo().tick === -1; },
+    stepTick: () => {
+      const before = scene.stallInfo().tick;
+      scene.stepTick();
+      return scene.stallInfo().tick === before + 1 || scene.stallInfo().tick === -1;
+    },
     tips: () => scene.tipsInfo(),
     openTips: (id) => scene.openTips(id),
     closeTips: () => scene.closeTips(),

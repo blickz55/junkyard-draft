@@ -19,7 +19,11 @@ test('tool start does not mark success; PostToolUse marks ok; failure counts', (
 
 test('subagent lifecycle links spawn description, parent and final result', () => {
   const st = createState();
-  reduce(st, hook('PreToolUse', { tool_name: 'Agent', tool_use_id: 'a1', input: { description: 'Audit scoring', subagent_type: 'general-purpose', model: 'sonnet' } }), 1);
+  reduce(
+    st,
+    hook('PreToolUse', { tool_name: 'Agent', tool_use_id: 'a1', input: { description: 'Audit scoring', subagent_type: 'general-purpose', model: 'sonnet' } }),
+    1,
+  );
   reduce(st, hook('SubagentStart', { agent_id: 'ag-1', agent_type: 'general-purpose' }), 2);
   const a = st.agents['agent:ag-1'];
   assert.equal(a.task, 'Audit scoring');
@@ -47,7 +51,16 @@ test('reported objective attributes later hook events to its task; failed check 
 
 test('tool-call history is bounded (review): thousands of starts keep at most the newest TOOL_CALL_LIMIT entries', () => {
   const s = createState();
-  for (let i = 0; i < TOOL_CALL_LIMIT + 500; i++) reduce(s, { ts: new Date(1_700_000_000_000 + i).toISOString(), kind: 'hook', event: 'PreToolUse', session_id: 'sess', tool_name: 'Bash', tool_use_id: `t${i}`, input: { command: 'echo' } });
+  for (let i = 0; i < TOOL_CALL_LIMIT + 500; i++)
+    reduce(s, {
+      ts: new Date(1_700_000_000_000 + i).toISOString(),
+      kind: 'hook',
+      event: 'PreToolUse',
+      session_id: 'sess',
+      tool_name: 'Bash',
+      tool_use_id: `t${i}`,
+      input: { command: 'echo' },
+    });
   const ids = Object.keys(s.toolCalls);
   assert.equal(ids.length, TOOL_CALL_LIMIT);
   assert.equal(ids[0], 't500', 'the oldest entries were dropped');
@@ -56,6 +69,8 @@ test('tool-call history is bounded (review): thousands of starts keep at most th
 
 test('malformed and unknown events do not break the reducer', () => {
   const st = createState();
-  reduce(st, null, 1); reduce(st, {}, 2); reduce(st, hook('SomethingNew'), 3);
+  reduce(st, null, 1);
+  reduce(st, {}, 2);
+  reduce(st, hook('SomethingNew'), 3);
   assert.equal(st.feed.length, 1);
 });

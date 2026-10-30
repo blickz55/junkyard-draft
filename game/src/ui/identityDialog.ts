@@ -37,16 +37,41 @@ export async function identityDialog(scene: Phaser.Scene, verifierUrl: string, o
   const typed = await dialog(scene, {
     title: id.name ? t('identity.button', { label: labelFor(id.name, tag) }) : t('identity.dialogTitle'),
     label: t('identity.dialogLabel', { tag, max: NAME_MAX }),
-    value: current || 'player', maxLength: NAME_MAX, ok: t('identity.save'),
+    value: current || 'player',
+    maxLength: NAME_MAX,
+    ok: t('identity.save'),
     extra: [
-      { label: t('identity.showKey'), tid: 'dialog-recovery', onClick: () => { void dialog(scene, { title: t('identity.keyTitle'), label: t('identity.keyLabel'), value: recoveryCode(), readonly: true, multiline: true, cancel: null, ok: t('common.closeShort') }).then(() => onDone(null)); } },
-      { label: t('identity.useKey'), tid: 'dialog-restore', onClick: () => { void promptText(scene, t('identity.useKey'), t('identity.useKeyLabel'), '').then(async (code) => {
-        if (code === null) return onDone(null);
-        if (!restoreIdentity(code)) { await alertText(scene, t('identity.restoreTitle'), t('identity.badKey')); return onDone(null); }
-        const claimed = bearerAllowed(verifierUrl) ? await fetchClaimed(verifierUrl) : null;
-        if (claimed) savePlayer(claimed.name);
-        onDone(claimed ? t('identity.restored', { label: labelFor(claimed.name, claimed.tag) }) : t('identity.restoredPending'));
-      }); } },
+      {
+        label: t('identity.showKey'),
+        tid: 'dialog-recovery',
+        onClick: () => {
+          void dialog(scene, {
+            title: t('identity.keyTitle'),
+            label: t('identity.keyLabel'),
+            value: recoveryCode(),
+            readonly: true,
+            multiline: true,
+            cancel: null,
+            ok: t('common.closeShort'),
+          }).then(() => onDone(null));
+        },
+      },
+      {
+        label: t('identity.useKey'),
+        tid: 'dialog-restore',
+        onClick: () => {
+          void promptText(scene, t('identity.useKey'), t('identity.useKeyLabel'), '').then(async (code) => {
+            if (code === null) return onDone(null);
+            if (!restoreIdentity(code)) {
+              await alertText(scene, t('identity.restoreTitle'), t('identity.badKey'));
+              return onDone(null);
+            }
+            const claimed = bearerAllowed(verifierUrl) ? await fetchClaimed(verifierUrl) : null;
+            if (claimed) savePlayer(claimed.name);
+            onDone(claimed ? t('identity.restored', { label: labelFor(claimed.name, claimed.tag) }) : t('identity.restoredPending'));
+          });
+        },
+      },
     ],
   });
   if (typed === null) return onDone(null);

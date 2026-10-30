@@ -12,42 +12,61 @@ import { digestReplay } from '../game/src/sim/digest';
 
 const DIR = path.resolve(process.cwd(), 'tests', 'golden');
 const ARCHIVE = path.join(DIR, 'archive');
-const index = JSON.parse(fs.readFileSync(path.join(DIR, 'INDEX.json'), 'utf8')) as { rulesVersion: number; entries: { file: string; seed: string; score: number; actions: number; stateHash: string; roundHashes: string[] }[] };
+const index = JSON.parse(fs.readFileSync(path.join(DIR, 'INDEX.json'), 'utf8')) as {
+  rulesVersion: number;
+  entries: { file: string; seed: string; score: number; actions: number; stateHash: string; roundHashes: string[] }[];
+};
 
 test('golden corpus: recorded under the current rules version and complete', () => {
   assert.equal(index.rulesVersion, RULES_VERSION, 'the corpus belongs to the current rules; regenerate it when the version is bumped');
   assert.ok(index.entries.length >= 7);
   const kinds = { ordinary: 0, tutorial: 0, daily: 0 };
-  for (const e of index.entries) { if (isTutorialSeed(e.seed)) kinds.tutorial++; else if (/^daily-/.test(e.seed)) kinds.daily++; else kinds.ordinary++; }
+  for (const e of index.entries) {
+    if (isTutorialSeed(e.seed)) kinds.tutorial++;
+    else if (/^daily-/.test(e.seed)) kinds.daily++;
+    else kinds.ordinary++;
+  }
   assert.ok(kinds.ordinary >= 4 && kinds.tutorial >= 1 && kinds.daily >= 1, `ordinary, scenario and daily seeds are all covered: ${JSON.stringify(kinds)}`);
-  assert.ok(index.entries.some((e) => e.seed === 'tutorialish'), 'a tutorial-looking name that is not a scenario');
+  assert.ok(
+    index.entries.some((e) => e.seed === 'tutorialish'),
+    'a tutorial-looking name that is not a scenario',
+  );
 });
 
 // archived corpora (older rules versions) must be refused with the version named, never silently re-scored (PLAN-v2 §1)
-if (fs.existsSync(ARCHIVE)) for (const vdir of fs.readdirSync(ARCHIVE)) {
-  const old = JSON.parse(fs.readFileSync(path.join(ARCHIVE, vdir, 'INDEX.json'), 'utf8')) as { rulesVersion: number; entries: { file: string; score: number }[] };
-  test(`archived corpus ${vdir}: every replay is refused under rules v${RULES_VERSION} with its version named`, () => {
-    assert.notEqual(old.rulesVersion, RULES_VERSION);
-    for (const e of old.entries) {
-      const r = decodeReplay(fs.readFileSync(path.join(ARCHIVE, vdir, e.file), 'utf8'));
-      assert.equal(r.rulesVersion, old.rulesVersion);
-      const v = verifyReplay(r);
-      assert.equal(v.ok, false, `${vdir}/${e.file} must not verify under v${RULES_VERSION}`);
-      assert.match(v.error ?? '', new RegExp(`version ${old.rulesVersion}`), `${vdir}/${e.file}: the refusal names the replay's version (${v.error})`);
-    }
-  });
-}
+if (fs.existsSync(ARCHIVE))
+  for (const vdir of fs.readdirSync(ARCHIVE)) {
+    const old = JSON.parse(fs.readFileSync(path.join(ARCHIVE, vdir, 'INDEX.json'), 'utf8')) as {
+      rulesVersion: number;
+      entries: { file: string; score: number }[];
+    };
+    test(`archived corpus ${vdir}: every replay is refused under rules v${RULES_VERSION} with its version named`, () => {
+      assert.notEqual(old.rulesVersion, RULES_VERSION);
+      for (const e of old.entries) {
+        const r = decodeReplay(fs.readFileSync(path.join(ARCHIVE, vdir, e.file), 'utf8'));
+        assert.equal(r.rulesVersion, old.rulesVersion);
+        const v = verifyReplay(r);
+        assert.equal(v.ok, false, `${vdir}/${e.file} must not verify under v${RULES_VERSION}`);
+        assert.match(v.error ?? '', new RegExp(`version ${old.rulesVersion}`), `${vdir}/${e.file}: the refusal names the replay's version (${v.error})`);
+      }
+    });
+  }
 
 for (const e of index.entries) {
   test(`golden replay ${e.file} re-simulates to $${e.score} with ${e.actions} actions`, () => {
     const r = decodeReplay(fs.readFileSync(path.join(DIR, e.file), 'utf8'));
-    assert.equal(r.seed, e.seed); assert.equal(r.rulesVersion, RULES_VERSION); assert.equal(r.actions.length, e.actions);
+    assert.equal(r.seed, e.seed);
+    assert.equal(r.rulesVersion, RULES_VERSION);
+    assert.equal(r.actions.length, e.actions);
     const v = verifyReplay(r);
     assert.equal(v.ok, true, `${e.file}: ${v.error ?? `score ${v.score} vs claimed ${v.claimed}`}`);
-    assert.equal(v.score, e.score); assert.equal(v.finished, true);
+    assert.equal(v.score, e.score);
+    assert.equal(v.finished, true);
     // 0.8.11: the recorded digests are what this engine (Node) computes; tests/engines-e2e.test.mjs holds the browsers to the same
     const d = digestReplay(r);
-    assert.match(e.stateHash, /^[0-9a-f]{64}$/); assert.equal(d.state, e.stateHash, `${e.file}: the final-state hash drifted`);
-    assert.equal(e.roundHashes.length, 6); assert.deepEqual(d.rounds, e.roundHashes, `${e.file}: a round's event stream drifted`);
+    assert.match(e.stateHash, /^[0-9a-f]{64}$/);
+    assert.equal(d.state, e.stateHash, `${e.file}: the final-state hash drifted`);
+    assert.equal(e.roundHashes.length, 6);
+    assert.deepEqual(d.rounds, e.roundHashes, `${e.file}: a round's event stream drifted`);
   });
 }

@@ -26,14 +26,52 @@ const lay = (width: number, height: number, ...machines: Machine[]): Layout => (
 const cell = (x: number, y: number, w: number) => y * w + x;
 
 export const TIP_DEMOS: readonly TipDemo[] = [
-  { id: 'crusher', machine: 'crusher', layout: lay(4, 3, m('hopper', 0, 1), m('crusher', 1, 1), m('conveyor', 2, 1), m('dock', 3, 1)), ticks: 24, check: (r) => r.shipped.shards >= 1 && r.shipped.scrap === 0 },
-  { id: 'sideload', machine: 'conveyor', layout: lay(4, 3, m('hopper', 0, 1), m('conveyor', 1, 1), m('conveyor', 2, 1), m('dock', 3, 1), m('hopper', 2, 0, 1)), ticks: 24, check: (r) => r.shipped.scrap >= 12 && (r.cellStats[cell(2, 0, 4)]?.spawned ?? 0) > 0 && (r.cellStats[cell(0, 1, 4)]?.spawned ?? 0) > 0 },
-  { id: 'splitter', machine: 'splitter', layout: lay(4, 3, m('hopper', 0, 1), m('splitter', 1, 1), m('dock', 1, 0), m('dock', 1, 2)), ticks: 24, check: (r) => (r.cellStats[cell(1, 0, 4)]?.shipped ?? 0) >= 1 && (r.cellStats[cell(1, 2, 4)]?.shipped ?? 0) >= 1 },
-  { id: 'furnace', machine: 'furnace', layout: lay(4, 3, m('hopper', 0, 1), m('furnace', 1, 1), m('conveyor', 2, 1), m('dock', 3, 1)), ticks: 30, check: (r) => r.shipped.slag >= 1 && r.shipped.ingot === 0 },
-  { id: 'press', machine: 'press', layout: lay(5, 3, m('hopper', 0, 1), m('crusher', 1, 1), m('press', 2, 1), m('conveyor', 3, 1), m('dock', 4, 1)), ticks: 30, check: (r) => r.shipped.plate >= 1 && r.absorbed >= 1 },
-  { id: 'tuner', machine: 'tuner', layout: lay(5, 3, m('hopper', 0, 1), m('crusher', 1, 1), m('furnace', 2, 1), m('dock', 3, 1), m('tuner', 2, 0)), ticks: 30, check: (r) => r.shipped.ingot >= 11 && (r.cellStats[cell(2, 0, 5)]?.tuned ?? 0) >= 11 },
+  {
+    id: 'crusher',
+    machine: 'crusher',
+    layout: lay(4, 3, m('hopper', 0, 1), m('crusher', 1, 1), m('conveyor', 2, 1), m('dock', 3, 1)),
+    ticks: 24,
+    check: (r) => r.shipped.shards >= 1 && r.shipped.scrap === 0,
+  },
+  {
+    id: 'sideload',
+    machine: 'conveyor',
+    layout: lay(4, 3, m('hopper', 0, 1), m('conveyor', 1, 1), m('conveyor', 2, 1), m('dock', 3, 1), m('hopper', 2, 0, 1)),
+    ticks: 24,
+    check: (r) => r.shipped.scrap >= 12 && (r.cellStats[cell(2, 0, 4)]?.spawned ?? 0) > 0 && (r.cellStats[cell(0, 1, 4)]?.spawned ?? 0) > 0,
+  },
+  {
+    id: 'splitter',
+    machine: 'splitter',
+    layout: lay(4, 3, m('hopper', 0, 1), m('splitter', 1, 1), m('dock', 1, 0), m('dock', 1, 2)),
+    ticks: 24,
+    check: (r) => (r.cellStats[cell(1, 0, 4)]?.shipped ?? 0) >= 1 && (r.cellStats[cell(1, 2, 4)]?.shipped ?? 0) >= 1,
+  },
+  {
+    id: 'furnace',
+    machine: 'furnace',
+    layout: lay(4, 3, m('hopper', 0, 1), m('furnace', 1, 1), m('conveyor', 2, 1), m('dock', 3, 1)),
+    ticks: 30,
+    check: (r) => r.shipped.slag >= 1 && r.shipped.ingot === 0,
+  },
+  {
+    id: 'press',
+    machine: 'press',
+    layout: lay(5, 3, m('hopper', 0, 1), m('crusher', 1, 1), m('press', 2, 1), m('conveyor', 3, 1), m('dock', 4, 1)),
+    ticks: 30,
+    check: (r) => r.shipped.plate >= 1 && r.absorbed >= 1,
+  },
+  {
+    id: 'tuner',
+    machine: 'tuner',
+    layout: lay(5, 3, m('hopper', 0, 1), m('crusher', 1, 1), m('furnace', 2, 1), m('dock', 3, 1), m('tuner', 2, 0)),
+    ticks: 30,
+    check: (r) => r.shipped.ingot >= 11 && (r.cellStats[cell(2, 0, 5)]?.tuned ?? 0) >= 11,
+  },
   { id: 'sell', machine: null, layout: null, ticks: 0, check: () => true },
 ];
 
 /** Run a tip's demo for one loop (what the panel animates) and return the result. */
-export function runTip(tip: Pick<TipDemo, 'layout' | 'ticks'>): RunResult | null { return tip.layout ? runLayout(tip.layout, tip.ticks) : null; }
+export function runTip(tip: Pick<TipDemo, 'layout' | 'ticks'>): RunResult | null {
+  return tip.layout ? runLayout(tip.layout, tip.ticks) : null;
+}

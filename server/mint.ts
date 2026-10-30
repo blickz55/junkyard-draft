@@ -13,12 +13,25 @@ export const DAILY_WINDOW_MS = 48 * 3_600_000;
 const B32 = 'abcdefghijklmnopqrstuvwxyz234567';
 
 export function base32Lower(bytes: Uint8Array): string {
-  let bits = 0, acc = 0, out = '';
-  for (const b of bytes) { acc = ((acc << 8) | b) >>> 0; bits += 8; while (bits >= 5) { bits -= 5; out += B32[(acc >>> bits) & 31]; } }
+  let bits = 0,
+    acc = 0,
+    out = '';
+  for (const b of bytes) {
+    acc = ((acc << 8) | b) >>> 0;
+    bits += 8;
+    while (bits >= 5) {
+      bits -= 5;
+      out += B32[(acc >>> bits) & 31];
+    }
+  }
   if (bits > 0) out += B32[(acc << (5 - bits)) & 31];
   return out;
 }
-export const isUtcDate = (s: unknown): s is string => { if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false; const t = Date.parse(`${s}T00:00:00Z`); return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === s; };
+export const isUtcDate = (s: unknown): s is string => {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const t = Date.parse(`${s}T00:00:00Z`);
+  return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === s;
+};
 export const utcDate = (now: Date): string => now.toISOString().slice(0, 10);
 export const dayStartMs = (date: string): number => Date.parse(`${date}T00:00:00Z`);
 export const shiftDate = (date: string, days: number): string => new Date(dayStartMs(date) + days * 86_400_000).toISOString().slice(0, 10);

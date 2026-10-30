@@ -7,7 +7,16 @@ import { decodeReplay } from '../game/src/sim/replay';
 import { digestReplay, sha256Hex } from '../game/src/sim/digest';
 import { RULES_VERSION } from '../game/src/sim/types';
 
-declare global { interface Window { __jdEngine: { rulesVersion: number; ua: string; digest: (replayText: string) => { score: number; state: string; rounds: string[] }; sha256: (text: string) => string } } }
+declare global {
+  interface Window {
+    __jdEngine: {
+      rulesVersion: number;
+      ua: string;
+      digest: (replayText: string) => { score: number; state: string; rounds: string[] };
+      sha256: (text: string) => string;
+    };
+  }
+}
 
 window.__jdEngine = {
   rulesVersion: RULES_VERSION,

@@ -23,12 +23,19 @@ export function isoWeekId(d: Date): string {
   const w = 1 + Math.floor((t.getTime() - mondayOf(jan4).getTime()) / (7 * DAY));
   return `${year}-W${String(w).padStart(2, '0')}`;
 }
-const mondayOf = (d: Date): Date => { const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7)); return t; };
+const mondayOf = (d: Date): Date => {
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7));
+  return t;
+};
 
 /** The Friday (UTC midnight) of an ISO week id; null for a malformed or impossible id. */
 export function fridayOfWeek(id: string): Date | null {
-  const m = WEEK_ID.exec(id); if (!m) return null;
-  const year = Number(m[1]), w = Number(m[2]); if (w < 1 || w > 53) return null;
+  const m = WEEK_ID.exec(id);
+  if (!m) return null;
+  const year = Number(m[1]),
+    w = Number(m[2]);
+  if (w < 1 || w > 53) return null;
   const monday1 = mondayOf(new Date(Date.UTC(year, 0, 4)));
   const friday = new Date(monday1.getTime() + ((w - 1) * 7 + 4) * DAY);
   return isoWeekId(friday) === id ? friday : null; // week 53 exists only in some years
@@ -37,7 +44,8 @@ export const isWeekId = (s: unknown): s is string => typeof s === 'string' && fr
 
 /** When a weekly opens and closes, and the open day's date (what the archive sorts by). */
 export function weeklyWindow(id: string): { opensAt: string; closesAt: string; openDate: string } | null {
-  const f = fridayOfWeek(id); if (!f) return null;
+  const f = fridayOfWeek(id);
+  if (!f) return null;
   const opens = f.getTime() + WEEKLY_OPEN_HOUR_UTC * 3_600_000;
   return { opensAt: new Date(opens).toISOString(), closesAt: new Date(opens + WEEKLY_WINDOW_MS).toISOString(), openDate: f.toISOString().slice(0, 10) };
 }
@@ -48,7 +56,17 @@ export function currentWeekId(now: Date): string {
   if (friday.getTime() + WEEKLY_OPEN_HOUR_UTC * 3_600_000 > now.getTime()) friday = new Date(friday.getTime() - 7 * DAY);
   return isoWeekId(friday);
 }
-export const nextWeekId = (id: string): string | null => { const f = fridayOfWeek(id); return f ? isoWeekId(new Date(f.getTime() + 7 * DAY)) : null; };
-export const prevWeekId = (id: string): string | null => { const f = fridayOfWeek(id); return f ? isoWeekId(new Date(f.getTime() - 7 * DAY)) : null; };
+export const nextWeekId = (id: string): string | null => {
+  const f = fridayOfWeek(id);
+  return f ? isoWeekId(new Date(f.getTime() + 7 * DAY)) : null;
+};
+export const prevWeekId = (id: string): string | null => {
+  const f = fridayOfWeek(id);
+  return f ? isoWeekId(new Date(f.getTime() - 7 * DAY)) : null;
+};
 /** Whether a weekly seed's window has closed. */
-export const weeklyClosed = (seed: string, now: Date): boolean => { const id = weeklyIdOf(seed); const w = id ? weeklyWindow(id) : null; return !!w && Date.parse(w.closesAt) <= now.getTime(); };
+export const weeklyClosed = (seed: string, now: Date): boolean => {
+  const id = weeklyIdOf(seed);
+  const w = id ? weeklyWindow(id) : null;
+  return !!w && Date.parse(w.closesAt) <= now.getTime();
+};

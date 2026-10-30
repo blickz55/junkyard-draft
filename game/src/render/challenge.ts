@@ -7,7 +7,13 @@
 import { overrideAllowed } from './config';
 import { outcomeText } from './share';
 
-export interface Challenge { hash: string; seed: string; player: string; score: number; rounds: number[] }
+export interface Challenge {
+  hash: string;
+  seed: string;
+  player: string;
+  score: number;
+  rounds: number[];
+}
 
 /** Pure: the shareable URL for an entry; `verifierOverride` is appended only when the caller says overrides count here. */
 export function buildChallengeLink(origin: string, pathname: string, hash: string, verifierOverride: string | null): string {
@@ -26,17 +32,29 @@ export function challengeLink(hash: string): string {
 /** Fetch the challenger's entry; null when unknown, offline, or without per-round earnings. */
 export async function fetchChallenge(verifierUrl: string, hash: string, timeoutMs = 4000): Promise<Challenge | null> {
   try {
-    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), timeoutMs);
-    const res = await fetch(`${verifierUrl}/entry?hash=${encodeURIComponent(hash)}`, { signal: ctl.signal }); clearTimeout(t);
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), timeoutMs);
+    const res = await fetch(`${verifierUrl}/entry?hash=${encodeURIComponent(hash)}`, { signal: ctl.signal });
+    clearTimeout(t);
     if (!res.ok) return null;
-    const b = await res.json() as { ok?: boolean; seed?: string; player?: string; score?: number; rounds?: unknown; replayHash?: string };
-    if (!b.ok || typeof b.seed !== 'string' || typeof b.score !== 'number' || !Array.isArray(b.rounds) || !b.rounds.every((x) => typeof x === 'number')) return null;
-    return { hash: b.replayHash ?? hash, seed: b.seed, player: typeof b.player === 'string' ? b.player.slice(0, 40) : 'challenger', score: b.score, rounds: b.rounds as number[] };
-  } catch { return null; }
+    const b = (await res.json()) as { ok?: boolean; seed?: string; player?: string; score?: number; rounds?: unknown; replayHash?: string };
+    if (!b.ok || typeof b.seed !== 'string' || typeof b.score !== 'number' || !Array.isArray(b.rounds) || !b.rounds.every((x) => typeof x === 'number'))
+      return null;
+    return {
+      hash: b.replayHash ?? hash,
+      seed: b.seed,
+      player: typeof b.player === 'string' ? b.player.slice(0, 40) : 'challenger',
+      score: b.score,
+      rounds: b.rounds as number[],
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** The challenger's running total after `round` rounds (0 → 0). */
-export const challengerTotal = (c: Challenge, round: number): number => c.rounds.slice(0, Math.max(0, Math.min(round, c.rounds.length))).reduce((a, b) => a + b, 0);
+export const challengerTotal = (c: Challenge, round: number): number =>
+  c.rounds.slice(0, Math.max(0, Math.min(round, c.rounds.length))).reduce((a, b) => a + b, 0);
 
 /** The outcome line once a run is finished: "beat Jon#7Q2M's $1200 by $50", "short of … by $50", or "tied …". */
 export function challengeOutcome(score: number, c: Challenge): { diff: number; text: string } {

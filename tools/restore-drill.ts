@@ -8,11 +8,27 @@
 import { restoreDrill } from './backup-lib';
 
 const args = process.argv.slice(2);
-const flag = (k: string) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i + 1] : undefined; };
+const flag = (k: string) => {
+  const i = args.indexOf(`--${k}`);
+  return i >= 0 ? args[i + 1] : undefined;
+};
 const archive = args.find((a, i) => !a.startsWith('--') && (i === 0 || !args[i - 1].startsWith('--') || args[i - 1] === '--keep-dir'));
-if (!archive) { console.error('usage: restore-drill <archive.tar.gz> [--live <url>] [--sample 5] [--keep-dir]'); process.exit(2); }
-restoreDrill(archive, { live: flag('live'), sample: flag('sample') != null ? Number(flag('sample')) : 5, keepDir: args.includes('--keep-dir') }).then((r) => {
-  console.log(JSON.stringify(r, null, 2));
-  console.log(r.ok ? `OK   restored ${r.archiveEntries} entries, ${r.sampled.length} sampled and served, ${r.manifestFiles} files verified in ${r.ms} ms` : `FAIL ${r.problems.join('; ')}`);
-  process.exitCode = r.ok ? 0 : 1;
-}, (e) => { console.error(`FAIL ${String(e)}`); process.exitCode = 1; });
+if (!archive) {
+  console.error('usage: restore-drill <archive.tar.gz> [--live <url>] [--sample 5] [--keep-dir]');
+  process.exit(2);
+}
+restoreDrill(archive, { live: flag('live'), sample: flag('sample') != null ? Number(flag('sample')) : 5, keepDir: args.includes('--keep-dir') }).then(
+  (r) => {
+    console.log(JSON.stringify(r, null, 2));
+    console.log(
+      r.ok
+        ? `OK   restored ${r.archiveEntries} entries, ${r.sampled.length} sampled and served, ${r.manifestFiles} files verified in ${r.ms} ms`
+        : `FAIL ${r.problems.join('; ')}`,
+    );
+    process.exitCode = r.ok ? 0 : 1;
+  },
+  (e) => {
+    console.error(`FAIL ${String(e)}`);
+    process.exitCode = 1;
+  },
+);

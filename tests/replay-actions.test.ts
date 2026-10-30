@@ -10,10 +10,19 @@ test('fork payload: null without an origin, before the first round is done and a
   const origin = { hash: 'abc', player: 'Pat#AB12', actions: [{ t: 'pick' as const, i: 0 }] };
   assert.equal(forkPayload(s, null), null);
   assert.equal(forkPayload(s, origin), null, 'no round finished yet');
-  apply(s, { t: 'pick', i: 0 }); apply(s, { t: 'run' });
-  assert.deepEqual(forkPayload(s, origin), { seed: 'try-seed', fresh: false, fork: { origin: { hash: 'abc', player: 'Pat#AB12' }, actions: origin.actions, round: 1 } });
+  apply(s, { t: 'pick', i: 0 });
+  apply(s, { t: 'run' });
+  assert.deepEqual(forkPayload(s, origin), {
+    seed: 'try-seed',
+    fresh: false,
+    fork: { origin: { hash: 'abc', player: 'Pat#AB12' }, actions: origin.actions, round: 1 },
+  });
   assert.deepEqual(forkPayload(s, { ...origin, hash: null })!.fork.origin, { hash: null, player: 'Pat#AB12' }, 'a local recording has no hash');
-  for (let r = 2; r <= RULES.rounds; r++) { apply(s, { t: 'next' }); apply(s, { t: 'pick', i: 0 }); apply(s, { t: 'run' }); }
+  for (let r = 2; r <= RULES.rounds; r++) {
+    apply(s, { t: 'next' });
+    apply(s, { t: 'pick', i: 0 });
+    apply(s, { t: 'run' });
+  }
   assert.equal(s.rounds.length, RULES.rounds);
   assert.equal(forkPayload(s, origin), null, 'the game is over: nothing to continue');
 });

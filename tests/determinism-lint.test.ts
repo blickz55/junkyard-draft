@@ -25,10 +25,16 @@ test('determinism lint: an injected Math.sin and a bare sort() fail; comparators
   assert.deepEqual(hit('// a Date is mentioned here, Math.sin too\n/* and Intl\n   across lines */ const ok = 1;'), [], 'comments are not code');
   assert.deepEqual(hit('const d = new Date(Date.UTC(2030, 0, 1));', 'game/src/sim/daily.ts'), [], 'the calendar modules may use Date');
   assert.deepEqual(hit('const d = Math.sin(1);', 'game/src/sim/daily.ts'), ['Math.random or a transcendental function'], 'but nothing else');
-  assert.deepEqual(hit("createdAt: new Date().toISOString(), // determinism: metadata only"), [], 'a marked line is allowed');
-  assert.deepEqual(hit("createdAt: new Date().toISOString(), // determinism:"), ['Date (the clock)'], 'the marker needs a reason');
+  assert.deepEqual(hit('createdAt: new Date().toISOString(), // determinism: metadata only'), [], 'a marked line is allowed');
+  assert.deepEqual(hit('createdAt: new Date().toISOString(), // determinism:'), ['Date (the clock)'], 'the marker needs a reason');
   const multi = lintSource('game/src/sim/x.ts', 'a();\nMath.cos(1);\nb();\nxs.sort();\n');
-  assert.deepEqual(multi.map((h) => [h.line, h.rule]), [[2, 'Math.random or a transcendental function'], [4, 'sort without a comparator']]);
+  assert.deepEqual(
+    multi.map((h) => [h.line, h.rule]),
+    [
+      [2, 'Math.random or a transcendental function'],
+      [4, 'sort without a comparator'],
+    ],
+  );
 });
 
 test('digest primitives: the SHA-256 vectors and a canonical JSON that ignores key order and undefined', () => {

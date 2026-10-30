@@ -7,11 +7,20 @@
 import { backup } from './backup-lib';
 
 const args = process.argv.slice(2);
-const flag = (k: string) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i + 1] : undefined; };
+const flag = (k: string) => {
+  const i = args.indexOf(`--${k}`);
+  return i >= 0 ? args[i + 1] : undefined;
+};
 const dataDir = args.find((a, i) => !a.startsWith('--') && (i === 0 || !args[i - 1].startsWith('--')));
 const out = flag('out');
-if (!dataDir || !out) { console.error('usage: backup <data-dir> --out <dir | remote:path> [--keep 14]'); process.exit(2); }
+if (!dataDir || !out) {
+  console.error('usage: backup <data-dir> --out <dir | remote:path> [--keep 14]');
+  process.exit(2);
+}
 try {
   const report = backup(dataDir, { target: out, keep: flag('keep') != null ? Number(flag('keep')) : 14 });
   console.log(JSON.stringify(report, null, 2));
-} catch (e) { console.error(`FAIL ${(e as Error).message}`); process.exitCode = 1; }
+} catch (e) {
+  console.error(`FAIL ${(e as Error).message}`);
+  process.exitCode = 1;
+}

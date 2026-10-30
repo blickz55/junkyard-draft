@@ -10,7 +10,10 @@ import { machineName } from '../content/machines';
 
 export const STALL_TICKS = 8;
 
-export type StallChange = { kind: 'flag'; cell: number; x: number; y: number; /** true when the stall began now, false when the marker moved */ began: boolean } | { kind: 'clear' } | null;
+export type StallChange =
+  | { kind: 'flag'; cell: number; x: number; y: number; /** true when the stall began now, false when the marker moved */ began: boolean }
+  | { kind: 'clear' }
+  | null;
 
 export class StallMonitor {
   /** the flagged cell, null when none */
@@ -19,19 +22,31 @@ export class StallMonitor {
   flaggedAt = -1;
   /** tick of the last ship this round */
   lastShipTick = 0;
-  constructor(private readonly width: number = RULES.gridWidth, private readonly ticks: number = STALL_TICKS) {}
+  constructor(
+    private readonly width: number = RULES.gridWidth,
+    private readonly ticks: number = STALL_TICKS,
+  ) {}
 
   /** A new round: nothing shipped yet, nothing flagged. */
-  reset() { this.cell = null; this.flaggedAt = -1; this.lastShipTick = 0; }
+  reset() {
+    this.cell = null;
+    this.flaggedAt = -1;
+    this.lastShipTick = 0;
+  }
   /** Something shipped at this tick. */
-  shipped(tick: number) { this.lastShipTick = tick; }
+  shipped(tick: number) {
+    this.lastShipTick = tick;
+  }
   /** After a tick's events: what the indicator should do now (null: nothing changed). */
   update(jammedNow: ReadonlySet<number>, tick: number): StallChange {
     if (jammedNow.size === 0 || tick - this.lastShipTick < this.ticks) {
       if (this.cell == null) return null;
-      this.cell = null; this.flaggedAt = -1; return { kind: 'clear' };
+      this.cell = null;
+      this.flaggedAt = -1;
+      return { kind: 'clear' };
     }
-    let cell = Infinity; for (const c of jammedNow) if (c < cell) cell = c;
+    let cell = Infinity;
+    for (const c of jammedNow) if (c < cell) cell = c;
     if (cell === this.cell) return null;
     const began = this.cell == null;
     if (began) this.flaggedAt = tick; // the marker may move to a lower blocked cell later (the hopper once it is blocked too) without restarting the clock

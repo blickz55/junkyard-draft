@@ -19,12 +19,15 @@ const defaultSender: Sender = async (url, body, beacon) => {
     if (beacon && typeof navigator !== 'undefined' && navigator.sendBeacon) return navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: beacon });
     return r.ok;
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 };
 
 function randomId(): string {
   const bytes = new Uint8Array(16);
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(bytes); else for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(bytes);
+  else for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
@@ -41,14 +44,34 @@ class Telemetry {
   private generation = 0;
 
   /** Mirror the in-memory queue into the persisted state (bounded). */
-  private persistQueue() { const st = loadTelemetryState(); if (st.installId) saveTelemetryState({ ...st, pending: this.queue.slice(-MAX_QUEUE) }); }
+  private persistQueue() {
+    const st = loadTelemetryState();
+    if (st.installId) saveTelemetryState({ ...st, pending: this.queue.slice(-MAX_QUEUE) });
+  }
   /** Wire the transport (the game sets the verifier URL provider; tests inject a sender). */
-  configure(o: { url?: () => string; sender?: Sender }) { if (o.url) this.urlProvider = o.url; if (o.sender) this.sender = o.sender; }
+  configure(o: { url?: () => string; sender?: Sender }) {
+    if (o.url) this.urlProvider = o.url;
+    if (o.sender) this.sender = o.sender;
+  }
 
-  get enabled(): boolean { return loadSettings().telemetry === true; }
-  get installId(): string | null { return this.enabled ? loadTelemetryState().installId : null; }
+  get enabled(): boolean {
+    return loadSettings().telemetry === true;
+  }
+  get installId(): string | null {
+    return this.enabled ? loadTelemetryState().installId : null;
+  }
   /** Counters for the dev API / tests. */
-  stats() { return { enabled: this.enabled, hasInstallId: !!loadTelemetryState().installId, queued: this.queue.length, sent: this.sent, dropped: this.dropped, firsts: loadTelemetryState().firsts.length, games: loadTelemetryState().games }; }
+  stats() {
+    return {
+      enabled: this.enabled,
+      hasInstallId: !!loadTelemetryState().installId,
+      queued: this.queue.length,
+      sent: this.sent,
+      dropped: this.dropped,
+      firsts: loadTelemetryState().firsts.length,
+      games: loadTelemetryState().games,
+    };
+  }
 
   /** Opt in or out. In: create the install id and record consent. Out: forget everything, send nothing further. */
   setEnabled(on: boolean) {
@@ -60,8 +83,13 @@ class Telemetry {
       void this.flush();
     } else {
       updateSettings({ telemetry: false });
-      this.generation++; this.flushing = null; // an in-flight send may still complete: its events never come back
-      this.queue.length = 0; if (this.timer) { clearTimeout(this.timer); this.timer = null; }
+      this.generation++;
+      this.flushing = null; // an in-flight send may still complete: its events never come back
+      this.queue.length = 0;
+      if (this.timer) {
+        clearTimeout(this.timer);
+        this.timer = null;
+      }
       clearTelemetryState();
     }
   }
@@ -69,20 +97,34 @@ class Telemetry {
   /** Record an event (no-op unless enabled; once-per-install events are deduplicated; invalid events are dropped). */
   track(name: EventName, props?: Props): boolean {
     if (!this.enabled) return false;
-    if (ONCE_EVENTS.has(name)) { const st = loadTelemetryState(); if (st.firsts.includes(name)) return false; saveTelemetryState({ ...st, firsts: [...st.firsts, name] }); }
+    if (ONCE_EVENTS.has(name)) {
+      const st = loadTelemetryState();
+      if (st.firsts.includes(name)) return false;
+      saveTelemetryState({ ...st, firsts: [...st.firsts, name] });
+    }
     const v = validateEvent({ name, props, at: new Date().toISOString() });
-    if (typeof v === 'string') { this.dropped++; return false; }
+    if (typeof v === 'string') {
+      this.dropped++;
+      return false;
+    }
     if (this.queue.length >= MAX_QUEUE) this.queue.shift();
     this.queue.push(v);
     this.persistQueue();
-    if (this.queue.length >= 20) void this.flush(); else if (!this.timer) this.timer = setTimeout(() => { this.timer = null; void this.flush(); }, FLUSH_MS);
+    if (this.queue.length >= 20) void this.flush();
+    else if (!this.timer)
+      this.timer = setTimeout(() => {
+        this.timer = null;
+        void this.flush();
+      }, FLUSH_MS);
     return true;
   }
 
   /** A new game (fresh run, not playback) started: counts toward second_game_start and daily_start. */
   gameStart(seed: string) {
     if (!this.enabled) return;
-    const st = loadTelemetryState(); const games = st.games + 1; saveTelemetryState({ ...st, games });
+    const st = loadTelemetryState();
+    const games = st.games + 1;
+    saveTelemetryState({ ...st, games });
     if (games === 2) this.track('second_game_start');
     if (seed.startsWith('daily-')) this.track('daily_start');
   }
@@ -98,8 +140,11 @@ class Telemetry {
     const gen = this.generation;
     this.flushing = this.sender(url, body, beacon).then((ok) => {
       if (gen !== this.generation) return ok; // consent was withdrawn meanwhile: discard the outcome, restore nothing
-      if (ok) this.sent += events.length; else this.queue.unshift(...events.slice(0, MAX_QUEUE - this.queue.length));
-      this.persistQueue(); this.flushing = null; return ok;
+      if (ok) this.sent += events.length;
+      else this.queue.unshift(...events.slice(0, MAX_QUEUE - this.queue.length));
+      this.persistQueue();
+      this.flushing = null;
+      return ok;
     });
     return this.flushing;
   }
@@ -107,11 +152,20 @@ class Telemetry {
   /** Call once at boot in the browser: resend what an earlier page left unsent, record app_start, and queue session_end on page hide (sent by the next boot). */
   init() {
     this.startedAt = Date.now();
-    if (this.enabled) { const st = loadTelemetryState(); for (const raw of st.pending) { const v = validateEvent(raw); if (typeof v !== 'string') this.queue.push(v); } }
+    if (this.enabled) {
+      const st = loadTelemetryState();
+      for (const raw of st.pending) {
+        const v = validateEvent(raw);
+        if (typeof v !== 'string') this.queue.push(v);
+      }
+    }
     this.track('app_start');
     if (this.queue.length) void this.flush();
     if (typeof window !== 'undefined') {
-      window.addEventListener('pagehide', () => { if (!this.enabled) return; this.track('session_end', { minutes: Math.round((Date.now() - this.startedAt) / 60000) }); });
+      window.addEventListener('pagehide', () => {
+        if (!this.enabled) return;
+        this.track('session_end', { minutes: Math.round((Date.now() - this.startedAt) / 60000) });
+      });
     }
   }
 }

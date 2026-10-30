@@ -11,7 +11,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export interface ProseHit { file: string; line: number; text: string }
+export interface ProseHit {
+  file: string;
+  line: number;
+  text: string;
+}
 export const LINTED_DIRS = ['game/src/ui', 'game/src/content'];
 export const EXEMPT_FILES = new Set(['strings.ts', 'glossary.ts', 'operator.ts']);
 
@@ -20,15 +24,30 @@ const LITERAL = /'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g;
 
 /** Remove `${…}` interpolations, brace-aware (an interpolation may hold an object literal). */
 function stripInterpolations(body: string): string {
-  let out = ''; let i = 0;
+  let out = '';
+  let i = 0;
   while (i < body.length) {
-    if (body[i] === '$' && body[i + 1] === '{') { let depth = 0; let k = i + 1; for (; k < body.length; k++) { if (body[k] === '{') depth++; else if (body[k] === '}') { depth--; if (depth === 0) break; } } i = k + 1; }
-    else { out += body[i]; i++; }
+    if (body[i] === '$' && body[i + 1] === '{') {
+      let depth = 0;
+      let k = i + 1;
+      for (; k < body.length; k++) {
+        if (body[k] === '{') depth++;
+        else if (body[k] === '}') {
+          depth--;
+          if (depth === 0) break;
+        }
+      }
+      i = k + 1;
+    } else {
+      out += body[i];
+      i++;
+    }
   }
   return out;
 }
 /** Code that takes a literal as data, not as something a player reads. */
-const CODE_BEFORE = /(includes|startsWith|endsWith|matchAll|match|querySelector|querySelectorAll|getElementById|setAttribute|getItem|setItem|removeItem|new Error|RegExp|indexOf|split|replace)(<[^>]*>)?\s*\(\s*$|(===|!==)\s*$|case\s+$/;
+const CODE_BEFORE =
+  /(includes|startsWith|endsWith|matchAll|match|querySelector|querySelectorAll|getElementById|setAttribute|getItem|setItem|removeItem|new Error|RegExp|indexOf|split|replace)(<[^>]*>)?\s*\(\s*$|(===|!==)\s*$|case\s+$/;
 
 export function isProse(literal: string, before = ''): boolean {
   if (CODE_BEFORE.test(before)) return false;
@@ -51,14 +70,21 @@ export function lintSource(file: string, source: string): ProseHit[] {
   const stripped = stripComments(source);
   const lines = stripped.split(/\r?\n/);
   lines.forEach((line, i) => {
-    for (const m of line.matchAll(LITERAL)) if (isProse(m[0], line.slice(Math.max(0, (m.index ?? 0) - 40), m.index ?? 0))) hits.push({ file, line: i + 1, text: m[0].length > 90 ? `${m[0].slice(0, 87)}…` : m[0] });
+    for (const m of line.matchAll(LITERAL))
+      if (isProse(m[0], line.slice(Math.max(0, (m.index ?? 0) - 40), m.index ?? 0)))
+        hits.push({ file, line: i + 1, text: m[0].length > 90 ? `${m[0].slice(0, 87)}…` : m[0] });
   });
   return hits;
 }
 
 export function lintProseLiterals(dirs: string[]): ProseHit[] {
   const out: ProseHit[] = [];
-  for (const dir of dirs) for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.ts') && !EXEMPT_FILES.has(x)).sort()) out.push(...lintSource(path.join(dir, f), fs.readFileSync(path.join(dir, f), 'utf8')));
+  for (const dir of dirs)
+    for (const f of fs
+      .readdirSync(dir)
+      .filter((x) => x.endsWith('.ts') && !EXEMPT_FILES.has(x))
+      .sort())
+      out.push(...lintSource(path.join(dir, f), fs.readFileSync(path.join(dir, f), 'utf8')));
   return out;
 }
 

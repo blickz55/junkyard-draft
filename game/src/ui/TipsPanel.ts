@@ -42,29 +42,76 @@ export class TipsPanel {
   private prevFocus: HTMLElement | null = null;
   private list: Tip[] = [];
 
-  constructor(private readonly scene: Phaser.Scene, private readonly onClose?: () => void) {}
+  constructor(
+    private readonly scene: Phaser.Scene,
+    private readonly onClose?: () => void,
+  ) {}
 
-  get isOpen(): boolean { return this.root != null; }
-  get currentId(): string | null { return this.current; }
+  get isOpen(): boolean {
+    return this.root != null;
+  }
+  get currentId(): string | null {
+    return this.current;
+  }
   /** Demo progress for tests: current tick and what shipped so far in this loop. */
-  demoState() { return this.demoSim ? { tip: this.demoTip?.id ?? null, tick: this.demoSim.tick, shipped: { ...this.demoSim.shipped } } : null; }
+  demoState() {
+    return this.demoSim ? { tip: this.demoTip?.id ?? null, tick: this.demoSim.tick, shipped: { ...this.demoSim.shipped } } : null;
+  }
 
   open(tipId?: string) {
-    if (this.root) { if (tipId) this.show(tipId); return; }
+    if (this.root) {
+      if (tipId) this.show(tipId);
+      return;
+    }
     this.list = allTips();
     const read = loadReadTips();
     this.nav.clear();
-    const nav = h('div', { class: 'jd-tips-nav', role: 'tablist' }, ...this.list.map((tip) => { const b = btn((read.includes(tip.id) ? '' : t('tips.unread')) + tip.title, `tip-${tip.id}`, () => this.show(tip.id), { small: true }); b.setAttribute('role', 'tab'); this.nav.set(tip.id, b); return b; }));
+    const nav = h(
+      'div',
+      { class: 'jd-tips-nav', role: 'tablist' },
+      ...this.list.map((tip) => {
+        const b = btn((read.includes(tip.id) ? '' : t('tips.unread')) + tip.title, `tip-${tip.id}`, () => this.show(tip.id), { small: true });
+        b.setAttribute('role', 'tab');
+        this.nav.set(tip.id, b);
+        return b;
+      }),
+    );
     this.body = h('div', { class: 'jd-tips-body' });
-    const box = h('div', { class: 'jd-tips-box jd-panel', role: 'dialog', ariaLabel: t('tips.aria'), tid: 'tips-panel' },
-      h('div', { class: 'jd-row jd-between' }, h('div', { class: 'jd-head' }, t('tips.head')), btn(t('common.close'), 'tips-close', () => this.close(), { small: true })),
-      h('div', { class: 'jd-tips-cols' }, nav, this.body));
-    this.root = h('div', { class: 'jd-tips', onClick: (e) => { if (e.target === this.root) this.close(); } }, box);
+    const box = h(
+      'div',
+      { class: 'jd-tips-box jd-panel', role: 'dialog', ariaLabel: t('tips.aria'), tid: 'tips-panel' },
+      h(
+        'div',
+        { class: 'jd-row jd-between' },
+        h('div', { class: 'jd-head' }, t('tips.head')),
+        btn(t('common.close'), 'tips-close', () => this.close(), { small: true }),
+      ),
+      h('div', { class: 'jd-tips-cols' }, nav, this.body),
+    );
+    this.root = h(
+      'div',
+      {
+        class: 'jd-tips',
+        onClick: (e) => {
+          if (e.target === this.root) this.close();
+        },
+      },
+      box,
+    );
     // modal focus: keys typed here never reach the scenes, Tab cycles inside the dialog, focus returns on close
     this.prevFocus = document.activeElement as HTMLElement | null;
     this.root.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); this.close(); }
-      else if (e.key === 'Tab') { const f = [...box.querySelectorAll<HTMLElement>('button, [tabindex]:not([tabindex="-1"])')]; const i = f.indexOf(document.activeElement as HTMLElement); if (f.length) { e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus(); } }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.close();
+      } else if (e.key === 'Tab') {
+        const f = [...box.querySelectorAll<HTMLElement>('button, [tabindex]:not([tabindex="-1"])')];
+        const i = f.indexOf(document.activeElement as HTMLElement);
+        if (f.length) {
+          e.preventDefault();
+          f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+        }
+      }
       e.stopPropagation();
     });
     ui.layer(this.scene, this.root);
@@ -75,26 +122,42 @@ export class TipsPanel {
   close() {
     if (!this.root) return;
     this.stopDemo();
-    this.root.remove(); this.root = null; this.body = null; this.watch = null; this.canvas = null; this.current = null;
-    const back = this.prevFocus; this.prevFocus = null; if (back && back.isConnected) back.focus();
+    this.root.remove();
+    this.root = null;
+    this.body = null;
+    this.watch = null;
+    this.canvas = null;
+    this.current = null;
+    const back = this.prevFocus;
+    this.prevFocus = null;
+    if (back && back.isConnected) back.focus();
     this.onClose?.();
   }
 
   /** Show one tip: its text, its demo loop, and mark it read. */
   private show(tipId: string) {
-    const tip = this.list.find((x) => x.id === tipId); if (!tip || !this.body) return;
+    const tip = this.list.find((x) => x.id === tipId);
+    if (!tip || !this.body) return;
     this.current = tipId;
     markTipRead(tipId);
     telemetry.track('tip_opened', { id: tipId });
-    for (const [id, b] of this.nav) { b.classList.toggle('jd-active', id === tipId); b.setAttribute('aria-selected', String(id === tipId)); if (id === tipId) b.textContent = tip.title; }
+    for (const [id, b] of this.nav) {
+      b.classList.toggle('jd-active', id === tipId);
+      b.setAttribute('aria-selected', String(id === tipId));
+      if (id === tipId) b.textContent = tip.title;
+    }
     this.stopDemo();
     this.body.replaceChildren(h('div', { class: 'jd-tips-title' }, tip.title), h('p', { class: 'jd-dim jd-tips-text' }, tip.text));
-    this.canvas = null; this.watch = null;
+    this.canvas = null;
+    this.watch = null;
     if (!tip.layout) return;
-    const gw = tip.layout.width * DEMO_CELL, gh = tip.layout.height * DEMO_CELL;
+    const gw = tip.layout.width * DEMO_CELL,
+      gh = tip.layout.height * DEMO_CELL;
     const canvas = h('canvas', { class: 'jd-tips-demo', tid: 'tips-demo', ariaLabel: t('tips.demoAria', { title: tip.title }) });
-    canvas.width = gw * BACKING; canvas.height = gh * BACKING;
-    canvas.style.width = `calc(${gw} * var(--px))`; canvas.style.height = `calc(${gh} * var(--px))`;
+    canvas.width = gw * BACKING;
+    canvas.height = gh * BACKING;
+    canvas.style.width = `calc(${gw} * var(--px))`;
+    canvas.style.height = `calc(${gh} * var(--px))`;
     this.watch = h('div', { class: 'jd-tips-watch', tid: 'tips-watch' }, tip.watch);
     this.body.append(canvas, this.watch);
     this.canvas = canvas;
@@ -103,26 +166,43 @@ export class TipsPanel {
 
   private blit(ctx: CanvasRenderingContext2D, key: string, dx: number, dy: number, dw: number, dh: number) {
     if (!this.frames.has(key)) this.frames.set(key, artFrame(this.scene.game, key));
-    const f = this.frames.get(key); if (!f) return;
+    const f = this.frames.get(key);
+    if (!f) return;
     ctx.drawImage(f.image, f.x, f.y, f.w, f.h, dx, dy, dw, dh);
   }
   /** Draw the demo's current state; `phase` 0..1 slides items that moved this tick. */
   private draw(phase: number) {
-    const sim = this.demoSim, tip = this.demoTip, canvas = this.canvas; if (!sim || !tip?.layout || !canvas) return;
-    const ctx = canvas.getContext('2d'); if (!ctx) return;
-    const L = tip.layout; const at = (cell: number) => ({ x: (cell % L.width) * DEMO_CELL + DEMO_CELL / 2, y: Math.floor(cell / L.width) * DEMO_CELL + DEMO_CELL / 2 });
-    ctx.save(); ctx.setTransform(BACKING, 0, 0, BACKING, 0, 0);
-    ctx.fillStyle = hex(P.bg); ctx.fillRect(0, 0, L.width * DEMO_CELL, L.height * DEMO_CELL);
+    const sim = this.demoSim,
+      tip = this.demoTip,
+      canvas = this.canvas;
+    if (!sim || !tip?.layout || !canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const L = tip.layout;
+    const at = (cell: number) => ({ x: (cell % L.width) * DEMO_CELL + DEMO_CELL / 2, y: Math.floor(cell / L.width) * DEMO_CELL + DEMO_CELL / 2 });
+    ctx.save();
+    ctx.setTransform(BACKING, 0, 0, BACKING, 0, 0);
+    ctx.fillStyle = hex(P.bg);
+    ctx.fillRect(0, 0, L.width * DEMO_CELL, L.height * DEMO_CELL);
     for (let y = 0; y < L.height; y++) for (let x = 0; x < L.width; x++) this.blit(ctx, 'tile', x * DEMO_CELL, y * DEMO_CELL, DEMO_CELL, DEMO_CELL);
     for (const m of L.machines) {
       const c = at(cellIndex(m.x, m.y, L.width));
-      ctx.save(); ctx.translate(c.x, c.y); ctx.rotate((m.dir * Math.PI) / 2);
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate((m.dir * Math.PI) / 2);
       this.blit(ctx, machineTexture(m.kind), -DEMO_CELL / 2, -DEMO_CELL / 2, DEMO_CELL, DEMO_CELL);
       ctx.restore();
     }
     for (const it of sim.items) {
-      const to = at(it.cell); let x = to.x, y = to.y;
-      if (it.movedAt === sim.tick && it.from >= 0 && phase < 1) { const from = at(it.from); const e = easeInOut(phase); x = from.x + (to.x - from.x) * e; y = from.y + (to.y - from.y) * e; }
+      const to = at(it.cell);
+      let x = to.x,
+        y = to.y;
+      if (it.movedAt === sim.tick && it.from >= 0 && phase < 1) {
+        const from = at(it.from);
+        const e = easeInOut(phase);
+        x = from.x + (to.x - from.x) * e;
+        y = from.y + (to.y - from.y) * e;
+      }
       const sc = it.hold > 0 ? 0.85 : 1;
       this.blit(ctx, itemTexture(it.mat as Material), x - (DEMO_ITEM / 2) * sc, y - (DEMO_ITEM / 2) * sc, DEMO_ITEM * sc, DEMO_ITEM * sc);
     }
@@ -135,13 +215,20 @@ export class TipsPanel {
     this.demoSim = createSim(tip.layout);
     this.lastTickAt = performance.now();
     const tickOnce = () => {
-      const sim = this.demoSim; if (!sim || !tip.layout) return;
-      if (sim.tick >= tip.ticks) { this.demoSim = createSim(tip.layout); } // loop: restart from an empty line
+      const sim = this.demoSim;
+      if (!sim || !tip.layout) return;
+      if (sim.tick >= tip.ticks) {
+        this.demoSim = createSim(tip.layout);
+      } // loop: restart from an empty line
       else step(sim);
       this.lastTickAt = performance.now();
       const now = this.demoSim!;
-      const shipped = (Object.entries(now.shipped) as [Material, number][]).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${materialName(k)}`).join(', ');
-      if (this.watch) this.watch.textContent = t('tips.watchLine', { watch: tip.watch, tick: now.tick, total: tip.ticks, shipped: shipped || t('tips.nothingYet') });
+      const shipped = (Object.entries(now.shipped) as [Material, number][])
+        .filter(([, n]) => n > 0)
+        .map(([k, n]) => `${n} ${materialName(k)}`)
+        .join(', ');
+      if (this.watch)
+        this.watch.textContent = t('tips.watchLine', { watch: tip.watch, tick: now.tick, total: tip.ticks, shipped: shipped || t('tips.nothingYet') });
     };
     this.timer = this.scene.time.addEvent({ delay: DEMO_TICK_MS, loop: true, callback: tickOnce });
     const frame = () => {
@@ -154,8 +241,11 @@ export class TipsPanel {
     this.raf = requestAnimationFrame(frame);
   }
   private stopDemo() {
-    this.timer?.remove(false); this.timer = null;
-    if (this.raf) cancelAnimationFrame(this.raf); this.raf = 0;
-    this.demoSim = null; this.demoTip = null;
+    this.timer?.remove(false);
+    this.timer = null;
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
+    this.demoSim = null;
+    this.demoTip = null;
   }
 }

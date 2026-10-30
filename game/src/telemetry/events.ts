@@ -35,11 +35,28 @@ export const EVENTS = {
 
 export type EventName = keyof typeof EVENTS;
 export type Props = Record<string, string | number | boolean>;
-export interface TelemetryEvent { name: EventName; props?: Props; at: string }
-export interface EventBatch { installId: string; consent: true; events: TelemetryEvent[] }
+export interface TelemetryEvent {
+  name: EventName;
+  props?: Props;
+  at: string;
+}
+export interface EventBatch {
+  installId: string;
+  consent: true;
+  events: TelemetryEvent[];
+}
 
 /** Events recorded at most once per install (the client enforces it; the server just stores). */
-export const ONCE_EVENTS: ReadonlySet<EventName> = new Set<EventName>(['first_draft_pick', 'first_place_attempt', 'first_place_rejected', 'first_rotate', 'undo_used', 'first_run_start', 'first_run_complete', 'second_game_start']);
+export const ONCE_EVENTS: ReadonlySet<EventName> = new Set<EventName>([
+  'first_draft_pick',
+  'first_place_attempt',
+  'first_place_rejected',
+  'first_rotate',
+  'undo_used',
+  'first_run_start',
+  'first_run_complete',
+  'second_game_start',
+]);
 
 export const MAX_BATCH = 100;
 export const MAX_STRING = 64;
@@ -58,11 +75,19 @@ export function validateEvent(raw: unknown): TelemetryEvent | string {
   if (e.props != null) {
     if (typeof e.props !== 'object' || Array.isArray(e.props)) return `${e.name}: props must be an object`;
     for (const [k, v] of Object.entries(e.props as Record<string, unknown>)) {
-      if (k === 'seed') { if (!(typeof v === 'string' && SEED_LABEL.test(v))) return `${e.name}: seed strings are not recorded`; props.seed = v; continue; } // only daily-*/tutorial-* labels, on any event
+      if (k === 'seed') {
+        if (!(typeof v === 'string' && SEED_LABEL.test(v))) return `${e.name}: seed strings are not recorded`;
+        props.seed = v;
+        continue;
+      } // only daily-*/tutorial-* labels, on any event
       if (!allowed.includes(k)) return `${e.name}: property ${k} is not in the vocabulary`;
-      if (typeof v === 'string') { if (v.length > MAX_STRING) return `${e.name}: ${k} too long`; props[k] = v; }
-      else if (typeof v === 'number') { if (!Number.isFinite(v)) return `${e.name}: ${k} not finite`; props[k] = v; }
-      else if (typeof v === 'boolean') props[k] = v;
+      if (typeof v === 'string') {
+        if (v.length > MAX_STRING) return `${e.name}: ${k} too long`;
+        props[k] = v;
+      } else if (typeof v === 'number') {
+        if (!Number.isFinite(v)) return `${e.name}: ${k} not finite`;
+        props[k] = v;
+      } else if (typeof v === 'boolean') props[k] = v;
       else return `${e.name}: ${k} has an unsupported type`;
     }
   }
@@ -80,9 +105,21 @@ export function validateBatch(raw: unknown): EventBatch | string {
   if (!Array.isArray(b.events) || b.events.length === 0) return 'events must be a non-empty array';
   if (b.events.length > MAX_BATCH) return `at most ${MAX_BATCH} events per batch`;
   const events: TelemetryEvent[] = [];
-  for (const e of b.events) { const v = validateEvent(e); if (typeof v === 'string') return v; events.push(v); }
+  for (const e of b.events) {
+    const v = validateEvent(e);
+    if (typeof v === 'string') return v;
+    events.push(v);
+  }
   return { installId: b.installId, consent: true, events };
 }
 
 /** The first-session funnel, in order, for tools/funnel.ts and GET /funnel. */
-export const FUNNEL: readonly EventName[] = ['app_start', 'first_draft_pick', 'first_place_attempt', 'first_run_start', 'first_run_complete', 'second_game_start', 'game_complete'];
+export const FUNNEL: readonly EventName[] = [
+  'app_start',
+  'first_draft_pick',
+  'first_place_attempt',
+  'first_run_start',
+  'first_run_complete',
+  'second_game_start',
+  'game_complete',
+];

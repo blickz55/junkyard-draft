@@ -5,12 +5,24 @@
  * policy and legal documents are exact texts outside the table. The owner reviews this list ⚑; changing a player word
  * means changing the table, nothing else.
  */
-export interface GlossaryEntry { internal: string; player: string; note: string }
+export interface GlossaryEntry {
+  internal: string;
+  player: string;
+  note: string;
+}
 export const GLOSSARY: readonly GlossaryEntry[] = [
-  { internal: 'seed, daily seed', player: "yard; today's yard; the yard of 30 October", note: 'the date is the name; the seed string stays in the URL and the share text' },
+  {
+    internal: 'seed, daily seed',
+    player: "yard; today's yard; the yard of 30 October",
+    note: 'the date is the name; the seed string stays in the URL and the share text',
+  },
   { internal: 'tick', player: 'second', note: "80 ticks are 80 seconds of the yard's clock at 1×; the simulation is unchanged" },
-  { internal: 'run (a round\'s simulation)', player: 'shift', note: '"start the shift"; a whole game is "the game"' },
-  { internal: 'verified, verifier', player: 'checked, our server', note: '"checked by our server" on the policy page and in the share text; "checked" everywhere else' },
+  { internal: "run (a round's simulation)", player: 'shift', note: '"start the shift"; a whole game is "the game"' },
+  {
+    internal: 'verified, verifier',
+    player: 'checked, our server',
+    note: '"checked by our server" on the policy page and in the share text; "checked" everywhere else',
+  },
   { internal: 'replay', player: 'the recording', note: '"watch the recording"' },
   { internal: 'replay hash', player: "the recording's code", note: 'shown as eight characters where needed' },
   { internal: 'local best, unverified', player: 'your best on this device, not yet checked', note: '' },
@@ -32,7 +44,33 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
 ];
 
 /** Words that may not appear in a player-facing string (case-insensitive, whole words; "rules version" as a phrase). The policy page keys are exempt. */
-export const BANNED_WORDS: readonly string[] = ['seed', 'seeds', 'tick', 'ticks', 'verifier', 'verified', 'verify', 'replay', 'replays', 'hash', 'histogram', 'percentile', 'RNG', 'protocol', 'rules version', 'local storage', 'bearer', 'token', 'npm', 'localhost', 'reroll', 'rerolls', 'fork', 'forked', 'bin'];
+export const BANNED_WORDS: readonly string[] = [
+  'seed',
+  'seeds',
+  'tick',
+  'ticks',
+  'verifier',
+  'verified',
+  'verify',
+  'replay',
+  'replays',
+  'hash',
+  'histogram',
+  'percentile',
+  'RNG',
+  'protocol',
+  'rules version',
+  'local storage',
+  'bearer',
+  'token',
+  'npm',
+  'localhost',
+  'reroll',
+  'rerolls',
+  'fork',
+  'forked',
+  'bin',
+];
 /** Phrases that contain a banned word but are allowed: "your key" is the glossary's own term. */
 export const BANNED_EXCEPTIONS: readonly RegExp[] = [/\byour key\b/i];
 

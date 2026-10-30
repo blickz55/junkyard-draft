@@ -23,7 +23,14 @@ test('sieve: raw scrap goes forward, every processed material turns right, in al
   // every processed material: feed each through a furnace/press chain is long; instead check the routing rule directly per material
   for (const mat of ['shards', 'plate', 'ingot', 'slag'] as Material[]) {
     const proc = mat === 'shards' ? 'crusher' : mat === 'ingot' ? 'furnace' : mat === 'plate' ? 'press' : 'furnace';
-    const feed = mat === 'ingot' ? [m('hopper', 0, 2, 0), m('crusher', 1, 2, 0), m('furnace', 2, 2, 0)] : mat === 'slag' ? [m('hopper', 1, 2, 0), m('furnace', 2, 2, 0)] : mat === 'plate' ? [m('hopper', 0, 2, 0), m('crusher', 1, 2, 0), m('press', 2, 2, 0)] : [m('hopper', 1, 2, 0), m('crusher', 2, 2, 0)];
+    const feed =
+      mat === 'ingot'
+        ? [m('hopper', 0, 2, 0), m('crusher', 1, 2, 0), m('furnace', 2, 2, 0)]
+        : mat === 'slag'
+          ? [m('hopper', 1, 2, 0), m('furnace', 2, 2, 0)]
+          : mat === 'plate'
+            ? [m('hopper', 0, 2, 0), m('crusher', 1, 2, 0), m('press', 2, 2, 0)]
+            : [m('hopper', 1, 2, 0), m('crusher', 2, 2, 0)];
     void proc;
     const r = runLayout(lay(...feed, m('sieve', 3, 2, 0), m('dock', 4, 2), m('dock', 3, 3)), 80);
     assert.ok(r.shipped[mat] > 0, `${mat} was produced`);
@@ -60,14 +67,47 @@ test('sieve: only from behind; a blocked chosen exit waits and is reported as a 
  * go/no-go; these numbers are what it rests on (tools/sieve-fixture.ts prints them with searched layouts as well).
  */
 test('sieve fixture (PLAN-v2 0.5.2): on the same inventory the separated routes beat the Sieve line, with and without an export dock — no convincing benefit, Sieve deferred', () => {
-  const hand = lay(m('hopper', 0, 2, 0), m('conveyor', 1, 2, 0), m('sieve', 2, 2, 0), m('conveyor', 3, 2, 0), m('dock', 4, 2), m('hopper', 1, 0, 1), m('crusher', 1, 1, 1), m('furnace', 2, 3, 1), m('dock', 2, 4), m('conveyor', 6, 5, 0), m('conveyor', 7, 5, 0));
-  const separated = lay(m('hopper', 0, 2, 0), m('conveyor', 1, 2, 0), m('conveyor', 2, 2, 0), m('conveyor', 3, 2, 0), m('dock', 4, 2), m('hopper', 0, 4, 0), m('crusher', 1, 4, 0), m('furnace', 2, 4, 0), m('dock', 3, 4), m('conveyor', 6, 5, 0), m('conveyor', 7, 5, 0));
+  const hand = lay(
+    m('hopper', 0, 2, 0),
+    m('conveyor', 1, 2, 0),
+    m('sieve', 2, 2, 0),
+    m('conveyor', 3, 2, 0),
+    m('dock', 4, 2),
+    m('hopper', 1, 0, 1),
+    m('crusher', 1, 1, 1),
+    m('furnace', 2, 3, 1),
+    m('dock', 2, 4),
+    m('conveyor', 6, 5, 0),
+    m('conveyor', 7, 5, 0),
+  );
+  const separated = lay(
+    m('hopper', 0, 2, 0),
+    m('conveyor', 1, 2, 0),
+    m('conveyor', 2, 2, 0),
+    m('conveyor', 3, 2, 0),
+    m('dock', 4, 2),
+    m('hopper', 0, 4, 0),
+    m('crusher', 1, 4, 0),
+    m('furnace', 2, 4, 0),
+    m('dock', 3, 4),
+    m('conveyor', 6, 5, 0),
+    m('conveyor', 7, 5, 0),
+  );
   assert.equal(hand.machines.length, separated.machines.length, 'same inventory size');
-  const a = runLayout(hand), b = runLayout(separated);
-  assert.equal(a.earned, 289); assert.equal(b.earned, 338);
+  const a = runLayout(hand),
+    b = runLayout(separated);
+  assert.equal(a.earned, 289);
+  assert.equal(b.earned, 338);
   assert.ok(b.earned > a.earned * 1.1, `separated $${b.earned} beats the Sieve line $${a.earned} by more than the 10 % the Sieve would have needed to win`);
   assert.ok(a.shipped.ingot > 0 && a.shipped.slag === 0, 'the Sieve line does protect the furnace (ingots, no slag) — it just pays for it in throughput');
   // export-dock hypothesis (the second dock pays double for ingots, nothing for other materials): separation still wins
-  const exportPrice = (l: Layout) => { const docks = l.machines.filter((x) => x.kind === 'dock'); const ex = cellIndex(docks[1].x, docks[1].y, l.width); let e = 0; for (const ev of runLayout(l).events) if (ev.kind === 'ship' && ev.value != null) e += ev.cell === ex ? (ev.from === 'ingot' ? ev.value * 2 : 0) : ev.value; return e; };
-  assert.equal(exportPrice(hand), 577); assert.equal(exportPrice(separated), 638);
+  const exportPrice = (l: Layout) => {
+    const docks = l.machines.filter((x) => x.kind === 'dock');
+    const ex = cellIndex(docks[1].x, docks[1].y, l.width);
+    let e = 0;
+    for (const ev of runLayout(l).events) if (ev.kind === 'ship' && ev.value != null) e += ev.cell === ex ? (ev.from === 'ingot' ? ev.value * 2 : 0) : ev.value;
+    return e;
+  };
+  assert.equal(exportPrice(hand), 577);
+  assert.equal(exportPrice(separated), 638);
 });

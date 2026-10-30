@@ -9,16 +9,30 @@
 export const MEDAL_PERCENTILES = { bronze: 50, silver: 80, gold: 95 } as const;
 export const MEDAL_MIN_N = 5;
 export type MedalName = 'gold' | 'silver' | 'bronze';
-export interface Medals { n: number; bronze: number; silver: number; gold: number }
+export interface Medals {
+  n: number;
+  bronze: number;
+  silver: number;
+  gold: number;
+}
 
 /** Nearest-rank percentile of an ascending-sorted array. */
-export const nearestRank = (sorted: readonly number[], p: number): number => sorted[Math.max(0, Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1))];
+export const nearestRank = (sorted: readonly number[], p: number): number =>
+  sorted[Math.max(0, Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1))];
 
 /** Thresholds for a day's verified scores, or null when there are too few. */
 export function medalThresholds(scores: readonly number[]): Medals | null {
-  const sorted = scores.filter((s) => Number.isFinite(s)).slice().sort((a, b) => a - b);
+  const sorted = scores
+    .filter((s) => Number.isFinite(s))
+    .slice()
+    .sort((a, b) => a - b);
   if (sorted.length < MEDAL_MIN_N) return null;
-  return { n: sorted.length, bronze: nearestRank(sorted, MEDAL_PERCENTILES.bronze), silver: nearestRank(sorted, MEDAL_PERCENTILES.silver), gold: nearestRank(sorted, MEDAL_PERCENTILES.gold) };
+  return {
+    n: sorted.length,
+    bronze: nearestRank(sorted, MEDAL_PERCENTILES.bronze),
+    silver: nearestRank(sorted, MEDAL_PERCENTILES.silver),
+    gold: nearestRank(sorted, MEDAL_PERCENTILES.gold),
+  };
 }
 /** The medal a score earns, or null. */
 export function medalFor(score: number, m: Medals | null | undefined): MedalName | null {

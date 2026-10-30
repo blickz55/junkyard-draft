@@ -59,7 +59,7 @@ export function transform(kind: MachineKind, mat: Material): Material {
 
 export const DIR_DX: readonly number[] = [1, 0, -1, 0];
 export const DIR_DY: readonly number[] = [0, 1, 0, -1];
-export const opposite = (d: Dir): Dir => (((d + 2) % 4) as Dir);
-export const rotateCW = (d: Dir): Dir => (((d + 1) % 4) as Dir);
-export const leftOf = (d: Dir): Dir => (((d + 3) % 4) as Dir);
-export const rightOf = (d: Dir): Dir => (((d + 1) % 4) as Dir);
+export const opposite = (d: Dir): Dir => ((d + 2) % 4) as Dir;
+export const rotateCW = (d: Dir): Dir => ((d + 1) % 4) as Dir;
+export const leftOf = (d: Dir): Dir => ((d + 3) % 4) as Dir;
+export const rightOf = (d: Dir): Dir => ((d + 1) % 4) as Dir;

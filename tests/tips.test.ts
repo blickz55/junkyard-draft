@@ -9,13 +9,20 @@ test('tips: every demo layout is legal and its one loop shows what the tip claim
   for (const tip of TIPS) {
     if (!tip.layout) continue;
     assert.deepEqual(validateLayout(tip.layout), [], `${tip.id}: layout valid`);
-    for (const m of tip.layout.machines) assert.ok(m.x >= 0 && m.y >= 0 && m.x < tip.layout.width && m.y < tip.layout.height, `${tip.id}: ${m.kind} inside the grid`);
+    for (const m of tip.layout.machines)
+      assert.ok(m.x >= 0 && m.y >= 0 && m.x < tip.layout.width && m.y < tip.layout.height, `${tip.id}: ${m.kind} inside the grid`);
     const res = runTip(tip)!;
-    assert.ok(tip.check(res), `${tip.id}: ${tip.title} — shipped ${JSON.stringify(res.shipped)}, absorbed ${res.absorbed}, cells ${JSON.stringify(res.cellStats)}`);
+    assert.ok(
+      tip.check(res),
+      `${tip.id}: ${tip.title} — shipped ${JSON.stringify(res.shipped)}, absorbed ${res.absorbed}, cells ${JSON.stringify(res.cellStats)}`,
+    );
   }
   assert.equal(new Set(TIPS.map((x) => x.id)).size, TIPS.length, 'ids are unique');
   assert.equal(runTip(TIPS.find((x) => x.id === 'sell')!), null, 'text-only tips have no demo');
-  for (const tip of TIPS) { assert.ok(tip.title.length > 5 && tip.text.length > 40, `${tip.id}: has its text`); if (tip.layout) assert.ok(tip.watch.length > 5, `${tip.id}: says what to watch`); }
+  for (const tip of TIPS) {
+    assert.ok(tip.title.length > 5 && tip.text.length > 40, `${tip.id}: has its text`);
+    if (tip.layout) assert.ok(tip.watch.length > 5, `${tip.id}: says what to watch`);
+  }
 });
 
 test('tips: the first draft of a machine suggests its tip once; read tips are never suggested again', () => {

@@ -35,13 +35,25 @@ for (let i = 0; i < rest.length; i++) {
     args[k] = v;
   }
 }
-if (args.deps) args.deps = args.deps.split(',').map((s) => s.trim()).filter(Boolean);
+if (args.deps)
+  args.deps = args.deps
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 if (args.path) args.path = path.isAbsolute(args.path) ? path.relative(ROOT, args.path) : args.path;
 if (args.report) args.report = path.isAbsolute(args.report) ? path.relative(ROOT, args.report) : args.report;
 if (type === 'screenshot' && args.path) {
-  try { args.captured = fs.statSync(path.join(ROOT, args.path)).mtime.toISOString(); } catch { args.captured = 'unavailable'; }
+  try {
+    args.captured = fs.statSync(path.join(ROOT, args.path)).mtime.toISOString();
+  } catch {
+    args.captured = 'unavailable';
+  }
 }
 const ev = { ts: new Date().toISOString(), kind: 'reported', event: `cr.${type}`, ...args };
 fs.mkdirSync(OUT_DIR, { recursive: true });
 fs.appendFileSync(OUT_FILE, JSON.stringify(ev) + '\n');
-console.log(`[control-room] ${ev.event} ${Object.entries(args).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(' ')}`);
+console.log(
+  `[control-room] ${ev.event} ${Object.entries(args)
+    .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+    .join(' ')}`,
+);

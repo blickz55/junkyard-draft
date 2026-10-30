@@ -18,9 +18,25 @@ import { t } from '../content/strings';
 
 export type Child = string | number | Node | null | undefined | false;
 export interface Attrs {
-  class?: string; tid?: string; text?: string; html?: never; title?: string; type?: string; value?: string; min?: string; max?: string; step?: string;
-  disabled?: boolean; href?: string; src?: string; alt?: string; style?: string; ariaLabel?: string; role?: string;
-  onClick?: (e: MouseEvent) => void; onInput?: (e: Event) => void;
+  class?: string;
+  tid?: string;
+  text?: string;
+  html?: never;
+  title?: string;
+  type?: string;
+  value?: string;
+  min?: string;
+  max?: string;
+  step?: string;
+  disabled?: boolean;
+  href?: string;
+  src?: string;
+  alt?: string;
+  style?: string;
+  ariaLabel?: string;
+  role?: string;
+  onClick?: (e: MouseEvent) => void;
+  onInput?: (e: Event) => void;
 }
 
 /** Tiny element builder: h('button', { class: 'jd-btn', tid: 'daily', onClick }, 'Today\'s challenge'). */
@@ -40,24 +56,54 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = 
   if (attrs.disabled != null && (el instanceof HTMLButtonElement || el instanceof HTMLInputElement)) el.disabled = attrs.disabled;
   if (attrs.src != null && el instanceof HTMLImageElement) el.src = attrs.src;
   if (attrs.alt != null && el instanceof HTMLImageElement) el.alt = attrs.alt;
-  if (attrs.onClick) el.addEventListener('click', (e) => { audio.unlock(); audio.click(); attrs.onClick!(e as MouseEvent); });
+  if (attrs.onClick)
+    el.addEventListener('click', (e) => {
+      audio.unlock();
+      audio.click();
+      attrs.onClick!(e as MouseEvent);
+    });
   if (attrs.onInput) el.addEventListener('input', attrs.onInput);
   if (attrs.text != null) el.textContent = attrs.text;
-  for (const c of children) { if (c == null || c === false) continue; el.append(c instanceof Node ? c : String(c)); }
+  for (const c of children) {
+    if (c == null || c === false) continue;
+    el.append(c instanceof Node ? c : String(c));
+  }
   return el;
 }
 
 /** The foreman's box (0.9.1): his name tag and one line; hidden when the line is empty (lessons only). */
 export function foremanBox(text: string, tid = 'foreman', style = ''): HTMLElement {
-  const box = h('div', { class: 'jd-foreman', tid, style: `${text ? '' : 'display:none; '}${style}` }, h('span', { class: 'jd-foreman-tag' }, t('foreman.name')), h('span', { class: 'jd-foreman-text' }, text));
+  const box = h(
+    'div',
+    { class: 'jd-foreman', tid, style: `${text ? '' : 'display:none; '}${style}` },
+    h('span', { class: 'jd-foreman-tag' }, t('foreman.name')),
+    h('span', { class: 'jd-foreman-text' }, text),
+  );
   return box;
 }
 /** Replace the box's line; an empty line hides it. */
-export function setForeman(box: HTMLElement, text: string): void { const el = box.querySelector('.jd-foreman-text'); if (el) el.textContent = text; box.style.display = text ? '' : 'none'; }
+export function setForeman(box: HTMLElement, text: string): void {
+  const el = box.querySelector('.jd-foreman-text');
+  if (el) el.textContent = text;
+  box.style.display = text ? '' : 'none';
+}
 
 /** A button in the house style. variant: 'primary' (amber) | 'steel' | 'dark' (default). */
-export function btn(text: string, tid: string, onClick: () => void, o: { variant?: 'primary' | 'steel' | 'dark'; disabled?: boolean; small?: boolean; title?: string } = {}): HTMLButtonElement {
-  return h('button', { class: `jd-btn jd-btn-${o.variant ?? 'dark'}${o.small ? ' jd-btn-small' : ''}`, tid, text, onClick, disabled: o.disabled ?? false, title: o.title, type: 'button' });
+export function btn(
+  text: string,
+  tid: string,
+  onClick: () => void,
+  o: { variant?: 'primary' | 'steel' | 'dark'; disabled?: boolean; small?: boolean; title?: string } = {},
+): HTMLButtonElement {
+  return h('button', {
+    class: `jd-btn jd-btn-${o.variant ?? 'dark'}${o.small ? ' jd-btn-small' : ''}`,
+    tid,
+    text,
+    onClick,
+    disabled: o.disabled ?? false,
+    title: o.title,
+    type: 'button',
+  });
 }
 
 const STYLE = `
@@ -147,8 +193,14 @@ class UiLayer {
   attach(game: Phaser.Game) {
     if (this.root) return;
     this.game = game;
-    if (!document.getElementById('jd-ui-style')) { const st = document.createElement('style'); st.id = 'jd-ui-style'; st.textContent = STYLE; document.head.append(st); }
-    const root = document.createElement('div'); root.id = 'ui';
+    if (!document.getElementById('jd-ui-style')) {
+      const st = document.createElement('style');
+      st.id = 'jd-ui-style';
+      st.textContent = STYLE;
+      document.head.append(st);
+    }
+    const root = document.createElement('div');
+    root.id = 'ui';
     (document.getElementById('game') ?? document.body).append(root);
     this.root = root;
     const sync = () => this.sync();
@@ -159,10 +211,15 @@ class UiLayer {
   }
   /** Position the overlay over the canvas and publish the scale factors as CSS variables. */
   sync() {
-    const root = this.root, game = this.game; if (!root || !game) return;
+    const root = this.root,
+      game = this.game;
+    if (!root || !game) return;
     const r = game.canvas.getBoundingClientRect();
     const parent = root.parentElement?.getBoundingClientRect() ?? { left: 0, top: 0 };
-    root.style.left = `${r.left - parent.left}px`; root.style.top = `${r.top - parent.top}px`; root.style.width = `${r.width}px`; root.style.height = `${r.height}px`;
+    root.style.left = `${r.left - parent.left}px`;
+    root.style.top = `${r.top - parent.top}px`;
+    root.style.width = `${r.width}px`;
+    root.style.height = `${r.height}px`;
     root.style.setProperty('--k', String(r.width / W || 1));
     root.style.setProperty('--text-scale', String(prefs.textScale));
     root.classList.toggle('jd-reduced-motion', prefs.reducedMotion);
@@ -174,7 +231,9 @@ class UiLayer {
    * let the screen scroll. Synchronous (each step reads layout once), idempotent, run on mount and on every resize.
    */
   private fit() {
-    const root = this.root, screen = this.screen; if (!root) return;
+    const root = this.root,
+      screen = this.screen;
+    if (!root) return;
     root.style.setProperty('--fit', '1');
     if (!screen || !screen.classList.contains('jd-title') || screen.clientHeight < 50) return;
     const fits = () => screen.scrollHeight <= screen.clientHeight + 1;
@@ -192,17 +251,30 @@ class UiLayer {
     if (!this.root) return;
     this.sync();
     screen.classList.add('jd-screen');
-    this.root.append(screen); this.screen = screen;
+    this.root.append(screen);
+    this.screen = screen;
     this.fit();
-    if (onKey) { this.keyHandler = onKey; document.addEventListener('keydown', onKey); }
+    if (onKey) {
+      this.keyHandler = onKey;
+      document.addEventListener('keydown', onKey);
+    }
   }
   unmount() {
-    if (this.screen) { this.screen.remove(); this.screen = null; this.root?.style.setProperty('--fit', '1'); }
-    if (this.keyHandler) { document.removeEventListener('keydown', this.keyHandler); this.keyHandler = null; }
+    if (this.screen) {
+      this.screen.remove();
+      this.screen = null;
+      this.root?.style.setProperty('--fit', '1');
+    }
+    if (this.keyHandler) {
+      document.removeEventListener('keydown', this.keyHandler);
+      this.keyHandler = null;
+    }
     this.setHidden(false);
   }
   /** True while a modal text dialog is open: gameplay shortcuts stand down (review F05). */
-  get dialogOpen(): boolean { return !!this.root?.querySelector('.jd-modal'); }
+  get dialogOpen(): boolean {
+    return !!this.root?.querySelector('.jd-modal');
+  }
   /** Add an element above the current screen (a dialog such as the tips panel); the caller removes it. */
   layer(scene: Phaser.Scene, el: HTMLElement) {
     if (!this.root) this.attach(scene.game);
@@ -211,9 +283,15 @@ class UiLayer {
     this.root.append(el);
   }
   /** Hide the whole DOM overlay (kept for callers that draw something Phaser-side above the canvas). */
-  setHidden(hidden: boolean) { this.root?.classList.toggle('jd-hidden', hidden); }
-  get mounted(): boolean { return this.screen != null; }
-  get element(): HTMLDivElement | null { return this.root; }
+  setHidden(hidden: boolean) {
+    this.root?.classList.toggle('jd-hidden', hidden);
+  }
+  get mounted(): boolean {
+    return this.screen != null;
+  }
+  get element(): HTMLDivElement | null {
+    return this.root;
+  }
 }
 
 export const ui = new UiLayer();
@@ -224,51 +302,122 @@ export const ui = new UiLayer();
  * Keyboard events inside the dialog never reach the scenes (stopPropagation at the layer), focus goes to the field
  * and returns to the control that opened the dialog.
  */
-export interface DialogOptions { title: string; label?: string; value?: string; multiline?: boolean; readonly?: boolean; ok?: string; cancel?: string | null; maxLength?: number; placeholder?: string; /** secondary actions (left of Cancel/OK): the dialog closes with null, then the handler runs */ extra?: { label: string; tid: string; onClick: () => void }[] }
+export interface DialogOptions {
+  title: string;
+  label?: string;
+  value?: string;
+  multiline?: boolean;
+  readonly?: boolean;
+  ok?: string;
+  cancel?: string | null;
+  maxLength?: number;
+  placeholder?: string;
+  /** secondary actions (left of Cancel/OK): the dialog closes with null, then the handler runs */ extra?: {
+    label: string;
+    tid: string;
+    onClick: () => void;
+  }[];
+}
 export function dialog(scene: Phaser.Scene, o: DialogOptions): Promise<string | null> {
   return new Promise((resolve) => {
     const prev = document.activeElement as HTMLElement | null;
-    const field = o.multiline ? h('textarea', { tid: 'dialog-input', ariaLabel: o.label ?? o.title }) : h('input', { type: 'text', tid: 'dialog-input', ariaLabel: o.label ?? o.title });
+    const field = o.multiline
+      ? h('textarea', { tid: 'dialog-input', ariaLabel: o.label ?? o.title })
+      : h('input', { type: 'text', tid: 'dialog-input', ariaLabel: o.label ?? o.title });
     field.value = o.value ?? '';
     if (o.maxLength && field instanceof HTMLInputElement) field.maxLength = o.maxLength;
     if (o.placeholder) field.placeholder = o.placeholder;
     if (o.readonly) field.readOnly = true;
     if (o.readonly && !o.multiline && !o.value) field.style.display = 'none'; // a plain message needs no field
     let done = false;
-    const finish = (v: string | null) => { if (done) return; done = true; layer.remove(); prev?.focus?.(); resolve(v); };
+    const finish = (v: string | null) => {
+      if (done) return;
+      done = true;
+      layer.remove();
+      prev?.focus?.();
+      resolve(v);
+    };
     const okBtn = btn(o.ok ?? t('common.ok'), 'dialog-ok', () => finish(field.value), { variant: 'primary', small: true });
     const cancelBtn = o.cancel === null ? null : btn(o.cancel ?? t('common.cancel'), 'dialog-cancel', () => finish(null), { small: true });
-    const extras = (o.extra ?? []).map((x) => btn(x.label, x.tid, () => { finish(null); x.onClick(); }, { small: true }));
-    const box = h('div', { class: 'jd-dialog jd-panel', role: 'dialog', ariaLabel: o.title, tid: 'dialog' },
+    const extras = (o.extra ?? []).map((x) =>
+      btn(
+        x.label,
+        x.tid,
+        () => {
+          finish(null);
+          x.onClick();
+        },
+        { small: true },
+      ),
+    );
+    const box = h(
+      'div',
+      { class: 'jd-dialog jd-panel', role: 'dialog', ariaLabel: o.title, tid: 'dialog' },
       h('div', { class: 'jd-head' }, o.title),
       o.label ? h('div', { class: 'jd-dim jd-dialog-label' }, o.label) : null,
       field,
-      h('div', { class: 'jd-row', style: 'justify-content:flex-end; gap:0.5em; flex-wrap:wrap' }, ...extras, extras.length ? h('span', { style: 'flex:1' }) : null, cancelBtn, okBtn));
-    const layer = h('div', { class: 'jd-modal', onClick: (e) => { if (e.target === layer) finish(null); } }, box);
+      h(
+        'div',
+        { class: 'jd-row', style: 'justify-content:flex-end; gap:0.5em; flex-wrap:wrap' },
+        ...extras,
+        extras.length ? h('span', { style: 'flex:1' }) : null,
+        cancelBtn,
+        okBtn,
+      ),
+    );
+    const layer = h(
+      'div',
+      {
+        class: 'jd-modal',
+        onClick: (e) => {
+          if (e.target === layer) finish(null);
+        },
+      },
+      box,
+    );
     layer.addEventListener('keydown', (e) => {
       e.stopPropagation(); // the scenes' global shortcuts never see keys typed into a dialog
-      if (e.key === 'Escape') { e.preventDefault(); finish(null); }
-      else if (e.key === 'Enter' && (!o.multiline || e.ctrlKey || e.metaKey)) { e.preventDefault(); finish(field.value); }
-      else if (e.key === 'Tab') { // keep focus inside the dialog
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        finish(null);
+      } else if (e.key === 'Enter' && (!o.multiline || e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        finish(field.value);
+      } else if (e.key === 'Tab') {
+        // keep focus inside the dialog
         const f = ([field, ...extras, cancelBtn, okBtn] as (HTMLElement | null)[]).filter((x): x is HTMLElement => x != null);
         const i = f.indexOf(document.activeElement as HTMLElement);
-        if (i >= 0) { e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length]?.focus(); }
+        if (i >= 0) {
+          e.preventDefault();
+          f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length]?.focus();
+        }
       }
     });
     ui.layer(scene, layer);
-    field.focus(); if (!o.multiline && field.value) (field as HTMLInputElement).select(); else if (o.readonly) field.select();
+    field.focus();
+    if (!o.multiline && field.value) (field as HTMLInputElement).select();
+    else if (o.readonly) field.select();
   });
 }
 /** One-line text entry with a default; null when cancelled. */
-export const promptText = (scene: Phaser.Scene, title: string, label: string, value = '', maxLength?: number) => dialog(scene, { title, label, value, maxLength });
+export const promptText = (scene: Phaser.Scene, title: string, label: string, value = '', maxLength?: number) =>
+  dialog(scene, { title, label, value, maxLength });
 /** A message the player acknowledges. */
-export const alertText = (scene: Phaser.Scene, title: string, text: string) => dialog(scene, { title, label: text, value: '', readonly: true, cancel: null, ok: t('common.ok'), multiline: false }).then(() => undefined);
+export const alertText = (scene: Phaser.Scene, title: string, text: string) =>
+  dialog(scene, { title, label: text, value: '', readonly: true, cancel: null, ok: t('common.ok'), multiline: false }).then(() => undefined);
 /** Show text for manual copying when the clipboard API is unavailable (selected, read-only). */
-export const showText = (scene: Phaser.Scene, title: string, text: string) => dialog(scene, { title, label: t('common.selectAndCopy'), value: text, readonly: true, multiline: true, cancel: null, ok: t('common.closeShort') }).then(() => undefined);
+export const showText = (scene: Phaser.Scene, title: string, text: string) =>
+  dialog(scene, { title, label: t('common.selectAndCopy'), value: text, readonly: true, multiline: true, cancel: null, ok: t('common.closeShort') }).then(
+    () => undefined,
+  );
 
 /** A material icon from the generated textures as an <img>, so the DOM shows exactly what the canvas draws. */
 export function textureImg(game: Phaser.Game, key: string, alt: string): HTMLImageElement {
   let src = '';
-  try { src = game.textures.getBase64(key); } catch { /* texture missing: empty img */ }
+  try {
+    src = game.textures.getBase64(key);
+  } catch {
+    /* texture missing: empty img */
+  }
   return h('img', { class: 'jd-item', src, alt });
 }

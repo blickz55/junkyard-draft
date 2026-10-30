@@ -27,5 +27,8 @@ test('pickVerifierUrl: baked unless allowed and the override is an http(s) URL',
 
 test('challenge links carry the verifier parameter only when the caller allows it', () => {
   assert.equal(buildChallengeLink('https://junkyarddraft.com', '/', 'abc123', null), 'https://junkyarddraft.com/?challenge=abc123');
-  assert.equal(buildChallengeLink('http://127.0.0.1:5199', '/', 'abc123', 'http://127.0.0.1:4499'), 'http://127.0.0.1:5199/?challenge=abc123&verifier=http%3A%2F%2F127.0.0.1%3A4499');
+  assert.equal(
+    buildChallengeLink('http://127.0.0.1:5199', '/', 'abc123', 'http://127.0.0.1:4499'),
+    'http://127.0.0.1:5199/?challenge=abc123&verifier=http%3A%2F%2F127.0.0.1%3A4499',
+  );
 });

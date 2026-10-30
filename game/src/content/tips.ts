@@ -8,7 +8,11 @@ import type { MachineKind } from '../sim/types';
 import { t, type StringKey } from './strings';
 import { money } from './format';
 
-export interface Tip extends TipDemo { title: string; text: string; watch: string }
+export interface Tip extends TipDemo {
+  title: string;
+  text: string;
+  watch: string;
+}
 
 const params: Record<string, Record<string, string | number>> = {
   crusher: { scrap: money(RULES.value.scrap), shards: money(RULES.value.shards) },

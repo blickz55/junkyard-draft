@@ -23,7 +23,13 @@ export const OPERATOR = {
   /** where a player appeals a moderation decision (PLAN-v4 0.7.7; the verifier's policy page prints it) */
   appealEmail: 'moderation@junkyarddraft.com',
   /** the processors the privacy notice lists as recipients */
-  hosting: { verifier: 'Hetzner Online GmbH (virtual server in the European Union)', site: 'Cloudflare, Inc. (Pages hosting, DNS and e-mail forwarding for the domain)', source: 'GitHub, Inc. (source code, releases, the desktop installer)', certificates: "Let's Encrypt (TLS certificates for the verifier's host name)", chat: 'Discord Inc. (only when the operator connects a channel: open and close announcements and new #1 scores, the same facts the public board shows)' },
+  hosting: {
+    verifier: 'Hetzner Online GmbH (virtual server in the European Union)',
+    site: 'Cloudflare, Inc. (Pages hosting, DNS and e-mail forwarding for the domain)',
+    source: 'GitHub, Inc. (source code, releases, the desktop installer)',
+    certificates: "Let's Encrypt (TLS certificates for the verifier's host name)",
+    chat: 'Discord Inc. (only when the operator connects a channel: open and close announcements and new #1 scores, the same facts the public board shows)',
+  },
   /** how many nightly backup archives the VPS keeps (deploy/backup.cron --keep): the longest a deleted record can survive in a backup */
   backupKeepDays: 14,
   /** the proxy's and the verifier's logs: json-file rotation, files × size (deploy/docker-compose.yml) */

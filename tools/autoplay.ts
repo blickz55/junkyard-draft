@@ -13,7 +13,10 @@ import { Rng } from '../game/src/sim/rng';
 import { playSeed, score, scoreSanityBound, type SeedReport, type SearchPolicy } from './autoplay-lib';
 
 const args = process.argv.slice(2);
-const opt = (k: string, d: string) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i + 1] : d; };
+const opt = (k: string, d: string) => {
+  const i = args.indexOf(`--${k}`);
+  return i >= 0 ? args[i + 1] : d;
+};
 const SEEDS = Number(opt('seeds', '50'));
 const TRIES = Number(opt('tries', '60'));
 const PREFIX = opt('prefix', 'auto');
@@ -31,17 +34,32 @@ const scores = reports.map((r) => r.score).sort((a, b) => a - b);
 const q = (p: number) => scores[Math.min(scores.length - 1, Math.floor(p * scores.length))];
 const starter = score(newRun('x').layout) * RULES.rounds;
 const summary = {
-  seeds: SEEDS, triesPerRound: TRIES, ms: Date.now() - t0, policy: POLICY, rulesVersion: RULES_VERSION, sanityBound: scoreSanityBound(),
+  seeds: SEEDS,
+  triesPerRound: TRIES,
+  ms: Date.now() - t0,
+  policy: POLICY,
+  rulesVersion: RULES_VERSION,
+  sanityBound: scoreSanityBound(),
   starterOnlyScore: starter,
-  min: scores[0], p25: q(0.25), median: q(0.5), p75: q(0.75), max: scores[scores.length - 1],
+  min: scores[0],
+  p25: q(0.25),
+  median: q(0.5),
+  p75: q(0.75),
+  max: scores[scores.length - 1],
   deadEndSeeds: reports.filter((r) => r.deadEnd).map((r) => r.seed), // no improving draft in any round (PLAN definition)
   mostlyFlatSeeds: reports.filter((r) => r.mostlyFlat).map((r) => r.seed), // ≥ 4 flat rounds (the earlier heuristic, kept for comparison with older baselines)
   flatRoundsTotal: reports.reduce((a, r) => a + r.flatRounds, 0),
   noIngotSeeds: reports.filter((r) => r.ingots === 0).map((r) => r.seed),
   pickFrequency: reports.flatMap((r) => r.picks).reduce((a, p) => ({ ...a, [p]: (a[p] || 0) + 1 }), {} as Record<string, number>),
   suspicious: reports.filter((r) => r.score > scoreSanityBound()).map((r) => r.seed), // above the bound derived from legal acquisition/output limits
-  top: reports.slice().sort((a, b) => b.score - a.score).slice(0, 3),
-  bottom: reports.slice().sort((a, b) => a.score - b.score).slice(0, 3),
+  top: reports
+    .slice()
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3),
+  bottom: reports
+    .slice()
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 3),
 };
 console.log(JSON.stringify(summary, null, 1));
 if (JSON_OUT) fs.writeFileSync(JSON_OUT, JSON.stringify({ summary, reports }, null, 1));

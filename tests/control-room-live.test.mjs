@@ -10,7 +10,17 @@ import path from 'node:path';
 import { chromium, ROOT, freePort, until } from './e2e/fixture.mjs';
 
 const PORT = await freePort();
-const up = () => until(async () => { try { return (await fetch(`http://127.0.0.1:${PORT}/api/summary`)).ok; } catch { return false; } }, { timeout: 15000, every: 100, what: 'the control room server' });
+const up = () =>
+  until(
+    async () => {
+      try {
+        return (await fetch(`http://127.0.0.1:${PORT}/api/summary`)).ok;
+      } catch {
+        return false;
+      }
+    },
+    { timeout: 15000, every: 100, what: 'the control room server' },
+  );
 
 test('control room: live updates, reload history, disconnect visibility', { timeout: 60000 }, async () => {
   // Isolated data dir: copy the server to a temp project so it reads its own events file.
@@ -21,7 +31,8 @@ test('control room: live updates, reload history, disconnect visibility', { time
   fs.mkdirSync(path.join(tmp, '.control-room'), { recursive: true });
   const emit = (...a) => new Promise((res) => spawn('node', [path.join(tmp, 'control-room/emit.mjs'), ...a], { stdio: 'ignore' }).on('exit', res));
   await emit('task', '--id', 'T1', '--title', 'Seed task', '--stage', 'implement', '--status', 'active');
-  const startServer = () => spawn('node', [path.join(tmp, 'control-room/server.mjs')], { env: { ...process.env, CONTROL_ROOM_PORT: String(PORT) }, stdio: 'ignore' });
+  const startServer = () =>
+    spawn('node', [path.join(tmp, 'control-room/server.mjs')], { env: { ...process.env, CONTROL_ROOM_PORT: String(PORT) }, stdio: 'ignore' });
   let server = startServer();
   await up();
   // request hardening (review): a malformed percent-escape is a 400, not a crash; a traversal attempt never leaves the directory
@@ -46,7 +57,7 @@ test('control room: live updates, reload history, disconnect visibility', { time
     await page.reload();
     await page.waitForFunction(() => document.body.innerText.includes('live-note-marker-42'), null, { timeout: 8000 });
     assert.ok((await page.locator('#feed-list li').count()) >= after, 'history restored after reload');
-    assert.ok(await page.locator('#pipe-svg .task[data-id="T1"]').count() === 1, 'pipeline task restored');
+    assert.ok((await page.locator('#pipe-svg .task[data-id="T1"]').count()) === 1, 'pipeline task restored');
     // Disconnect visible
     server.kill('SIGTERM');
     await page.waitForFunction(() => document.querySelector('#pill-sse')?.textContent.includes('DISCONNECTED'), null, { timeout: 10000 });

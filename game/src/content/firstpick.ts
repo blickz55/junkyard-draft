@@ -11,14 +11,30 @@ import { money } from './format';
 /** Most useful first, on a belt that carries only raw scrap. */
 export const FIRST_PICK_ORDER: readonly MachineKind[] = ['crusher', 'hopper', 'conveyor', 'splitter', 'press', 'furnace', 'tuner', 'sieve', 'dock'];
 
-export interface FirstPick { index: number; kind: MachineKind; why: string }
+export interface FirstPick {
+  index: number;
+  kind: MachineKind;
+  why: string;
+}
 
 export function recommendFirstPick(offers: readonly MachineKind[]): FirstPick | null {
   if (!offers.length) return null;
   let best = 0;
   for (let i = 1; i < offers.length; i++) if (rank(offers[i]) < rank(offers[best])) best = i;
   const kind = offers[best];
-  return { index: best, kind, why: t(`firstpick.${kind}` as const, { scrap: money(RULES.value.scrap), shards: money(RULES.value.shards), plate: money(RULES.value.plate), slag: money(RULES.value.slag) }) };
+  return {
+    index: best,
+    kind,
+    why: t(`firstpick.${kind}` as const, {
+      scrap: money(RULES.value.scrap),
+      shards: money(RULES.value.shards),
+      plate: money(RULES.value.plate),
+      slag: money(RULES.value.slag),
+    }),
+  };
 }
 
-const rank = (k: MachineKind): number => { const i = FIRST_PICK_ORDER.indexOf(k); return i < 0 ? FIRST_PICK_ORDER.length : i; };
+const rank = (k: MachineKind): number => {
+  const i = FIRST_PICK_ORDER.indexOf(k);
+  return i < 0 ? FIRST_PICK_ORDER.length : i;
+};

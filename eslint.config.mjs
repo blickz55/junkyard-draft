@@ -8,16 +8,42 @@ import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 
 export default tseslint.config(
-  { ignores: ['node_modules/**', 'dist/**', '.dev-build/**', 'release/**', 'server/dist/**', 'vendor/**', 'tools/scratch*/**', 'tools/scratch/**', '.control-room/**', 'docs/**', 'game/public/**', 'tests/golden/**', 'tests/fixtures/**', 'research_notes/**', 'reports/**', '_delivery/**', 'phaserjs/**'] },
+  {
+    ignores: [
+      'node_modules/**',
+      'dist/**',
+      '.dev-build/**',
+      'release/**',
+      'server/dist/**',
+      'vendor/**',
+      'tools/scratch*/**',
+      'tools/scratch/**',
+      '.control-room/**',
+      'docs/**',
+      'game/public/**',
+      'tests/golden/**',
+      'tests/fixtures/**',
+      'research_notes/**',
+      'reports/**',
+      '_delivery/**',
+      'phaserjs/**',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,
   {
     languageOptions: { globals: { ...globals.browser, ...globals.node, ...globals.es2024 } },
     rules: {
-      'max-len': ['error', { code: 160, tabWidth: 2, ignoreUrls: true, ignoreStrings: true, ignoreTemplateLiterals: true, ignoreRegExpLiterals: true, ignoreComments: true }],
+      'max-len': [
+        'error',
+        { code: 160, tabWidth: 2, ignoreUrls: true, ignoreStrings: true, ignoreTemplateLiterals: true, ignoreRegExpLiterals: true, ignoreComments: true },
+      ],
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', { args: 'after-used', argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none', ignoreRestSiblings: true }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { args: 'after-used', argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none', ignoreRestSiblings: true },
+      ],
       'no-empty': ['error', { allowEmptyCatch: true }], // `catch {}` around storage and clipboard calls is the house pattern: the fallback is the next line
       'no-constant-condition': ['error', { checkLoops: 'allExceptWhileTrue' }],
       'prefer-const': ['error', { destructuring: 'all' }],

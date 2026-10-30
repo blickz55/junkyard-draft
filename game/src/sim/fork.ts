@@ -17,7 +17,10 @@ export function forkFrom(seed: string, actions: readonly Action[], rulesVersion:
   if (s.rulesVersion !== rulesVersion) throw new Error(`replay is rules version ${rulesVersion}, this build plays ${s.rulesVersion}`);
   for (const a of actions) {
     apply(s, a);
-    if (s.rounds.length === n && s.phase === 'draft') { s.forkedFrom = { ...origin, round: n }; return s; }
+    if (s.rounds.length === n && s.phase === 'draft') {
+      s.forkedFrom = { ...origin, round: n };
+      return s;
+    }
   }
   throw new Error(`replay has only ${s.rounds.length} finished round(s); cannot fork after round ${n}`);
 }

@@ -16,10 +16,14 @@ import { showBanner } from './ui/banner';
 // production roadmap 0.8.0: keep the last ten uncaught errors on the device for the title's "Copy diagnostics" button,
 // and say so the moment storage refuses a write instead of losing saves, bests and the name silently
 installErrorLog();
-onStorageFailure(() => showBanner('storage', 'This browser is not saving your progress. Runs still play, but saves, bests and your name will be gone after a reload.'));
+onStorageFailure(() =>
+  showBanner('storage', 'This browser is not saving your progress. Runs still play, but saves, bests and your name will be gone after a reload.'),
+);
 
 declare global {
-  interface ImportMeta { env: { DEV: boolean; BUILD: string; VERIFIER_URL: string } }
+  interface ImportMeta {
+    env: { DEV: boolean; BUILD: string; VERIFIER_URL: string };
+  }
 }
 
 // ?renderer=canvas forces the Canvas renderer (perf presets, weak GPUs); anything else keeps AUTO (WebGL when available).

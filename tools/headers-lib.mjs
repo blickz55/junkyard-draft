@@ -11,7 +11,11 @@ export function parseHeaders(text) {
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.replace(/\s+$/, '');
     if (!line.trim() || line.trim().startsWith('#')) continue;
-    if (!/^\s/.test(line)) { current = { path: line.trim(), headers: {} }; rules.push(current); continue; }
+    if (!/^\s/.test(line)) {
+      current = { path: line.trim(), headers: {} };
+      rules.push(current);
+      continue;
+    }
     if (!current) throw new Error(`_headers: header line before any path: ${JSON.stringify(line)}`);
     const i = line.indexOf(':');
     if (i < 0) throw new Error(`_headers: header line without a colon: ${JSON.stringify(line)}`);
@@ -23,7 +27,10 @@ export function parseHeaders(text) {
 /** Compile a `_headers` path pattern into a RegExp over the request path. */
 export function patternToRegExp(pattern) {
   const escape = (s) => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-  const src = pattern.split('*').map((part) => escape(part).replace(/:[A-Za-z0-9_]+/g, '[^/]+')).join('.*');
+  const src = pattern
+    .split('*')
+    .map((part) => escape(part).replace(/:[A-Za-z0-9_]+/g, '[^/]+'))
+    .join('.*');
   return new RegExp(`^${src}$`);
 }
 

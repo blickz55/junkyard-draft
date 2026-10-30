@@ -21,7 +21,10 @@ export function explainRunError(message: string): string {
   if (m.includes('action limit')) return t('advice.actionLimit');
   if (m.includes('round not finished')) return t('advice.roundNotFinished');
   if (m.includes('already used this round')) return t('advice.offersOnce');
-  if (m.includes('cannot afford')) { const amt = message.match(/\$(\d+)/)?.[1]; return t('advice.cannotAfford', { amount: amt ? money(Number(amt)) : '' }); }
+  if (m.includes('cannot afford')) {
+    const amt = message.match(/\$(\d+)/)?.[1];
+    return t('advice.cannotAfford', { amount: amt ? money(Number(amt)) : '' });
+  }
   if (m.includes('no rerolls in the tutorial')) return t('advice.noOffersInLesson');
   if (m.includes('no machine')) return t('advice.noMachine');
   if (m.includes('malformed') || m.includes('unknown action')) return t('advice.notAllowed');
@@ -34,10 +37,15 @@ export function placementWarning(layout: Layout, kind: MachineKind, x: number, y
   if (!issue) return null;
   const name = machineName(kind);
   switch (issue.kind) {
-    case 'tuner-alone': return t('advice.tunerAlone');
-    case 'conveyor-unfed': return t('advice.conveyorUnfed');
-    case 'behind-not-facing': return t('advice.behindNotFacing', { name, behind: machineName(issue.behind).toLowerCase() });
-    case 'unfed': return t('advice.unfed', { name });
-    case 'off-grid': return t('advice.offGrid', { name });
+    case 'tuner-alone':
+      return t('advice.tunerAlone');
+    case 'conveyor-unfed':
+      return t('advice.conveyorUnfed');
+    case 'behind-not-facing':
+      return t('advice.behindNotFacing', { name, behind: machineName(issue.behind).toLowerCase() });
+    case 'unfed':
+      return t('advice.unfed', { name });
+    case 'off-grid':
+      return t('advice.offGrid', { name });
   }
 }

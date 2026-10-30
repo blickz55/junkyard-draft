@@ -2,7 +2,15 @@ import path from 'node:path';
 
 export const DEFAULT_VERIFIER_URL = 'http://127.0.0.1:4400';
 
-export function buildOptions({ root, outdir, dev, commit = 'dev', version = '0.0.0', verifierUrl = process.env.VERIFIER_URL || DEFAULT_VERIFIER_URL, entryNames = 'main' }) {
+export function buildOptions({
+  root,
+  outdir,
+  dev,
+  commit = 'dev',
+  version = '0.0.0',
+  verifierUrl = process.env.VERIFIER_URL || DEFAULT_VERIFIER_URL,
+  entryNames = 'main',
+}) {
   return {
     entryPoints: [path.join(root, 'game', 'src', 'main.ts')],
     bundle: true,
@@ -31,7 +39,11 @@ export function buildOptions({ root, outdir, dev, commit = 'dev', version = '0.0
  */
 export function cspFor({ dev, verifierUrl = process.env.VERIFIER_URL || DEFAULT_VERIFIER_URL, header = false }) {
   let origin = verifierUrl;
-  try { origin = new URL(verifierUrl).origin; } catch { /* keep as given */ }
+  try {
+    origin = new URL(verifierUrl).origin;
+  } catch {
+    /* keep as given */
+  }
   const connect = dev ? "'self' http://127.0.0.1:* http://localhost:* https:" : `'self' ${origin}`;
   const policy = `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src ${connect}; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'`;
   // frame-ancestors is ignored in a <meta> policy, so only the HTTP header variant (deploy/_headers, 0.8.5) carries it

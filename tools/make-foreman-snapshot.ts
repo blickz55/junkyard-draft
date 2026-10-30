@@ -12,7 +12,10 @@ export const SNAPSHOT_PATH = 'tests/fixtures/foreman-snapshot.json';
 
 export function buildSnapshot(): Record<string, Record<string, string>> {
   const out: Record<string, Record<string, string>> = {};
-  for (const day of SNAPSHOT_DAYS) { out[day] = {}; for (const s of SITUATIONS) out[day][s] = foremanLine(s, {}, day); }
+  for (const day of SNAPSHOT_DAYS) {
+    out[day] = {};
+    for (const s of SITUATIONS) out[day][s] = foremanLine(s, {}, day);
+  }
   return out;
 }
 

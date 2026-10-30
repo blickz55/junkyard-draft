@@ -18,10 +18,24 @@ import { contrast, deltaE, deltaL, hexToRgb, over, rgbToHex, shiftValue, simulat
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-export interface TextPair { name: string; fg: RGB; bg: RGB; px: number; bold?: boolean }
-export interface ContrastResult extends TextPair { ratio: number; required: number; ok: boolean; fgHex: string; bgHex: string }
+export interface TextPair {
+  name: string;
+  fg: RGB;
+  bg: RGB;
+  px: number;
+  bold?: boolean;
+}
+export interface ContrastResult extends TextPair {
+  ratio: number;
+  required: number;
+  ok: boolean;
+  fgHex: string;
+  bgHex: string;
+}
 
-const bgPanel = hexToRgb(P.panel), bgBg = hexToRgb(P.bg), bgFloor = hexToRgb(P.floor);
+const bgPanel = hexToRgb(P.panel),
+  bgBg = hexToRgb(P.bg),
+  bgFloor = hexToRgb(P.floor);
 const badgeBg = over(hexToRgb(0x000000), 0.8, bgFloor); // badge rectangle: black at 0.8 over the floor tile
 const hintBg = over(hexToRgb(P.panel), 0.95, bgBg);
 
@@ -63,20 +77,37 @@ export function auditContrast(pairs = TEXT_PAIRS): ContrastResult[] {
 }
 
 /** Colours that carry meaning on the grid. Shapes differ per material; colour must not actively mislead. */
-export const MATERIALS: Record<string, RGB> = { scrap: hexToRgb(P.scrap), shards: hexToRgb(P.shards), plate: hexToRgb(P.plate), ingot: hexToRgb(P.ingot), slag: hexToRgb(P.slag) };
+export const MATERIALS: Record<string, RGB> = {
+  scrap: hexToRgb(P.scrap),
+  shards: hexToRgb(P.shards),
+  plate: hexToRgb(P.plate),
+  ingot: hexToRgb(P.ingot),
+  slag: hexToRgb(P.slag),
+};
 export const SEMANTIC: Record<string, RGB> = { ok: hexToRgb(P.ok), bad: hexToRgb(P.bad), amberSelect: hexToRgb(P.amber), cursorFrame: hexToRgb(P.cursor) };
 
-export interface PairResult { group: string; a: string; b: string; kind: CvdKind; deltaE: number; deltaL: number; ok: boolean }
+export interface PairResult {
+  group: string;
+  a: string;
+  b: string;
+  kind: CvdKind;
+  deltaE: number;
+  deltaL: number;
+  ok: boolean;
+}
 export function auditCvd(groups: Record<string, Record<string, RGB>> = { materials: MATERIALS, semantic: SEMANTIC }): PairResult[] {
   const out: PairResult[] = [];
   for (const [group, colors] of Object.entries(groups)) {
     const names = Object.keys(colors);
     for (const kind of ['normal', 'protanopia', 'deuteranopia', 'tritanopia'] as CvdKind[]) {
-      for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
-        const a = simulate(colors[names[i]], kind), b = simulate(colors[names[j]], kind);
-        const dE = +deltaE(a, b).toFixed(1), dL = +deltaL(a, b).toFixed(1);
-        out.push({ group, a: names[i], b: names[j], kind, deltaE: dE, deltaL: dL, ok: !(dE < 12 && dL < 15) });
-      }
+      for (let i = 0; i < names.length; i++)
+        for (let j = i + 1; j < names.length; j++) {
+          const a = simulate(colors[names[i]], kind),
+            b = simulate(colors[names[j]], kind);
+          const dE = +deltaE(a, b).toFixed(1),
+            dL = +deltaL(a, b).toFixed(1);
+          out.push({ group, a: names[i], b: names[j], kind, deltaE: dE, deltaL: dL, ok: !(dE < 12 && dL < 15) });
+        }
     }
   }
   return out;
@@ -85,21 +116,39 @@ export function auditCvd(groups: Record<string, Record<string, RGB>> = { materia
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const args = process.argv.slice(2);
-  const opt = (k: string, d: string) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i + 1] : d; };
+  const opt = (k: string, d: string) => {
+    const i = args.indexOf(`--${k}`);
+    return i >= 0 ? args[i + 1] : d;
+  };
   const contrastResults = auditContrast();
   const cvdResults = auditCvd();
   const failsC = contrastResults.filter((r) => !r.ok);
   const failsV = cvdResults.filter((r) => !r.ok);
   console.log('CONTRAST');
-  for (const r of contrastResults) console.log(`  ${r.ok ? 'ok  ' : 'FAIL'} ${r.ratio.toFixed(2).padStart(5)}:1 (need ${r.required}) ${r.name}  ${r.fgHex} on ${r.bgHex} @${r.px}px${r.bold ? ' bold' : ''}`);
+  for (const r of contrastResults)
+    console.log(
+      `  ${r.ok ? 'ok  ' : 'FAIL'} ${r.ratio.toFixed(2).padStart(5)}:1 (need ${r.required}) ${r.name}  ${r.fgHex} on ${r.bgHex} @${r.px}px${r.bold ? ' bold' : ''}`,
+    );
   console.log('CVD (worst pair per group and simulation)');
-  for (const group of ['materials', 'semantic']) for (const kind of ['normal', 'protanopia', 'deuteranopia', 'tritanopia'] as CvdKind[]) {
-    const rows = cvdResults.filter((r) => r.group === group && r.kind === kind).sort((x, y) => x.deltaE - y.deltaE);
-    const w = rows[0];
-    console.log(`  ${w.ok ? 'ok  ' : 'FAIL'} ${group.padEnd(9)} ${kind.padEnd(13)} closest: ${w.a} vs ${w.b}  ΔE ${w.deltaE}  ΔL* ${w.deltaL}`);
-  }
-  const simulatedPalette = Object.fromEntries((['protanopia', 'deuteranopia', 'tritanopia'] as CvdKind[]).map((k) => [k, Object.fromEntries(Object.entries(MATERIALS).map(([n, c]) => [n, rgbToHex(simulate(c, k))]))]));
-  const summary = { contrast: contrastResults, cvd: cvdResults, failures: { contrast: failsC.map((f) => f.name), cvd: failsV.map((f) => `${f.group}:${f.a}/${f.b}@${f.kind}`) }, simulatedPalette, at: new Date().toISOString() };
+  for (const group of ['materials', 'semantic'])
+    for (const kind of ['normal', 'protanopia', 'deuteranopia', 'tritanopia'] as CvdKind[]) {
+      const rows = cvdResults.filter((r) => r.group === group && r.kind === kind).sort((x, y) => x.deltaE - y.deltaE);
+      const w = rows[0];
+      console.log(`  ${w.ok ? 'ok  ' : 'FAIL'} ${group.padEnd(9)} ${kind.padEnd(13)} closest: ${w.a} vs ${w.b}  ΔE ${w.deltaE}  ΔL* ${w.deltaL}`);
+    }
+  const simulatedPalette = Object.fromEntries(
+    (['protanopia', 'deuteranopia', 'tritanopia'] as CvdKind[]).map((k) => [
+      k,
+      Object.fromEntries(Object.entries(MATERIALS).map(([n, c]) => [n, rgbToHex(simulate(c, k))])),
+    ]),
+  );
+  const summary = {
+    contrast: contrastResults,
+    cvd: cvdResults,
+    failures: { contrast: failsC.map((f) => f.name), cvd: failsV.map((f) => `${f.group}:${f.a}/${f.b}@${f.kind}`) },
+    simulatedPalette,
+    at: new Date().toISOString(),
+  };
   const jsonOut = opt('json', '');
   if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(summary, null, 1) + '\n');
 
@@ -139,7 +188,8 @@ if (isMain) {
       });
       return c.toDataURL('image/png');
     })(${matrices})`)) as string;
-    const outDir = path.join(ROOT, 'docs', 'a11y'); fs.mkdirSync(outDir, { recursive: true });
+    const outDir = path.join(ROOT, 'docs', 'a11y');
+    fs.mkdirSync(outDir, { recursive: true });
     const file = path.join(outDir, opt('sheet-name', 'materials-cvd.png'));
     fs.writeFileSync(file, Buffer.from(dataUrl.split(',')[1], 'base64'));
     console.log('contact sheet →', path.relative(ROOT, file));

@@ -27,7 +27,14 @@ export const P = {
   bad: 0xeb6757,
 };
 export const CSS = {
-  text: '#f1e8d8', dim: '#a89d88', amber: '#f0a830', green: '#6fcf8a', red: '#eb6757', blue: '#5aa9e6', gold: '#f5c542', panel: '#24201a',
+  text: '#f1e8d8',
+  dim: '#a89d88',
+  amber: '#f0a830',
+  green: '#6fcf8a',
+  red: '#eb6757',
+  blue: '#5aa9e6',
+  gold: '#f5c542',
+  panel: '#24201a',
 };
 export const FONT = 'Inter, "Segoe UI", system-ui, sans-serif';
 export const MONO = 'ui-monospace, Menlo, Consolas, monospace';

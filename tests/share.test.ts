@@ -5,8 +5,14 @@ import { cleanPlayer, rankText, shareText, roundGlyph, roundGrid, seedLabel, sta
 const base = { seed: 'daily-2026-10-25', score: 1234, rulesVersion: 2, rounds: [38, 120, 300, 300, 238, 238] };
 
 test('share grid (PLAN-v1 0.4.3): glyph thresholds at their boundaries, six glyphs per run, monochrome text', () => {
-  assert.equal(roundGlyph(0), '░'); assert.equal(roundGlyph(100), '░'); assert.equal(roundGlyph(101), '▒');
-  assert.equal(roundGlyph(250), '▒'); assert.equal(roundGlyph(251), '▓'); assert.equal(roundGlyph(400), '▓'); assert.equal(roundGlyph(401), '█'); assert.equal(roundGlyph(9999), '█');
+  assert.equal(roundGlyph(0), '░');
+  assert.equal(roundGlyph(100), '░');
+  assert.equal(roundGlyph(101), '▒');
+  assert.equal(roundGlyph(250), '▒');
+  assert.equal(roundGlyph(251), '▓');
+  assert.equal(roundGlyph(400), '▓');
+  assert.equal(roundGlyph(401), '█');
+  assert.equal(roundGlyph(9999), '█');
   assert.equal(roundGrid(base.rounds), '░▒▓▓▒▒');
   assert.equal(roundGrid([]).length, 0);
   for (const g of SHARE_GLYPHS) assert.equal(g.length, 1);
@@ -25,7 +31,8 @@ test('share text: spoiler-free by default — label, score, glyph line, standing
   assert.equal(standingText({ rank: { n: 1, of: 1 }, percentile: 0, n: 1 }), '#1 of 1 on the board', 'a population of one never says "better than 0 %"');
   assert.equal(standingText({ rank: null }), '');
   assert.equal(rankText({ n: null, of: 100 }), 'not in the top 100 of the board');
-  assert.equal(seedLabel('tutorial-1'), 'Lesson'); assert.equal(seedLabel('rust-bolt-123'), 'yard rust-bolt-123');
+  assert.equal(seedLabel('tutorial-1'), 'Lesson');
+  assert.equal(seedLabel('rust-bolt-123'), 'yard rust-bolt-123');
 });
 
 test('share text: days played and the opt-in permalink append lines; the detailed variant adds per-round dollars and the rules version', () => {
@@ -33,8 +40,14 @@ test('share text: days played and the opt-in permalink append lines; the detaile
   assert.match(shareText({ ...base, daysPlayed: 12 }), /\n12 days played$/);
   assert.doesNotMatch(shareText({ ...base, daysPlayed: 0 }), /played/);
   // challenge (PLAN-v4 0.7.1): detailed variant says how it went
-  assert.match(shareText({ ...base, score: 1300, challenge: { player: 'Jon#7Q2M', score: 1200 }, variant: 'detailed' }), /\nbeat Jon#7Q2M's \$1200 by \$100(\n|$)/);
-  assert.match(shareText({ ...base, score: 1100, challenge: { player: 'Jon#7Q2M', score: 1200 }, variant: 'detailed' }), /\nshort of Jon#7Q2M's \$1200 by \$100(\n|$)/);
+  assert.match(
+    shareText({ ...base, score: 1300, challenge: { player: 'Jon#7Q2M', score: 1200 }, variant: 'detailed' }),
+    /\nbeat Jon#7Q2M's \$1200 by \$100(\n|$)/,
+  );
+  assert.match(
+    shareText({ ...base, score: 1100, challenge: { player: 'Jon#7Q2M', score: 1200 }, variant: 'detailed' }),
+    /\nshort of Jon#7Q2M's \$1200 by \$100(\n|$)/,
+  );
   assert.match(shareText({ ...base, score: 1200, challenge: { player: 'Jon#7Q2M', score: 1200 }, variant: 'detailed' }), /\ntied Jon#7Q2M's \$1200(\n|$)/);
   assert.doesNotMatch(shareText({ ...base, score: 1300, challenge: { player: 'Jon#7Q2M', score: 1200 } }), /Jon/, 'the grid never carries it');
   // medal (PLAN-v3 0.6.4): detailed variant, verified entry only
@@ -51,7 +64,11 @@ test('share text: days played and the opt-in permalink append lines; the detaile
   const detailed = shareText({ ...base, variant: 'detailed', player: 'jon', rank: { n: 3, of: 17 } });
   assert.match(detailed, /\nrounds \$38 · \$120 · \$300 · \$300 · \$238 · \$238\n/);
   assert.match(detailed, /\nchecked by the Junkyard Draft server(\n|$)/);
-  assert.doesNotMatch(shareText({ ...base, variant: 'detailed' }), /rules v|checked by/, 'an unchecked game claims nothing and names no rules version (the glossary: never shown)');
+  assert.doesNotMatch(
+    shareText({ ...base, variant: 'detailed' }),
+    /rules v|checked by/,
+    'an unchecked game claims nothing and names no rules version (the glossary: never shown)',
+  );
 });
 
 test('player names are trimmed, whitespace-collapsed and capped at 32 characters', () => {
@@ -64,6 +81,10 @@ test('badges in share text (PLAN-v1 0.4.6): only the detailed variant of a verif
   const base = { seed: 'x', score: 500, rulesVersion: 2, rounds: [50, 50, 100, 100, 100, 100], badges: ['Clean', 'All Hands'], rerolls: 2 };
   assert.doesNotMatch(shareText(base), /badges/, 'unverified: never');
   assert.doesNotMatch(shareText({ ...base, rank: { n: 1, of: 1 } }), /badges/, 'verified grid variant: no');
-  assert.match(shareText({ ...base, rank: { n: 1, of: 1 }, variant: 'detailed' }), /\nnew offers: 2 \(−\$80\)\n[\s\S]*badges: Clean · All Hands$/, 'checked detailed: yes');
+  assert.match(
+    shareText({ ...base, rank: { n: 1, of: 1 }, variant: 'detailed' }),
+    /\nnew offers: 2 \(−\$80\)\n[\s\S]*badges: Clean · All Hands$/,
+    'checked detailed: yes',
+  );
   assert.doesNotMatch(shareText({ ...base, badges: [], rank: { n: 1, of: 1 }, variant: 'detailed' }), /badges/);
 });

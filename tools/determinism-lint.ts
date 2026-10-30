@@ -14,11 +14,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export interface LintHit { file: string; line: number; rule: string; text: string }
+export interface LintHit {
+  file: string;
+  line: number;
+  rule: string;
+  text: string;
+}
 export const CALENDAR_MODULES: readonly string[] = ['daily.ts', 'weekly.ts'];
 export const ALLOW_MARK = /\/\/\s*determinism:\s*\S/;
 export const LINT_RULES: readonly { rule: string; re: RegExp; calendarOk?: boolean }[] = [
-  { rule: 'Math.random or a transcendental function', re: /\bMath\.(random|sin|cos|tan|exp|expm1|pow|log|log2|log10|log1p|atan|atan2|asin|acos|sinh|cosh|tanh|asinh|acosh|atanh)\b/ },
+  {
+    rule: 'Math.random or a transcendental function',
+    re: /\bMath\.(random|sin|cos|tan|exp|expm1|pow|log|log2|log10|log1p|atan|atan2|asin|acos|sinh|cosh|tanh|asinh|acosh|atanh)\b/,
+  },
   { rule: 'Date (the clock)', re: /\bDate\b/, calendarOk: true },
   { rule: 'Intl (the locale)', re: /\bIntl\b/ },
   { rule: 'toLocale* (the locale)', re: /\.toLocale\w*\s*\(/ },
@@ -30,7 +38,10 @@ export const LINT_RULES: readonly { rule: string; re: RegExp; calendarOk?: boole
 export function lintSource(file: string, source: string): LintHit[] {
   const base = path.basename(file);
   const original = source.split(/\r?\n/);
-  const stripped = source.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' ')).split(/\r?\n/).map((l) => l.replace(/\/\/.*$/, ''));
+  const stripped = source
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\/\/.*$/, ''));
   const hits: LintHit[] = [];
   stripped.forEach((line, i) => {
     if (ALLOW_MARK.test(original[i] ?? '')) return;
@@ -43,7 +54,11 @@ export function lintSource(file: string, source: string): LintHit[] {
 }
 
 export function lintDir(dir: string): LintHit[] {
-  return fs.readdirSync(dir).filter((f) => f.endsWith('.ts')).sort().flatMap((f) => lintSource(path.join(dir, f), fs.readFileSync(path.join(dir, f), 'utf8')));
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith('.ts'))
+    .sort()
+    .flatMap((f) => lintSource(path.join(dir, f), fs.readFileSync(path.join(dir, f), 'utf8')));
 }
 
 const isMain = process.argv[1] && /determinism-lint\.(ts|mjs|js)$/.test(process.argv[1]);
@@ -51,6 +66,10 @@ if (isMain) {
   const dir = path.resolve(process.argv[2] ?? 'game/src/sim');
   const hits = lintDir(dir);
   for (const h of hits) console.error(`${path.relative(process.cwd(), h.file)}:${h.line}: ${h.rule}: ${h.text}`);
-  console.log(hits.length ? `${hits.length} determinism hit(s) under ${path.relative(process.cwd(), dir)}` : `determinism lint clean: ${path.relative(process.cwd(), dir)}`);
+  console.log(
+    hits.length
+      ? `${hits.length} determinism hit(s) under ${path.relative(process.cwd(), dir)}`
+      : `determinism lint clean: ${path.relative(process.cwd(), dir)}`,
+  );
   process.exitCode = hits.length ? 1 : 0;
 }

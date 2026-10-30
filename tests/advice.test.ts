@@ -11,17 +11,35 @@ const lay = (...machines: Machine[]): Layout => ({ width: 8, height: 6, machines
 test('every RunError from apply maps to a non-empty player string', () => {
   const s = newRun('advice');
   const cases: Action[] = [
-    { t: 'place', id: 1, x: 0, y: 0, dir: 0 },            // not building
-    { t: 'pick', i: 3 } as Action,                         // malformed
-    { t: 'next' },                                         // round not finished
-    { t: 'unplace', id: 999 } as Action,                   // not building
+    { t: 'place', id: 1, x: 0, y: 0, dir: 0 }, // not building
+    { t: 'pick', i: 3 } as Action, // malformed
+    { t: 'next' }, // round not finished
+    { t: 'unplace', id: 999 } as Action, // not building
   ];
   const msgs: string[] = [];
-  for (const a of cases) { try { apply(s, a); } catch (e) { assert.ok(e instanceof RunError); msgs.push((e as Error).message); } }
+  for (const a of cases) {
+    try {
+      apply(s, a);
+    } catch (e) {
+      assert.ok(e instanceof RunError);
+      msgs.push((e as Error).message);
+    }
+  }
   apply(s, { t: 'pick', i: 0 });
   const bin = s.bin[0];
-  for (const a of [{ t: 'place', id: bin.id, x: -1, y: 0, dir: 0 }, { t: 'place', id: bin.id, x: 2, y: 2, dir: 0 }, { t: 'place', id: 999, x: 0, y: 0, dir: 0 }, { t: 'sell', id: 1 }, { t: 'pick', i: 0 }] as Action[]) {
-    try { apply(s, a); } catch (e) { assert.ok(e instanceof RunError); msgs.push((e as Error).message); }
+  for (const a of [
+    { t: 'place', id: bin.id, x: -1, y: 0, dir: 0 },
+    { t: 'place', id: bin.id, x: 2, y: 2, dir: 0 },
+    { t: 'place', id: 999, x: 0, y: 0, dir: 0 },
+    { t: 'sell', id: 1 },
+    { t: 'pick', i: 0 },
+  ] as Action[]) {
+    try {
+      apply(s, a);
+    } catch (e) {
+      assert.ok(e instanceof RunError);
+      msgs.push((e as Error).message);
+    }
   }
   assert.ok(msgs.length >= 8);
   for (const m of msgs) assert.ok(explainRunError(m).length > 10, m);
@@ -44,12 +62,21 @@ test('crusher beside a hopper warns (behind only); fed in line it does not', () 
 });
 
 test('tuner (rules v3): warns when no processor touches it, silent beside a crusher, furnace or press; takes and gives nothing', () => {
-  const layout = { width: 8, height: 6, machines: [{ id: 1, kind: 'hopper' as const, x: 1, y: 2, dir: 0 as const }, { id: 2, kind: 'furnace' as const, x: 2, y: 2, dir: 0 as const }, { id: 3, kind: 'dock' as const, x: 3, y: 2, dir: 0 as const }] };
+  const layout = {
+    width: 8,
+    height: 6,
+    machines: [
+      { id: 1, kind: 'hopper' as const, x: 1, y: 2, dir: 0 as const },
+      { id: 2, kind: 'furnace' as const, x: 2, y: 2, dir: 0 as const },
+      { id: 3, kind: 'dock' as const, x: 3, y: 2, dir: 0 as const },
+    ],
+  };
   assert.match(placementWarning(layout, 'tuner', 5, 5, 0, 9) ?? '', /nothing here to tune/);
   assert.equal(placementWarning(layout, 'tuner', 2, 1, 0, 9), null, 'above the furnace');
   assert.equal(placementWarning(layout, 'tuner', 2, 3, 0, 9), null, 'below the furnace');
   assert.match(placementWarning(layout, 'tuner', 1, 1, 0, 9) ?? '', /nothing here to tune/, 'above a hopper is not a processor');
-  assert.deepEqual(inputTravelDirs('tuner', 0), []); assert.deepEqual(outputDirs('tuner', 0), []);
+  assert.deepEqual(inputTravelDirs('tuner', 0), []);
+  assert.deepEqual(outputDirs('tuner', 0), []);
 });
 
 test('conveyors accept from the sides; splitters output left and right; docks take all', () => {

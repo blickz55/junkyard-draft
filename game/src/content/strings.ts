@@ -11,7 +11,10 @@
 import { locale, pseudo } from './locale';
 import { int } from './format';
 
-export interface Entry { en: string; note: string }
+export interface Entry {
+  en: string;
+  note: string;
+}
 const s = (en: string, note: string): Entry => ({ en, note });
 
 export const STRINGS = {
@@ -44,8 +47,14 @@ export const STRINGS = {
 
   // ---- title screen ----
   'title.build': s('build {build}', 'top-left build stamp'),
-  'title.reportedNote': s('Your name was reported and shows as "{label}" on the boards until a moderator reviews it. Scores are not affected; appeals: see the fairness policy.', 'under the player button'),
-  'title.pendingWaiting': s('{n, plural, one {# saved game waiting to be checked…} other {# saved games waiting to be checked…}}', 'while saved offline games are being sent'),
+  'title.reportedNote': s(
+    'Your name was reported and shows as "{label}" on the boards until a moderator reviews it. Scores are not affected; appeals: see the fairness policy.',
+    'under the player button',
+  ),
+  'title.pendingWaiting': s(
+    '{n, plural, one {# saved game waiting to be checked…} other {# saved games waiting to be checked…}}',
+    'while saved offline games are being sent',
+  ),
   'title.resolutionStandard': s('Resolution: Standard', 'settings button'),
   'title.resolutionHigh': s('Resolution: High', 'settings button'),
   'title.resolutionAuto': s('Resolution: Auto ({dpr}×)', 'settings button'),
@@ -54,12 +63,18 @@ export const STRINGS = {
   'title.statsOff': s('Share stats: Off', 'the consent toggle'),
   'title.privacyLink': s('Privacy & data', 'link in the statistics note and the results'),
   'title.privacyTitle': s('privacy notice, terms, community guidelines; download or delete everything stored about you', 'tooltip'),
-  'title.statsNote': s('Anonymous play statistics only: which steps you reach, never yards or layouts. ', 'the consent toggle\'s note, followed by the privacy link'),
+  'title.statsNote': s(
+    'Anonymous play statistics only: which steps you reach, never yards or layouts. ',
+    "the consent toggle's note, followed by the privacy link",
+  ),
   'title.name': s('JUNKYARD DRAFT', 'the wordmark'),
   'title.tagline': s('Pick salvaged machines. Build a production line. Beat your best.', 'under the wordmark'),
   'title.continue': s('Continue game ({seed})', 'primary when a saved game exists'),
   'title.continueNote': s('Starting a new game discards the saved one.', 'under Continue'),
-  'title.unusableSave': s('A saved game was found but cannot be resumed (damaged or from older rules); it will be replaced by your next game.', 'in place of Continue'),
+  'title.unusableSave': s(
+    'A saved game was found but cannot be resumed (damaged or from older rules); it will be replaced by your next game.',
+    'in place of Continue',
+  ),
   'title.daily': s("Today's challenge", 'primary action'),
   'title.random': s('Random yard', 'action'),
   'title.learnFresh': s('Learn to play (3 min)', 'primary for a new player'),
@@ -80,7 +95,10 @@ export const STRINGS = {
   'title.noGames': s('No finished games yet on this device.', 'bests panel'),
   'title.todayBest': s("Today's challenge best: {score}", 'bests panel'),
   'title.todayNotPlayed': s("Today's challenge: not played yet", 'bests panel'),
-  'title.gamesOnDevice': s('{n, plural, one {# game on this device} other {# games on this device}} · the shared board counts only games our server has checked', 'bests panel'),
+  'title.gamesOnDevice': s(
+    '{n, plural, one {# game on this device} other {# games on this device}} · the shared board counts only games our server has checked',
+    'bests panel',
+  ),
   'title.underRules': s('Under older rules ({version})', 'collapsed archived bests'),
   'title.archivedBest': s('best {score} (yard {seed}) · ', 'archived bests, before the count'),
   'title.archivedGames': s("{n, plural, one {# game} other {# games}} · kept, not comparable with today's rules", 'archived bests'),
@@ -102,7 +120,10 @@ export const STRINGS = {
   'title.reducedAudioTitle': s('at most one sound per second, no chords', 'tooltip'),
   'title.boardHead': s("Today's board", 'strip head'),
   'title.checking': s("Checking today's board…", 'strip line before the answer'),
-  'title.modeTitle': s("ranked: our server named today's yard from its secret and published a promise for tomorrow's; provisional: the board can still change until the day closes, 48 h after 00:00 UTC", 'tooltip of the mode'),
+  'title.modeTitle': s(
+    "ranked: our server named today's yard from its secret and published a promise for tomorrow's; provisional: the board can still change until the day closes, 48 h after 00:00 UTC",
+    'tooltip of the mode',
+  ),
   'title.modeRankedProvisional': s('ranked · provisional · {closes}', 'strip mode'),
   'title.modeRankedFinal': s('ranked · final', 'strip mode'),
   'title.modePracticeUntil': s('practice (unranked) until our server answers', 'strip mode before the answer'),
@@ -119,7 +140,10 @@ export const STRINGS = {
   'title.weeklyOffline': s('Weekly offline', 'strip button'),
   'title.weeklyFinal': s('Weekly {week} · final', 'strip button'),
   'title.weeklyCloses': s('Weekly {week} · closes in {left}', 'strip button'),
-  'title.weeklyBtnTitle': s("this week's yard {seed}: one window for everyone, Friday 18:00 UTC to Friday 18:00 UTC; the board is provisional until it closes", 'tooltip'),
+  'title.weeklyBtnTitle': s(
+    "this week's yard {seed}: one window for everyone, Friday 18:00 UTC to Friday 18:00 UTC; the board is provisional until it closes",
+    'tooltip',
+  ),
   'title.closing': s('closing', 'no time left'),
   'title.closesInH': s('closes in {n} h', 'hours left'),
   'title.closesInMin': s('closes in {n} min', 'minutes left'),
@@ -153,11 +177,17 @@ export const STRINGS = {
   'identity.set': s('Set player name…', 'the title button without a name'),
   'identity.cleared': s('Name cleared on this device.', 'outcome note'),
   'identity.insecure': s('Saved on this device; the connection to our server is not secure, so the name was not claimed.', 'outcome note'),
-  'identity.noAnswer': s('Saved on this device; our server did not answer, so the name is not claimed yet (it will be on your next submission).', 'outcome note'),
+  'identity.noAnswer': s(
+    'Saved on this device; our server did not answer, so the name is not claimed yet (it will be on your next submission).',
+    'outcome note',
+  ),
   'identity.refused': s('Our server refused the name: {error}. Kept on this device only.', 'outcome note'),
   'identity.claimed': s('Claimed as {label}.', 'outcome note'),
   'identity.dialogTitle': s('Player name', 'dialog title without a name'),
-  'identity.dialogLabel': s("Shown on the boards as Name#{tag} (the tag comes from this device's key; max {max} characters, leave empty to clear). One best entry per player per yard. Keep your key private: it is this player.", 'dialog label'),
+  'identity.dialogLabel': s(
+    "Shown on the boards as Name#{tag} (the tag comes from this device's key; max {max} characters, leave empty to clear). One best entry per player per yard. Keep your key private: it is this player.",
+    'dialog label',
+  ),
   'identity.save': s('Save', 'dialog OK'),
   'identity.showKey': s('Show your key', 'dialog side button'),
   'identity.keyTitle': s('Your key', 'dialog title'),
@@ -179,7 +209,10 @@ export const STRINGS = {
   'results.headReplay': s('Recording', 'headline when watching'),
   'results.headBetter': s('Better than {pct} % of {n} checked games {scope}', 'headline (0.9.2): the standing sentence, five games or more'),
   'results.headRank': s('Rank {rank} of {n, plural, one {# checked game} other {# checked games}} {scope}', 'headline under five games'),
-  'results.headUnchecked': s('{n, plural, one {# checked game} other {# checked games}} {scope} · submit yours to see where it stands', 'headline without a checked entry of this game'),
+  'results.headUnchecked': s(
+    '{n, plural, one {# checked game} other {# checked games}} {scope} · submit yours to see where it stands',
+    'headline without a checked entry of this game',
+  ),
   'results.headOffline': s('Game complete · offline', 'headline when our server is away'),
   'results.scopeToday': s('today', "headline scope on today's yard"),
   'results.scopeYard': s('on this yard', 'headline scope elsewhere'),
@@ -191,7 +224,10 @@ export const STRINGS = {
   'results.deltaBestUnder': s('{d} under your best on this yard ({best})', 'deltas row (d carries the minus sign)'),
   'results.deltaBestEqual': s('equals your best on this yard', 'deltas row'),
   'results.medalPill': s('Medal: {medal}', 'deltas row pill on a closed daily'),
-  'results.sinceYesterday': s("Since yesterday: {yesterday} on yesterday's yard, {today} today ({delta})", "under the yard label on today's daily when yesterday's was played on this device"),
+  'results.sinceYesterday': s(
+    "Since yesterday: {yesterday} on yesterday's yard, {today} today ({delta})",
+    "under the yard label on today's daily when yesterday's was played on this device",
+  ),
   'results.deltaUp': s('+{d}', 'a positive money delta'),
   'results.deltaSame': s('the same', 'a zero delta'),
   'results.rankLine': s('#{rank} of {n} checked games', 'under the chart, five games or more (the sentence is the headline)'),
@@ -225,7 +261,10 @@ export const STRINGS = {
   'results.historyThis': s('this game', 'offline board row marker'),
   'results.historyChecked': s('Checked earlier from this device: {score} as {player}{when}', 'offline board'),
   'results.historyWhen': s(' ({date})', 'offline board date'),
-  'results.historyNote': s("{n, plural, one {# game of yours on this yard} other {# games of yours on this yard}}, this device only. Other players' checked games appear here when you are online.", 'offline board'),
+  'results.historyNote': s(
+    "{n, plural, one {# game of yours on this yard} other {# games of yours on this yard}}, this device only. Other players' checked games appear here when you are online.",
+    'offline board',
+  ),
   'results.noScores': s('no checked scores yet', 'board'),
   'results.entry': s('{n}. {score}  {player}', 'board row'),
   'results.entryWatch': s('  ▶', 'board row when watchable'),
@@ -244,20 +283,32 @@ export const STRINGS = {
   'results.submitting': s('Submitting your game…', 'status line'),
   'results.cancelled': s('Submission cancelled.', 'status line'),
   'results.busy': s('Our server is busy ({error}); nothing was recorded. Try again in a moment.', 'status line'),
-  'results.savedOffline': s('Offline: your game is saved on this device and waits for a connection. It is submitted the next time the game opens online, and the title screen tells you the result.', 'status line'),
+  'results.savedOffline': s(
+    'Offline: your game is saved on this device and waits for a connection. It is submitted the next time the game opens online, and the title screen tells you the result.',
+    'status line',
+  ),
   'results.savedButton': s('Saved · waiting for a connection', 'Submit button after an offline save'),
   'results.late': s('Checked: {score} — too late for the ranked board: this day closed at {closesAt}. Not recorded.', 'status line'),
   'results.deadline': s('its deadline', 'fallback for a missing closing time'),
   'results.rejected': s('Our server answered: {error}', 'status line'),
   'results.rejectedDefault': s('rejected', 'fallback error'),
-  'results.keepBest': s('Checked: {score} — not recorded: your earlier {earlier} on this yard ranks at least as well (one best entry per player per yard).', 'status line'),
+  'results.keepBest': s(
+    'Checked: {score} — not recorded: your earlier {earlier} on this yard ranks at least as well (one best entry per player per yard).',
+    'status line',
+  ),
   'results.checkedRank': s('Checked: {score} — {rank} on the board as {label}.', 'status line'),
   'results.checkedNoRank': s('Checked: {score} as {label} — recorded on the board (rank unavailable right now).', 'status line'),
   'results.cardBtn': s('Share card', 'Share row button'),
-  'results.cardTitle': s('a 1200×630 picture of this game: yard, score, the six rounds, and only the standing this game actually has (checked, this device, a try); made here, never uploaded', 'tooltip'),
+  'results.cardTitle': s(
+    'a 1200×630 picture of this game: yard, score, the six rounds, and only the standing this game actually has (checked, this device, a try); made here, never uploaded',
+    'tooltip',
+  ),
   'results.cardSaved': s('Share card saved: {file} ({w}×{h}, {kb} KB) · {footer}', 'status line'),
   'results.shareBtn': s('Copy share text', 'Share row button'),
-  'results.shareTitle': s('label, score, six glyphs for the rounds, your checked standing, and a link (a "Beat this" link once checked); untick the box to leave the link out', 'tooltip'),
+  'results.shareTitle': s(
+    'label, score, six glyphs for the rounds, your checked standing, and a link (a "Beat this" link once checked); untick the box to leave the link out',
+    'tooltip',
+  ),
   'results.shareDialog': s('Share text:', 'clipboard fallback title'),
   'results.detailedBtn': s('Copy detailed', 'Share row button'),
   'results.detailedTitle': s('adds the per-round earnings', 'tooltip'),
@@ -298,7 +349,10 @@ export const STRINGS = {
   'results.medals': s('Final board medals: {line}{yours}', 'under the chart'),
   'results.medalsYours': s(' · yours: {medal}', 'suffix'),
   'results.medalNone': s('none', 'no medal'),
-  'results.priorChecked': s("This device's checked game on this yard: {score} (a different attempt; this game is unchecked until submitted)", 'under the chart'),
+  'results.priorChecked': s(
+    "This device's checked game on this yard: {score} (a different attempt; this game is unchecked until submitted)",
+    'under the chart',
+  ),
 
   // ---- game panel ----
   'game.hudYard': s('{yard}{suffix}', 'HUD seed label'),
@@ -339,8 +393,14 @@ export const STRINGS = {
   'game.rotate': s('Rotate (R)', 'build'),
   'game.toShelf': s('To shelf (Del)', 'build'),
   'game.sellFor': s('Sell for {amount}', 'build'),
-  'game.buildHelp': s('Drag a part from the shelf onto the grid. Click a placed machine to select it; R or right-click rotates it. Drop a machine on the shelf to remove it.', 'build'),
-  'game.keyboardHelp': s('Keyboard: arrow keys move the cursor · Enter places the next part from the shelf, or picks up / drops a machine · Tab cycles the shelf · R rotates · Delete sends it to the shelf.', 'build'),
+  'game.buildHelp': s(
+    'Drag a part from the shelf onto the grid. Click a placed machine to select it; R or right-click rotates it. Drop a machine on the shelf to remove it.',
+    'build',
+  ),
+  'game.keyboardHelp': s(
+    'Keyboard: arrow keys move the cursor · Enter places the next part from the shelf, or picks up / drops a machine · Tab cycles the shelf · R rotates · Delete sends it to the shelf.',
+    'build',
+  ),
   'game.placed': s('{placed} machines placed · {shelf} on the shelf', 'build'),
   'game.undo': s('Undo (Ctrl+Z)', 'build'),
   'game.redo': s('Redo', 'build'),
@@ -387,7 +447,10 @@ export const STRINGS = {
   'game.tryHere': s('Try it yourself from here (after round {n})', 'banner while watching'),
   'game.tryHereTitle': s('take over this layout and shelf from the next round; a try is labelled, never submitted and never your own best', 'tooltip'),
   'game.reportName': s('Report name…', 'banner while watching'),
-  'game.reportNameTitle': s('report this player\'s display name to the moderators; it is hidden as "player" pending review, scores are never affected', 'tooltip'),
+  'game.reportNameTitle': s(
+    'report this player\'s display name to the moderators; it is hidden as "player" pending review, scores are never affected',
+    'tooltip',
+  ),
   'game.pausedVeil': s('PAUSED', 'veil'),
   'game.pausedHelp': s('Esc to resume · . steps one second · second {tick} / {total}', 'veil'),
   'game.pausedHelpNoTick': s('Esc to resume · . steps one second', 'veil'),
@@ -396,7 +459,7 @@ export const STRINGS = {
   // ---- hints (the strip under the grid) ----
   'hint.newHere': s("New here? 'Learn (3 min)' on the title screen walks through every rule in three short rounds.", 'first draft, before the pick advice'),
   'hint.firstPick': s('First pick: {name} (card {n}) — {why}.', 'first draft (0.9.3): which card and why'),
-  'hint.showMe': s('Show me', 'the hint strip\'s demo button in the lesson (0.9.3)'),
+  'hint.showMe': s('Show me', "the hint strip's demo button in the lesson (0.9.3)"),
   'firstpick.crusher': s('it turns {scrap} scrap into {shards} shards right on the belt, and the hopper feeds it from behind', 'first-pick reason'),
   'firstpick.hopper': s('a second hopper doubles the scrap on the belt; conveyors take items from the side', 'first-pick reason'),
   'firstpick.conveyor': s('a spare belt piece gives you room to bend the line around a machine later', 'first-pick reason'),
@@ -413,9 +476,15 @@ export const STRINGS = {
   'hint.tip4': s('Docks take items from any side. A second hopper doubles raw supply.', 'idle hint'),
   'hint.tip5': s('Right-click or R rotates. Drop a machine on the shelf to remove it.', 'idle hint'),
   'hint.tip6': s('A press squeezes two {shards} shards into one {plate} plate and halves the traffic behind it.', 'idle hint'),
-  'hint.watching': s('Watching a checked recording: 1/2/4× change the speed, Skip jumps to the round result, Esc stops and returns to the title.', 'while watching'),
+  'hint.watching': s(
+    'Watching a checked recording: 1/2/4× change the speed, Skip jumps to the round result, Esc stops and returns to the title.',
+    'while watching',
+  ),
   'hint.running': s('Shift running… Jams glow red: an item waits for a free cell or a slow machine.', 'while running'),
-  'hint.lowQuality': s('This device struggles at high resolution: from the next start the game runs at standard resolution (change it on the title screen).', 'after a slow start'),
+  'hint.lowQuality': s(
+    'This device struggles at high resolution: from the next start the game runs at standard resolution (change it on the title screen).',
+    'after a slow start',
+  ),
   'hint.summaryFinal': s('Final round complete. Badges show what each machine did.', 'summary'),
   'hint.summary': s('Badges show what each machine did. Study the waits, then pick and rearrange.', 'summary'),
   'hint.stall': s('Stalled: {what} at {pos} {state} — nothing shipped for {n} s', 'HUD stall line'),
@@ -424,22 +493,55 @@ export const STRINGS = {
   'hint.resumeFailed': s('Saved game could not be resumed ({error}); starting this yard fresh.', 'resume notice'),
 
   // ---- the lesson (tutorial) ----
-  'lesson.1draft': s('Welcome! The hopper drops {scrap} scrap onto a belt that ends at the dock. Pick the CRUSHER (click it or press 1): it turns scrap into {shards} shards. Three spare conveyors wait on the shelf for round 3.', 'round 1 pick'),
-  'lesson.1place': s('Make room: drag the conveyor right after the hopper down to the shelf (or select it and press Delete), then drop the crusher there with its arrow pointing right. Then start the shift.', 'round 1 build'),
+  'lesson.1draft': s(
+    'Welcome! The hopper drops {scrap} scrap onto a belt that ends at the dock. Pick the CRUSHER (click it or press 1): it turns scrap into {shards} shards. Three spare conveyors wait on the shelf for round 3.',
+    'round 1 pick',
+  ),
+  'lesson.1place': s(
+    'Make room: drag the conveyor right after the hopper down to the shelf (or select it and press Delete), then drop the crusher there with its arrow pointing right. Then start the shift.',
+    'round 1 build',
+  ),
   'lesson.1fed': s('Good: the hopper feeds the crusher from behind. Start the shift and watch every shard sell for {shards}.', 'round 1 build'),
-  'lesson.1unfed': s("The crusher only takes items from behind: put it in the belt so the hopper's line enters its back, arrow pointing on toward the dock (R rotates).", 'round 1 build'),
-  'lesson.2draft': s('A FURNACE turns shards into {ingot} ingots, but raw scrap melts into {slag} slag, so it belongs after the crusher. Pick it.', 'round 2 pick'),
-  'lesson.2place': s('Move the dock one cell to the right to make room, then put the furnace just before it: crusher → belt → furnace → dock, every arrow pointing right.', 'round 2 build'),
+  'lesson.1unfed': s(
+    "The crusher only takes items from behind: put it in the belt so the hopper's line enters its back, arrow pointing on toward the dock (R rotates).",
+    'round 1 build',
+  ),
+  'lesson.2draft': s(
+    'A FURNACE turns shards into {ingot} ingots, but raw scrap melts into {slag} slag, so it belongs after the crusher. Pick it.',
+    'round 2 pick',
+  ),
+  'lesson.2place': s(
+    'Move the dock one cell to the right to make room, then put the furnace just before it: crusher → belt → furnace → dock, every arrow pointing right.',
+    'round 2 build',
+  ),
   'lesson.2order': s('Raw scrap would reach the furnace first and melt into slag: move the furnace after the crusher.', 'round 2 build'),
   'lesson.2fed': s('Shards reach the furnace from behind. Start the shift: each ingot sells for {ingot}.', 'round 2 build'),
   'lesson.2unfed': s('Nothing feeds the furnace from behind yet: put it in the line with its arrow pointing right.', 'round 2 build'),
-  'lesson.3draft': s('A SPLITTER sends items up and down in turn, so one line can feed two. Pick it; the spare conveyors will bring both branches back onto the belt.', 'round 3 pick'),
-  'lesson.3place': s('Replace the conveyor after the crusher with the SPLITTER, arrow pointing right: it sends items up and down in turn.', 'round 3 build, step one (0.9.3: three short steps)'),
-  'lesson.3top': s("Top branch: from the splitter's upper output, one conveyor pointing right, then one pointing down onto the belt. Conveyors take items from the side.", 'round 3 build, step two'),
+  'lesson.3draft': s(
+    'A SPLITTER sends items up and down in turn, so one line can feed two. Pick it; the spare conveyors will bring both branches back onto the belt.',
+    'round 3 pick',
+  ),
+  'lesson.3place': s(
+    'Replace the conveyor after the crusher with the SPLITTER, arrow pointing right: it sends items up and down in turn.',
+    'round 3 build, step one (0.9.3: three short steps)',
+  ),
+  'lesson.3top': s(
+    "Top branch: from the splitter's upper output, one conveyor pointing right, then one pointing down onto the belt. Conveyors take items from the side.",
+    'round 3 build, step two',
+  ),
   'lesson.3bottom': s('Bottom branch the same way: one conveyor pointing right, then one pointing up onto the belt.', 'round 3 build, step three'),
-  'lesson.3flow': s('Both branches rejoin the belt and ingots flow. Select the spare conveyor on the shelf and sell it for {sell}, then start the shift.', 'round 3 build'),
-  'lesson.3noflow': s('Not flowing yet: from each splitter output, one conveyor along, then one turning back into the belt (R rotates). Items may enter a conveyor from behind or either side.', 'round 3 build'),
-  'lesson.done': s('You know every rule. Rounds 4 to 6 are an ordinary pick: take what helps your line most, arrange, start the shift. Parts you cannot use sell for {sell}. The daily challenge is waiting on the title screen.', 'rounds 4-6'),
+  'lesson.3flow': s(
+    'Both branches rejoin the belt and ingots flow. Select the spare conveyor on the shelf and sell it for {sell}, then start the shift.',
+    'round 3 build',
+  ),
+  'lesson.3noflow': s(
+    'Not flowing yet: from each splitter output, one conveyor along, then one turning back into the belt (R rotates). Items may enter a conveyor from behind or either side.',
+    'round 3 build',
+  ),
+  'lesson.done': s(
+    'You know every rule. Rounds 4 to 6 are an ordinary pick: take what helps your line most, arrange, start the shift. Parts you cannot use sell for {sell}. The daily challenge is waiting on the title screen.',
+    'rounds 4-6',
+  ),
 
   // ---- reports and recordings ----
   'report.title': s('Report {player}', 'dialog title'),
@@ -470,9 +572,18 @@ export const STRINGS = {
   'pending.offline': s('still offline; your saved game on {seed} is kept until the game opens with a connection', 'title note'),
 
   // ---- the bottleneck line ----
-  'bottleneck.disconnected': s('Nothing reached a dock. Items enter crushers, furnaces, presses and splitters only from behind; conveyors take them from behind or the side.', 'summary'),
-  'bottleneck.deadEndHopper': s('The hopper at {pos} was blocked on {held} of its {tries} tries: nothing ahead takes its scrap. Point it into a conveyor or the back of a machine (R rotates).', 'summary'),
-  'bottleneck.deadEnd': s('The {name} at {pos} is a dead end: items waited there for {held} of {total} seconds. Point it on toward the dock (R rotates).', 'summary'),
+  'bottleneck.disconnected': s(
+    'Nothing reached a dock. Items enter crushers, furnaces, presses and splitters only from behind; conveyors take them from behind or the side.',
+    'summary',
+  ),
+  'bottleneck.deadEndHopper': s(
+    'The hopper at {pos} was blocked on {held} of its {tries} tries: nothing ahead takes its scrap. Point it into a conveyor or the back of a machine (R rotates).',
+    'summary',
+  ),
+  'bottleneck.deadEnd': s(
+    'The {name} at {pos} is a dead end: items waited there for {held} of {total} seconds. Point it on toward the dock (R rotates).',
+    'summary',
+  ),
   'bottleneck.slag': s('The furnace at {pos} melted {n} raw scrap into slag at {slag} each. {fix}', 'summary'),
   'bottleneck.slagFix': s('A crusher before it turns the scrap into shards first, worth {ingot} each as ingots.', 'fix'),
   'bottleneck.slagNoFix': s('Shards have to reach it, not raw scrap.', 'fix'),
@@ -508,9 +619,15 @@ export const STRINGS = {
   'machine.dock.name': s('Shipping Dock', 'card'),
   'machine.dock.blurb': s('Accepts items from any side and sells them for their value.', 'card'),
   'machine.tuner.name': s('Tuner', 'card'),
-  'machine.tuner.blurb': s('No input, no output. Every crusher, furnace or press touching it works one second faster (never under one second). Two tuners do not stack.', 'card'),
+  'machine.tuner.blurb': s(
+    'No input, no output. Every crusher, furnace or press touching it works one second faster (never under one second). Two tuners do not stack.',
+    'card',
+  ),
   'machine.sieve.name': s('Sieve', 'card (never offered)'),
-  'machine.sieve.blurb': s('Takes from behind. Raw scrap passes forward; shards, plates, ingots and slag turn right. A blocked exit waits.', 'card (never offered)'),
+  'machine.sieve.blurb': s(
+    'Takes from behind. Raw scrap passes forward; shards, plates, ingots and slag turn right. A blocked exit waits.',
+    'card (never offered)',
+  ),
   'material.scrap': s('scrap', 'material'),
   'material.shards': s('shards', 'material'),
   'material.plate': s('plate', 'material'),
@@ -542,7 +659,10 @@ export const STRINGS = {
   'badge.clean.title': s('Clean', 'badge'),
   'badge.clean.text': s('Nothing waited and no hopper was blocked, in any round.', 'badge'),
   'badge.minimalist.title': s('Minimalist', 'badge'),
-  'badge.minimalist.text': s("At most {n} machines in the final round, and still at or above the foreman's mark. Fewer final-round machines also break score ties on the board.", 'badge'),
+  'badge.minimalist.text': s(
+    "At most {n} machines in the final round, and still at or above the foreman's mark. Fewer final-round machines also break score ties on the board.",
+    'badge',
+  ),
   'badge.allHands.title': s('All Hands', 'badge'),
   'badge.allHands.text': s('Every machine you owned was on the grid at the end: nothing left on the shelf, nothing sold.', 'badge'),
 
@@ -554,31 +674,55 @@ export const STRINGS = {
   'tips.nothingYet': s('nothing yet', 'under the demo'),
   'tips.unread': s('● ', 'prefix of an unread tip'),
   'tips.crusher.title': s('Crushers take items from behind', 'tip'),
-  'tips.crusher.text': s('A crusher only accepts an item that enters through its back, and pushes shards out of its arrow. Line it up with the belt: hopper → crusher → dock. Scrap {scrap} becomes shards {shards}; a crusher that faces across the line starves instead.', 'tip'),
+  'tips.crusher.text': s(
+    'A crusher only accepts an item that enters through its back, and pushes shards out of its arrow. Line it up with the belt: hopper → crusher → dock. Scrap {scrap} becomes shards {shards}; a crusher that faces across the line starves instead.',
+    'tip',
+  ),
   'tips.crusher.watch': s('Every lump that reaches the dock is a shard.', 'tip'),
   'tips.sideload.title': s('Conveyors merge from the side', 'tip'),
-  'tips.sideload.text': s('A conveyor accepts items from behind and from either side, so two lines can share one belt: aim a second hopper at the belt from above or below and both streams reach the dock. Only conveyors and docks take side inputs; crushers, furnaces, presses and splitters do not.', 'tip'),
+  'tips.sideload.text': s(
+    'A conveyor accepts items from behind and from either side, so two lines can share one belt: aim a second hopper at the belt from above or below and both streams reach the dock. Only conveyors and docks take side inputs; crushers, furnaces, presses and splitters do not.',
+    'tip',
+  ),
   'tips.sideload.watch': s('Scrap from both hoppers rides the same belt.', 'tip'),
   'tips.splitter.title': s('Splitters alternate left and right', 'tip'),
-  'tips.splitter.text': s('A splitter takes from behind and sends items out of its two sides in turn, so one hopper can feed two machines. Two furnaces behind a splitter beat one furnace on a straight line, because a furnace is the slowest machine.', 'tip'),
+  'tips.splitter.text': s(
+    'A splitter takes from behind and sends items out of its two sides in turn, so one hopper can feed two machines. Two furnaces behind a splitter beat one furnace on a straight line, because a furnace is the slowest machine.',
+    'tip',
+  ),
   'tips.splitter.watch': s('Items go up, then down, then up…', 'tip'),
   'tips.furnace.title': s('Raw scrap in a furnace makes slag', 'tip'),
-  'tips.furnace.text': s('A furnace turns shards into ingots ({ingot}), but raw scrap only melts into slag ({slag}). Put a crusher before the furnace. A furnace takes {time} seconds per item, so it is the slowest machine of any line.', 'tip'),
+  'tips.furnace.text': s(
+    'A furnace turns shards into ingots ({ingot}), but raw scrap only melts into slag ({slag}). Put a crusher before the furnace. A furnace takes {time} seconds per item, so it is the slowest machine of any line.',
+    'tip',
+  ),
   'tips.furnace.watch': s('Dark slag, not gold ingots, reaches the dock.', 'tip'),
   'tips.press.title': s('A press needs two shards for one plate', 'tip'),
-  'tips.press.text': s('A plate press swallows the first shard, holds it, and presses the second into a plate ({plate}). It halves the traffic behind it, so it never backs a line up the way a furnace can; a shard left inside at the end of the round shows on its badge.', 'tip'),
+  'tips.press.text': s(
+    'A plate press swallows the first shard, holds it, and presses the second into a plate ({plate}). It halves the traffic behind it, so it never backs a line up the way a furnace can; a shard left inside at the end of the round shows on its badge.',
+    'tip',
+  ),
   'tips.press.watch': s('Two shards go in, one plate comes out.', 'tip'),
   'tips.tuner.title': s('A tuner speeds up its neighbours', 'tip'),
-  'tips.tuner.text': s('A tuner takes nothing in and puts nothing out. Every crusher, furnace or press touching one of its four sides works {bonus} second faster (never under one second), and two tuners do not stack. A furnace next to a tuner takes {tuned} seconds instead of {time}: more ingots from the same line, for one cell and one pick.', 'tip'),
+  'tips.tuner.text': s(
+    'A tuner takes nothing in and puts nothing out. Every crusher, furnace or press touching one of its four sides works {bonus} second faster (never under one second), and two tuners do not stack. A furnace next to a tuner takes {tuned} seconds instead of {time}: more ingots from the same line, for one cell and one pick.',
+    'tip',
+  ),
   'tips.tuner.watch': s('The furnace under the tuner releases an ingot every 2 seconds.', 'tip'),
   'tips.sell.title': s('Sell the parts you cannot use', 'tip'),
-  'tips.sell.text': s('A part left on the shelf does nothing during the round. Select it and press Sell to add {sell} to your score instead: a pick that does not fit your line is still worth taking for the money. Parts on the grid cannot be sold; send them back to the shelf first.', 'tip'),
+  'tips.sell.text': s(
+    'A part left on the shelf does nothing during the round. Select it and press Sell to add {sell} to your score instead: a pick that does not fit your line is still worth taking for the money. Parts on the grid cannot be sold; send them back to the shelf first.',
+    'tip',
+  ),
 
   // ---- archive ----
   'archive.head': s('Daily archive — closed days, final boards', 'panel head'),
   'archive.aria': s('Daily archive', 'dialog aria'),
   'archive.loading': s('Loading the archive…', 'list'),
-  'archive.intro': s('A day closes 48 hours after 00:00 UTC of its date and its board is then final. Any day can be played as practice: a game on a closed day is checked but never ranked.', 'intro'),
+  'archive.intro': s(
+    'A day closes 48 hours after 00:00 UTC of its date and its board is then final. Any day can be played as practice: a game on a closed day is checked but never ranked.',
+    'intro',
+  ),
   'archive.none': s('No closed days yet. The first archive entry appears 48 hours after the first ranked daily.', 'list'),
   'archive.row': s('{day} · final · {n, plural, one {# checked game} other {# checked games}}{top}{mark}', 'row'),
   'archive.rowTop': s(' · #1 {score} {player}', 'row suffix'),
@@ -607,7 +751,10 @@ export const STRINGS = {
   'crews.leave': s('Leave', 'row button'),
   'crews.left': s('Left {name}.', 'status'),
   'crews.serverDown': s('our server is unreachable', 'status'),
-  'crews.intro': s("A crew is a code. Share it and the boards, the everyone-today chart and the daily strip can show only your crew's checked games, with ranks recomputed over the crew. Up to {groups} crews per player, {members} members per crew. No chat.", 'intro'),
+  'crews.intro': s(
+    "A crew is a code. Share it and the boards, the everyone-today chart and the daily strip can show only your crew's checked games, with ranks recomputed over the crew. Up to {groups} crews per player, {members} members per crew. No chat.",
+    'intro',
+  ),
   'crews.namePlaceholder': s('new crew name', 'input'),
   'crews.codePlaceholder': s('code to join (8 characters)', 'input'),
   'crews.codeAria': s('crew code to join', 'input aria'),
@@ -634,20 +781,32 @@ export const STRINGS = {
   'privacy.whoNamed': s('You are {label} to our server', 'status'),
   'privacy.whoAnon': s('This device has a key but no claimed name', 'status'),
   'privacy.statusOk': s('{who}; our server is {url}.', 'status'),
-  'privacy.statusInsecure': s('{who}; the connection to our server at {url} is not secure, so the key is never sent to it and there is nothing to download or delete there.', 'status'),
+  'privacy.statusInsecure': s(
+    '{who}; the connection to our server at {url} is not secure, so the key is never sent to it and there is nothing to download or delete there.',
+    'status',
+  ),
   'privacy.export': s('Download my data', 'button'),
   'privacy.exportTitle': s('everything our server stores under your key, saved as a file', 'tooltip'),
   'privacy.asking': s('Asking our server for everything stored under your key…', 'status'),
   'privacy.downloadFailed': s('Download failed: {error}.', 'status'),
-  'privacy.saved': s('Saved {file}: {n, plural, one {# entry} other {# entries}}, {r, plural, one {# with a stored recording} other {# with a stored recording}}, plus your name, crews and moderation record.', 'status'),
+  'privacy.saved': s(
+    'Saved {file}: {n, plural, one {# entry} other {# entries}}, {r, plural, one {# with a stored recording} other {# with a stored recording}}, plus your name, crews and moderation record.',
+    'status',
+  ),
   'privacy.delete': s('Delete my data', 'button'),
   'privacy.deleteTitle': s('our server forgets you, then this device gets a new key', 'tooltip'),
-  'privacy.deleteLabel': s('Our server removes your name, anonymises your entries as "deleted" (the scores stay, nothing links them to you), drops their recordings and ends your crew memberships. This device then gets a new key, forgets the name and the crew code, and turns play statistics off. Best scores and settings stay on this device. This cannot be undone.', 'dialog label'),
+  'privacy.deleteLabel': s(
+    'Our server removes your name, anonymises your entries as "deleted" (the scores stay, nothing links them to you), drops their recordings and ends your crew memberships. This device then gets a new key, forgets the name and the crew code, and turns play statistics off. Best scores and settings stay on this device. This cannot be undone.',
+    'dialog label',
+  ),
   'privacy.deleteOk': s('Delete everything', 'dialog OK'),
   'privacy.deleteCancel': s('Keep my data', 'dialog cancel'),
   'privacy.deleting': s('Deleting…', 'status'),
   'privacy.deleteFailed': s('Deletion failed: {error}.', 'status'),
-  'privacy.deleted': s('Deleted. {n, plural, one {# entry} other {# entries}} anonymised, {r, plural, one {# archived recording} other {# archived recordings}} dropped; this device has a new key and no name. Backups age out within {days} days.', 'status'),
+  'privacy.deleted': s(
+    'Deleted. {n, plural, one {# entry} other {# entries}} anonymised, {r, plural, one {# archived recording} other {# archived recordings}} dropped; this device has a new key and no name. Backups age out within {days} days.',
+    'status',
+  ),
 
   // ---- share text and the card ----
   'share.header': s('Junkyard Draft · {label} · {score}', 'line 1'),
@@ -689,107 +848,107 @@ export const STRINGS = {
   'clip.footerLocal': s('junkyard draft · this device · not yet checked', 'clip and GIF wordmark line'),
 
   // ---- the foreman (0.9.1; docs/FOREMAN.md) ----
-  'foreman.name': s('SAL', 'the foreman\'s name tag on his box'),
+  'foreman.name': s('SAL', "the foreman's name tag on his box"),
   'title.foremanFull': s('Foreman: chatty', 'settings button'),
   'title.foremanLess': s('Foreman: lessons only', 'settings button'),
   'title.foremanTitle': s('Sal talks on every screen; "lessons only" keeps the lines that teach and drops the rest', 'tooltip'),
-  'foreman.welcome.1': s("Morning. The yard's open; the dock pays for whatever reaches it.", "the foreman: title screen"),
-  'foreman.welcome.2': s("Back again. Pick a machine, lay the line, start the shift.", "the foreman: title screen"),
-  'foreman.welcome.3': s("Six rounds, one yard, the same for everyone today. Let's see what you make of it.", "the foreman: title screen"),
-  'foreman.welcome.4': s("The hopper's full and the dock is waiting. Yours to arrange.", "the foreman: title screen"),
+  'foreman.welcome.1': s("Morning. The yard's open; the dock pays for whatever reaches it.", 'the foreman: title screen'),
+  'foreman.welcome.2': s('Back again. Pick a machine, lay the line, start the shift.', 'the foreman: title screen'),
+  'foreman.welcome.3': s("Six rounds, one yard, the same for everyone today. Let's see what you make of it.", 'the foreman: title screen'),
+  'foreman.welcome.4': s("The hopper's full and the dock is waiting. Yours to arrange.", 'the foreman: title screen'),
   'foreman.dailyOpen.1': s("Today's yard is open. Everyone gets the same offers; the line is the difference.", "the foreman: title, today's board open"),
-  'foreman.dailyOpen.2': s("The board is live today. A checked game puts you on it.", "the foreman: title, today's board open"),
+  'foreman.dailyOpen.2': s('The board is live today. A checked game puts you on it.', "the foreman: title, today's board open"),
   'foreman.dailyOpen.3': s("Today's yard, same for all of us. Finish a game and send it in.", "the foreman: title, today's board open"),
   'foreman.dailyFinal.1': s("Today's board is final. Tomorrow's yard opens at midnight UTC.", "the foreman: title, today's board final"),
   'foreman.dailyFinal.2': s("The day's closed and the board stands. Practice is still open.", "the foreman: title, today's board final"),
-  'foreman.dailyFinal.3': s("Final board for today. Come back tomorrow for a fresh yard.", "the foreman: title, today's board final"),
-  'foreman.firstDraft.1': s("First pick. A crusher behind the hopper always pays.", "the foreman: the first pick of a game"),
-  'foreman.firstDraft.2': s("Start simple: something that turns scrap into money before the dock.", "the foreman: the first pick of a game"),
-  'foreman.firstDraft.3': s("One machine a round. The crusher triples what the hopper gives you.", "the foreman: the first pick of a game"),
-  'foreman.lesson1.1': s("Scrap sells for a dollar. Through a crusher it's three. That's the whole idea.", "the foreman: lesson step 1"),
-  'foreman.lesson1.2': s("Put the crusher in the belt, back to the hopper. Items only go in from behind.", "the foreman: lesson step 1"),
-  'foreman.lesson1.3': s("Let's make the first shift pay: crusher in line, then start it.", "the foreman: lesson step 1"),
-  'foreman.lesson2.1': s("The furnace wants shards, not raw scrap. Keep it after the crusher.", "the foreman: lesson step 2"),
-  'foreman.lesson2.2': s("Twelve dollars an ingot. That's where the money is.", "the foreman: lesson step 2"),
-  'foreman.lesson2.3': s("Furnace after crusher. The other way round melts money into slag.", "the foreman: lesson step 2"),
-  'foreman.lesson3.1': s("A splitter sends items left and right in turn. One line becomes two.", "the foreman: lesson step 3"),
-  'foreman.lesson3.2': s("Bring both branches back onto the belt. Conveyors take items from the side.", "the foreman: lesson step 3"),
-  'foreman.lesson3.3': s("Two furnaces behind one splitter beat one furnace on a straight line.", "the foreman: lesson step 3"),
-  'foreman.lesson4.1': s("You know the rules now. From here it's your line.", "the foreman: lesson step 4"),
-  'foreman.lesson4.2': s("Nothing more to teach you. Pick what helps the line most.", "the foreman: lesson step 4"),
-  'foreman.lesson4.3': s("Rounds four to six are yours. Parts you can't use sell for ten.", "the foreman: lesson step 4"),
-  'foreman.lesson5.1': s("Fit it in, start the shift, read the badges.", "the foreman: lesson step 5"),
-  'foreman.lesson5.2': s("Every machine's badge says what it did. Study the waits.", "the foreman: lesson step 5"),
-  'foreman.lesson5.3': s("Keep the line moving. A waiting machine earns nothing.", "the foreman: lesson step 5"),
-  'foreman.lesson6.1': s("Last round of the lesson. Then the daily is waiting on the title screen.", "the foreman: lesson step 6"),
-  'foreman.lesson6.2': s("That's the lesson done. The real yard works the same way.", "the foreman: lesson step 6"),
-  'foreman.lesson6.3': s("One more shift and you're a hand here.", "the foreman: lesson step 6"),
-  'foreman.refused.1': s("Not there. The strip under the grid says why.", "the foreman: a placement the rules refused"),
-  'foreman.refused.2': s("That cell won't take it; read the line below.", "the foreman: a placement the rules refused"),
-  'foreman.refused.3': s("Doesn't fit. The reason's in the strip.", "the foreman: a placement the rules refused"),
-  'foreman.refused.4': s("No. The hint says what's in the way.", "the foreman: a placement the rules refused"),
-  'foreman.bottleneckDisconnected.1': s("Nothing reached the dock last round. A line has to end at one.", "the foreman: bottleneck: nothing reached a dock"),
-  'foreman.bottleneckDisconnected.2': s("Not a cent shipped. Check which way the arrows point.", "the foreman: bottleneck: nothing reached a dock"),
-  'foreman.bottleneckDisconnected.3': s("The line's broken somewhere before the dock. Find the gap.", "the foreman: bottleneck: nothing reached a dock"),
-  'foreman.bottleneckDeadEnd.1': s("Something points at nothing. Turn it toward the dock.", "the foreman: bottleneck: a dead end"),
-  'foreman.bottleneckDeadEnd.2': s("A dead end held the line. One rotation fixes it.", "the foreman: bottleneck: a dead end"),
-  'foreman.bottleneckDeadEnd.3': s("Items piled up where the belt stops. Aim it onward.", "the foreman: bottleneck: a dead end"),
-  'foreman.bottleneckSlag.1': s("Raw scrap in a furnace is slag. Put a crusher in front of it.", "the foreman: bottleneck: raw scrap in a furnace"),
-  'foreman.bottleneckSlag.2': s("That furnace melted scrap, not shards. A crusher before it fixes that.", "the foreman: bottleneck: raw scrap in a furnace"),
-  'foreman.bottleneckSlag.3': s("Slag pays a dollar. Shards through that furnace would pay twelve.", "the foreman: bottleneck: raw scrap in a furnace"),
-  'foreman.bottleneckSaturated.1': s("One machine held the whole line. Give it help or a twin.", "the foreman: bottleneck: a machine held the line"),
-  'foreman.bottleneckSaturated.2': s("The slow one's named below. A tuner beside it, or a second one.", "the foreman: bottleneck: a machine held the line"),
-  'foreman.bottleneckSaturated.3': s("Items waited behind one machine all round. That's your next pick.", "the foreman: bottleneck: a machine held the line"),
-  'foreman.bottleneckMerge.1': s("Two lines on one belt: the belt's the limit now.", "the foreman: bottleneck: lines squeezing into one belt"),
-  'foreman.bottleneckMerge.2': s("The merge is the choke. Give one branch its own dock.", "the foreman: bottleneck: lines squeezing into one belt"),
-  'foreman.bottleneckMerge.3': s("One belt can only move one item a second. Split the traffic.", "the foreman: bottleneck: lines squeezing into one belt"),
-  'foreman.bottleneckStarved.1': s("Your machines are waiting on scrap. More hoppers.", "the foreman: bottleneck: supply"),
-  'foreman.bottleneckStarved.2': s("The line kept up. Supply didn't; add a hopper.", "the foreman: bottleneck: supply"),
-  'foreman.bottleneckStarved.3': s("Idle machines mean the hopper is the limit now.", "the foreman: bottleneck: supply"),
-  'foreman.bottleneckBalanced.1': s("Clean round. Nothing waited. Now raise the ceiling.", "the foreman: bottleneck: balanced"),
-  'foreman.bottleneckBalanced.2': s("That line flows. The next step is more scrap coming in.", "the foreman: bottleneck: balanced"),
-  'foreman.bottleneckBalanced.3': s("Balanced. More hoppers or a second line from here.", "the foreman: bottleneck: balanced"),
-  'foreman.roundGood.1': s("Better than last round. Keep that line.", "the foreman: round end, more than the round before"),
-  'foreman.roundGood.2': s("That's more money out of the same yard. Good.", "the foreman: round end, more than the round before"),
-  'foreman.roundGood.3': s("The line paid more this round. Build on it.", "the foreman: round end, more than the round before"),
-  'foreman.roundGood.4': s("Up on last round. The dock noticed.", "the foreman: round end, more than the round before"),
-  'foreman.roundFlat.1': s("Same as before, or less. Something held the line; the badges say what.", "the foreman: round end, not more than the round before"),
-  'foreman.roundFlat.2': s("Flat round. Look at the waits before you pick.", "the foreman: round end, not more than the round before"),
-  'foreman.roundFlat.3': s("No gain this round. The next pick should fix the slow spot.", "the foreman: round end, not more than the round before"),
-  'foreman.roundFlat.4': s("The yard didn't pay more. Read the badges, then rearrange.", "the foreman: round end, not more than the round before"),
-  'foreman.resultsTop.1': s("Better than most of the yard today. That's a line to keep.", "the foreman: results, better than 80 % of everyone today"),
-  'foreman.resultsTop.2': s("Near the top of the board. Well laid.", "the foreman: results, better than 80 % of everyone today"),
-  'foreman.resultsTop.3': s("Top of the yard today. Others will study that one.", "the foreman: results, better than 80 % of everyone today"),
-  'foreman.resultsUpper.1': s("Above the middle of the board. The slow spot is still in there.", "the foreman: results, better than half"),
-  'foreman.resultsUpper.2': s("Better than half the yard. Find the wait and go again.", "the foreman: results, better than half"),
-  'foreman.resultsUpper.3': s("A solid shift. The top is one fix away.", "the foreman: results, better than half"),
-  'foreman.resultsLower.1': s("Below the middle today. Every line up there started like this one.", "the foreman: results, below half"),
-  'foreman.resultsLower.2': s("The board's ahead of you. Watch a recording from the top and try again.", "the foreman: results, below half"),
-  'foreman.resultsLower.3': s("Not your best shift. The badges say where it went.", "the foreman: results, below half"),
-  'foreman.resultsFew.1': s("Early in the day; few games on the board yet.", "the foreman: results, fewer than five checked games"),
-  'foreman.resultsFew.2': s("Your game's checked. The board fills in as the day goes.", "the foreman: results, fewer than five checked games"),
-  'foreman.resultsFew.3': s("On the board. Come back later to see where it stands.", "the foreman: results, fewer than five checked games"),
-  'foreman.resultsOffline.1': s("No connection, so no board. The game's saved on this device.", "the foreman: results, offline"),
-  'foreman.resultsOffline.2': s("Offline. Your game waits here until we're back on.", "the foreman: results, offline"),
-  'foreman.resultsOffline.3': s("Saved on this device. We'll send it when the line to the server is up.", "the foreman: results, offline"),
-  'foreman.resultsFirst.1': s("First game done. Now you know what the dock pays.", "the foreman: results, the first game on this device"),
-  'foreman.resultsFirst.2': s("That's one. Every line gets better from here.", "the foreman: results, the first game on this device"),
-  'foreman.resultsFirst.3': s("First shift in the books. Try the daily next.", "the foreman: results, the first game on this device"),
-  'foreman.streak3.1': s("Three days running. The yard notices.", "the foreman: title, three days in a row"),
-  'foreman.streak3.2': s("Three in a row. Habit forming.", "the foreman: title, three days in a row"),
-  'foreman.streak3.3': s("Day three. Keep coming.", "the foreman: title, three days in a row"),
-  'foreman.streak7.1': s("A full week. You're a regular.", "the foreman: title, seven days in a row"),
-  'foreman.streak7.2': s("Seven straight days. Not many manage that.", "the foreman: title, seven days in a row"),
-  'foreman.streak7.3': s("A week without a miss. Well done.", "the foreman: title, seven days in a row"),
-  'foreman.streak30.1': s("Thirty days. You've seen more of this yard than most.", "the foreman: title, thirty days in a row"),
-  'foreman.streak30.2': s("A month straight. That's a hand I'd keep.", "the foreman: title, thirty days in a row"),
-  'foreman.streak30.3': s("Thirty in a row. Thank you for coming.", "the foreman: title, thirty days in a row"),
-  'foreman.firstShare.1': s("Shared. Let them try to beat it.", "the foreman: after the first share copy"),
-  'foreman.firstShare.2': s("Copied. Now someone else has a line to chase.", "the foreman: after the first share copy"),
-  'foreman.firstShare.3': s("That's out there now. Good.", "the foreman: after the first share copy"),
-  'foreman.firstCrew.1': s("A crew. Now the board is people you know.", "the foreman: after the first crew joined or created"),
-  'foreman.firstCrew.2': s("Crew's set. Share the code and race them.", "the foreman: after the first crew joined or created"),
-  'foreman.firstCrew.3': s("In a crew. The board shrinks to your people.", "the foreman: after the first crew joined or created"),
+  'foreman.dailyFinal.3': s('Final board for today. Come back tomorrow for a fresh yard.', "the foreman: title, today's board final"),
+  'foreman.firstDraft.1': s('First pick. A crusher behind the hopper always pays.', 'the foreman: the first pick of a game'),
+  'foreman.firstDraft.2': s('Start simple: something that turns scrap into money before the dock.', 'the foreman: the first pick of a game'),
+  'foreman.firstDraft.3': s('One machine a round. The crusher triples what the hopper gives you.', 'the foreman: the first pick of a game'),
+  'foreman.lesson1.1': s("Scrap sells for a dollar. Through a crusher it's three. That's the whole idea.", 'the foreman: lesson step 1'),
+  'foreman.lesson1.2': s('Put the crusher in the belt, back to the hopper. Items only go in from behind.', 'the foreman: lesson step 1'),
+  'foreman.lesson1.3': s("Let's make the first shift pay: crusher in line, then start it.", 'the foreman: lesson step 1'),
+  'foreman.lesson2.1': s('The furnace wants shards, not raw scrap. Keep it after the crusher.', 'the foreman: lesson step 2'),
+  'foreman.lesson2.2': s("Twelve dollars an ingot. That's where the money is.", 'the foreman: lesson step 2'),
+  'foreman.lesson2.3': s('Furnace after crusher. The other way round melts money into slag.', 'the foreman: lesson step 2'),
+  'foreman.lesson3.1': s('A splitter sends items left and right in turn. One line becomes two.', 'the foreman: lesson step 3'),
+  'foreman.lesson3.2': s('Bring both branches back onto the belt. Conveyors take items from the side.', 'the foreman: lesson step 3'),
+  'foreman.lesson3.3': s('Two furnaces behind one splitter beat one furnace on a straight line.', 'the foreman: lesson step 3'),
+  'foreman.lesson4.1': s("You know the rules now. From here it's your line.", 'the foreman: lesson step 4'),
+  'foreman.lesson4.2': s('Nothing more to teach you. Pick what helps the line most.', 'the foreman: lesson step 4'),
+  'foreman.lesson4.3': s("Rounds four to six are yours. Parts you can't use sell for ten.", 'the foreman: lesson step 4'),
+  'foreman.lesson5.1': s('Fit it in, start the shift, read the badges.', 'the foreman: lesson step 5'),
+  'foreman.lesson5.2': s("Every machine's badge says what it did. Study the waits.", 'the foreman: lesson step 5'),
+  'foreman.lesson5.3': s('Keep the line moving. A waiting machine earns nothing.', 'the foreman: lesson step 5'),
+  'foreman.lesson6.1': s('Last round of the lesson. Then the daily is waiting on the title screen.', 'the foreman: lesson step 6'),
+  'foreman.lesson6.2': s("That's the lesson done. The real yard works the same way.", 'the foreman: lesson step 6'),
+  'foreman.lesson6.3': s("One more shift and you're a hand here.", 'the foreman: lesson step 6'),
+  'foreman.refused.1': s('Not there. The strip under the grid says why.', 'the foreman: a placement the rules refused'),
+  'foreman.refused.2': s("That cell won't take it; read the line below.", 'the foreman: a placement the rules refused'),
+  'foreman.refused.3': s("Doesn't fit. The reason's in the strip.", 'the foreman: a placement the rules refused'),
+  'foreman.refused.4': s("No. The hint says what's in the way.", 'the foreman: a placement the rules refused'),
+  'foreman.bottleneckDisconnected.1': s('Nothing reached the dock last round. A line has to end at one.', 'the foreman: bottleneck: nothing reached a dock'),
+  'foreman.bottleneckDisconnected.2': s('Not a cent shipped. Check which way the arrows point.', 'the foreman: bottleneck: nothing reached a dock'),
+  'foreman.bottleneckDisconnected.3': s("The line's broken somewhere before the dock. Find the gap.", 'the foreman: bottleneck: nothing reached a dock'),
+  'foreman.bottleneckDeadEnd.1': s('Something points at nothing. Turn it toward the dock.', 'the foreman: bottleneck: a dead end'),
+  'foreman.bottleneckDeadEnd.2': s('A dead end held the line. One rotation fixes it.', 'the foreman: bottleneck: a dead end'),
+  'foreman.bottleneckDeadEnd.3': s('Items piled up where the belt stops. Aim it onward.', 'the foreman: bottleneck: a dead end'),
+  'foreman.bottleneckSlag.1': s('Raw scrap in a furnace is slag. Put a crusher in front of it.', 'the foreman: bottleneck: raw scrap in a furnace'),
+  'foreman.bottleneckSlag.2': s('That furnace melted scrap, not shards. A crusher before it fixes that.', 'the foreman: bottleneck: raw scrap in a furnace'),
+  'foreman.bottleneckSlag.3': s('Slag pays a dollar. Shards through that furnace would pay twelve.', 'the foreman: bottleneck: raw scrap in a furnace'),
+  'foreman.bottleneckSaturated.1': s('One machine held the whole line. Give it help or a twin.', 'the foreman: bottleneck: a machine held the line'),
+  'foreman.bottleneckSaturated.2': s("The slow one's named below. A tuner beside it, or a second one.", 'the foreman: bottleneck: a machine held the line'),
+  'foreman.bottleneckSaturated.3': s("Items waited behind one machine all round. That's your next pick.", 'the foreman: bottleneck: a machine held the line'),
+  'foreman.bottleneckMerge.1': s("Two lines on one belt: the belt's the limit now.", 'the foreman: bottleneck: lines squeezing into one belt'),
+  'foreman.bottleneckMerge.2': s('The merge is the choke. Give one branch its own dock.', 'the foreman: bottleneck: lines squeezing into one belt'),
+  'foreman.bottleneckMerge.3': s('One belt can only move one item a second. Split the traffic.', 'the foreman: bottleneck: lines squeezing into one belt'),
+  'foreman.bottleneckStarved.1': s('Your machines are waiting on scrap. More hoppers.', 'the foreman: bottleneck: supply'),
+  'foreman.bottleneckStarved.2': s("The line kept up. Supply didn't; add a hopper.", 'the foreman: bottleneck: supply'),
+  'foreman.bottleneckStarved.3': s('Idle machines mean the hopper is the limit now.', 'the foreman: bottleneck: supply'),
+  'foreman.bottleneckBalanced.1': s('Clean round. Nothing waited. Now raise the ceiling.', 'the foreman: bottleneck: balanced'),
+  'foreman.bottleneckBalanced.2': s('That line flows. The next step is more scrap coming in.', 'the foreman: bottleneck: balanced'),
+  'foreman.bottleneckBalanced.3': s('Balanced. More hoppers or a second line from here.', 'the foreman: bottleneck: balanced'),
+  'foreman.roundGood.1': s('Better than last round. Keep that line.', 'the foreman: round end, more than the round before'),
+  'foreman.roundGood.2': s("That's more money out of the same yard. Good.", 'the foreman: round end, more than the round before'),
+  'foreman.roundGood.3': s('The line paid more this round. Build on it.', 'the foreman: round end, more than the round before'),
+  'foreman.roundGood.4': s('Up on last round. The dock noticed.', 'the foreman: round end, more than the round before'),
+  'foreman.roundFlat.1': s('Same as before, or less. Something held the line; the badges say what.', 'the foreman: round end, not more than the round before'),
+  'foreman.roundFlat.2': s('Flat round. Look at the waits before you pick.', 'the foreman: round end, not more than the round before'),
+  'foreman.roundFlat.3': s('No gain this round. The next pick should fix the slow spot.', 'the foreman: round end, not more than the round before'),
+  'foreman.roundFlat.4': s("The yard didn't pay more. Read the badges, then rearrange.", 'the foreman: round end, not more than the round before'),
+  'foreman.resultsTop.1': s("Better than most of the yard today. That's a line to keep.", 'the foreman: results, better than 80 % of everyone today'),
+  'foreman.resultsTop.2': s('Near the top of the board. Well laid.', 'the foreman: results, better than 80 % of everyone today'),
+  'foreman.resultsTop.3': s('Top of the yard today. Others will study that one.', 'the foreman: results, better than 80 % of everyone today'),
+  'foreman.resultsUpper.1': s('Above the middle of the board. The slow spot is still in there.', 'the foreman: results, better than half'),
+  'foreman.resultsUpper.2': s('Better than half the yard. Find the wait and go again.', 'the foreman: results, better than half'),
+  'foreman.resultsUpper.3': s('A solid shift. The top is one fix away.', 'the foreman: results, better than half'),
+  'foreman.resultsLower.1': s('Below the middle today. Every line up there started like this one.', 'the foreman: results, below half'),
+  'foreman.resultsLower.2': s("The board's ahead of you. Watch a recording from the top and try again.", 'the foreman: results, below half'),
+  'foreman.resultsLower.3': s('Not your best shift. The badges say where it went.', 'the foreman: results, below half'),
+  'foreman.resultsFew.1': s('Early in the day; few games on the board yet.', 'the foreman: results, fewer than five checked games'),
+  'foreman.resultsFew.2': s("Your game's checked. The board fills in as the day goes.", 'the foreman: results, fewer than five checked games'),
+  'foreman.resultsFew.3': s('On the board. Come back later to see where it stands.', 'the foreman: results, fewer than five checked games'),
+  'foreman.resultsOffline.1': s("No connection, so no board. The game's saved on this device.", 'the foreman: results, offline'),
+  'foreman.resultsOffline.2': s("Offline. Your game waits here until we're back on.", 'the foreman: results, offline'),
+  'foreman.resultsOffline.3': s("Saved on this device. We'll send it when the line to the server is up.", 'the foreman: results, offline'),
+  'foreman.resultsFirst.1': s('First game done. Now you know what the dock pays.', 'the foreman: results, the first game on this device'),
+  'foreman.resultsFirst.2': s("That's one. Every line gets better from here.", 'the foreman: results, the first game on this device'),
+  'foreman.resultsFirst.3': s('First shift in the books. Try the daily next.', 'the foreman: results, the first game on this device'),
+  'foreman.streak3.1': s('Three days running. The yard notices.', 'the foreman: title, three days in a row'),
+  'foreman.streak3.2': s('Three in a row. Habit forming.', 'the foreman: title, three days in a row'),
+  'foreman.streak3.3': s('Day three. Keep coming.', 'the foreman: title, three days in a row'),
+  'foreman.streak7.1': s("A full week. You're a regular.", 'the foreman: title, seven days in a row'),
+  'foreman.streak7.2': s('Seven straight days. Not many manage that.', 'the foreman: title, seven days in a row'),
+  'foreman.streak7.3': s('A week without a miss. Well done.', 'the foreman: title, seven days in a row'),
+  'foreman.streak30.1': s("Thirty days. You've seen more of this yard than most.", 'the foreman: title, thirty days in a row'),
+  'foreman.streak30.2': s("A month straight. That's a hand I'd keep.", 'the foreman: title, thirty days in a row'),
+  'foreman.streak30.3': s('Thirty in a row. Thank you for coming.', 'the foreman: title, thirty days in a row'),
+  'foreman.firstShare.1': s('Shared. Let them try to beat it.', 'the foreman: after the first share copy'),
+  'foreman.firstShare.2': s('Copied. Now someone else has a line to chase.', 'the foreman: after the first share copy'),
+  'foreman.firstShare.3': s("That's out there now. Good.", 'the foreman: after the first share copy'),
+  'foreman.firstCrew.1': s('A crew. Now the board is people you know.', 'the foreman: after the first crew joined or created'),
+  'foreman.firstCrew.2': s("Crew's set. Share the code and race them.", 'the foreman: after the first crew joined or created'),
+  'foreman.firstCrew.3': s('In a crew. The board shrinks to your people.', 'the foreman: after the first crew joined or created'),
 } as const satisfies Record<string, Entry>;
 
 export type StringKey = keyof typeof STRINGS;
@@ -800,36 +959,57 @@ export const STRING_KEYS = Object.keys(STRINGS) as StringKey[];
 
 /** Render a template: `{name}` placeholders and `{n, plural, one {…} other {…}}` with `#` for the number. */
 export function render(template: string, params: Params): string {
-  let out = ''; let i = 0;
+  let out = '';
+  let i = 0;
   while (i < template.length) {
     const open = template.indexOf('{', i);
-    if (open < 0) { out += template.slice(i); break; }
+    if (open < 0) {
+      out += template.slice(i);
+      break;
+    }
     out += template.slice(i, open);
     const close = matchBrace(template, open);
-    if (close < 0) { out += template.slice(open); break; }
+    if (close < 0) {
+      out += template.slice(open);
+      break;
+    }
     const inner = template.slice(open + 1, close);
     const plural = /^\s*(\w+)\s*,\s*plural\s*,([\s\S]*)$/.exec(inner);
     if (plural) {
       const n = Number(params[plural[1]] ?? 0);
       out += render(pluralBranch(plural[2], n).replace(/#/g, int(n)), params);
     } else {
-      const name = inner.trim(); const v = params[name];
+      const name = inner.trim();
+      const v = params[name];
       out += v === undefined ? `{${name}}` : String(v);
     }
     i = close + 1;
   }
   return out;
 }
-function matchBrace(s: string, open: number): number { let depth = 0; for (let k = open; k < s.length; k++) { if (s[k] === '{') depth++; else if (s[k] === '}') { depth--; if (depth === 0) return k; } } return -1; }
+function matchBrace(s: string, open: number): number {
+  let depth = 0;
+  for (let k = open; k < s.length; k++) {
+    if (s[k] === '{') depth++;
+    else if (s[k] === '}') {
+      depth--;
+      if (depth === 0) return k;
+    }
+  }
+  return -1;
+}
 /** `one {…} other {…}` (and `=N {…}`): the branch for n, English rules. */
 function pluralBranch(spec: string, n: number): string {
   const branches: Record<string, string> = {};
   let i = 0;
   while (i < spec.length) {
-    const m = /\s*(=\d+|\w+)\s*\{/.exec(spec.slice(i)); if (!m) break;
-    const start = i + m.index + m[0].length - 1; const end = matchBrace(spec, start);
+    const m = /\s*(=\d+|\w+)\s*\{/.exec(spec.slice(i));
+    if (!m) break;
+    const start = i + m.index + m[0].length - 1;
+    const end = matchBrace(spec, start);
     if (end < 0) break;
-    branches[m[1]] = spec.slice(start + 1, end); i = end + 1;
+    branches[m[1]] = spec.slice(start + 1, end);
+    i = end + 1;
   }
   return branches[`=${n}`] ?? (n === 1 ? branches.one : undefined) ?? branches.other ?? '';
 }

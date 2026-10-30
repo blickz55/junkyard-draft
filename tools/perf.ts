@@ -30,7 +30,10 @@ import type { Action } from '../game/src/sim/run';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
-const opt = (k: string, d: string) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args[i + 1] : d; };
+const opt = (k: string, d: string) => {
+  const i = args.indexOf(`--${k}`);
+  return i >= 0 ? args[i + 1] : d;
+};
 const URL = opt('url', 'http://127.0.0.1:5173');
 const SEED = opt('seed', 'auto-12');
 const SPEED = Number(opt('speed', '4'));
@@ -43,7 +46,13 @@ const BUDGET_MS = 16.7;
 const DROPPED_MS = 25;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export interface DevicePreset { width: number; height: number; dpr: number; throttle: number; note: string }
+export interface DevicePreset {
+  width: number;
+  height: number;
+  dpr: number;
+  throttle: number;
+  note: string;
+}
 export const DEVICES: Record<string, DevicePreset> = {
   A: { width: 1920, height: 1080, dpr: 1.5, throttle: 1, note: '2017 ultrabook, Intel UHD 620' },
   B: { width: 1366, height: 768, dpr: 1, throttle: 6, note: '4 GB Chromebook, Celeron-class' },
@@ -52,10 +61,24 @@ export const DEVICES: Record<string, DevicePreset> = {
 };
 
 export interface Sample {
-  label: string; renderer: string; frames: number; p50: number; p95: number; max: number; dropped: number;
-  cpuMsPerFrame: number | null; scriptMsPerFrame: number | null; drawsPerFrame: number | null; bindsPerFrame: number | null;
-  maxObjects: number; textObjectsCreated: number; heapMB: number | null;
-  runMs: number; machines: number; peakItems: number; withinBudget: boolean;
+  label: string;
+  renderer: string;
+  frames: number;
+  p50: number;
+  p95: number;
+  max: number;
+  dropped: number;
+  cpuMsPerFrame: number | null;
+  scriptMsPerFrame: number | null;
+  drawsPerFrame: number | null;
+  bindsPerFrame: number | null;
+  maxObjects: number;
+  textObjectsCreated: number;
+  heapMB: number | null;
+  runMs: number;
+  machines: number;
+  peakItems: number;
+  withinBudget: boolean;
 }
 
 const q = (sorted: number[], p: number) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
@@ -81,9 +104,16 @@ async function driveToLastRound(page: Page, actions: Action[]) {
   await page.waitForFunction("!!window.__jd && window.__jd.phase() === 'draft'", null, { timeout: 20000 });
   const lastRun = actions.map((a) => a.t).lastIndexOf('run');
   for (const a of actions.slice(0, lastRun)) {
-    if (a.t === 'run') { await api(page, 'run'); await api(page, 'finishRun'); await page.waitForFunction("window.__jd.mode() === 'summary'"); }
-    else if (a.t === 'next') { await api(page, 'next'); }
-    else { const ok = await api(page, 'act', a); if (!ok) throw new Error('action rejected: ' + JSON.stringify(a)); }
+    if (a.t === 'run') {
+      await api(page, 'run');
+      await api(page, 'finishRun');
+      await page.waitForFunction("window.__jd.mode() === 'summary'");
+    } else if (a.t === 'next') {
+      await api(page, 'next');
+    } else {
+      const ok = await api(page, 'act', a);
+      if (!ok) throw new Error('action rejected: ' + JSON.stringify(a));
+    }
   }
 }
 
@@ -120,7 +150,9 @@ async function metrics(cdp: CDPSession | null): Promise<{ task: number; script: 
     const { metrics } = await cdp.send('Performance.getMetrics');
     const get = (n: string) => metrics.find((m) => m.name === n)?.value ?? 0;
     return { task: get('TaskDuration'), script: get('ScriptDuration') };
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 async function measure(page: Page, cdp: CDPSession | null, label: string, actions: Action[]): Promise<Sample> {
@@ -133,19 +165,40 @@ async function measure(page: Page, cdp: CDPSession | null, label: string, action
   await page.waitForFunction("window.__jd.mode() === 'summary'", null, { timeout: 120000 });
   const runMs = Date.now() - t0;
   const m1 = await metrics(cdp);
-  const r = (await page.evaluate(RESULT)) as { frames: number[]; peakItems: number; maxObjects: number; texts: number; draws: number | null; binds: number | null; heapMB: number | null; renderer: string };
+  const r = (await page.evaluate(RESULT)) as {
+    frames: number[];
+    peakItems: number;
+    maxObjects: number;
+    texts: number;
+    draws: number | null;
+    binds: number | null;
+    heapMB: number | null;
+    renderer: string;
+  };
   const n = r.frames.length;
   const sorted = r.frames.slice().sort((a, b) => a - b);
   const cpu = m0 && m1 ? +(((m1.task - m0.task) * 1000) / n).toFixed(2) : null;
   const script = m0 && m1 ? +(((m1.script - m0.script) * 1000) / n).toFixed(2) : null;
   const dropped = r.frames.filter((f) => f > DROPPED_MS).length;
   return {
-    label, renderer: r.renderer, frames: n, p50: +q(sorted, 0.5).toFixed(2), p95: +q(sorted, 0.95).toFixed(2), max: +sorted[sorted.length - 1].toFixed(2), dropped,
-    cpuMsPerFrame: cpu, scriptMsPerFrame: script,
+    label,
+    renderer: r.renderer,
+    frames: n,
+    p50: +q(sorted, 0.5).toFixed(2),
+    p95: +q(sorted, 0.95).toFixed(2),
+    max: +sorted[sorted.length - 1].toFixed(2),
+    dropped,
+    cpuMsPerFrame: cpu,
+    scriptMsPerFrame: script,
     drawsPerFrame: r.renderer === 'webgl' && r.draws != null ? +(r.draws / n).toFixed(1) : null,
     bindsPerFrame: r.renderer === 'webgl' && r.binds != null ? +(r.binds / n).toFixed(1) : null,
-    maxObjects: r.maxObjects, textObjectsCreated: r.texts, heapMB: r.heapMB,
-    runMs, machines, peakItems: r.peakItems, withinBudget: dropped === 0 && (cpu == null || cpu <= BUDGET_MS),
+    maxObjects: r.maxObjects,
+    textObjectsCreated: r.texts,
+    heapMB: r.heapMB,
+    runMs,
+    machines,
+    peakItems: r.peakItems,
+    withinBudget: dropped === 0 && (cpu == null || cpu <= BUDGET_MS),
   };
 }
 
@@ -164,7 +217,9 @@ async function chromiumSample(label: string, actions: Action[], ctxOpts: Browser
     console.error('sampled', s.label, `(${s.renderer})`);
     await context.close();
     return s;
-  } finally { await browser.close(); }
+  } finally {
+    await browser.close();
+  }
 }
 
 const t0 = Date.now();
@@ -174,10 +229,24 @@ const samples: Sample[] = [];
 const renderers = RENDERER === 'both' ? ['webgl', 'canvas'] : [RENDERER];
 
 if (DEVICE) {
-  const d = DEVICES[DEVICE]; if (!d) throw new Error(`unknown device preset ${DEVICE}; use ${Object.keys(DEVICES).join('|')}`);
-  for (const r of renderers) samples.push(await chromiumSample(`device ${DEVICE} ${r} ${d.width}x${d.height}@${d.dpr} cpu×${d.throttle} @${SPEED}×`, actions, { viewport: { width: d.width, height: d.height }, deviceScaleFactor: d.dpr }, d.throttle, r));
+  const d = DEVICES[DEVICE];
+  if (!d) throw new Error(`unknown device preset ${DEVICE}; use ${Object.keys(DEVICES).join('|')}`);
+  for (const r of renderers)
+    samples.push(
+      await chromiumSample(
+        `device ${DEVICE} ${r} ${d.width}x${d.height}@${d.dpr} cpu×${d.throttle} @${SPEED}×`,
+        actions,
+        { viewport: { width: d.width, height: d.height }, deviceScaleFactor: d.dpr },
+        d.throttle,
+        r,
+      ),
+    );
 } else {
-  for (const throttle of [1, THROTTLE]) for (const r of renderers) samples.push(await chromiumSample(`chromium${throttle > 1 ? ` cpu×${throttle}` : ''}${r === 'canvas' ? ' canvas' : ''} @${SPEED}×`, actions, {}, throttle, r));
+  for (const throttle of [1, THROTTLE])
+    for (const r of renderers)
+      samples.push(
+        await chromiumSample(`chromium${throttle > 1 ? ` cpu×${throttle}` : ''}${r === 'canvas' ? ' canvas' : ''} @${SPEED}×`, actions, {}, throttle, r),
+      );
 }
 
 const exe = path.join(ROOT, 'release', 'win-unpacked', 'Junkyard Draft.exe');
@@ -190,12 +259,28 @@ if (!SKIP_ELECTRON && fs.existsSync(exe)) {
   await page.evaluate(`location.search = '?dev=1&scene=game&seed=${encodeURIComponent(SEED)}'`);
   await wait(800);
   let cdp: CDPSession | null;
-  try { cdp = await app.context().newCDPSession(page); await cdp.send('Performance.enable'); } catch { cdp = null; }
+  try {
+    cdp = await app.context().newCDPSession(page);
+    await cdp.send('Performance.enable');
+  } catch {
+    cdp = null;
+  }
   samples.push(await measure(page, cdp, `electron packaged @${SPEED}×`, actions));
   console.error('sampled', samples[samples.length - 1].label);
   await app.close();
 } else if (!SKIP_ELECTRON) console.error('packaged app not found; run npm run desktop:pack (skipping electron)');
 
-const out = { seed: SEED, score: report.score, picks: report.picks, speed: SPEED, device: DEVICE || null, budgetMs: BUDGET_MS, droppedMs: DROPPED_MS, samples, allWithinBudget: samples.every((s) => s.withinBudget), at: new Date().toISOString() };
+const out = {
+  seed: SEED,
+  score: report.score,
+  picks: report.picks,
+  speed: SPEED,
+  device: DEVICE || null,
+  budgetMs: BUDGET_MS,
+  droppedMs: DROPPED_MS,
+  samples,
+  allWithinBudget: samples.every((s) => s.withinBudget),
+  at: new Date().toISOString(),
+};
 console.log(JSON.stringify(out, null, 1));
 if (JSON_OUT) fs.writeFileSync(JSON_OUT, JSON.stringify(out, null, 1) + '\n');

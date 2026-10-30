@@ -7,16 +7,26 @@ import type { MachineKind, Material } from '../sim/types';
 import { t } from './strings';
 import { money } from './format';
 
-export interface MachineInfo { name: string; blurb: string }
+export interface MachineInfo {
+  name: string;
+  blurb: string;
+}
 
-export function machineName(kind: MachineKind): string { return t(`machine.${kind}.name` as const); }
+export function machineName(kind: MachineKind): string {
+  return t(`machine.${kind}.name` as const);
+}
 export function machineBlurb(kind: MachineKind): string {
   switch (kind) {
-    case 'hopper': return t('machine.hopper.blurb', { period: RULES.hopperPeriod });
-    case 'crusher': return t('machine.crusher.blurb', { shards: money(RULES.value.shards), time: RULES.process.crusher });
-    case 'furnace': return t('machine.furnace.blurb', { ingot: money(RULES.value.ingot), slag: money(RULES.value.slag), time: RULES.process.furnace });
-    case 'press': return t('machine.press.blurb', { plate: money(RULES.value.plate), time: RULES.process.press });
-    default: return t(`machine.${kind}.blurb` as const);
+    case 'hopper':
+      return t('machine.hopper.blurb', { period: RULES.hopperPeriod });
+    case 'crusher':
+      return t('machine.crusher.blurb', { shards: money(RULES.value.shards), time: RULES.process.crusher });
+    case 'furnace':
+      return t('machine.furnace.blurb', { ingot: money(RULES.value.ingot), slag: money(RULES.value.slag), time: RULES.process.furnace });
+    case 'press':
+      return t('machine.press.blurb', { plate: money(RULES.value.plate), time: RULES.process.press });
+    default:
+      return t(`machine.${kind}.blurb` as const);
   }
 }
 export const machineInfo = (kind: MachineKind): MachineInfo => ({ name: machineName(kind), blurb: machineBlurb(kind) });

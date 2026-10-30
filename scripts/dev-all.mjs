@@ -15,6 +15,13 @@ setTimeout(() => {
   console.log('  │  Junkyard Draft (dev):   http://127.0.0.1:5173/   │');
   console.log('  └───────────────────────────────────────────────────┘\n');
 }, 1500);
-const stop = () => { for (const p of procs) p.kill('SIGTERM'); process.exit(0); };
-process.on('SIGINT', stop); process.on('SIGTERM', stop);
-for (const p of procs) p.on('exit', (code) => { if (code && code !== 0) console.error(`child exited with ${code}`); });
+const stop = () => {
+  for (const p of procs) p.kill('SIGTERM');
+  process.exit(0);
+};
+process.on('SIGINT', stop);
+process.on('SIGTERM', stop);
+for (const p of procs)
+  p.on('exit', (code) => {
+    if (code && code !== 0) console.error(`child exited with ${code}`);
+  });

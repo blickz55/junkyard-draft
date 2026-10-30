@@ -13,7 +13,9 @@ export function hashSeed(seed: string | number): number {
 
 export class Rng {
   private a: number;
-  constructor(seed: string | number) { this.a = hashSeed(seed); }
+  constructor(seed: string | number) {
+    this.a = hashSeed(seed);
+  }
   /** float in [0,1) */
   next(): number {
     let t = (this.a += 0x6d2b79f5);
@@ -21,13 +23,20 @@ export class Rng {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
-  int(maxExclusive: number): number { return Math.floor(this.next() * maxExclusive); }
-  pick<T>(arr: readonly T[]): T { return arr[this.int(arr.length)]; }
+  int(maxExclusive: number): number {
+    return Math.floor(this.next() * maxExclusive);
+  }
+  pick<T>(arr: readonly T[]): T {
+    return arr[this.int(arr.length)];
+  }
   weighted<K extends string>(weights: Record<K, number>): K {
     const keys = Object.keys(weights) as K[];
     const total = keys.reduce((s, k) => s + weights[k], 0);
     let r = this.next() * total;
-    for (const k of keys) { r -= weights[k]; if (r < 0) return k; }
+    for (const k of keys) {
+      r -= weights[k];
+      if (r < 0) return k;
+    }
     return keys[keys.length - 1];
   }
 }
