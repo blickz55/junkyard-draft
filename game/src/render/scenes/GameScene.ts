@@ -93,7 +93,7 @@ export class GameScene extends Phaser.Scene {
   /** stall indicator (PLAN-v1 0.3.5): tick of the last ship this round, the cell currently flagged, its frame */
   static readonly STALL_TICKS = 8;
   private lastShipTick = 0;
-  private stallTick = -1; // sim tick at which the current stall was flagged; read by the dev API so a test's answer never depends on how late it polls
+  private stallTick = -1; // sim tick at which the current stall began; read by the dev API so a test's answer never depends on how late it polls
   private stallCell: number | null = null;
   private stallMark!: Phaser.GameObjects.Image;
   /** money heartbeat: the HUD total is re-rasterised at most every HUD_MS (a Text update is a canvas draw + texture upload; at 4x it would be one per frame) */
@@ -670,8 +670,8 @@ export class GameScene extends Phaser.Scene {
     if (!sim || jammedNow.size === 0 || sim.tick - this.lastShipTick < GameScene.STALL_TICKS) { if (this.stallCell != null) this.clearStall(); return; }
     let cell = Infinity; for (const c of jammedNow) if (c < cell) cell = c;
     if (cell === this.stallCell) return;
+    if (this.stallCell == null) this.stallTick = sim.tick; // when the stall began; the marker may move to a lower blocked cell later (the hopper once it is blocked too) without restarting the clock
     this.stallCell = cell;
-    this.stallTick = sim.tick;
     const m = sim.grid[cell];
     const x = cell % RULES.gridWidth, y = Math.floor(cell / RULES.gridWidth);
     const what = m ? MACHINE_INFO[m.kind].name : 'Item';
