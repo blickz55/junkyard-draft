@@ -81,3 +81,14 @@ test("perf gate: dropped frames gate by rate, not count, so frame-count differen
   assert.equal(verdict.ok, false);
   assert.equal(verdict.verdicts.filter((v) => !v.ok).length, 2);
 });
+
+test('perf gate --p95 (production roadmap 0.10.2): an absolute frame-time budget fails a sample over it, baseline or not, and a sample without p95', () => {
+  const d: GateReport = { samples: [{ label: 'device D canvas 915x412@2.6 cpu×4 @1×', frames: 300, dropped: 2, scriptMsPerFrame: 4, p95: 31.2 }] };
+  assert.equal(compare(d, { samples: [] }, { strict: true, p95Budget: 33 }).ok, true, 'under the budget with no baseline passes');
+  const over = compare({ samples: [{ ...d.samples[0], p95: 35 }] }, { samples: [] }, { strict: true, p95Budget: 33 });
+  assert.equal(over.ok, false);
+  assert.match(over.verdicts[0].reasons.join(' '), /p95 35 ms > budget 33 ms/);
+  const none = compare({ samples: [{ label: 'x', frames: 10, dropped: 0, scriptMsPerFrame: 1 }] }, { samples: [] }, { p95Budget: 33 });
+  assert.equal(none.ok, false, 'a sample that reports no p95 cannot pass an absolute budget');
+  assert.equal(compare(report(3.1), baseline).ok, true, 'without --p95 the budget is not applied');
+});

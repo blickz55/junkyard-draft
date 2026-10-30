@@ -17,3 +17,5 @@ What each run does: clone main, read CLAUDE.md / STATUS / ROADMAP / this file, c
 Owner's part: review and merge (or close) the routine's pull requests; keep "Next task" in STATUS pointing at work a cloud agent can do; pause or edit the routine at the link above. Manage routines at https://claude.ai/code/routines. Then create one scheduled task whose prompt is: "clone the repo, read docs/STATUS.md and docs/ROADMAP.md, do the Next task, run npm run typecheck and the relevant tests, commit, update STATUS, push" — one worker at a time on main.
 
 Hooks: `.claude/settings.json` registers `.claude/hooks/collect.mjs` for all supported events. Claude Code 2.1.x picks settings changes up automatically; if `/hooks` does not list them, restart the session once.
+
+> 0.10.2: the game is built from `phaser/src` through `game/phaser-entry.cjs`, so a sandbox that restores `vendor/phaser` from a `dist/` file alone cannot build it: the `src/` tree of the phaser package is needed too (copy it beside `dist/`).

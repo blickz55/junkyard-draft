@@ -1,6 +1,39 @@
+import fs from 'node:fs';
 import path from 'node:path';
 
 export const DEFAULT_VERIFIER_URL = 'http://127.0.0.1:4400';
+
+/**
+ * Phaser gates optional code with `typeof FLAG` and its own webpack build replaces the whole expression; esbuild's define
+ * cannot, so this plugin does it in the source text (production roadmap 0.10.2). Both renderers stay (the perf gate measures
+ * Canvas, phones without WebGL fall back to it); sound (the game has its own WebAudio bus), the 3D camera, the Facebook
+ * plugin and the WebGL debug build go.
+ */
+export const PHASER_FLAGS = {
+  WEBGL_RENDERER: 'true',
+  CANVAS_RENDERER: 'true',
+  FEATURE_SOUND: 'false',
+  PLUGIN_CAMERA3D: 'false',
+  PLUGIN_FBINSTANT: 'false',
+  WEBGL_DEBUG: 'false',
+};
+export function phaserFlagsPlugin() {
+  return {
+    name: 'phaser-flags',
+    setup(build) {
+      build.onLoad({ filter: /[\\/]phaser[\\/]src[\\/].*\.js$/ }, async (args) => {
+        let s = await fs.promises.readFile(args.path, 'utf8');
+        for (const [k, v] of Object.entries(PHASER_FLAGS)) s = s.replaceAll(`typeof ${k}`, v);
+        return { contents: s, loader: 'js' };
+      });
+    },
+  };
+}
+/** Phaser's version and notice for the bundle's one legal comment (the per-file banners are dropped: the same MIT notice 17 times). */
+export function phaserNotice(root) {
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'node_modules', 'phaser', 'package.json'), 'utf8'));
+  return `/*! Phaser v${pkg.version} Copyright 2013-2025 Phaser Studio Inc. MIT License https://github.com/phaserjs/phaser/blob/master/LICENSE.md */`;
+}
 
 export function buildOptions({
   root,
@@ -15,6 +48,11 @@ export function buildOptions({
     entryPoints: [path.join(root, 'game', 'src', 'main.ts')],
     bundle: true,
     format: 'esm',
+    // 0.10.2: the game is built from phaser/src with only the modules it uses (game/phaser-entry.cjs); the types still come from the package
+    alias: { phaser: path.join(root, 'game', 'phaser-entry.cjs') },
+    plugins: [phaserFlagsPlugin()],
+    legalComments: 'none',
+    banner: { js: phaserNotice(root) },
     target: ['es2022', 'chrome110', 'firefox110', 'safari16'],
     outdir,
     entryNames, // dev: main.js (the dev server proxies it); production: main-[hash].js so the hosted bundle can be cached immutably (0.8.5)

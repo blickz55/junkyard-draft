@@ -1,0 +1,115 @@
+/**
+ * First interactive on a slow-4G profile (production roadmap 0.10.2). Serves the production build in dist/ from a small
+ * static server (gzip on the fly for text, as a CDN does), opens it in headless Chromium as a mid-range phone (412×915,
+ * DPR 2.6, CPU ×4) behind Lighthouse's slow-4G network shape (1.6 Mbps down, 750 Kbps up, 150 ms round trip) and measures
+ * the time from navigation to the title's first button being on the page with the Title scene running: the moment a player
+ * can tap something. Reports the transfer too.
+ *   node --import tsx tools/first-interactive.ts [--dist dist] [--budget 4000] [--runs 1] [--json out.json]
+ * Exit 1 when the median run is over the budget (ms). Run `npm run build` first.
+ */
+import fs from 'node:fs';
+import http from 'node:http';
+import path from 'node:path';
+import zlib from 'node:zlib';
+import type { AddressInfo } from 'node:net';
+import { chromium } from 'playwright';
+
+const args = process.argv.slice(2);
+const opt = (k: string, d: string) => {
+  const i = args.indexOf(`--${k}`);
+  return i >= 0 ? args[i + 1] : d;
+};
+const dist = path.resolve(opt('dist', 'dist'));
+const budget = Number(opt('budget', '4000'));
+const runs = Number(opt('runs', '1'));
+const jsonOut = opt('json', '');
+
+const MIME: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.wav': 'audio/wav',
+  '.txt': 'text/plain; charset=utf-8',
+  '.css': 'text/css',
+};
+/** Lighthouse's "slow 4G" mobile profile */
+export const SLOW_4G = { latency: 150, downloadThroughput: (1.6 * 1024 * 1024) / 8, uploadThroughput: (750 * 1024) / 8 };
+
+function serve(root: string): Promise<http.Server> {
+  const server = http.createServer((req, res) => {
+    let p = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname);
+    if (p === '/') p = '/index.html';
+    const file = path.join(root, p);
+    if (!file.startsWith(root) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
+    const buf = fs.readFileSync(file);
+    const ext = path.extname(file);
+    const gz = /^\.(js|json|html|svg|css|txt)$/.test(ext) && /gzip/.test(String(req.headers['accept-encoding'] ?? ''));
+    res.writeHead(200, { 'content-type': MIME[ext] ?? 'application/octet-stream', ...(gz ? { 'content-encoding': 'gzip' } : {}) });
+    res.end(gz ? zlib.gzipSync(buf, { level: 9 }) : buf);
+  });
+  return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server)));
+}
+
+export interface FirstInteractive {
+  firstInteractiveMs: number;
+  transferKiB: number;
+  requests: number;
+}
+async function measureOnce(url: string): Promise<FirstInteractive> {
+  const browser = await chromium.launch();
+  try {
+    const context = await browser.newContext({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 2.6, isMobile: true, hasTouch: true });
+    const page = await context.newPage();
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Network.enable');
+    await cdp.send('Network.emulateNetworkConditions', { offline: false, ...SLOW_4G });
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+    let bytes = 0,
+      requests = 0;
+    cdp.on('Network.loadingFinished', (e: { encodedDataLength: number }) => {
+      bytes += e.encodedDataLength;
+      requests++;
+    });
+    await page.goto(`${url}/?dev=1`); // the dev API exposes the game object so the Title scene can be seen running
+    await page.waitForFunction(
+      () => {
+        const g = (window as unknown as { __jdGame?: { scene: { isActive(k: string): boolean } } }).__jdGame;
+        return !!g && g.scene.isActive('Title') && !!document.querySelector('[data-testid=daily]');
+      },
+      null,
+      { timeout: 60000 },
+    );
+    const firstInteractiveMs = Math.round(await page.evaluate(() => performance.now()));
+    await context.close();
+    return { firstInteractiveMs, transferKiB: Math.round(bytes / 1024), requests };
+  } finally {
+    await browser.close();
+  }
+}
+
+const isMain = process.argv[1] && /first-interactive\.(ts|mjs|js)$/.test(process.argv[1]);
+if (isMain) {
+  if (!fs.existsSync(path.join(dist, 'build.json'))) {
+    console.error(`no build at ${dist}; run npm run build first`);
+    process.exit(2);
+  }
+  const server = await serve(dist);
+  const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const samples: FirstInteractive[] = [];
+  for (let i = 0; i < runs; i++) samples.push(await measureOnce(url));
+  server.close();
+  const sorted = samples.map((s) => s.firstInteractiveMs).sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const ok = median <= budget;
+  console.log(
+    `${ok ? 'PASS' : 'FAIL'} first interactive ${median} ms (budget ${budget}) on slow 4G, CPU ×4, 412×915 @2.6: ${samples[0].transferKiB} KiB over ${samples[0].requests} requests${runs > 1 ? ` (runs: ${sorted.join(', ')})` : ''}`,
+  );
+  if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify({ profile: SLOW_4G, cpu: 4, budget, median, samples, ok, at: new Date().toISOString() }, null, 2));
+  process.exit(ok ? 0 : 1);
+}

@@ -1,13 +1,14 @@
 /**
  * Performance regression gate: compares a perf.ts JSON report against a committed baseline.
- *   node --import tsx tools/perf-gate.ts <report.json> <baseline.json> [--tolerance 0.25] [--dropped-slack 0.05] [--strict]
+ *   node --import tsx tools/perf-gate.ts <report.json> <baseline.json> [--tolerance 0.25] [--dropped-slack 0.05] [--strict] [--p95 <ms>]
  * Exit 1 when any sample whose label exists in the baseline regresses:
  *   - scriptMsPerFrame above baseline × (1 + tolerance), or
  *   - dropped frames above the baseline's drop RATE applied to this run's frame count, plus droppedSlack × frames (so a
  *     software-rendered CI runner that always drops some frames still gates on a *higher share* of drops than its own
  *     baseline, and a run that happened to render more frames than the baseline is not failed for dropping them at the
  *     same rate; 0.8.4 armed the gate with a baseline whose WebGL sample dropped every one of its 34 frames).
- * Samples with no baseline label are reported, never failed. The comparison is a pure function (tested).
+ * Samples with no baseline label are reported, never failed by the baseline rules; `--p95 <ms>` (production roadmap 0.10.2,
+ * preset D) is an absolute budget every sample in the report must meet, baseline or not. The comparison is a pure function (tested).
  */
 import fs from 'node:fs';
 
@@ -16,6 +17,8 @@ export interface GateSample {
   frames: number;
   dropped: number;
   scriptMsPerFrame: number | null;
+  /** frame time p95 in ms (perf.ts reports it; the absolute budget reads it) */
+  p95?: number;
 }
 export interface GateReport {
   samples: GateSample[];
@@ -24,6 +27,7 @@ export interface GateOptions {
   tolerance?: number;
   droppedSlack?: number;
   /** CI: an empty report, a sample without numbers, or a report that matches no baseline label is a failure, not a pass (review) */ strict?: boolean;
+  /** an absolute frame-time budget: every sample's p95 must be at or under it (ms) */ p95Budget?: number;
 }
 export interface Verdict {
   label: string;
@@ -69,6 +73,10 @@ export function compare(report: GateReport, baseline: GateReport, opts: GateOpti
           `dropped ${sample.dropped} > ${allowedDropped} (baseline rate ${base.dropped}/${base.frames} on ${sample.frames} frames + ${Math.round(slack * 100)} %)`,
         );
     }
+    if (opts.p95Budget != null) {
+      if (!Number.isFinite(sample.p95)) reasons.push(`no p95 to hold against the ${opts.p95Budget} ms budget`);
+      else if ((sample.p95 as number) > opts.p95Budget) reasons.push(`p95 ${sample.p95} ms > budget ${opts.p95Budget} ms`);
+    }
     return { label: sample.label, ok: reasons.length === 0, reasons, baseline: base, sample };
   });
   return { ok: verdicts.every((v) => v.ok) && problems.length === 0, verdicts, problems };
@@ -84,7 +92,7 @@ if (isMain) {
   };
   const [reportFile, baselineFile] = files;
   if (!reportFile || !baselineFile) {
-    console.error('usage: perf-gate <report.json> <baseline.json> [--tolerance 0.25] [--dropped-slack 0.05]');
+    console.error('usage: perf-gate <report.json> <baseline.json> [--tolerance 0.25] [--dropped-slack 0.05] [--strict] [--p95 <ms>]');
     process.exit(2);
   }
   const report = JSON.parse(fs.readFileSync(reportFile, 'utf8')) as GateReport;
@@ -93,12 +101,13 @@ if (isMain) {
     tolerance: Number(opt('tolerance', '0.25')),
     droppedSlack: Number(opt('dropped-slack', '0.05')),
     strict: args.includes('--strict'),
+    p95Budget: args.includes('--p95') ? Number(opt('p95', '33')) : undefined,
   });
   for (const p of problems) console.log(`FAIL ${p}`);
   for (const v of verdicts) {
     const base = v.baseline;
     console.log(
-      `${v.ok ? 'PASS' : 'FAIL'} ${v.label}: script ${v.sample.scriptMsPerFrame ?? '-'} ms (baseline ${base?.scriptMsPerFrame ?? 'none'}), dropped ${v.sample.dropped}/${v.sample.frames} (baseline ${base?.dropped ?? 'none'})${v.reasons.length ? '\n  ' + v.reasons.join('\n  ') : ''}`,
+      `${v.ok ? 'PASS' : 'FAIL'} ${v.label}: script ${v.sample.scriptMsPerFrame ?? '-'} ms (baseline ${base?.scriptMsPerFrame ?? 'none'}), dropped ${v.sample.dropped}/${v.sample.frames} (baseline ${base?.dropped ?? 'none'}), p95 ${v.sample.p95 ?? '-'} ms${v.reasons.length ? '\n  ' + v.reasons.join('\n  ') : ''}`,
     );
   }
   process.exit(ok ? 0 : 1);

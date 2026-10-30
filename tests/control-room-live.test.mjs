@@ -68,7 +68,12 @@ test('control room: live updates, reload history, disconnect visibility', { time
     await page.waitForFunction(() => document.body.innerText.includes('live-note-marker-42'), null, { timeout: 8000 });
   } finally {
     if (browser) await browser.close().catch(() => {});
+    const gone = new Promise((r) => {
+      server.once('exit', r);
+      setTimeout(r, 3000);
+    });
     server.kill('SIGTERM');
-    fs.rmSync(tmp, { recursive: true, force: true });
+    await gone; // Windows keeps the directory locked until the child has let go of its log and event files
+    fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
