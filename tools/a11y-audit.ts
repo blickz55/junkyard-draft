@@ -107,7 +107,7 @@ if (isMain) {
     const { chromium } = await import('playwright');
     const url = opt('url', 'http://127.0.0.1:5173');
     const browser = await chromium.launch();
-    const page = await browser.newPage({ viewport: { width: 1120, height: 700 } });
+    const page = await browser.newPage({ viewport: { width: 1120, height: 700 }, bypassCSP: true }); // string evaluations against the page's CSP (0.8.0)
     await page.goto(`${url}/?dev=1`);
     await page.waitForFunction("!!window.__jdGame && window.__jdGame.textures.exists('i-plate')", null, { timeout: 15000 });
     const matrices = JSON.stringify((await import('./a11y-lib')).CVD);

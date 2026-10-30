@@ -16,7 +16,7 @@ const opt = {}; for (let i = 0; i < rest.length; i++) if (rest[i].startsWith('--
 fs.mkdirSync(SHOTS, { recursive: true });
 const file = path.join(SHOTS, `${name}-${new Date().toISOString().replace(/[:.]/g, '-')}.png`);
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: Number(opt.width || 1280), height: Number(opt.height || 800) } });
+const page = await browser.newPage({ viewport: { width: Number(opt.width || 1280), height: Number(opt.height || 800) }, bypassCSP: true }); // a screenshot tool, not the CSP test (0.8.0)
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });

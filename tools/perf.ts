@@ -152,7 +152,7 @@ async function measure(page: Page, cdp: CDPSession | null, label: string, action
 async function chromiumSample(label: string, actions: Action[], ctxOpts: BrowserContextOptions, throttle: number, renderer: string): Promise<Sample> {
   const browser = await chromium.launch();
   try {
-    const context = await browser.newContext({ viewport: { width: 1120, height: 700 }, ...ctxOpts });
+    const context = await browser.newContext({ viewport: { width: 1120, height: 700 }, bypassCSP: true, ...ctxOpts }); // string predicates below are polled with an in-page eval that the page's CSP (0.8.0) blocks; the policy has its own e2e
     const page = await context.newPage();
     page.on('pageerror', (e) => console.error('PAGEERROR', String(e)));
     await page.addInitScript(GL_HOOK);
