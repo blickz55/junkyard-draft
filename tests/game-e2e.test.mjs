@@ -20,11 +20,11 @@ const SHOTS = path.join(ROOT, '.control-room', 'screenshots');
 
 async function waitServer() { for (let i = 0; i < 60; i++) { try { const r = await fetch(`${URL}/main.js`); if (r.ok) return; } catch {} await wait(500); } throw new Error('dev server did not start'); }
 
-test('junkyard draft: full run in the browser', { timeout: 180000 }, async () => {
+test('junkyard draft: full run in the browser', { timeout: 300000 }, async () => {
   const server = spawn(process.execPath, [path.join(ROOT, 'scripts/dev.mjs')], { env: { ...process.env, GAME_PORT: String(PORT) }, stdio: 'ignore' });
   const VPORT = 4499;
   const boardFile = path.join(fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-')), 'board.json');
-  const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), BOARD_FILE: boardFile, PLAYER_RATE_LIMIT: '100', DAILY_SECRET: 'e2e-daily-secret', MODERATION_TOKEN: 'e2e-moderator' }, stdio: 'ignore' });
+  const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), BOARD_FILE: boardFile, PLAYER_RATE_LIMIT: '100', DAILY_SECRET: 'e2e-daily-secret', MODERATION_TOKEN: 'e2e-moderator', BOT_PAR_CAP_MS: '120000' }, stdio: 'ignore' });
   let browser, page;
   const errors = [];
   const api = (fn, ...args) => page.evaluate(({ fn, args }) => window.__jd[fn](...args), { fn, args });
@@ -265,8 +265,11 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     const hist = await page.evaluate(() => ({ bins: document.querySelectorAll('[data-testid=histogram] .jd-hist-bin').length, mine: document.querySelectorAll('[data-testid=histogram] .jd-hist-mine').length, mineCount: document.querySelector('[data-testid=histogram] .jd-hist-mine .jd-hist-count')?.textContent }));
     assert.ok(hist.bins >= 1 && hist.mine === 1 && hist.mineCount === '1', `histogram shows the player's bin: ${JSON.stringify(hist)}`);
     // bot_par_is_a_target_not_an_entry (PLAN-v1 0.4.5): the test verifier computed the autoplayer's par for this seed in a worker; it shows as a bot line and the board still has one entry
+    // the par job competes for cores with the other test files on a 4-vCPU CI runner: wait for the verifier's par first (long budget, timing logged), then for the results screen, which keeps asking for ~90 s
+    const parT0 = Date.now(); let board;
+    for (;;) { board = await (await fetch(`http://127.0.0.1:${VPORT}/board?seed=e2e-seed`)).json(); if (typeof board.botPar === 'number') break; if (Date.now() - parT0 > 120000) break; await wait(1000); }
+    console.log(`bot par for e2e-seed ${typeof board.botPar === 'number' ? `arrived after ${((Date.now() - parT0) / 1000).toFixed(1)} s` : 'did not arrive within 120 s'}`);
     await page.waitForFunction(() => /^Bot par \$\d+ · the shipped autoplayer/.test(document.querySelector('[data-testid=bot-par]')?.textContent || ''), null, { timeout: 30000 });
-    const board = await (await fetch(`http://127.0.0.1:${VPORT}/board?seed=e2e-seed`)).json();
     assert.ok(typeof board.botPar === 'number' && board.botPar > 0, 'the board carries a numeric bot par');
     assert.equal(board.entries.length, 1, 'one verified entry');
     assert.match(board.entries[0].player, /^e2e player#[2-9A-HJKMNP-TV-Z]{4}$/, 'the local name was claimed on first submission and the entry carries name#tag (PLAN-v3 0.6.0)');

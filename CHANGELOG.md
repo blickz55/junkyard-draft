@@ -3,6 +3,11 @@
 All notable changes to Junkyard Draft. Dates are UTC. Rules changes bump `RULES_VERSION`, which invalidates
 older replays and saves on purpose.
 
+## Unreleased (v0.8, PLAN-v5)
+
+### CI on the Ubuntu runner — 2026-10-30
+- `ci.yml` had failed on every push until 9c8205b/8ce64ee (another session): the UI font stack falls back to DejaVu Sans on Ubuntu, which wrapped the title's how-to lines and pushed the daily strip off the canvas at 130 % (fixed by a `--fit` pass in `game/src/ui/dom.ts`, title only, 1 on Windows), and the render e2e compared the stall marker against a later tick (the scene now records the tick the stall began). Still flaky after that: the game e2e's 30 s wait for the results screen's bot par line, because the par worker competes for the runner's four cores with the autoplay, balance and par tests running in parallel, the test verifier capped the par job at 20 s (a slow job then failed into a 10-minute cooldown and the par never came), and the results screen stopped asking after ~24 s. Now the results screen keeps asking for the par for ~90 s, the test verifier allows the job 120 s, and the e2e waits for the verifier's par first with the elapsed time logged. No protocol or rules change.
+
 ## 0.7.0 — 2026-10-30 (protocol 2; rules version 3 unchanged)
 
 **For players.** Play with people. A challenge link ("beat this") carries a verified run's per-round earnings so a friend can race it round by round, without revealing the layout before the day closes. A group is an 8-character code you share: its board, histogram and daily strip show only its members, with ranks recomputed over them. From any replay you can watch, fork into practice from after round N; a share card draws your run as a 1200×630 image that says "verified" only when the verifier re-simulated it. The weekly seed opens every Friday at 18:00 UTC for seven days with the same freeze, medals and archive as the daily. If a name offends, report it while watching that player's replay: it shows as "player" until a moderator reviews it, and scores are never touched. Nothing in the rules changed: every replay and save from 0.6.0 still verifies and resumes.

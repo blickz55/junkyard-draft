@@ -86,7 +86,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       const hg = await hres.json() as { n: number; step: number; bins: { from: number; to: number; count: number }[]; mine: { score: number; rank: number; bin: number; percentile: number } | null; around: { rank: number; player: string; score: number; mine: boolean }[]; botPar?: number | null; medals?: Medals | null };
       if (gen !== histGen || !histBox.isConnected) return;
       // the par is computed off the request path by the verifier the first time a seed is seen: poll a few times while it is pending
-      if (hg.botPar == null && attempt < 6) setTimeout(() => { if (histBox.isConnected) void loadHistogram(attempt + 1); }, 4000);
+      if (hg.botPar == null && attempt < 22) setTimeout(() => { if (histBox.isConnected) void loadHistogram(attempt + 1); }, 4000); // the first run on a seed waits for the par job: keep asking for ~90 s (a loaded verifier can take that long), then stop
       const parLine = hg.botPar != null ? h('div', { class: 'jd-mono jd-dim', tid: 'bot-par', style: 'font-size:0.75em; margin-top:0.3em' }, `Bot par $${hg.botPar} · the shipped autoplayer's median on this seed (a target, never ranked)${run.score > hg.botPar ? ' — you beat it' : run.score === hg.botPar ? ' — matched' : ''}`) : null;
       if (hg.mine) { scene.lastPercentile = hg.mine.percentile; scene.lastN = hg.n; }
       if (hg.botPar != null && hg.botPar !== botPar) { botPar = hg.botPar; renderBadges(); }
