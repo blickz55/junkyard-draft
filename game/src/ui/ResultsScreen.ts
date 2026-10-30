@@ -38,7 +38,7 @@ import { openPrivacy } from './PrivacyPanel';
 import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
 import { groupHeaders, groupParam, loadGroup } from '../render/groups';
 import { forkLabel } from '../content/fork';
-import type { CardInput } from '../render/card';
+import { makeCard, type CardInput } from '../render/card';
 import { loadForkBests } from '../render/storage';
 import { t } from '../content/strings';
 import { money, int, utcDateTime } from '../content/format';
@@ -757,6 +757,45 @@ export function mountResults(
     },
     { small: true, title: t('results.cardTitle') },
   );
+  // the phone's share sheet (production roadmap 0.10.6): the spoiler-free text with the link, and the card as a picture where the sheet takes one
+  const canNativeShare = typeof navigator !== 'undefined' && typeof (navigator as { share?: unknown }).share === 'function';
+  const shareNativeBtn = canNativeShare
+    ? btn(
+        t('results.shareNative'),
+        'share-native',
+        async () => {
+          shareNativeBtn!.disabled = true;
+          try {
+            const text = buildShare('grid');
+            scene.lastShareText = text;
+            telemetry.track('share_copied', { variant: 'grid' });
+            const data: ShareData = { title: t('title.name'), text };
+            try {
+              if (scene.cardInput) {
+                const card = await makeCard(scene.cardInput());
+                const file = new File([card.blob], card.filename, { type: 'image/png' });
+                if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) data.files = [file];
+              }
+            } catch {
+              /* the text alone, then */
+            }
+            await navigator.share(data);
+            if (firstTime('share')) {
+              const line = foremanSays('firstShare');
+              if (line) {
+                setForeman(foreman, line);
+                foremanSettled = true;
+              }
+            }
+          } catch (e) {
+            if ((e as Error).name !== 'AbortError') setStatus(t('results.shareNativeFailed', { why: (e as Error).message }), 'jd-red');
+          } finally {
+            shareNativeBtn!.disabled = false;
+          }
+        },
+        { variant: 'primary', small: true, title: t('results.shareNativeTitle') },
+      )
+    : null;
   const shareBtn = btn(
     t('results.shareBtn'),
     'share',
@@ -909,7 +948,17 @@ export function mountResults(
       btn(t('title.daily'), 'daily', () => go(todaySeed()), { variant: 'steel' }),
       btn(t('common.titleScreen'), 'title', () => scene.scene.start('Title'), { small: true }),
     ),
-    group(t('results.rowShare'), 'actions-share', fork ? null : submitBtn, shareBtn, detailedBtn, shareLinkLabel, cardBtn, fork ? null : challengeBtn),
+    group(
+      t('results.rowShare'),
+      'actions-share',
+      shareNativeBtn,
+      fork ? null : submitBtn,
+      shareBtn,
+      detailedBtn,
+      shareLinkLabel,
+      cardBtn,
+      fork ? null : challengeBtn,
+    ),
     group(t('results.rowWatch'), 'actions-watch', clipBtn, gifBtn, fork ? null : exportBtn, fork ? null : downloadBtn),
     h(
       'div',

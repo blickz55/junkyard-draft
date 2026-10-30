@@ -90,6 +90,7 @@ export class ResultsScene extends Phaser.Scene {
     savedTo: string;
     elapsedMs: number;
     footer: string;
+    strip: string;
   } | null = null;
   private exporting = false;
   private run!: RunState;
@@ -134,7 +135,13 @@ export class ResultsScene extends Phaser.Scene {
     this.exporting = true;
     const t0 = performance.now();
     try {
-      const gif = await renderGif(this.game, this.run, { round, player: loadPlayer() || undefined, verified: this.verifiedHash != null, onProgress });
+      const gif = await renderGif(this.game, this.run, {
+        round,
+        player: loadPlayer() || undefined,
+        verified: this.verifiedHash != null,
+        hash: this.verifiedHash,
+        onProgress,
+      });
       const savedTo = await saveClip(gif);
       this.lastGif = {
         size: gif.blob.size,
@@ -149,6 +156,7 @@ export class ResultsScene extends Phaser.Scene {
         savedTo,
         elapsedMs: Math.round(performance.now() - t0),
         footer: gif.footer,
+        strip: gif.strip,
       };
       return this.lastGif;
     } finally {

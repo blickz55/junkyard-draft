@@ -266,3 +266,39 @@ test(
     assert.deepEqual(errors, []);
   },
 );
+
+test(
+  'the share sheet (0.10.6): on a phone the Share button hands the sheet the text with the link and the card as a picture; the GIF is the final layout under 4 MB',
+  { timeout: 180000 },
+  async () => {
+    await ctx.addInitScript(() => {
+      navigator.canShare = () => true;
+      navigator.share = async (d) => {
+        window.__shared = { title: d.title, text: d.text, files: (d.files || []).map((f) => ({ name: f.name, type: f.type, size: f.size })) };
+      };
+    });
+    await page.goto(`${srv.url}/?dev=1&scene=game&seed=pwa-share`);
+    await playOut();
+    await when(() => !!document.querySelector('[data-testid=share-native]'));
+    await page.getByTestId('share-native').click();
+    await when(() => !!window.__shared, null, 30000);
+    const shared = await page.evaluate(() => window.__shared);
+    assert.match(shared.title, /junkyard draft/i);
+    assert.match(shared.text, /https?:\/\/\S+/, 'the text carries the link');
+    assert.match(shared.text, /[░▒▓█]{6}/, 'the spoiler-free grid');
+    assert.equal(shared.files.length, 1, 'the card travels as a picture');
+    assert.match(shared.files[0].name, /^junkyard-pwa-share-\$\d+-card\.png$/);
+    assert.equal(shared.files[0].type, 'image/png');
+    assert.ok(shared.files[0].size > 10_000, `the card has bytes (${shared.files[0].size})`);
+    const gif = await page.evaluate(() =>
+      window.__jdGame.scene
+        .getScene('Results')
+        .exportGif()
+        .then((g) => ({ ...g })),
+    );
+    assert.equal(gif.round, 6, 'the final layout');
+    assert.ok(gif.size <= 4 * 1024 * 1024, `the GIF is under 4 MB (${gif.size})`);
+    assert.match(gif.strip, /pwa-share · \$\d+$/, 'an unchecked run: yard and score, no hash');
+    assert.deepEqual(errors, []);
+  },
+);

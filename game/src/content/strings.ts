@@ -323,6 +323,9 @@ export const STRINGS = {
   ),
   'results.checkedRank': s('Checked: {score} — {rank} on the board as {label}.', 'status line'),
   'results.checkedNoRank': s('Checked: {score} as {label} — recorded on the board (rank unavailable right now).', 'status line'),
+  'results.shareNative': s('Share…', 'Share row: the phone share sheet (0.10.6), first in the row where the browser has one'),
+  'results.shareNativeTitle': s('Your share sheet: the text with the link, and the card as a picture where the sheet takes one.', 'tooltip'),
+  'results.shareNativeFailed': s('Sharing did not work: {why}.', 'status after the share sheet failed'),
   'results.cardBtn': s('Share card', 'Share row button'),
   'results.cardTitle': s(
     'a 1200×630 picture of this game: yard, score, the six rounds, and only the standing this game actually has (checked, this device, a try); made here, never uploaded',

@@ -634,6 +634,11 @@ test('exports: the share card, the loop clip and the GIF say checked for this ch
   assert.match(gif.filename, /^junkyard-e2e-seed-\$\d+-r\d\.gif$/);
   assert.equal(await page.evaluate(() => document.querySelector('[data-testid=export-gif]')?.disabled), false, 'the GIF button is usable again');
   assert.equal(gif.footer, 'junkyard draft · checked recording');
+  // 0.10.6: the GIF is the final layout, and its strip names the yard, the score and the checked hash's first eight characters
+  assert.equal(gif.round, 6, 'the final layout by default');
+  assert.match(gif.strip, /e2e-seed · \$\d+ · [0-9a-f]{8}$/, `the strip: ${gif.strip}`);
+  const hasShareSheet = await page.evaluate(() => typeof navigator.share === 'function');
+  assert.equal(await page.locator('[data-testid=share-native]').count(), hasShareSheet ? 1 : 0, 'the share-sheet button only where the browser has one');
 });
 
 test('provenance: a different, unsubmitted attempt on the same yard claims no standing and its exports say local', { timeout: 90000 }, async () => {

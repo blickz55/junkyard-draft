@@ -46,17 +46,22 @@ export interface ClipResult {
 /** The wordmark line on every frame: a verification claim only for a verified replay (CLAUDE.md: never label local results verified). */
 export const clipFooter = (verified: boolean) => (verified ? t('clip.footerChecked') : t('clip.footerLocal'));
 export interface GifOptions {
+  /** 1-based round; default the last round, the final layout (production roadmap 0.10.6) */
   round?: number;
   speed?: number;
   holdMs?: number;
   fps?: number;
   player?: string;
   verified?: boolean;
+  /** the checked replay's hash: its first eight characters join the strip's wordmark line */
+  hash?: string | null;
   onProgress?: (fraction: number) => void;
 }
 export interface GifResult extends ClipResult {
   colours: number;
   magic: string;
+  /** what the strip says of the run: yard, score and the hash's first eight characters when checked */
+  strip: string;
 }
 
 const MARGIN = 24;
@@ -332,9 +337,10 @@ export function recordClip(
 }
 
 /** Which round a clip shows and its labels; shared by the video and GIF exporters. */
-function pickRound(run: { seed: string; rounds: { round: number; earned: number; layout: Layout }[] }, round?: number) {
+function pickRound(run: { seed: string; rounds: { round: number; earned: number; layout: Layout }[] }, round?: number, fallback: 'best' | 'last' = 'best') {
   const best = run.rounds.reduce((b, r) => (r.earned > b.earned ? r : b), run.rounds[0]);
-  const rec = round ? (run.rounds.find((r) => r.round === round) ?? best) : best;
+  const chosen = fallback === 'last' ? run.rounds[run.rounds.length - 1] : best;
+  const rec = round ? (run.rounds.find((r) => r.round === round) ?? chosen) : chosen;
   if (!rec) return null;
   const totalBefore = run.rounds.filter((r) => r.round < rec.round).reduce((a, r) => a + r.earned, 0);
   const seedLabel = shareYardLabel(run.seed);
@@ -351,17 +357,26 @@ export async function renderGif(
   run: { seed: string; score: number; rounds: { round: number; earned: number; layout: Layout }[] },
   o: GifOptions = {},
 ): Promise<GifResult> {
-  const picked = pickRound(run, o.round);
+  const picked = pickRound(run, o.round, 'last'); // the GIF is the genre's signature artefact: the final layout, looping
   if (!picked) throw new Error(t('clip.noRound'));
   const { rec, totalBefore, seedLabel } = picked;
   const footer = clipFooter(o.verified === true);
+  const hash8 = o.verified === true && o.hash ? o.hash.slice(0, 8) : null;
   const painter = new ClipPainter(
     game,
     rec.layout,
-    { title: 'JUNKYARD DRAFT', seed: seedLabel, player: o.player || 'anonymous', round: rec.round, totalBefore, footer },
+    {
+      title: 'JUNKYARD DRAFT',
+      seed: seedLabel,
+      player: o.player || 'anonymous',
+      round: rec.round,
+      totalBefore,
+      footer: hash8 ? `${footer} · ${hash8}` : footer,
+    },
     Infinity,
     1,
   );
+  const strip = `${seedLabel} · $${totalBefore + rec.earned}${hash8 ? ` · ${hash8}` : ''}`;
   const speed = o.speed ?? 4,
     holdMs = o.holdMs ?? 400,
     fps = o.fps ?? 10;
@@ -417,6 +432,7 @@ export async function renderGif(
     ms: Math.round(totalMs),
     frames: frames.length,
     round: rec.round,
+    strip,
     width: painter.width,
     height: painter.height,
     filename: clipFilename(run.seed, run.score, rec.round, 'image/gif'),
