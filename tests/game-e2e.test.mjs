@@ -259,7 +259,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     // 6) submit the replay to the spawned verifier via the Results button (Phaser button: click its canvas position)
     for (let i = 0; i < 20; i++) { try { if ((await fetch(`http://127.0.0.1:${VPORT}/health`)).ok) break; } catch {} await wait(300); }
     await page.getByTestId('submit').click();
-    await page.waitForFunction(() => /Verified by re-simulation: \$\d+ — #1 of 1 on the local verified board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\./.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
+    await page.waitForFunction(() => /Verified by re-simulation: \$\d+ — #1 of 1 on the verified board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\./.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
     // histogram_first (PLAN-v1 0.4.1): the only verified run is highlighted and the text says so without inventing a population
     await page.waitForFunction(() => /^1 verified run so far · you are #1$/.test(document.querySelector('[data-testid=percentile]')?.textContent || ''), null, { timeout: 10000 });
     const hist = await page.evaluate(() => ({ bins: document.querySelectorAll('[data-testid=histogram] .jd-hist-bin').length, mine: document.querySelectorAll('[data-testid=histogram] .jd-hist-mine').length, mineCount: document.querySelector('[data-testid=histogram] .jd-hist-mine .jd-hist-count')?.textContent }));

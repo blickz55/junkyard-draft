@@ -21,7 +21,7 @@ export function openGroups(scene: Phaser.Scene, verifierUrl: string, onChange: (
     const sel = loadGroup();
     const everyone = h('div', { class: 'jd-row jd-between' }, h('span', {}, `Everyone${sel ? '' : ' · in use'}`), sel ? btn('Use for boards', 'group-use-everyone', () => { saveGroup(null); changed = true; render(groups); }, { small: true }) : null);
     list.append(everyone);
-    if (groups === null) { list.append(h('div', { class: 'jd-red' }, 'Verifier unreachable or no identity yet: groups live on the verifier.')); return; }
+    if (groups === null) { list.append(h('div', { class: 'jd-red' }, 'Offline, or no player key yet: groups need a connection.')); return; }
     if (!groups.length) list.append(h('div', { class: 'jd-dim' }, 'No groups yet. Create one and share its code, or join with a code someone gave you.'));
     for (const g of groups) {
       const inUse = sel?.code === g.code;

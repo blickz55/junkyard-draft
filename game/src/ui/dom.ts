@@ -71,6 +71,8 @@ const STYLE = `
 #ui .jd-center { justify-content: center; }
 #ui .jd-between { justify-content: space-between; }
 #ui .jd-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75em; }
+#ui .jd-actions { gap: 0.5em; margin-top: 0.3em; }
+#ui .jd-actions-label { width: 3.6em; flex: 0 0 auto; text-align: right; font-size: 0.7em; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: ${CSS.dim}; }
 @media (max-width: 900px) { #ui .jd-grid2 { grid-template-columns: 1fr; } }
 #ui .jd-btn { font: inherit; font-weight: 700; font-size: 0.875em; padding: 0.5em 1.1em; border-radius: 0.2em; border: 2px solid rgba(0,0,0,0.35); cursor: pointer; color: #1a1612; background: ${CSS.amber}; box-shadow: 0 2px 0 rgba(0,0,0,0.35); white-space: nowrap; }
 #ui .jd-btn-steel { background: #8e9aa6; color: #1a1612; }

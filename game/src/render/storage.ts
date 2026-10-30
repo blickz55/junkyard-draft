@@ -1,4 +1,5 @@
 import { isValidSeed, validateAction, type Action } from '../sim/run';
+import type { ReplayFile } from '../sim/replay';
 import { RULES_VERSION } from '../sim/types';
 import { dailySeed } from '../sim/daily';
 import { normaliseDates, streakOf } from '../daily/streak';
@@ -8,7 +9,7 @@ export { dailySeed };
 
 /** Every record written before 0.5.0 was made under rules version 2; the one-time migration files them there, whatever version runs now. */
 const LEGACY_RECORDS_VERSION = 2;
-const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v2', bestsLegacy: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v2', submissionsLegacy: 'jd.submissions.v1', tips: 'jd.tips.v1', telemetry: 'jd.telemetry.v1', days: 'jd.days.v1', dailyStreak: 'jd.dailystreak.v1', forkBests: 'jd.forkbests.v1' };
+const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v2', bestsLegacy: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v2', submissionsLegacy: 'jd.submissions.v1', tips: 'jd.tips.v1', telemetry: 'jd.telemetry.v1', days: 'jd.days.v1', dailyStreak: 'jd.dailystreak.v1', forkBests: 'jd.forkbests.v1', history: 'jd.history.v1', pending: 'jd.pending.v1' };
 /**
  * Score records are partitioned by rules version (PLAN-v2 0.5.0): `jd.bests.v2` / `jd.submissions.v2` hold
  * `{ byVersion: { "2": …, "3": … } }`. Readers take the current RULES_VERSION; the other versions are archived for the
@@ -183,6 +184,50 @@ export const saveTelemetryState = (s: TelemetryState) => write(K.telemetry, s);
 export const clearTelemetryState = () => { try { localStorage.removeItem(K.telemetry); } catch { /* ignore */ } };
 
 /** Best score per seed among practice forks (PLAN-v4 0.7.3): kept apart so a fork never masquerades as the player's own run. */
+// ---- production roadmap 0.8.7: this device's run history per seed (what the results board shows when the verifier is away) and
+// submissions that could not reach the verifier (sent on the next title load). Both partitioned by rules version like the bests.
+export interface RunRecord { score: number; at: string }
+export const HISTORY_PER_SEED = 10;
+export interface HistoryByVersion { byVersion: Record<string, Record<string, RunRecord[]>> }
+export function validateHistory(raw: unknown): HistoryByVersion {
+  const byVersion = dict<Record<string, RunRecord[]>>();
+  if (isObj(raw) && isObj(raw.byVersion)) for (const [k, seeds] of Object.entries(raw.byVersion)) {
+    if (!isVersionKey(k) || !isObj(seeds)) continue;
+    const out = dict<RunRecord[]>();
+    for (const [seed, runs] of Object.entries(seeds)) if (isValidSeed(seed) && Array.isArray(runs)) { const ok = runs.filter((r): r is RunRecord => isObj(r) && isFiniteNum(r.score) && isStr(r.at)).map((r) => ({ score: r.score, at: r.at })).slice(-HISTORY_PER_SEED); if (ok.length) out[seed] = ok; }
+    byVersion[k] = out;
+  }
+  return { byVersion };
+}
+/** This device's finished runs on a seed under the current rules, oldest first (at most HISTORY_PER_SEED). */
+export const loadHistory = (seed: string, version: number = RULES_VERSION): RunRecord[] => { const v = validateHistory(readRaw(K.history)).byVersion[String(version)]; return v && own(v, seed) ? v[seed] : []; };
+/** Record a finished own run (never a replay or a fork); the oldest beyond the cap falls off. */
+export function recordRun(seed: string, score: number, version: number = RULES_VERSION, now = new Date()): RunRecord[] {
+  const all = validateHistory(readRaw(K.history)); const cur = all.byVersion[String(version)] ?? dict<RunRecord[]>();
+  const runs = [...(own(cur, seed) ? cur[seed] : []), { score, at: now.toISOString() }].slice(-HISTORY_PER_SEED);
+  cur[seed] = runs; all.byVersion[String(version)] = cur; write(K.history, all); return runs;
+}
+export interface PendingSubmission { seed: string; rulesVersion: number; replay: ReplayFile; player: string; savedAt: string }
+export const PENDING_MAX = 5;
+export function validatePending(raw: unknown): PendingSubmission[] {
+  if (!Array.isArray(raw)) return [];
+  const out: PendingSubmission[] = [];
+  for (const p of raw) {
+    if (!isObj(p) || !isObj(p.replay)) continue;
+    const r = p.replay;
+    if (!Number.isInteger(p.rulesVersion) || !isValidSeed(p.seed) || !Number.isInteger(r.format) || r.rulesVersion !== p.rulesVersion || r.seed !== p.seed || !Array.isArray(r.actions) || !r.actions.every(validateAction) || !isFiniteNum(r.claimedScore)) continue;
+    out.push({ seed: p.seed, rulesVersion: p.rulesVersion as number, replay: { format: r.format as number, rulesVersion: r.rulesVersion as number, seed: r.seed as string, actions: r.actions as Action[], claimedScore: r.claimedScore, createdAt: isStr(r.createdAt) ? r.createdAt : '', ...(isStr(r.build) ? { build: r.build } : {}) }, player: isStr(p.player) ? p.player : '', savedAt: isStr(p.savedAt) ? p.savedAt : '' });
+  }
+  return out.slice(-PENDING_MAX);
+}
+/** Submissions waiting for a connection, oldest first; only those under the current rules can still verify. */
+export const loadPending = (): PendingSubmission[] => validatePending(readRaw(K.pending)).filter((p) => p.rulesVersion === RULES_VERSION);
+/** Keep a run for later: one per seed (the newest wins), at most PENDING_MAX (the oldest falls off). */
+/** Writers also drop runs from other rules versions: they can never verify, so they are not worth keeping. */
+const livePending = (): PendingSubmission[] => validatePending(readRaw(K.pending)).filter((q) => q.rulesVersion === RULES_VERSION);
+export function savePending(p: PendingSubmission): PendingSubmission[] { const next = [...livePending().filter((q) => q.seed !== p.seed), p].slice(-PENDING_MAX); write(K.pending, next); return next; }
+export function removePending(seed: string, savedAt: string): void { const next = livePending().filter((q) => !(q.seed === seed && q.savedAt === savedAt)); if (next.length) write(K.pending, next); else { try { localStorage.removeItem(K.pending); } catch { /* ignore */ } } }
+
 export const loadForkBests = (): Record<string, { score: number; at: string }> => { const raw = readRaw(K.forkBests); const out = dict<{ score: number; at: string }>(); if (isObj(raw)) for (const [seed, v] of Object.entries(raw)) if (isObj(v) && isFiniteNum(v.score) && isValidSeed(seed)) out[seed] = { score: v.score, at: isStr(v.at) ? v.at : '' }; return out; };
 export const recordForkBest = (seed: string, score: number): { newFork: boolean } => { const all = loadForkBests(); const newFork = !own(all, seed) || score > all[seed].score; if (newFork) { all[seed] = { score, at: new Date().toISOString() }; write(K.forkBests, all); } return { newFork }; };
 /** UTC dates with at least one finished run on this device (PLAN-v1 0.4.3 share line; the streak of 0.6.4 builds on it). Bounded, validated. */

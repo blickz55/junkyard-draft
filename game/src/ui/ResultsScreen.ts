@@ -5,7 +5,7 @@ import { h, btn, ui, textureImg, promptText, showText } from './dom';
 import type { RunState } from '../sim/run';
 import { encodeReplay, exportReplay } from '../sim/replay';
 import { RULES } from '../sim/rules';
-import { dailySeed, daysPlayed, loadBests, loadPlayer, loadSubmissions, randomSeed, recordSubmission, savePlayer, recordDailyDate, currentStreak } from '../render/storage';
+import { dailySeed, daysPlayed, loadBests, loadPlayer, loadSubmissions, randomSeed, recordSubmission, savePlayer, recordDailyDate, currentStreak, loadHistory, savePending } from '../render/storage';
 import { isMintedDailySeed, dailyDateOf } from '../sim/daily';
 import { telemetry } from '../render/telemetry';
 import { shareText, type Rank } from '../render/share';
@@ -66,11 +66,11 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
   if (run.sold) shippedPanel.append(h('div', { style: 'margin-top:0.35em; font-size:0.875em' }, `Sold unused parts = $${run.sold}`));
   if (run.rerolls) shippedPanel.append(h('div', { style: 'margin-top:0.35em; font-size:0.875em', tid: 'rerolls-line' }, `Rerolls: ${run.rerolls} × −$${RULES.rerollCost} = −$${run.rerolls * RULES.rerollCost}`)); // score = production + sales − rerolls
   shippedPanel.append(h('div', { class: 'jd-dim', style: 'margin-top:0.5em; font-size:0.8125em' }, `Drafted: ${run.picks.map((p) => p.replace(/^./, (c) => c.toUpperCase())).join(', ')}`));
-  shippedPanel.append(h('div', { class: 'jd-dim', style: 'margin-top:0.35em; font-size:0.75em' }, 'Scores are local and unverified until a verifier re-simulates the replay.'));
+  shippedPanel.append(h('div', { class: 'jd-dim', style: 'margin-top:0.35em; font-size:0.75em' }, 'A score joins the shared board once the verifier has replayed it; until then it counts on this device only.'));
 
   const histBox = h('div', { tid: 'histogram' });
   const entriesBox = h('div', { class: 'jd-entries' });
-  const boardPanel = h('div', { class: 'jd-panel', tid: 'board' }, h('div', { class: 'jd-head', tid: 'board-head' }, `Local verified board · this seed${loadGroup() ? ` · group ${loadGroup()!.name}` : ''}`), h('div', { class: 'jd-grid2', style: 'gap:1.25em; align-items:start' }, histBox, entriesBox));
+  const boardPanel = h('div', { class: 'jd-panel', tid: 'board' }, h('div', { class: 'jd-head', tid: 'board-head' }, `Verified board · this seed${loadGroup() ? ` · group ${loadGroup()!.name}` : ''}`), h('div', { class: 'jd-grid2', style: 'gap:1.25em; align-items:start' }, histBox, entriesBox));
   const status = h('div', { class: 'jd-mono jd-dim', tid: 'status', style: 'font-size:0.75em; min-height:1.3em' });
   const setStatus = (text: string, cls = 'jd-dim') => { status.textContent = text; status.className = `jd-mono ${cls}`; };
 
@@ -125,8 +125,25 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       });
       if (body.entries.some((e) => e.replayAvailable)) entriesBox.append(h('div', { class: 'jd-mono jd-dim jd-board-note', tid: gate ? 'reveal-note' : undefined, style: 'font-size:0.7em; margin-top:0.3em' }, gate ? `Replays: ${gate}.` : 'click an entry to watch its verified replay'));
       entriesBox.append(h('div', { class: 'jd-mono jd-dim jd-board-note', tid: 'tie-rule', style: 'font-size:0.7em; margin-top:0.3em' }, body.tieBreak ?? 'Equal scores: fewer machines in round 6 first, then the earlier verified submission.'));
-      if (!keepStatus) setStatus(`Local verifier online at ${verifierUrl}. Scores on this board were re-simulated, not trusted from the client.`);
-    } catch { if (!keepStatus) setStatus('No local verifier running (optional: npm run verifier). Local bests are unverified.'); }
+      if (!keepStatus) setStatus('Online. Every score on this board was replayed by the verifier, not taken from a player\'s device.');
+    } catch { // 0.8.7: offline, the panel shows this device's own history for the seed instead of an empty board
+      showOfflineBoard();
+      if (!keepStatus) setStatus('Offline: your run is saved on this device. Connect to compare with other players\' verified runs.');
+    }
+  };
+  const boardHead = boardPanel.querySelector('[data-testid=board-head]') as HTMLElement;
+  const showOfflineBoard = () => {
+    const runs = loadHistory(run.seed); const prior = loadSubmissions()[run.seed];
+    boardHead.textContent = 'Your runs on this seed · this device';
+    entriesBox.replaceChildren();
+    if (!runs.length) entriesBox.append(h('div', { class: 'jd-mono jd-dim jd-board-note', tid: 'history-empty', style: 'font-size:0.75em' }, o.replayed ? 'A replay you watched: nothing of yours on this seed yet.' : 'Your first run on this seed.'));
+    const latestAt = runs.reduce((m, r) => (r.at > m ? r.at : m), '');
+    [...runs].sort((a, b) => b.score - a.score || b.at.localeCompare(a.at)).slice(0, 5).forEach((r, i) => {
+      const mine = !o.replayed && !fork && r.at === latestAt;
+      entriesBox.append(h('div', { class: `jd-board-note jd-mono${mine ? ' jd-amber' : ' jd-dim'}`, tid: `history-${i}`, style: 'font-size:0.8125em; margin-top:0.2em' }, `${i + 1}. $${r.score}  ${mine ? 'this run' : r.at.slice(0, 10)}`));
+    });
+    if (prior) entriesBox.append(h('div', { class: 'jd-mono jd-dim jd-board-note', tid: 'history-verified', style: 'font-size:0.7em; margin-top:0.3em' }, `Verified earlier from this device: $${prior.score} as ${prior.player || 'anonymous'}${prior.verifiedAt ? ` (${prior.verifiedAt.slice(0, 10)})` : ''}`));
+    entriesBox.append(h('div', { class: 'jd-mono jd-dim jd-board-note', tid: 'history-note', style: 'font-size:0.7em; margin-top:0.3em' }, `${runs.length} of your run${runs.length === 1 ? '' : 's'} on this seed, this device only. Other players' verified runs appear here when you are online.`));
   };
 
   /** The display name for the board: the saved one, or a dialog on the first submission; null when the player cancels. */
@@ -150,19 +167,24 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     const i = body.entries.findIndex((e) => e.replayHash === replayHash);
     return { n: i >= 0 ? i + 1 : null, of: body.entries.length };
   };
-  const submitBtn = btn('Submit to local verifier', 'submit', async () => {
+  const submitBtn = btn('Submit for verification', 'submit', async () => {
     submitBtn.disabled = true;
-    let verified = false;
+    let verified = false, queued = false;
     try {
       const player = await ensurePlayer();
       if (player === null) { setStatus('Submission cancelled.'); return; }
-      setStatus('Submitting replay to the local verifier…');
+      setStatus('Submitting your replay…');
       let body: { ok: boolean; score?: number; error?: string; entry?: { replayHash: string; verifiedAt: string; score?: number }; recorded?: boolean; player?: string; late?: boolean; closesAt?: string };
       try {
         const res = await fetch(`${verifierUrl}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders(verifierUrl) }, body: JSON.stringify({ replay: exportReplay(run, import.meta.env.BUILD), player }) });
         body = await res.json() as typeof body;
         if (res.status === 503 || res.status === 429) { telemetry.track('daily_submit_result', { result: 'busy' }); setStatus(`Verifier busy (${body.error || res.status}); nothing was recorded. Try again in a moment.`); return; }
-      } catch { setStatus(`Verifier unreachable at ${verifierUrl} (start it with: npm run verifier). Score stays local/unverified.`); return; }
+      } catch { // 0.8.7: no connection: keep the replay and send it from the next title load (render/pending.ts)
+        savePending({ seed: run.seed, rulesVersion: run.rulesVersion, replay: exportReplay(run, import.meta.env.BUILD), player, savedAt: new Date().toISOString() });
+        queued = true; submitBtn.textContent = 'Saved · waiting for a connection';
+        telemetry.track('daily_submit_result', { result: 'busy' });
+        setStatus('Offline: your run is saved on this device and waits for a connection. It is submitted the next time the game opens online, and the title screen tells you the result.', 'jd-amber'); return;
+      }
       if (body.ok && body.late) { // PLAN-v3 0.6.2: the day closed; the run was re-simulated and is real, the final board does not move
         telemetry.track('daily_submit_result', { result: 'late' });
         setStatus(`Verified by re-simulation: $${body.score} — too late for the ranked board: this daily closed at ${body.closesAt ? body.closesAt.replace('T', ' ').slice(0, 16) + ' UTC' : 'its deadline'}. Not recorded.`, 'jd-amber');
@@ -185,11 +207,11 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     try {
       scene.lastRank = await rankOf(body.entry.replayHash);
       const r = scene.lastRank;
-      setStatus(`Verified by re-simulation: $${body.score} — ${r.n != null ? `#${r.n} of ${r.of}` : `beyond the top ${r.of}`} on the local verified board as ${label}.`, 'jd-green');
-    } catch { setStatus(`Verified by re-simulation: $${body.score} as ${label} — recorded on the local verified board (rank unavailable right now).`, 'jd-green'); }
+      setStatus(`Verified by re-simulation: $${body.score} — ${r.n != null ? `#${r.n} of ${r.of}` : `beyond the top ${r.of}`} on the verified board as ${label}.`, 'jd-green');
+    } catch { setStatus(`Verified by re-simulation: $${body.score} as ${label} — recorded on the verified board (rank unavailable right now).`, 'jd-green'); }
     try { await loadBoard(true); } catch { /* the board list is decoration; the status line already says what happened */ }
-    } finally { if (!verified) submitBtn.disabled = false; } // a cancelled, busy, unreachable or rejected attempt leaves the control usable (review F04)
-  }, { disabled: o.replayed, small: true });
+    } finally { if (!verified && !queued) submitBtn.disabled = false; } // a cancelled, busy or rejected attempt leaves the control usable (review F04); a saved one stays put
+  }, { disabled: o.replayed, small: true, variant: 'steel', title: 'the verifier replays your run and puts the score on the shared board under your name' });
 
   const copyWith = (b: HTMLButtonElement, label: string, text: string, title: string) => {
     const done = () => { b.textContent = 'Copied!'; setTimeout(() => { b.textContent = label; }, 1500); };
@@ -245,16 +267,21 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }, { small: true });
 
+  const group = (label: string, tid: string, ...kids: (HTMLElement | null)[]) => h('div', { class: 'jd-row jd-actions', tid }, h('span', { class: 'jd-actions-label' }, label), ...kids.filter((k): k is HTMLElement => !!k));
   const screen = h('div', { class: 'jd-results' },
     header,
     h('div', { class: 'jd-grid2', style: 'margin-top:0.5em' }, rounds, shippedPanel),
     boardPanel,
     o.replayed && run.rounds.length === RULES.rounds ? h('div', { class: 'jd-row jd-center', tid: 'fork-row', style: 'margin-top:0.25em; gap:0.4em' }, h('span', { class: 'jd-mono jd-dim', style: 'font-size:0.75em' }, 'Continue as practice from after round'), ...Array.from({ length: RULES.rounds - 1 }, (_, i) => btn(String(i + 1), `fork-${i + 1}`, () => { audio.unlock(); scene.scene.start('Game', { seed: run.seed, fresh: false, fork: { origin: { hash: o.replayHash ?? null, player: o.replayPlayer ?? (o.replayLabel?.replace(/^verified replay by /, '') ?? 'replay') }, actions: run.actions, round: i + 1 } }); }, { small: true, title: `take over this run's layout and bin after round ${i + 1}; a fork is labelled, never submitted and never your own best` }))) : null,
-    h('div', { class: 'jd-row jd-center', style: 'margin-top:0.25em' },
+    // actions in three labelled rows (production roadmap 0.8.7): Play (the one primary), Share, Watch; the legal links below
+    group('Play', 'actions-play',
       btn('Retry this seed', 'retry', () => go(run.seed), { variant: 'primary' }),
       btn('New random seed', 'newseed', () => go(randomSeed()), { variant: 'steel' }),
-      btn("Today's challenge", 'daily', () => go(todaySeed()), { variant: 'steel' })),
-    h('div', { class: 'jd-row jd-center' }, fork ? null : submitBtn, shareBtn, detailedBtn, shareLinkLabel, cardBtn, fork ? null : challengeBtn, clipBtn, gifBtn, fork ? null : exportBtn, fork ? null : downloadBtn, btn('Policy', 'policy', () => openPolicy(scene), { small: true, title: 'fairness and verification policy' }), btn('Privacy', 'privacy', () => openPrivacy(scene, verifierUrl, 'privacy'), { small: true, title: 'privacy notice, terms, guidelines; download or delete your data (0.8.6)' }), btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
+      btn("Today's challenge", 'daily', () => go(todaySeed()), { variant: 'steel' }),
+      btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
+    group('Share', 'actions-share', fork ? null : submitBtn, shareBtn, detailedBtn, shareLinkLabel, cardBtn, fork ? null : challengeBtn),
+    group('Watch', 'actions-watch', clipBtn, gifBtn, fork ? null : exportBtn, fork ? null : downloadBtn),
+    h('div', { class: 'jd-row jd-center', style: 'gap:0.4em' }, btn('Fairness policy', 'policy', () => openPolicy(scene), { small: true, title: 'fairness and verification policy' }), btn('Privacy & data', 'privacy', () => openPrivacy(scene, verifierUrl, 'privacy'), { small: true, title: 'privacy notice, terms, guidelines; download or delete your data (0.8.6)' })),
     status);
   ui.mount(scene, screen, (e) => { if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) go(run.seed); });
   void loadBoard();

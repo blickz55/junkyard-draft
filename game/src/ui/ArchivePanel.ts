@@ -43,5 +43,5 @@ export function openArchive(scene: Phaser.Scene, verifierUrl: string): void {
       row.dataset.date = d.date; row.dataset.kind = d.kind ?? 'daily';
       list.append(row);
     }
-  }).catch(() => { if (layer.isConnected) { list.replaceChildren(h('div', { class: 'jd-red' }, 'Verifier unreachable: the archive lives on the verifier.')); } });
+  }).catch(() => { if (layer.isConnected) { list.replaceChildren(h('div', { class: 'jd-red' }, 'Offline: the archive needs a connection.')); } });
 }

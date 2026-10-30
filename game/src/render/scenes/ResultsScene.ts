@@ -3,7 +3,7 @@ import { applyDpr } from '../dpr';
 import type { RunState } from '../../sim/run';
 import { P } from '../palette';
 import { audio } from '../audio';
-import { clearSave, recordBest, recordDayPlayed, recordForkBest } from '../storage';
+import { clearSave, recordBest, recordDayPlayed, recordForkBest, recordRun } from '../storage';
 import type { Challenge } from '../challenge';
 import { makeCard, saveCard, type CardInput } from '../card';
 import type { Rank } from '../share';
@@ -85,7 +85,7 @@ export class ResultsScene extends Phaser.Scene {
     if (!data.replayed && !fork) clearSave(); // a watched replay is someone else's run: the player's own unfinished save stays untouched
     const rec = data.replayed || fork ? { newOverall: false, newSeed: false } : recordBest(run.seed, run.score);
     const forkRec = fork ? recordForkBest(run.seed, run.score) : { newFork: false };
-    if (!data.replayed && !fork) recordDayPlayed();
+    if (!data.replayed && !fork) { recordDayPlayed(); recordRun(run.seed, run.score); } // 0.8.7: the device's own history per seed, shown on the results board when the verifier is away
     audio.roundEnd(true);
     this.lastRank = null; this.lastPlayer = ''; this.lastShareText = ''; this.lastPercentile = null; this.lastN = 0; this.lastMedal = null; this.lastCard = null; this.cardInput = null;
     mountResults(this, run, { replayed: !!data.replayed, replayLabel: data.replayLabel, newOverall: rec.newOverall, newSeed: rec.newSeed, challenge: data.challenge, replayHash: data.replayHash, replayPlayer: data.replayPlayer, newFork: forkRec.newFork });

@@ -21,6 +21,8 @@ import { acceptDaily, cachedDaily, fetchDaily, practiceSeed, todaySeed, revealGa
 import { openArchive } from './ArchivePanel';
 import { openPolicy } from './PolicyPanel';
 import { openPrivacy } from './PrivacyPanel';
+import { flushPending, describeOutcomes } from '../render/pending';
+import { loadPending } from '../render/storage';
 import { openGroups } from './GroupsPanel';
 import { groupHeaders, groupParam, loadGroup, saveGroup } from '../render/groups';
 
@@ -40,6 +42,13 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     playerBtn.textContent = playerLabel();
     if (c?.hidden) { playerNote.textContent = `Your name was reported and shows as "${HIDDEN_LABEL}" on the boards until a moderator reviews it. Scores are not affected; appeals: see the fairness policy.`; playerNote.style.display = ''; playerNote.dataset.testid = 'player-note'; }
   });
+  // production roadmap 0.8.7: runs saved while offline are submitted now, and the player is told what became of them
+  const pendingNote = h('div', { class: 'jd-mono jd-amber', style: 'font-size:0.7em; text-align:right; margin-top:-0.2em; display:none' }, '');
+  const pending = loadPending();
+  if (pending.length) {
+    pendingNote.textContent = `${pending.length} saved run${pending.length === 1 ? '' : 's'} waiting to be verified…`; pendingNote.style.display = ''; pendingNote.dataset.testid = 'pending-note';
+    void flushPending(verifierUrl).then((outcomes) => { if (!pendingNote.isConnected) return; pendingNote.textContent = describeOutcomes(outcomes); pendingNote.classList.toggle('jd-amber', outcomes.some((x) => x.status === 'verified' || x.status === 'keep-best')); pendingNote.classList.toggle('jd-dim', !outcomes.some((x) => x.status === 'verified' || x.status === 'keep-best')); });
+  }
   const quality = loadSettings().renderQuality;
   const qualityLabel = quality === 'low' ? 'Resolution: Standard' : quality === 'high' ? 'Resolution: High' : `Resolution: Auto (${DPR}×)`;
   const qualityBtn = btn(qualityLabel, 'quality', () => { telemetry.track('settings_changed', { key: 'renderQuality' }); updateSettings({ renderQuality: quality === 'low' ? 'high' : 'low' }); location.reload(); }, { small: true, title: 'High = device pixel ratio (crisper), Standard = 1× (smoother on weak machines); applies on reload' });
@@ -96,7 +105,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     h('div', { class: 'jd-head' }, 'Local personal bests'),
     h('div', { style: 'margin-top:0.35em; font-size:0.9375em' }, bests.overall ? `Best score: $${bests.overall.score}  (seed ${bests.overall.seed})` : 'No finished runs yet on this device.'),
     h('div', { class: 'jd-dim', tid: 'today-line', style: 'font-size:0.875em' }, `${todayBest ? `Today's challenge best: $${todayBest.score}` : "Today's challenge: not played yet"} · ${streakLine(daysPlayed(), currentStreak())}`), // PLAN-v3 0.6.3: days played and the streak, no loss copy when it breaks
-    h('div', { class: 'jd-mono jd-dim', style: 'font-size:0.75em' }, `${bests.runs} run(s) recorded locally · not verified online`),
+    h('div', { class: 'jd-mono jd-dim', style: 'font-size:0.75em' }, `${bests.runs} run(s) on this device · the shared board counts only runs the verifier replayed`),
     ...loadArchivedBests().map(({ version, bests: ab }) => h('details', { tid: `archived-bests-${version}`, style: 'margin-top:0.2em' }, h('summary', { class: 'jd-dim', style: 'font-size:0.75em; cursor:pointer' }, `Under rules v${version}`), h('div', { class: 'jd-mono jd-dim', style: 'font-size:0.75em; margin-top:0.15em' }, `${ab.overall ? `best $${ab.overall.score} (seed ${ab.overall.seed}) · ` : ''}${ab.runs} run(s) · kept, not comparable with v${RULES_VERSION}`))),
     h('div', { class: 'jd-row', style: 'margin-top:0.6em' }, h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, 'Volume'), volume, muteBtn),
     (() => {
@@ -111,7 +120,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
 
   // today's verified board (optional verifier)
   const url = verifierUrl;
-  const line = h('div', { class: 'jd-mono jd-dim', tid: 'daily-board', style: 'font-size:0.75em; margin-top:0.3em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0' }, 'Checking the local verifier…'); // one line at every text scale (the full text is the tooltip): the strip's height never depends on when the verifier answers
+  const line = h('div', { class: 'jd-mono jd-dim', tid: 'daily-board', style: 'font-size:0.75em; margin-top:0.3em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0' }, "Checking today's board…"); // one line at every text scale (the full text is the tooltip): the strip's height never depends on when the verifier answers
   const seedSpan = h('span', { class: 'jd-mono jd-dim', tid: 'daily-seed', style: 'font-size:0.75em; white-space:nowrap; flex:1 1 auto; min-width:3em; overflow:hidden; text-overflow:ellipsis', title: todaySeed() }, `seed ${todaySeed()}`);
   const modeSpan = h('span', { class: 'jd-mono jd-dim', tid: 'daily-mode', style: 'font-size:0.75em; margin-left:0.75em; white-space:nowrap', title: 'minted: the verifier derived today\'s seed from its secret and published a commitment to tomorrow\'s; provisional: the board can still change until the day closes, 48 h after 00:00 UTC' }, cachedDaily() ? 'minted · ranked' : 'practice (unranked) until the verifier answers');
   // one line at every text scale: the head row never wraps, the left group clips, and the Archive button is text-height (the 130 % layout test measures the strip)
@@ -143,7 +152,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   fetch(`${url}/daily?limit=5${groupParam(url)}`, { headers: groupHeaders(url) }).then((r) => { if (!r.ok && groupSel && (r.status === 401 || r.status === 403)) { saveGroup(null); throw new Error('group unavailable'); } return r.json(); }).then((d: { seed: string; date?: string; rulesVersion: number; entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean }[]; botPar?: number | null; closesAt?: string; now?: string; final?: boolean }) => {
     if (!alive()) return;
     const info = acceptDaily(d);
-    if (!info) { practiceMode(`the verifier's daily is for ${d.date ?? 'another day'}`); line.textContent = `Verifier day differs (${d.seed}); board hidden.`; return; }
+    if (!info) { practiceMode(`today's board is for ${d.date ?? 'another day'}`); line.textContent = `Today's board is for another day (${d.seed}); hidden.`; return; }
     const seed = info.seed; seedSpan.textContent = `seed ${seed}`; seedSpan.title = seed;
     modeSpan.textContent = `${d.final ? 'minted · final' : `minted · ranked · provisional · ${closesIn(d.closesAt ?? info.closesAt, d.now ?? new Date().toISOString())}`}${groupSel ? ` · group ${groupSel.name}` : ''}`; // PLAN-v3 0.6.2: one global deadline, said plainly
     const top = d.entries.length ? d.entries.map((e, i) => `${i + 1}. $${e.score} ${e.player}`).join('   ·   ') + `   ·   re-simulated by the verifier (rules v${d.rulesVersion}) · ties: fewer round-6 machines first` : 'No verified scores yet today. Finish a run and submit the replay from the results screen.';
@@ -170,9 +179,9 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
       const i = b.entries.findIndex((e) => e.replayHash === mine.replayHash);
       line.textContent = `You: ${i >= 0 ? `#${i + 1} of ${b.entries.length}` : `beyond the top ${b.entries.length}`} ($${mine.score})   ·   ${top}`; line.title = line.textContent; line.classList.remove('jd-dim');
     }).catch(() => { /* board unavailable: keep the top list */ });
-  }).catch((err: Error) => { if (!alive()) return; if (err.message === 'group unavailable') { line.textContent = 'Group board unavailable for this identity; showing everyone instead.'; scene.time.delayedCall(1200, () => { if (alive()) scene.scene.restart(); }); return; } { practiceMode('verifier unreachable'); line.textContent = 'Verifier offline (optional: npm run verifier). Daily board unavailable; local bests above are unverified.'; } });
+  }).catch((err: Error) => { if (!alive()) return; if (err.message === 'group unavailable') { line.textContent = 'Group board unavailable for this identity; showing everyone instead.'; scene.time.delayedCall(1200, () => { if (alive()) scene.scene.restart(); }); return; } { practiceMode('offline'); line.textContent = "Offline: today's board is unavailable, so this is the practice seed. Your runs stay on this device until you connect."; } });
 
-  const screen = h('div', { class: 'jd-title' }, top, playerNote, statsNote, hero, actions, h('div', { class: 'jd-grid2', style: 'margin-top:0.4em' }, howto, bestsPanel), strip);
+  const screen = h('div', { class: 'jd-title' }, top, playerNote, pendingNote, statsNote, hero, actions, h('div', { class: 'jd-grid2', style: 'margin-top:0.4em' }, howto, bestsPanel), strip);
   ui.mount(scene, screen, (e) => {
     if (e.key !== 'Enter' || tips.isOpen || ui.dialogOpen) return;
     const t = e.target as HTMLElement | null; if (t && (t.tagName === 'BUTTON' || t.tagName === 'INPUT')) return; // the focused control handles its own Enter
