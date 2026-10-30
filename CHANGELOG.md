@@ -3,7 +3,10 @@
 All notable changes to Junkyard Draft. Dates are UTC. Rules changes bump `RULES_VERSION`, which invalidates
 older replays and saves on purpose.
 
-## Unreleased (v0.8, PLAN-v5)
+## Unreleased (v0.8, production roadmap)
+
+### Plan of record — 2026-10-30
+- `docs/PRODUCTION-ROADMAP.md` replaces PLAN-v5 and PLAN-v1's v0.8–v1.0 after a five-part evaluation of the whole project (`docs/reviews/2026-10-30-eval/`) and a four-round owner interview: a free web game for the daily-puzzle crowd, understandable by anyone, with the depth in a moderated social layer (daily thread, comments and reactions, friends, inbox, direct messages, community hub), divisions at freeze, earned cosmetics and trophies, a foreman character, phones and a PWA inside 1.0, commissioned art and adaptive music, Steam and a supporter tier after 1.0. Five milestones (v0.8 Real, v0.9 Clear, v0.10 Phone, v0.11 Say something, v0.12 Finished) to 1.0 in July 2027. The evaluation found two P0 security holes (`?verifier=` token exfiltration, instant report-to-hide), no backups, no privacy notice and nothing published by CI; all are v0.8 items. No code change.
 
 ### CI on the Ubuntu runner — 2026-10-30
 - `ci.yml` had failed on every push until 9c8205b/8ce64ee (another session): the UI font stack falls back to DejaVu Sans on Ubuntu, which wrapped the title's how-to lines and pushed the daily strip off the canvas at 130 % (fixed by a `--fit` pass in `game/src/ui/dom.ts`, title only, 1 on Windows), and the render e2e compared the stall marker against a later tick (the scene now records the tick the stall began). Still flaky after that: the game e2e's 30 s wait for the results screen's bot par line, because the par worker competes for the runner's four cores with the autoplay, balance and par tests running in parallel, the test verifier capped the par job at 20 s (a slow job then failed into a 10-minute cooldown and the par never came), and the results screen stopped asking after ~24 s. Now the results screen keeps asking for the par for ~90 s, the test verifier allows the job 120 s, and the e2e waits for the verifier's par first with the elapsed time logged. No protocol or rules change.

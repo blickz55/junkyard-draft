@@ -4,7 +4,7 @@ Two linked deliverables live in this repo:
 1. **Junkyard Draft** — 2D factory score-attack game (TypeScript + Phaser 3.90 + esbuild). `game/`
 2. **Workshop Control Room** — read-only live development dashboard fed by Claude Code hooks. `control-room/`, `.claude/hooks/`
 
-Read `docs/STATUS.md` (what works, next task) and `docs/ROADMAP.md` (acceptance criteria) before changing anything. `docs/DESIGN.md` holds the rules; `docs/CONTINUE.md` is the resume recipe.
+Read `docs/STATUS.md` (what works, next task) and `docs/ROADMAP.md` (acceptance criteria) before changing anything. `docs/PRODUCTION-ROADMAP.md` is the plan of record from 0.7.0 to 1.0 (milestones, policies, the owner's decisions); `docs/DESIGN.md` holds the rules; `docs/CONTINUE.md` is the resume recipe.
 
 ## Commands (verified)
 - `npm run dev:all` — game dev server (http://127.0.0.1:5173) + Control Room (http://127.0.0.1:4310)

@@ -1,3 +1,5 @@
+> **Superseded on 2026-10-30 by `docs/PRODUCTION-ROADMAP.md`** after the full-project evaluation and the owner interview. Kept as the record of v0.8 as planned before the interview; Appendix A of the production roadmap says where each item went.
+
 # PLAN-v5 — v0.8 "Everywhere it should run", re-cut after 0.7.0
 
 Written 2026-10-30 at `main` after the 0.7.0 release (verifier protocol 2, rules version 3). It replaces the v0.8 section of `docs/PLAN-v1.md` and folds in the v0.8 additions of `docs/DOSSIER-v1.md` §7 (relay, Linux build, custom Phaser build, touch). Same format as PLAN-v2 to PLAN-v4: binding policies first, then numbered, sized increments with *What / Why / Accept*. Sizes: S ≤ half a day, M a day or two, L longer. ⚑ needs a human. **No rules change in v0.8**: `RULES_VERSION` stays 3, the golden corpus is not regenerated, every increment is replay-compatible, and the verifier's protocol stays at 2 (everything added is additive and nothing a client must detect).
