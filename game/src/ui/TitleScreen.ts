@@ -375,27 +375,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
       'div',
       { class: 'jd-row jd-between' },
       h('div', { class: 'jd-head' }, t('title.bestsHead')),
-      h(
-        'span',
-        { class: 'jd-row', style: 'gap:0.4em' },
-        // the daily reminder (0.10.4) opens a dialog from here, so the title grows by nothing
-        ...(pushSupported()
-          ? [
-              (() => {
-                const reminderLabel = () => {
-                  const r = loadReminder();
-                  return r ? t('title.reminderOn', { time: localHour(r.hourLocal) }) : t('title.reminder');
-                };
-                const b = btn(reminderLabel(), 'reminder', () => openReminder(scene, verifierUrl, () => (b.textContent = reminderLabel())), {
-                  small: true,
-                  title: t('title.pushNote'),
-                });
-                return b;
-              })(),
-            ]
-          : []),
-        btn(t('title.record'), 'record', () => openRecord(scene), { small: true, title: t('title.recordTitle') }),
-      ),
+      btn(t('title.record'), 'record', () => openRecord(scene), { small: true, title: t('title.recordTitle') }),
     ),
     h(
       'div',
@@ -526,6 +506,20 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   );
   weeklyBtn.style.cssText += compact;
   rightGroup.append(weeklyBtn, groupsBtn, policyBtn, archiveBtn); // text-height like Archive: the top row at 130 % has no room for a fourth button
+  // the daily reminder (0.10.4) belongs to today's board and opens a dialog from here: this group never wraps on a wide screen (the left group
+  // clips instead), so the button costs the title no height at any text size; a bests-head button wrapped under the CI runner's wider font
+  if (pushSupported()) {
+    const reminderLabel = () => {
+      const r = loadReminder();
+      return r ? t('title.reminderOn', { time: localHour(r.hourLocal) }) : t('title.reminder');
+    };
+    const reminderBtn = btn(reminderLabel(), 'reminder', () => openReminder(scene, verifierUrl, () => (reminderBtn.textContent = reminderLabel())), {
+      small: true,
+      title: t('title.pushNote'),
+    });
+    reminderBtn.style.cssText += compact;
+    rightGroup.prepend(reminderBtn);
+  }
   // one line at every text scale on a wide screen (the 130 % layout test measures the strip); the head and its groups wrap on a phone or a tablet (0.10.0)
   const stripHead = h(
     'div',
