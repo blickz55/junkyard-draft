@@ -42,7 +42,7 @@ test('determinism across engines: Chromium, Firefox and WebKit agree with Node o
         let browser;
         try { browser = await pw[name].launch(); }
         catch (e) {
-          if (REQUIRED) throw new Error(`${name} is required (ENGINES_REQUIRED=1) but did not launch: ${String(e).split('\n')[0]}`);
+          if (REQUIRED) throw new Error(`${name} is required (ENGINES_REQUIRED=1) but did not launch: ${String(e).split('\n')[0]}`, { cause: e });
           summary.push({ engine: name, skipped: true });
           console.log(`engines: ${name} not installed here (npx playwright install ${name}); skipped`);
           return tt.skip(`${name} not installed`);

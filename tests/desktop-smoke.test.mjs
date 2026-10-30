@@ -9,7 +9,6 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const EXE = path.join(ROOT, 'release', 'win-unpacked', 'Junkyard Draft.exe');
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 test('packaged desktop app: launches, plays a round, no page errors', { skip: !fs.existsSync(EXE) && 'no packaged build (npm run desktop:pack)', timeout: 90000 }, async () => {
   const { _electron: electron } = await import('playwright');
@@ -53,7 +52,7 @@ test('packaged desktop app: launches, plays a round, no page errors', { skip: !f
     assert.ok(await api('act', { t: 'unplace', id: conv.id }));
     assert.ok(await api('act', { t: 'place', id: st.bin.find((m) => m.kind === 'crusher').id, x: 2, y: 2, dir: 0 }));
     await api('run');
-    await wait(600); // let a few animated ticks render in the real window
+    await page.waitForFunction(() => window.__jd.stall().tick >= 1, null, { timeout: 15000 }); // a few animated ticks render in the real window
     await api('finishRun');
     await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 15000 });
     const rec = (await api('state')).rounds[0];

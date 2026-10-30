@@ -11,7 +11,7 @@ const WHOLE = [
   /xox[baprs]-[A-Za-z0-9-]{10,}/g,
 ];
 const PREFIXED = [
-  { re: /(Bearer\s+)[A-Za-z0-9._\-]{8,}/gi, suffix: '' },
+  { re: /(Bearer\s+)[A-Za-z0-9._-]{8,}/gi, suffix: '' },
   { re: /((?:password|passwd|pwd|secret|token|api[_-]?key|authorization)\s*[=:]\s*['"]?)(?!bearer\b)[^\s'"&]{4,}/gi, suffix: '' }, // "Authorization: Bearer x" is the Bearer rule's job
   { re: /(https?:\/\/[^\s/@]+:)[^\s@]+@/gi, suffix: '@' }, // user:pass@host
 ];

@@ -9,7 +9,7 @@ import type Phaser from 'phaser';
 import { tips as allTips, type Tip } from '../content/tips';
 import { createSim, step, cellIndex, type SimState } from '../sim/sim';
 import type { Material } from '../sim/types';
-import { CELL, itemTexture, machineTexture } from '../render/textures';
+import { itemTexture, machineTexture } from '../render/textures';
 import { artFrame } from '../render/atlas';
 import { P } from '../render/palette';
 import { loadReadTips, markTipRead } from '../render/storage';

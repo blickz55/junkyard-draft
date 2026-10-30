@@ -135,13 +135,3 @@ test('0.8.2 per-seed index: built on the first read, dropped by every commit, an
   v.claim(tok(99), 'Late Claim'); assert.equal(v.indexed, false, 'any commit drops it');
   assert.equal(v.board('idx-b', 100).length, Math.min(5, 7));
 });
-/** a legal run on `seed` with a different outcome per `i` (sells or keeps the first offer, rotates a belt an odd number of times) */
-function twist(seed: string, i: number) {
-  const s = newRun(seed);
-  for (let r = 1; r <= RULES.rounds; r++) {
-    apply(s, { t: 'pick', i: (i + r) % 3 });
-    if (r === 1) { const conv = s.layout.machines.find((m) => m.x === 3 && m.y === 2)!; apply(s, { t: 'unplace', id: conv.id }); apply(s, { t: 'place', id: s.bin[0].id, x: 3, y: 2, dir: 0 }); }
-    apply(s, { t: 'run' }); apply(s, { t: 'next' });
-  }
-  return s;
-}

@@ -66,6 +66,7 @@ export function openPrivacy(scene: Phaser.Scene, verifierUrl: string, tab: Legal
       savePlayer(''); saveGroup(null); if (telemetry.enabled) telemetry.setEnabled(false);
       status.classList.remove('jd-red'); status.textContent = t('privacy.deleted', { n: r.anonymisedEntries, r: r.coldReplaysDropped, days: legalBackupDays() });
       status.dataset.deleted = '1';
+      (box.querySelector('[data-testid=privacy-close]') as HTMLElement | null)?.focus(); // the disabled delete button cannot keep focus: Esc must still close the panel (0.9.5)
       onChanged?.();
     });
   }, { small: true, disabled: !canTalk, title: t('privacy.deleteTitle') });

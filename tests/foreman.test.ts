@@ -22,9 +22,7 @@ test('foreman: every situation has three to five variants, none with a banned wo
   for (const s of SITUATIONS) {
     const keys = variantKeys(s);
     assert.ok(keys.length >= 3 && keys.length <= 5, `${s}: ${keys.length} variants`);
-    for (const k of keys) {
-      const line = foremanLine(s, {}, '2026-10-30'); void line;
-    }
+    assert.ok(foremanLine(s, {}, '2026-10-30').length > 0, `${s}: a line for the day`);
     const all = [1, 2, 3, 4, 5].map((i) => foremanLine(s, {}, `2026-10-${String(i).padStart(2, '0')}`));
     for (const line of all) {
       assert.deepEqual(bannedWordsIn(line), [], `${s}: "${line}"`);

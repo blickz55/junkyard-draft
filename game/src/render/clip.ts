@@ -213,7 +213,7 @@ export async function renderGif(game: Phaser.Game, run: { seed: string; score: n
   const t0 = performance.now();
   const yieldNow = () => new Promise<void>((r) => setTimeout(r, 0));
   const drawAll = async (each: (data: Uint8ClampedArray, i: number) => void, progressBase: number) => {
-    let sim: SimState = createSim(rec.layout); painter.reset();
+    const sim: SimState = createSim(rec.layout); painter.reset();
     let acc = 0, belt = 0, now = 0;
     for (let i = 0; i < frameCount; i++) {
       if (sim.tick < RULES.ticksPerRound) {

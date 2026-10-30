@@ -17,7 +17,7 @@ import type { MachineKind } from '../game/src/sim/types';
 import { Rng } from '../game/src/sim/rng';
 import { exportReplay, verifyReplay } from '../game/src/sim/replay';
 import { apply, newRun, type Action } from '../game/src/sim/run';
-import { playSeed, scoreSanityBound, type RerollPolicy, type SearchPolicy, type SeedReport } from './autoplay-lib';
+import { playSeed, scoreSanityBound, type SearchPolicy, type SeedReport } from './autoplay-lib';
 import { RULES as R2 } from '../game/src/sim/rules';
 
 export interface Variant { label: string; ban?: boolean; /** dotted RULES paths to override, e.g. { "process.press": 1, "value.plate": 9 } */ rules?: Record<string, number> }

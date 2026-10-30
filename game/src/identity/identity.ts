@@ -25,6 +25,7 @@ export const labelFor = (name: string, tag: string) => `${name}#${tag}`;
 /** Collapse whitespace, strip control characters, cap the length. Empty when nothing printable remains. */
 export function normaliseName(raw: unknown): string {
   if (typeof raw !== 'string') return '';
+  // eslint-disable-next-line no-control-regex -- control characters are exactly what a display name must not carry
   return raw.normalize('NFKC').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202f\ufeff]/g, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
 }
 const LEET: Record<string, string> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', '$': 's', '!': 'i', '|': 'l', '+': 't' };

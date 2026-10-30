@@ -48,7 +48,7 @@ function readNew() {
     const size = fs.statSync(EVENTS).size;
     if (size < offset) { // truncated/rotated: rebuild
       state = createState(); seq = 0; offset = 0; partial = '';
-      const all = ingest(fs.readFileSync(EVENTS, 'utf8')); offset = size; broadcast('state', snapshot(state)); return [];
+      ingest(fs.readFileSync(EVENTS, 'utf8')); offset = size; broadcast('state', snapshot(state)); return [];
     }
     if (size === offset) return [];
     const fd = fs.openSync(EVENTS, 'r');

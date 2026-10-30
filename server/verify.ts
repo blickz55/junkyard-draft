@@ -79,10 +79,10 @@ import { fileURLToPath } from 'node:url';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { playSeed } from '../tools/autoplay-lib';
 import { Rng } from '../game/src/sim/rng';
-import { decodeReplay, verifyReplay, canonicalReplayJson, type ReplayFile } from '../game/src/sim/replay';
+import { decodeReplay, canonicalReplayJson, type ReplayFile } from '../game/src/sim/replay';
 import { replay as replayRun, type RunState } from '../game/src/sim/run';
 import { RULES_VERSION } from '../game/src/sim/types';
-import { dailySeedFor, isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
+import { isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
 import { mintSeed, mintWeeklySeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS, base32Lower } from './mint';
 import { isWeekId, isWeeklySeed, weeklyIdOf, weeklyWindow, currentWeekId, nextWeekId, prevWeekId, isoWeekId } from '../game/src/sim/weekly';
 import { Announcer, type AnnounceEvent } from './webhook';
@@ -445,7 +445,7 @@ export class Verifier {
   private commit(candidate: Board) {
     const dir = path.dirname(this.file);
     const tmp = path.join(dir, `.board-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`);
-    const t0 = performance.now(); let bytes = 0;
+    const t0 = performance.now(); let bytes: number;
     try {
       fs.mkdirSync(dir, { recursive: true });
       const text = JSON.stringify(candidate, null, 1); bytes = Buffer.byteLength(text);
@@ -1217,7 +1217,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large', code: 'too-large' }); req.destroy(); } });
         req.on('end', () => guarded(() => {
           if (res.writableEnded) return;
-          let parsed: { name?: unknown } | null = null;
+          let parsed: { name?: unknown } | null;
           try { parsed = JSON.parse(body) as { name?: unknown }; } catch { return json(400, { ok: false, error: 'bad request' }); }
           try {
             const out = verifier.claim(bearerId, parsed && typeof parsed === 'object' ? parsed.name : undefined, new Date((opts.now ?? Date.now)()));
@@ -1237,7 +1237,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large', code: 'too-large' }); req.destroy(); } });
         req.on('end', () => guarded(() => {
           if (res.writableEnded) return;
-          let parsed: { name?: unknown; code?: unknown } = {};
+          let parsed: { name?: unknown; code?: unknown };
           try { parsed = (JSON.parse(body || '{}') ?? {}) as { name?: unknown; code?: unknown }; } catch { return json(400, { ok: false, error: 'bad request' }); }
           try {
             const now = new Date((opts.now ?? Date.now)());
@@ -1266,7 +1266,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large', code: 'too-large' }); req.destroy(); } });
         req.on('end', () => guarded(() => {
           if (res.writableEnded) return;
-          type ReportBody = { playerId?: unknown; hash?: unknown; reason?: unknown }; let parsed: ReportBody | null = null;
+          type ReportBody = { playerId?: unknown; hash?: unknown; reason?: unknown }; let parsed: ReportBody | null;
           try { parsed = JSON.parse(body || '{}') as ReportBody | null; } catch { return json(400, { ok: false, error: 'bad request' }); }
           if (!parsed || typeof parsed !== 'object') return json(400, { ok: false, error: 'bad request' });
           try { const out = verifier.report(bearerId, parsed, parsed.reason, new Date((opts.now ?? Date.now)())); if (!out.ok) return json(out.status, { ok: false, error: out.error }); json(200, out); }
@@ -1285,7 +1285,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large', code: 'too-large' }); req.destroy(); } });
         req.on('end', () => guarded(() => {
           if (res.writableEnded) return;
-          type ModBody = { playerId?: unknown; code?: unknown; name?: unknown }; let parsed: ModBody | null = null;
+          type ModBody = { playerId?: unknown; code?: unknown; name?: unknown }; let parsed: ModBody | null;
           try { parsed = JSON.parse(body || '{}') as ModBody | null; } catch { return json(400, { ok: false, error: 'bad request' }); }
           if (!parsed || typeof parsed !== 'object') return json(400, { ok: false, error: 'bad request' });
           try {

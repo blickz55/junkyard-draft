@@ -8,15 +8,12 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { ROOT, freePort, until } from './e2e/fixture.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync('/opt/pw-browsers')) process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/pw-browsers';
 const { parseHeaders, headersFor, patternToRegExp } = await import('../tools/headers-lib.mjs');
 const { renderHeaders, cspFor } = await import('../scripts/esbuild-config.mjs');
 const { buildDist } = await import('../scripts/build-lib.mjs');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 test('deploy: _headers template renders the CSP header (with frame-ancestors) and the immutable rule for the hashed bundle', () => {
   const template = read('deploy/_headers');
@@ -81,7 +78,7 @@ test('deploy: compose, Caddyfile, env templates, cron and the deploy workflow sa
 });
 
 test('deploy: hosted rehearsal: a production build behind the rendered headers, a verifier with CORS for the site, hosted-check passes with a daily submission', { timeout: 240000 }, async () => {
-  const WEB = 5197, VPORT = 4498;
+  const WEB = await freePort(), VPORT = await freePort();
   const site = `http://127.0.0.1:${WEB}`, verifierUrl = `http://127.0.0.1:${VPORT}`;
   const scratch = fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-deploy-'));
   const dist = path.join(scratch, 'dist');
@@ -101,7 +98,7 @@ test('deploy: hosted rehearsal: a production build behind the rendered headers, 
   await new Promise((r) => server.listen(WEB, '127.0.0.1', r));
   const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), DATA_DIR: path.join(scratch, 'data'), CORS_ORIGIN: site, DAILY_SECRET: 'deploy-test-secret', BOT_PAR: '0', VERIFIER_LOG: '0' }, stdio: 'ignore' });
   try {
-    for (let i = 0; i < 60; i++) { try { if ((await fetch(`${verifierUrl}/health`)).ok) break; } catch {} await wait(500); }
+    await until(async () => { try { return (await fetch(`${verifierUrl}/health`)).ok; } catch { return false; } }, { timeout: 60000, every: 300, what: 'the verifier' });
     const report = path.join(scratch, 'hosted.json');
     const out = await new Promise((resolve) => {
       const p = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'tools/hosted-check.ts'), site, '--submit-daily', '--name', 'deploy test', '--json', report], { cwd: ROOT, env: process.env });
@@ -121,7 +118,6 @@ test('deploy: hosted rehearsal: a production build behind the rendered headers, 
     assert.equal((await fetch(`${site}/_headers`)).status, 404, 'the header file itself is not served');
   } finally {
     verifier.kill(); server.close();
-    await wait(300);
     fs.rmSync(scratch, { recursive: true, force: true });
   }
 });

@@ -189,7 +189,7 @@ if (!SKIP_ELECTRON && fs.existsSync(exe)) {
   // the shell opens on the title; reload the same file with the game-scene query (dev=1 comes from JD_DEV_API)
   await page.evaluate(`location.search = '?dev=1&scene=game&seed=${encodeURIComponent(SEED)}'`);
   await wait(800);
-  let cdp: CDPSession | null = null;
+  let cdp: CDPSession | null;
   try { cdp = await app.context().newCDPSession(page); await cdp.send('Performance.enable'); } catch { cdp = null; }
   samples.push(await measure(page, cdp, `electron packaged @${SPEED}×`, actions));
   console.error('sampled', samples[samples.length - 1].label);

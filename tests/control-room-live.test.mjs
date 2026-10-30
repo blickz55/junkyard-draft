@@ -7,14 +7,10 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { chromium, ROOT, freePort, until } from './e2e/fixture.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync('/opt/pw-browsers')) process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/pw-browsers'; // sandbox only; elsewhere Playwright's default cache is used
-const { chromium } = await import('playwright');
-
-const PORT = 4399;
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const PORT = await freePort();
+const up = () => until(async () => { try { return (await fetch(`http://127.0.0.1:${PORT}/api/summary`)).ok; } catch { return false; } }, { timeout: 15000, every: 100, what: 'the control room server' });
 
 test('control room: live updates, reload history, disconnect visibility', { timeout: 60000 }, async () => {
   // Isolated data dir: copy the server to a temp project so it reads its own events file.
@@ -27,7 +23,7 @@ test('control room: live updates, reload history, disconnect visibility', { time
   await emit('task', '--id', 'T1', '--title', 'Seed task', '--stage', 'implement', '--status', 'active');
   const startServer = () => spawn('node', [path.join(tmp, 'control-room/server.mjs')], { env: { ...process.env, CONTROL_ROOM_PORT: String(PORT) }, stdio: 'ignore' });
   let server = startServer();
-  await wait(900);
+  await up();
   // request hardening (review): a malformed percent-escape is a 400, not a crash; a traversal attempt never leaves the directory
   const base = `http://127.0.0.1:${PORT}`;
   assert.equal((await fetch(`${base}/screenshots/%E0%A4%A`)).status, 400, 'malformed escape → 400');
@@ -56,7 +52,7 @@ test('control room: live updates, reload history, disconnect visibility', { time
     await page.waitForFunction(() => document.querySelector('#pill-sse')?.textContent.includes('DISCONNECTED'), null, { timeout: 10000 });
     // Restart server: collector restart keeps history (file-backed)
     server = startServer();
-    await wait(900);
+    await up();
     await page.waitForFunction(() => document.querySelector('#pill-sse')?.textContent.includes('live'), null, { timeout: 15000 });
     await page.waitForFunction(() => document.body.innerText.includes('live-note-marker-42'), null, { timeout: 8000 });
   } finally {

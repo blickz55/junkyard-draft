@@ -7,14 +7,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { chromium, settle, ROOT, SHOTS } from './e2e/fixture.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync('/opt/pw-browsers')) process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/pw-browsers';
-const { chromium } = await import('playwright');
 const { buildDist } = await import('../scripts/build-lib.mjs');
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const SHOTS = path.join(ROOT, '.control-room', 'screenshots');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.wav': 'audio/wav', '.png': 'image/png', '.ico': 'image/x-icon' };
 const ORIGIN = 'https://game.example';
 const VERIFIER = 'https://verifier.example';
@@ -67,7 +62,7 @@ test('hardened production build: ?verifier= ignored off loopback, CSP holds thro
     assert.ok(await api(page, 'act', { t: 'unplace', id: conv.id }));
     assert.ok(await api(page, 'act', { t: 'place', id: st.bin.find((m) => m.kind === 'crusher').id, x: 2, y: 2, dir: 0 }));
     await api(page, 'run');
-    await wait(400);
+    await page.waitForFunction(() => window.__jd.mode() === 'running', null, { timeout: 10000 });
     await api(page, 'finishRun');
     await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 20000 });
     const rec = (await api(page, 'state')).rounds[0];
@@ -79,7 +74,7 @@ test('hardened production build: ?verifier= ignored off loopback, CSP holds thro
     await page.goto(`${ORIGIN}/?dev=1&verifier=${EVIL}`);
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 30000 });
     await page.waitForFunction(() => !!document.querySelector('[data-testid=daily-board]'), null, { timeout: 20000 });
-    await wait(1500);
+    await settle(1500, 'the title asked its verifier on load; a request to the link\'s host would have gone out by now too');
     assert.equal(hits.evil, 0, 'no request reached the link\'s verifier');
     assert.ok(hits.verifier >= 1, `the baked verifier was asked (${hits.verifier} requests)`);
     assert.deepEqual(await page.evaluate(() => window.__cspViolations), [], 'no CSP violation on the title (a blocked evil.invalid fetch would show here too)');

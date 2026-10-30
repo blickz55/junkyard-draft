@@ -48,3 +48,6 @@ reports/
 # deploy secrets and the per-host compose variables (deploy/*.example are the templates)
 deploy/.env
 deploy/verifier.env
+
+# the vendored Phaser copy for the offline cloud sandbox is no longer in Git (production roadmap 0.9.5); docs/CONTINUE.md says how to restore it
+vendor/

@@ -1,5 +1,4 @@
 import { t } from '../../content/strings';
-import { money } from '../../content/format';
 import { forkLabel } from '../../content/fork';
 import { tipForMachine } from '../../content/tips';
 import { explainRunError, placementWarning } from '../../content/advice';
@@ -32,7 +31,7 @@ import { fit } from '../atlas';
 import { label, panel } from '../ui';
 import { CSS, FONT, P } from '../palette';
 import { audio } from '../audio';
-import { clearSave, isOnboarded, loadBests, loadReadTips, loadSettings, setOnboarded, updateSettings, writeSave } from '../storage';
+import { clearSave, isOnboarded, loadReadTips, loadSettings, setOnboarded, updateSettings, writeSave } from '../storage';
 import { BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y } from '../layout';
 import { installDevApi } from '../devapi';
 import { prefs } from '../prefs';
@@ -169,6 +168,7 @@ export class GameScene extends Phaser.Scene {
   }
   // ---------- input (render/InputController.ts) ----------
   private inputHost(): InputHost {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- the host's getters read the scene's live state
     const scene = this;
     return {
       get mode() { return scene.mode; }, get run() { return scene.run; },
