@@ -7,7 +7,7 @@
  * Every string comes from the table (0.9.0).
  */
 import type Phaser from 'phaser';
-import { h, btn, ui, textureImg } from './dom';
+import { h, btn, ui, textureImg, foremanBox } from './dom';
 import { canReroll, type RunState } from '../sim/run';
 import { explainRunError } from '../content/advice';
 import { analyseRound } from '../sim/bottleneck';
@@ -68,6 +68,10 @@ export class GamePanel {
   private legendEl: HTMLElement | null = null;
   hintText = '';
   stallText = '';
+  /** the foreman's current line for the side panel (0.9.1); '' hides his box */
+  foremanText = '';
+  /** the foreman's line for the round-end banner (0.9.1) */
+  bannerForeman = '';
 
   constructor(private readonly scene: Phaser.Scene, private readonly actions: PanelActions, seed: string, replayLabel: string | null, muted: boolean, forkLabelText: string | null = null) {
     const suffix = forkLabelText ? ` · ${forkLabelText}` : replayLabel ? ` · ${replayLabel}` : isWeeklySeed(seed) ? (weeklyClosed(seed, new Date()) ? t('game.suffixArchivedWeekly') : t('game.suffixThisWeek')) : isMintedDailySeed(seed) ? (dailyDateOf(seed) === new Date().toISOString().slice(0, 10) ? t('game.suffixToday') : t('game.suffixArchivedDaily')) : isDailySeed(seed) ? t('game.suffixPractice') : ''; // PLAN-v3 0.6.1/0.6.2: the HUD says which daily this is
@@ -108,6 +112,9 @@ export class GamePanel {
   }
   setStall(text: string) { this.stallText = text; this.hud.stall.textContent = text; }
   setHint(text: string) { this.hintText = text; this.hintEl.textContent = text; }
+  /** The foreman speaks in the side panel (0.9.1); the panel re-renders so the box sits at the top. */
+  setForeman(text: string) { if (text === this.foremanText) return; this.foremanText = text; this.key = ''; if (this.lastState) this.render(this.lastState); }
+  private lastState: PanelState | null = null;
 
   // ---------- per-frame ----------
   setProgress(tick: number, earned: number) {
@@ -125,10 +132,12 @@ export class GamePanel {
     const key = this.keyOf(s);
     if (key === this.key && this.side.childElementCount > 0) return;
     this.key = key;
+    this.lastState = s;
     this.replayMode = !!s.replayLabel;
     this.side.replaceChildren();
     this.progress = null; this.earned = null; this.lastEarned = -1; this.lastTick = -1;
     const r = s.run;
+    if (this.foremanText && r.phase !== 'result' && s.mode !== 'running' && s.mode !== 'paused') this.side.append(foremanBox(this.foremanText, 'foreman', 'margin-bottom:0.5em; font-size:0.8em'));
     if (s.challenge) { // PLAN-v4 0.7.1: the challenger's earnings, round by round, next to yours
       const c = s.challenge; const idx = Math.min(r.round, c.rounds.length) - 1; const done = r.rounds.length >= RULES.rounds;
       const text = done ? t('game.challengeDone', { player: c.player, score: money(c.score), yours: money(r.score) }) : t('game.challengeLive', { player: c.player, theirs: money(c.rounds[idx] ?? 0), round: r.round, total: money(challengerTotal(c, r.round)), yours: money(r.score) });
@@ -265,7 +274,7 @@ export class GamePanel {
         line1 ? h('div', { class: cls }, line1) : null, line2 ? h('div', { class: warn ? 'jd-red' : 'jd-dim' }, line2) : null));
     }
     layer.append(h('div', { class: 'jd-banner' },
-      h('div', {}, h('div', { class: 'jd-head' }, t('game.roundResult', { n: rec.round })), h('div', { class: 'jd-row', style: 'gap:0.6em; align-items:baseline' }, h('span', { class: 'jd-gold', style: 'font-size:1.875em; font-weight:700; line-height:1' }, money(rec.earned)), h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, t('game.thisRoundTotal', { total: money(r.score) })))),
+      h('div', { style: 'min-width:0' }, h('div', { class: 'jd-head' }, t('game.roundResult', { n: rec.round })), h('div', { class: 'jd-row', style: 'gap:0.6em; align-items:baseline; flex-wrap:nowrap' }, h('span', { class: 'jd-gold', style: 'font-size:1.875em; font-weight:700; line-height:1' }, money(rec.earned)), h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, t('game.thisRoundTotal', { total: money(r.score) })), this.bannerForeman ? h('span', { class: 'jd-foreman-text jd-dim', tid: 'foreman-banner', title: this.bannerForeman, style: 'font-size:0.8125em; margin-left:0.6em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap' }, `${t('foreman.name')} · ${this.bannerForeman}`) : null)),
       btn(last ? t('game.finalScore') : t('game.nextRound'), 'next', () => this.actions.nextRound(), { variant: 'primary' }),
       this.replayMode && !last ? btn(t('game.tryHere', { n: r.rounds.length }), 'fork-here', () => this.actions.forkHere(), { small: true, title: t('game.tryHereTitle') }) : null, // PLAN-v4 0.7.3
       this.replayMode && this.actions.reportName ? btn(t('game.reportName'), 'report-name', () => this.actions.reportName!(), { small: true, title: t('game.reportNameTitle') }) : null));

@@ -1,11 +1,12 @@
 import { verifierUrl as resolveVerifierUrl } from '../render/config';
 /** Results screen as DOM (DOSSIER-v1 0.4.0): score, round bars, what shipped, the checked board, submission and sharing. Every string comes from the table (0.9.0). */
 import type Phaser from 'phaser';
-import { h, btn, ui, textureImg, promptText, showText } from './dom';
+import { h, btn, ui, textureImg, promptText, showText, foremanBox, setForeman } from './dom';
+import { foremanSays, resultsBand } from '../content/foreman';
 import type { RunState } from '../sim/run';
 import { encodeReplay, exportReplay } from '../sim/replay';
 import { RULES } from '../sim/rules';
-import { daysPlayed, loadBests, loadPlayer, loadSubmissions, randomSeed, recordSubmission, savePlayer, recordDailyDate, currentStreak, loadHistory, savePending } from '../render/storage';
+import { daysPlayed, loadBests, loadPlayer, loadSubmissions, randomSeed, recordSubmission, savePlayer, recordDailyDate, currentStreak, loadHistory, savePending, firstTime } from '../render/storage';
 import { isMintedDailySeed, dailyDateOf } from '../sim/daily';
 import { telemetry } from '../render/telemetry';
 import { shareText, type Rank } from '../render/share';
@@ -58,6 +59,10 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
   };
   renderBadges();
   header.append(badgeRow);
+  // the foreman (0.9.1): the first game on this device, else the band once everyone today has answered, else offline
+  const foreman = foremanBox(!o.replayed && !fork && bests.runs === 1 ? foremanSays('resultsFirst') : '', 'foreman', 'margin:0.4em auto 0; max-width:44em; text-align:left');
+  header.append(foreman);
+  let foremanSettled = !!foreman.textContent?.trim() && bests.runs === 1;
   const max = Math.max(1, ...run.rounds.map((r) => r.earned));
   const rounds = h('div', { class: 'jd-panel' }, h('div', { class: 'jd-head' }, t('results.roundByRound')),
     ...run.rounds.map((r, i) => h('div', { class: 'jd-row', style: 'margin-top:0.4em; flex-wrap:nowrap' },
@@ -96,7 +101,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       // the mark is computed off the request path by the server the first time a yard is seen: poll a few times while it is pending
       if (hg.botPar == null && attempt < 22) setTimeout(() => { if (histBox.isConnected) void loadHistogram(attempt + 1); }, 4000); // the first game on a yard waits for the mark: keep asking for ~90 s (a loaded server can take that long), then stop
       const parLine = hg.botPar != null ? h('div', { class: 'jd-mono jd-dim', tid: 'bot-par', style: 'font-size:0.75em; margin-top:0.3em' }, t('results.foremanLine', { score: money(hg.botPar), suffix: run.score > hg.botPar ? t('results.foremanBeat') : run.score === hg.botPar ? t('results.foremanMatched') : '' })) : null;
-      if (hg.mine) { scene.lastPercentile = hg.mine.percentile; scene.lastN = hg.n; }
+      if (hg.mine) { scene.lastPercentile = hg.mine.percentile; scene.lastN = hg.n; if (!foremanSettled) { setForeman(foreman, foremanSays(resultsBand(hg.mine.percentile, hg.n))); foremanSettled = true; } }
       if (hg.botPar != null && hg.botPar !== botPar) { botPar = hg.botPar; renderBadges(); }
       if (!hg.n) { if (parLine) histBox.append(parLine); return; }
       const maxBin = Math.max(1, ...hg.bins.map((b) => b.count));
@@ -147,6 +152,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       if (!keepStatus) setStatus(t('results.statusOnline'));
     } catch {
       showOfflineBoard();
+      if (!foremanSettled && !o.replayed) { setForeman(foreman, foremanSays('resultsOffline')); foremanSettled = true; }
       if (!keepStatus) setStatus(t('results.statusOffline'));
     }
   };
@@ -237,6 +243,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
   const shareBtn = btn(t('results.shareBtn'), 'share', () => {
     const text = buildShare('grid'); scene.lastShareText = text;
     telemetry.track('share_copied', { variant: 'grid' });
+    if (firstTime('share')) { const line = foremanSays('firstShare'); if (line) { setForeman(foreman, line); foremanSettled = true; } }
     copyWith(shareBtn, t('results.shareBtn'), text, t('results.shareDialog'));
   }, { small: true, title: t('results.shareTitle') });
   const detailedBtn = btn(t('results.detailedBtn'), 'share-detailed', () => {

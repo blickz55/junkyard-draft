@@ -8,6 +8,8 @@ import { h, btn, ui } from './dom';
 import { createGroup, fetchGroups, joinGroup, leaveGroup, loadGroup, saveGroup, type GroupInfo } from '../render/groups';
 import { NAME_MAX } from '../identity/identity';
 import { t } from '../content/strings';
+import { foremanSays, foremanName } from '../content/foreman';
+import { firstTime } from '../render/storage';
 
 export function openGroups(scene: Phaser.Scene, verifierUrl: string, onChange: () => void): void {
   const prev = document.activeElement as HTMLElement | null;
@@ -41,8 +43,8 @@ export function openGroups(scene: Phaser.Scene, verifierUrl: string, onChange: (
     h('div', { class: 'jd-row jd-between' }, h('div', { class: 'jd-head' }, t('crews.head')), btn(t('common.close'), 'groups-close', close, { small: true })),
     h('div', { class: 'jd-dim jd-dialog-label' }, t('crews.intro', { groups: 5, members: 50 })),
     list,
-    h('div', { class: 'jd-row', style: 'gap:0.5em; margin-top:0.4em' }, nameIn, btn(t('crews.create'), 'group-create', () => { void createGroup(verifierUrl, nameIn.value).then((r) => { if (r && r.ok) { nameIn.value = ''; say(t('crews.created', { name: r.group.name, code: r.group.code })); changed = true; void refresh(); } else say(r ? r.error : t('crews.serverDown'), true); }); }, { small: true, variant: 'primary' })),
-    h('div', { class: 'jd-row', style: 'gap:0.5em' }, codeIn, btn(t('crews.join'), 'group-join', () => { void joinGroup(verifierUrl, codeIn.value).then((r) => { if (r && r.ok) { codeIn.value = ''; say(t('crews.joined', { name: r.group.name })); changed = true; void refresh(); } else say(r ? r.error : t('crews.serverDown'), true); }); }, { small: true })),
+    h('div', { class: 'jd-row', style: 'gap:0.5em; margin-top:0.4em' }, nameIn, btn(t('crews.create'), 'group-create', () => { void createGroup(verifierUrl, nameIn.value).then((r) => { if (r && r.ok) { nameIn.value = ''; say(t('crews.created', { name: r.group.name, code: r.group.code })); changed = true; void refresh(); if (firstTime('crew')) { const line = foremanSays('firstCrew'); if (line) say(`${foremanName()}: ${line}`); } } else say(r ? r.error : t('crews.serverDown'), true); }); }, { small: true, variant: 'primary' })),
+    h('div', { class: 'jd-row', style: 'gap:0.5em' }, codeIn, btn(t('crews.join'), 'group-join', () => { void joinGroup(verifierUrl, codeIn.value).then((r) => { if (r && r.ok) { codeIn.value = ''; say(t('crews.joined', { name: r.group.name })); changed = true; void refresh(); if (firstTime('crew')) { const line = foremanSays('firstCrew'); if (line) say(`${foremanName()}: ${line}`); } } else say(r ? r.error : t('crews.serverDown'), true); }); }, { small: true })),
     status);
   const layer = h('div', { class: 'jd-modal', onClick: (e) => { if (e.target === layer) close(); } }, box);
   layer.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); close(); } });

@@ -2,7 +2,8 @@ import { verifierUrl as resolveVerifierUrl } from '../render/config';
 import { diagnostics } from '../render/errlog';
 /** Title screen as DOM (DOSSIER-v1 0.4.0). The Phaser TitleScene keeps the decorative belt and the tips panel; everything else lives here. Every string comes from the table (0.9.0). */
 import type Phaser from 'phaser';
-import { h, btn, ui, alertText, dialog, promptText, showText } from './dom';
+import { h, btn, ui, alertText, dialog, promptText, showText, foremanBox, setForeman } from './dom';
+import { foremanSays, chatter } from '../content/foreman';
 import type { TipsPanel } from './TipsPanel';
 import { telemetry } from '../render/telemetry';
 import { audio } from '../render/audio';
@@ -62,10 +63,17 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const privacyLink = h('button', { class: 'jd-link', tid: 'privacy', type: 'button', title: t('title.privacyTitle'), onClick: () => openPrivacy(scene, verifierUrl, 'privacy', () => { playerBtn.textContent = playerLabel(); statsBtn.textContent = statsLabel(); playerNote.textContent = ''; playerNote.style.display = 'none'; }) }, t('title.privacyLink')); // after a deletion the player button, the statistics button and the claim note are refreshed
   const statsNote = h('div', { class: 'jd-mono jd-dim', tid: 'telemetry-note', style: 'font-size:0.6em; text-align:right; margin-top:-0.3em' }, t('title.statsNote'), privacyLink);
 
-  // hero
-  const hero = h('div', { style: 'text-align:center' },
-    h('div', { class: 'jd-amber', style: 'font-size:2.6em; font-weight:700; letter-spacing:0.12em; line-height:1.05' }, t('title.name')),
-    h('div', { class: 'jd-dim', style: 'font-size:1em; margin-top:0.15em' }, t('title.tagline')));
+  // hero, with the foreman's line under the tagline (0.9.1): a streak milestone or a once-only moment first, else the welcome; the strip's answer may replace it
+  const streak = currentStreak();
+  const foremanText = streak === 30 ? foremanSays('streak30') : streak === 7 ? foremanSays('streak7') : streak === 3 ? foremanSays('streak3') : foremanSays('welcome');
+  // Sal stands beside the sign: on a wide screen the box sits to the right of the name and tagline and costs no height
+  // (the title must not shrink the player's chosen text size for a line of flavour); on a narrow one the row wraps and the box goes below
+  const foreman = foremanBox(foremanText, 'foreman', 'flex:0 1 26em; max-width:26em; text-align:left');
+  const hero = h('div', { style: 'display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:0.4em 1.5em' },
+    h('div', { style: 'text-align:center' },
+      h('div', { class: 'jd-amber', style: 'font-size:2.6em; font-weight:700; letter-spacing:0.12em; line-height:1.05' }, t('title.name')),
+      h('div', { class: 'jd-dim', style: 'font-size:1em; margin-top:0.15em' }, t('title.tagline'))),
+    foreman);
 
   // actions
   const actions = h('div', { style: 'display:flex; flex-direction:column; align-items:center; gap:0.35em; margin-top:0.25em' });
@@ -100,6 +108,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const motionBtn = btn(prefs.reducedMotion ? t('title.motionReduced') : t('title.motionFull'), 'motion', () => { telemetry.track('settings_changed', { key: 'reducedMotion' }); prefs.setReducedMotion(!prefs.reducedMotion); restart(); }, { small: true });
   const textBtn = btn(prefs.textScaleLabel(), 'textscale', () => { telemetry.track('settings_changed', { key: 'textScale' }); prefs.setTextScale(prefs.nextTextScale()); restart(); }, { small: true });
   // production roadmap 0.8.0: build, browser, settings, storage health and the last ten errors as text for a bug report; never the identity or the key
+  const chatterBtn = btn(chatter() === 'less' ? t('title.foremanLess') : t('title.foremanFull'), 'foreman-chatter', () => { updateSettings({ chatter: chatter() === 'less' ? 'full' : 'less' }); restart(); }, { small: true, title: t('title.foremanTitle') });
   const diagBtn = btn(t('title.diagnostics'), 'diagnostics', () => { const text = diagnostics(); const done = () => { diagBtn.textContent = t('common.copiedShort'); setTimeout(() => { diagBtn.textContent = t('title.diagnostics'); }, 1500); }; const fallback = () => { void showText(scene, t('title.diagnosticsDialog'), text); }; if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback(); }, { small: true, title: t('title.diagnosticsTitle') });
   const bestsPanel = h('div', { class: 'jd-panel' },
     h('div', { class: 'jd-head' }, t('title.bestsHead')),
@@ -117,7 +126,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
       d.dataset.testid = 'audio-buses';
       return d;
     })(),
-    h('div', { class: 'jd-row', style: 'margin-top:0.4em' }, h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, t('title.motion')), motionBtn, h('span', { class: 'jd-dim', style: 'font-size:0.8125em; margin-left:0.5em' }, t('title.textSize')), textBtn, diagBtn));
+    h('div', { class: 'jd-row', style: 'margin-top:0.4em' }, h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, t('title.motion')), motionBtn, h('span', { class: 'jd-dim', style: 'font-size:0.8125em; margin-left:0.5em' }, t('title.textSize')), textBtn, chatterBtn, diagBtn));
 
   // today's board (our server, when reachable)
   const url = verifierUrl;
@@ -157,6 +166,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     const info = acceptDaily(d);
     if (!info) { practiceMode(t('title.practiceOtherDay', { date: d.date ?? t('title.anotherDay') })); line.textContent = t('title.boardOtherDay', { seed: d.seed }); return; }
     const seed = info.seed; seedSpan.textContent = t('common.yard', { seed }); seedSpan.title = seed;
+    if (!(streak === 3 || streak === 7 || streak === 30)) setForeman(foreman, foremanSays(d.final ? 'dailyFinal' : 'dailyOpen'));
     modeSpan.textContent = `${d.final ? t('title.modeRankedFinal') : t('title.modeRankedProvisional', { closes: closesIn(d.closesAt ?? info.closesAt, d.now ?? new Date().toISOString()) })}${groupSel ? t('title.crewSuffix', { name: groupSel.name }) : ''}`; // PLAN-v3 0.6.2: one global deadline, said plainly
     const top = d.entries.length ? d.entries.map((e, i) => `${i + 1}. ${money(e.score)} ${e.player}`).join('   ·   ') + t('title.topSuffix') : t('title.noScores');
     if (d.botPar != null) rightGroup.prepend(h('span', { class: 'jd-mono jd-dim', tid: 'daily-par', style: 'font-size:0.75em; white-space:nowrap', title: t('title.foremanMarkTitle') }, t('title.foremanMark', { score: money(d.botPar) })));

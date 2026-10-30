@@ -5,6 +5,7 @@ import { machineName } from '../../content/machines';
 import { forkLabel } from '../../content/fork';
 import { tipForMachine } from '../../content/tips';
 import { explainRunError, placementWarning } from '../../content/advice';
+import { foremanSays, type Situation } from '../../content/foreman';
 import Phaser from 'phaser';
 import { applyDpr, DPR } from '../dpr';
 import type { Challenge } from '../challenge';
@@ -134,7 +135,7 @@ export class GameScene extends Phaser.Scene {
       onNextRound: () => { this.heldId = null; this.syncMachines(); this.renderSide(); this.updateHint(); },
       onFinished: () => { telemetry.track('game_complete', { mode: this.replayLabel ? 'replay' : this.run.seed.startsWith('daily-') ? 'daily' : 'seed' }); this.scene.start('Results', { run: this.run, replayed: this.replayLabel != null, replayLabel: this.replayLabel ?? undefined, challenge: this.challenge ?? undefined, replayHash: this.replayOrigin?.hash ?? undefined, replayPlayer: this.replayOrigin?.player }); },
       onStateChange: (a) => this.onStateChange(a),
-      onReject: (a, message) => { if (a.t === 'place') { this.showReject(explainRunError(message)); telemetry.track('first_place_attempt'); telemetry.track('first_place_rejected', { reason: /occupied/i.test(message) ? 'occupied' : /bounds/i.test(message) ? 'out_of_bounds' : 'other' }); } },
+      onReject: (a, message) => { if (a.t === 'place') { this.panel?.setForeman(foremanSays('refused')); this.showReject(explainRunError(message)); telemetry.track('first_place_attempt'); telemetry.track('first_place_rejected', { reason: /occupied/i.test(message) ? 'occupied' : /bounds/i.test(message) ? 'out_of_bounds' : 'other' }); } },
       onPlaybackDone: () => { this.syncMachines(); this.renderSide(); },
       persist: (seed, actions) => { if (!this.run.forkedFrom) writeSave(seed, actions); }, // a fork is never the player's save: resuming it would lose the mark and make it submittable
       schedule: (ms, fn) => { this.time.delayedCall(ms, fn); },
@@ -492,8 +493,13 @@ export class GameScene extends Phaser.Scene {
     if (this.ctl.resumeNotice) { text = this.ctl.resumeNotice; this.ctl.resumeNotice = null; }
     if (!text && r.phase === 'draft' && r.rounds.length && !this.replayLabel) { // 0.8.8: the last round's bottleneck line is the draft's hint
       const last = r.rounds[r.rounds.length - 1];
-      text = t('hint.lastRound', { line: bottleneckLine(analyseRound(last.layout, last.result, r.round)) });
-    }
+      const b = analyseRound(last.layout, last.result, r.round);
+      text = t('hint.lastRound', { line: bottleneckLine(b) });
+      const sit: Situation = b.kind === 'disconnected' ? 'bottleneckDisconnected' : b.kind === 'dead-end' ? 'bottleneckDeadEnd' : b.kind === 'slag' ? 'bottleneckSlag' : b.kind === 'saturated' ? (b.machine?.kind === 'conveyor' ? 'bottleneckMerge' : 'bottleneckSaturated') : b.kind === 'starved' ? 'bottleneckStarved' : 'bottleneckBalanced';
+      this.panel?.setForeman(foremanSays(sit)); // 0.9.1: Sal's opener for the case; the sentence itself is the hint
+    } else if (r.phase === 'draft' && !r.rounds.length && !this.replayLabel) this.panel?.setForeman(this.tutorial ? foremanSays('lesson1') : foremanSays('firstDraft'));
+    else if (this.tutorial && r.phase === 'draft') this.panel?.setForeman(foremanSays(`lesson${Math.min(6, Math.max(1, r.round))}` as Situation));
+    else if (!this.tutorial && r.phase === 'build' && this.panel && !this.rejectTimer) this.panel.setForeman(this.panel.foremanText); // keep the draft's line through the build
     if (!text) {
       const tips = [t('hint.tip1'), t('hint.tip2'), t('hint.tip3'), t('hint.tip4'), t('hint.tip5'), t('hint.tip6', { shards: money(RULES.value.shards), plate: money(RULES.value.plate) })];
       text = tips[(r.round + r.layout.machines.length) % tips.length];
@@ -563,6 +569,7 @@ export class GameScene extends Phaser.Scene {
   finishRun() { if (this.ctl.finishRun()) audio.resume(); }
   /** Controller hook: the round is recorded; tear down the live visuals and show the summary. */
   private onRoundEnd(rec: RoundRecord, visual: number) {
+    { const prev = this.run.rounds.length >= 2 ? this.run.rounds[this.run.rounds.length - 2].earned : -1; this.panel.bannerForeman = this.replayLabel ? '' : foremanSays(rec.earned > prev ? 'roundGood' : 'roundFlat'); } // 0.9.1
     if (!this.replayLabel) { telemetry.track('round_complete', { n: rec.round }); telemetry.track('first_run_complete', { money: rec.earned }); }
     if (import.meta.env.DEV && rec.earned !== visual) console.error(`DETERMINISM MISMATCH: visual ${visual} vs authoritative ${rec.earned}`);
     for (const s of this.itemSprites.values()) s.destroy();

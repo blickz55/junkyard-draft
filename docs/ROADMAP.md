@@ -87,7 +87,8 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 
 ## M12 — production roadmap v0.9 Clear (`docs/PRODUCTION-ROADMAP.md` §5; in progress)
 - [x] 0.9.0 the string table and the glossary: `game/src/content/strings.ts` + `glossary.ts` + `format.ts` + `locale.ts`; sim text moved to `content/` (machines, tips, advice, badges, fork); `tools/strings-lint.ts`; the pseudo-locale and `tests/pseudo-e2e.test.mjs` at 130 % (`tests/strings.test.ts`) · ⚑ the owner reviews Appendix B's choices (crews, yard, a try, our server)
-- [ ] 0.9.1 the foreman, text only · [ ] 0.9.2 the results card · [ ] 0.9.3 onboarding delivery · [ ] 0.9.4 GameScene split · [ ] 0.9.5 test suite, lint, coverage · [ ] 0.9.6 dead rounds: a tuning pass (⚑ go/no-go) · [ ] 0.9.7 stats page · [ ] ⚑ 0.9.8 playtest round two
+- [x] 0.9.1 the foreman, text only: `content/foreman.ts` + `foreman.*` lines in the table (31 situations × 3–5 variants, chosen per UTC day), the box on title / draft / round-end banner / results, `chatter` setting, `docs/FOREMAN.md` (`tests/foreman.test.ts` snapshot, `tests/foreman-e2e.test.mjs`) · ⚑ the owner reviews Sal's voice
+- [ ] 0.9.2 the results card · [ ] 0.9.3 onboarding delivery · [ ] 0.9.4 GameScene split · [ ] 0.9.5 test suite, lint, coverage · [ ] 0.9.6 dead rounds: a tuning pass (⚑ go/no-go) · [ ] 0.9.7 stats page · [ ] ⚑ 0.9.8 playtest round two
 
 ## M11 — production roadmap v0.8 Real (`docs/PRODUCTION-ROADMAP.md` §5; in progress)
 - [x] 0.8.0 client hardening: `?verifier=` only in dev builds and on loopback pages, CSP in page and Electron, storage-failure banner, error log + Copy diagnostics (`tests/config.test.ts`, `tests/hardening-e2e.test.mjs`)

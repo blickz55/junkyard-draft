@@ -47,6 +47,14 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = 
   return el;
 }
 
+/** The foreman's box (0.9.1): his name tag and one line; hidden when the line is empty (lessons only). */
+export function foremanBox(text: string, tid = 'foreman', style = ''): HTMLElement {
+  const box = h('div', { class: 'jd-foreman', tid, style: `${text ? '' : 'display:none; '}${style}` }, h('span', { class: 'jd-foreman-tag' }, t('foreman.name')), h('span', { class: 'jd-foreman-text' }, text));
+  return box;
+}
+/** Replace the box's line; an empty line hides it. */
+export function setForeman(box: HTMLElement, text: string): void { const el = box.querySelector('.jd-foreman-text'); if (el) el.textContent = text; box.style.display = text ? '' : 'none'; }
+
 /** A button in the house style. variant: 'primary' (amber) | 'steel' | 'dark' (default). */
 export function btn(text: string, tid: string, onClick: () => void, o: { variant?: 'primary' | 'steel' | 'dark'; disabled?: boolean; small?: boolean; title?: string } = {}): HTMLButtonElement {
   return h('button', { class: `jd-btn jd-btn-${o.variant ?? 'dark'}${o.small ? ' jd-btn-small' : ''}`, tid, text, onClick, disabled: o.disabled ?? false, title: o.title, type: 'button' });
@@ -81,6 +89,9 @@ const STYLE = `
 #ui .jd-btn-small { font-size: 0.75em; padding: 0.4em 0.9em; }
 #ui .jd-link { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; pointer-events: auto; }
 #ui .jd-link:focus-visible { outline: 2px solid ${CSS.amber}; outline-offset: 2px; }
+#ui .jd-foreman { display: flex; gap: 0.6em; align-items: baseline; border-left: 3px solid ${CSS.amber}; background: rgba(240, 168, 48, 0.08); padding: 0.3em 0.7em; font-size: 0.875em; }
+#ui .jd-foreman-tag { font-weight: 700; letter-spacing: 0.15em; font-size: 0.75em; color: ${CSS.amber}; flex: 0 0 auto; }
+#ui .jd-foreman-text { min-width: 0; }
 #ui .jd-btn:hover:not(:disabled) { filter: brightness(1.12); }
 #ui .jd-btn-dark:hover:not(:disabled) { filter: brightness(0.88); }
 #ui .jd-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 1px 0 rgba(0,0,0,0.35); }

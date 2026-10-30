@@ -19,7 +19,7 @@ const SHOTS = path.join(ROOT, '.control-room', 'screenshots');
 async function waitServer() { for (let i = 0; i < 60; i++) { try { const r = await fetch(`${URL}/main.js`); if (r.ok) return; } catch {} await wait(500); } throw new Error('dev server did not start'); }
 /** Every [data-testid] inside the overlay, and the screen's horizontal overflow. */
 const geometry = () => ({
-  outside: [...document.querySelectorAll('#ui [data-testid]')].filter((el) => { const r = el.getBoundingClientRect(); const u = document.getElementById('ui').getBoundingClientRect(); return r.width > 0 && r.height > 0 && (r.left < u.left - 1 || r.right > u.right + 1 || r.top < u.top - 1 || r.bottom > u.bottom + 1); }).map((el) => el.dataset.testid),
+  outside: [...document.querySelectorAll('#ui [data-testid]')].filter((el) => { const r = el.getBoundingClientRect(); const u = document.getElementById('ui').getBoundingClientRect(); const scrolls = !!el.closest('.jd-side'); return r.width > 0 && r.height > 0 && (r.left < u.left - 1 || r.right > u.right + 1 || (!scrolls && (r.top < u.top - 1 || r.bottom > u.bottom + 1))); }).map((el) => el.dataset.testid), // the side panel scrolls vertically by design
   outsideX: [...document.querySelectorAll('#ui [data-testid]')].filter((el) => { const r = el.getBoundingClientRect(); const u = document.getElementById('ui').getBoundingClientRect(); return r.width > 0 && (r.left < u.left - 1 || r.right > u.right + 1); }).map((el) => el.dataset.testid),
   scrollX: (() => { const s = document.querySelector('#ui .jd-screen'); return s ? s.scrollWidth - s.clientWidth : 0; })(),
   text: document.getElementById('ui')?.innerText || '',

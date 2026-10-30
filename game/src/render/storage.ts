@@ -9,7 +9,7 @@ export { dailySeed };
 
 /** Every record written before 0.5.0 was made under rules version 2; the one-time migration files them there, whatever version runs now. */
 const LEGACY_RECORDS_VERSION = 2;
-const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v2', bestsLegacy: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v2', submissionsLegacy: 'jd.submissions.v1', tips: 'jd.tips.v1', telemetry: 'jd.telemetry.v1', days: 'jd.days.v1', dailyStreak: 'jd.dailystreak.v1', forkBests: 'jd.forkbests.v1', history: 'jd.history.v1', pending: 'jd.pending.v1' };
+const K = { settings: 'jd.settings.v1', save: 'jd.save.v1', bests: 'jd.bests.v2', bestsLegacy: 'jd.bests.v1', onboarded: 'jd.onboarded.v1', player: 'jd.player', submissions: 'jd.submissions.v2', submissionsLegacy: 'jd.submissions.v1', tips: 'jd.tips.v1', telemetry: 'jd.telemetry.v1', days: 'jd.days.v1', dailyStreak: 'jd.dailystreak.v1', forkBests: 'jd.forkbests.v1', history: 'jd.history.v1', pending: 'jd.pending.v1', firsts: 'jd.firsts.v1' };
 /**
  * Score records are partitioned by rules version (PLAN-v2 0.5.0): `jd.bests.v2` / `jd.submissions.v2` hold
  * `{ byVersion: { "2": …, "3": … } }`. Readers take the current RULES_VERSION; the other versions are archived for the
@@ -23,7 +23,7 @@ export type RenderQuality = 'auto' | 'high' | 'low';
 /** telemetry: opt-in anonymous funnel events (PLAN-v1 0.3.7); false until the player turns it on */
 /** per-bus levels 0..1 (DOSSIER-v1 0.4.9) */
 export interface Buses { ui: number; factory: number; music: number }
-export interface Settings { volume: number; muted: boolean; reducedMotion: boolean; textScale: number; renderQuality: RenderQuality; telemetry: boolean; buses: Buses; reducedAudio: boolean }
+export interface Settings { volume: number; muted: boolean; reducedMotion: boolean; textScale: number; renderQuality: RenderQuality; telemetry: boolean; buses: Buses; reducedAudio: boolean; /** the foreman (0.9.1): every line, or the teaching lines only */ chatter: 'full' | 'less' }
 /** Default for reduced motion follows the OS preference until the player chooses. */
 const systemReducedMotion = () => { try { return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
 export interface SaveGame { rulesVersion: number; seed: string; actions: Action[]; savedAt: string }
@@ -49,6 +49,7 @@ export function validateSettings(raw: unknown, fallback: Settings): Settings {
     telemetry: raw.telemetry === true, // anything but an explicit true is off
     buses: (() => { const b = isObj(raw.buses) ? raw.buses : {}; const lvl = (k: keyof Buses) => (isFiniteNum(b[k]) ? Math.min(1, Math.max(0, b[k] as number)) : fallback.buses[k]); return { ui: lvl('ui'), factory: lvl('factory'), music: lvl('music') }; })(),
     reducedAudio: typeof raw.reducedAudio === 'boolean' ? raw.reducedAudio : fallback.reducedAudio,
+    chatter: raw.chatter === 'less' ? 'less' : fallback.chatter,
   };
 }
 export function validateSave(raw: unknown): SaveGame | null {
@@ -111,7 +112,7 @@ function readRaw(key: string): unknown {
 }
 function write(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { markStorageFailure(e); } }
 
-export const loadSettings = (): Settings => validateSettings(readRaw(K.settings), { volume: 0.7, muted: false, reducedMotion: systemReducedMotion(), textScale: 1, renderQuality: 'auto', telemetry: false, buses: { ui: 1, factory: 1, music: 1 }, reducedAudio: false });
+export const loadSettings = (): Settings => validateSettings(readRaw(K.settings), { volume: 0.7, muted: false, reducedMotion: systemReducedMotion(), textScale: 1, renderQuality: 'auto', telemetry: false, buses: { ui: 1, factory: 1, music: 1 }, reducedAudio: false, chatter: 'full' });
 export const saveSettings = (s: Settings) => write(K.settings, s);
 /** Read-modify-write so audio and accessibility settings never clobber each other. */
 export const updateSettings = (p: Partial<Settings>): Settings => { const s = { ...loadSettings(), ...p }; saveSettings(s); return s; };
@@ -227,6 +228,9 @@ export const loadPending = (): PendingSubmission[] => validatePending(readRaw(K.
 const livePending = (): PendingSubmission[] => validatePending(readRaw(K.pending)).filter((q) => q.rulesVersion === RULES_VERSION);
 export function savePending(p: PendingSubmission): PendingSubmission[] { const next = [...livePending().filter((q) => q.seed !== p.seed), p].slice(-PENDING_MAX); write(K.pending, next); return next; }
 export function removePending(seed: string, savedAt: string): void { const next = livePending().filter((q) => !(q.seed === seed && q.savedAt === savedAt)); if (next.length) write(K.pending, next); else { try { localStorage.removeItem(K.pending); } catch { /* ignore */ } } }
+
+/** Once-only moments the foreman comments on (0.9.1): the first share, the first crew. True the first time a key is seen. */
+export function firstTime(key: string): boolean { const raw = readRaw(K.firsts); const seen = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : []; if (seen.includes(key)) return false; write(K.firsts, [...seen, key].slice(-50)); return true; }
 
 export const loadForkBests = (): Record<string, { score: number; at: string }> => { const raw = readRaw(K.forkBests); const out = dict<{ score: number; at: string }>(); if (isObj(raw)) for (const [seed, v] of Object.entries(raw)) if (isObj(v) && isFiniteNum(v.score) && isValidSeed(seed)) out[seed] = { score: v.score, at: isStr(v.at) ? v.at : '' }; return out; };
 export const recordForkBest = (seed: string, score: number): { newFork: boolean } => { const all = loadForkBests(); const newFork = !own(all, seed) || score > all[seed].score; if (newFork) { all[seed] = { score, at: new Date().toISOString() }; write(K.forkBests, all); } return { newFork }; };
