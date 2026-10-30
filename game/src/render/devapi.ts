@@ -30,6 +30,8 @@ export interface DevApi {
   redo: () => boolean;
   /** stall indicator: HUD text (empty when none), flagged cell index, current sim tick, and the sim tick the stall was flagged at (-1 when none) */
   stall: () => { text: string; cell: number | null; tick: number; flaggedAt: number };
+  /** one tick while paused (0.8.12); false when not paused */
+  stepTick: () => boolean;
   /** tips panel: open state, the tip suggested by the last draft (unread), read ids, demo progress */
   tips: () => { open: boolean; current: string | null; suggested: string | null; read: string[]; demo: { tip: string | null; tick: number; shipped: Record<string, number> } | null };
   openTips: (id?: string) => void;
@@ -62,6 +64,7 @@ export function installDevApi(scene: GameScene) {
     undo: () => scene.undo(),
     redo: () => scene.redo(),
     stall: () => scene.stallInfo(),
+    stepTick: () => { const before = scene.stallInfo().tick; scene.stepTick(); return scene.stallInfo().tick === before + 1 || scene.stallInfo().tick === -1; },
     tips: () => scene.tipsInfo(),
     openTips: (id) => scene.openTips(id),
     closeTips: () => scene.closeTips(),

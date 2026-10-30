@@ -34,7 +34,7 @@ export interface PanelState {
 }
 /** What the panel asks the scene to do. */
 export interface PanelActions {
-  pick(i: number): void; startRun(): void; setPaused(p: boolean): void; finishRun(): void; stopReplay(): void; setSpeed(s: number): void;
+  pick(i: number): void; startRun(): void; setPaused(p: boolean): void; finishRun(): void; stopReplay(): void; setSpeed(s: number): void; /** one tick while paused (0.8.12) */ stepTick(): void;
   undo(): void; redo(): void; openTips(): void; rotateSelected(): void; toBin(id: number): void; sell(id: number): void; nextRound(): void; toTitle(): void; toggleMute(): boolean;
   /** buy new offers (rules v3): the scene applies { t: 'reroll' } through the controller */
   reroll(): void;
@@ -145,7 +145,7 @@ export class GamePanel {
       }
       this.side.append(h('div', { class: 'jd-row', style: 'margin-top:0.6em' }, h('span', { class: 'jd-dim', style: 'font-size:0.75em' }, 'Speed'),
         ...[1, 2, 4].map((sp) => btn(`${sp}×`, `speed-${sp}`, () => this.actions.setSpeed(sp), { small: true, variant: s.speed === sp ? 'primary' : 'dark' }))));
-      this.side.append(h('div', { class: 'jd-row jd-center', style: 'margin-top:0.6em' }, btn(s.mode === 'paused' ? 'Resume' : s.replayLabel ? 'Pause' : 'Pause (Esc)', 'pause', () => this.actions.setPaused(s.mode !== 'paused'))));
+      this.side.append(h('div', { class: 'jd-row jd-center', style: 'margin-top:0.6em' }, btn(s.mode === 'paused' ? 'Resume' : s.replayLabel ? 'Pause' : 'Pause (Esc)', 'pause', () => this.actions.setPaused(s.mode !== 'paused')), s.mode === 'paused' ? btn('Step 1 tick (.)', 'step', () => { this.actions.stepTick(); (document.activeElement as HTMLElement | null)?.blur?.(); }, { small: true, title: 'advance the simulation by exactly one tick while paused; watching only, allowed everywhere including the ranked daily (0.8.12)' }) : null));
       this.side.append(h('div', { class: 'jd-row jd-center' }, btn('Skip to result', 'skip', () => this.actions.finishRun(), { small: true })));
       if (s.replayLabel) {
         this.side.append(h('div', { class: 'jd-row jd-center' }, btn('Stop watching (Esc)', 'stop', () => this.actions.stopReplay(), { small: true })));
@@ -265,9 +265,9 @@ export class GamePanel {
       this.replayMode && !last ? btn(`Continue from here as practice (after round ${r.rounds.length})`, 'fork-here', () => this.actions.forkHere(), { small: true, title: 'take over this layout and bin from the next round; a fork is labelled, never submitted and never your own best (PLAN-v4 0.7.3)' }) : null, // PLAN-v4 0.7.3
       this.replayMode && this.actions.reportName ? btn('Report name…', 'report-name', () => this.actions.reportName!(), { small: true, title: 'report this player\'s display name to the moderators; it is hidden as "player" pending review, scores are never affected (PLAN-v4 0.7.7)' }) : null));
   }
-  showPauseVeil(on: boolean) {
+  showPauseVeil(on: boolean, tick?: number) {
     this.gridLayer.replaceChildren();
-    if (on) this.gridLayer.append(h('div', { class: 'jd-grid-dim jd-grid-dim-strong' }, h('div', { class: 'jd-paused' }, 'PAUSED', h('div', { style: 'font-size:0.5em; font-weight:400' }, 'Esc to resume'))));
+    if (on) this.gridLayer.append(h('div', { class: 'jd-grid-dim jd-grid-dim-strong' }, h('div', { class: 'jd-paused', tid: 'paused-veil' }, 'PAUSED', h('div', { style: 'font-size:0.5em; font-weight:400' }, `Esc to resume · . steps one tick${tick != null ? ` · tick ${tick} / ${RULES.ticksPerRound}` : ''}`))));
   }
   clearGridLayer() { this.gridLayer.replaceChildren(); }
 }

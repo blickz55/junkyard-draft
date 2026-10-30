@@ -162,6 +162,14 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     await page.screenshot({ path: path.join(SHOTS, `e2e-running-${Date.now()}.png`) });
     // pause/resume
     await page.keyboard.press('Escape'); await wait(100); assert.equal(await api('mode'), 'paused');
+    { // single step while paused (0.8.12): the Step button three times, then the . key once; the tick counter follows and the mode stays paused
+      const t0 = (await api('stall')).tick;
+      for (let i = 0; i < 3; i++) await page.getByTestId('step').click();
+      assert.equal((await api('stall')).tick, t0 + 3, 'three steps advance exactly three ticks');
+      assert.match(await page.getByTestId('paused-veil').textContent(), new RegExp(`tick ${t0 + 3} / 80`), 'the veil shows the tick');
+      await page.keyboard.press('Period'); await wait(50);
+      assert.equal((await api('stall')).tick, t0 + 4, 'the . key steps one tick too'); assert.equal(await api('mode'), 'paused');
+    }
     await page.keyboard.press('Escape'); await wait(100); assert.equal(await api('mode'), 'running');
     await api('finishRun');
     await page.waitForFunction(() => window.__jd.mode() === 'summary');

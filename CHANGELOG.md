@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.8, production roadmap)
 
+### 0.8.12 single-step while paused — 2026-10-30 (no rules change, protocol 2)
+- While a round is paused, in play and in replay playback alike, the new **Step 1 tick** button beside Resume (or the `.` key) advances the simulation by exactly one tick and reports it like a live tick; the pause veil shows the tick (`tick 23 / 80`); the round ends normally when the last tick is stepped. Watching only: the simulation does what it would have done and a replay carries no timing, so the fairness policy now says pausing and stepping are allowed everywhere, the ranked daily included. (`RoundController.stepTick`, tested in `tests/controller.test.ts`; the gameplay e2e steps three ticks with the button and one with the key and reads the tick counter.)
+
 ### 0.8.11 determinism across engines — 2026-10-30 (no rules change, protocol 2)
 - Every golden replay now carries, in `tests/golden/INDEX.json`, a SHA-256 of its final run state and one of each round's event stream (`game/src/sim/digest.ts`: canonical JSON with sorted keys, SHA-256 in plain integer arithmetic so no engine's crypto is involved; `tools/make-golden.ts --digests` recorded them without regenerating a replay). `tests/golden.test.ts` holds Node to them; `tests/engines-e2e.test.mjs` bundles the sim with esbuild, loads it in Chromium, Firefox and WebKit and holds each engine to the same hashes (an engine not installed locally is skipped; CI's new `engines` job installs all three and requires them). `tools/determinism-lint.ts` (`tests/determinism-lint.test.ts`) fails on Math.random, the transcendental functions, Date, Intl, toLocale*, performance.now and a sort without a comparator under `game/src/sim/`, with the two calendar modules allowed Date and a replay's createdAt marked as metadata; it caught a bare `sort()` in the new digest module on its first run.
 

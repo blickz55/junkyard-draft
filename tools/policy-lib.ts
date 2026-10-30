@@ -37,6 +37,7 @@ export function buildPolicy(): Policy {
       'A score counts only when the verifier has re-simulated the replay with the same rules and reached the same result. Nothing is trusted from the client: not the score, not the machine count, not the player label.',
       'Replay identity is the SHA-256 of the canonical replay content (rules version, seed, actions). The same actions submitted twice are one replay.',
       `Tie-break: ${TIE_BREAK}`,
+      'Pausing a round and stepping it one tick at a time while paused (the Step button or the "." key) are allowed everywhere, the ranked daily included: they change how you watch the simulation, never what it does, and a replay carries no timing.',
       'One best entry per player per seed: a better verified run replaces the earlier one and its stored replay; an equal or worse run is verified but not recorded. Anonymous entries (no identity) are never claimable and stay as they are.',
       `Retention: stored replays for each seed's top ${DEFAULT_REPLAYS_PER_SEED} entries; at most ${DEFAULT_MAX_ENTRIES_PER_SEED} entries per seed and ${DEFAULT_MAX_SEEDS} seeds (least recently active dropped); boards return at most ${MAX_BOARD_LIMIT} entries, the daily ${MAX_DAILY_LIMIT}, the archive ${MAX_ARCHIVE_LIMIT} days per page.`,
       'Bot par is the shipped autoplayer\'s median on a seed, computed by the verifier: a target labelled as a bot, never an entry.',

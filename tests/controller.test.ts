@@ -89,6 +89,24 @@ test('controller: pause/resume, speed, undo/redo with history notifications, and
   assert.deepEqual(r.log.filter((l) => l === 'pause' || l === 'resume'), ['pause', 'resume']);
 });
 
+test('controller: single step while paused (0.8.12): refused while building or running, one tick per call with onTick, the phase left at 1, the round ending normally on the last tick', () => {
+  const r = recorder();
+  const c = new RoundController({ seed: 'ctl-seed-step', fresh: true }, r.hooks);
+  const ticks = () => r.log.filter((l) => l.startsWith('tick')).reduce((n, l) => n + Number(l.split('×')[1] ?? 1), 0);
+  assert.equal(c.stepTick(), false, 'build: nothing to step');
+  c.pick(0); c.startRun();
+  assert.equal(c.mode, 'running'); assert.equal(c.stepTick(), false, 'running: stepping is a paused-only control'); assert.equal(c.sim!.tick, 0);
+  c.setPaused(true);
+  assert.equal(c.stepTick(), false); assert.equal(c.sim!.tick, 1, 'one tick'); assert.equal(c.tickPhase, 1, 'items drawn at rest in their new cells');
+  assert.equal(c.stepTick(), false); assert.equal(c.stepTick(), false); assert.equal(c.sim!.tick, 3, 'three steps, three ticks');
+  assert.equal(ticks(), 3, 'every step is reported like a live tick');
+  assert.equal(c.mode, 'paused', 'still paused'); assert.ok(r.log.includes('state:history'), 'the panel is told to refresh');
+  let ended = false; for (let i = 3; i < RULES.ticksPerRound; i++) ended = c.stepTick();
+  assert.equal(ended, true, 'the last step ends the round'); assert.equal(c.mode, 'summary'); assert.equal(c.run.rounds.length, 1); assert.equal(ticks(), RULES.ticksPerRound);
+  assert.ok(r.log.some((l) => l.startsWith('roundEnd:1:')), 'the round end is reported as after a live run');
+  assert.equal(c.stepTick(), false, 'summary: nothing to step');
+});
+
 test('controller: a watched replay plays itself through scheduled steps, never persists, and reports when done', () => {
   // record a legal run first
   const s = newRun('ctl-replay');

@@ -142,6 +142,21 @@ export class RoundController {
   }
   setSpeed(s: number) { this.speed = s; this.hooks.onStateChange?.(null); }
   /**
+   * Single step (production roadmap 0.8.12): while paused, in play and in replay playback alike, advance exactly one tick and
+   * report it like any other; the round ends normally when the tick limit is reached. Watching only: the simulation does
+   * what it would have done, scoring is untouched. The tick is left "fully elapsed" so the renderer draws items at rest in
+   * their new cells; the first frame after a resume therefore ticks at once. Returns true when the round ended on this step.
+   */
+  stepTick(): boolean {
+    if (this.mode !== 'paused' || !this.sim) return false;
+    const evs = step(this.sim);
+    this.acc = this.tickMs;
+    this.hooks.onTick?.(evs, this.sim);
+    if (this.sim.tick >= RULES.ticksPerRound) { this.endRun(); return true; }
+    this.hooks.onStateChange?.(null);
+    return false;
+  }
+  /**
    * Advance the live simulation by wall-clock ms (already scaled by the caller if it wants; this applies `speed`).
    * Steps whole ticks, reporting each through onTick, and ends the round at the tick limit. Returns true if the
    * round ended during this call.

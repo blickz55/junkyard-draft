@@ -158,7 +158,7 @@ export class GameScene extends Phaser.Scene {
     this.cursorImg = fit(this.add.image(0, 0, 'tile-cursor')).setOrigin(0).setVisible(false).setDepth(6);
     this.panel = new GamePanel(this, {
       pick: (i) => this.pick(i), startRun: () => this.startRun(), setPaused: (p) => this.setPaused(p), finishRun: () => this.finishRun(), stopReplay: () => this.stopReplay(),
-      setSpeed: (s) => this.ctl.setSpeed(s), undo: () => this.undo(), redo: () => this.redo(), openTips: () => this.openTips(this.suggestedTip ?? undefined), rotateSelected: () => this.rotateSelected(),
+      setSpeed: (s) => this.ctl.setSpeed(s), stepTick: () => this.stepTick(), undo: () => this.undo(), redo: () => this.redo(), openTips: () => this.openTips(this.suggestedTip ?? undefined), rotateSelected: () => this.rotateSelected(),
       toBin: (id) => { this.act({ t: 'unplace', id }); this.syncMachines(); },
       sell: (id) => { if (this.act({ t: 'sell', id })) { audio.ship(RULES.sellValue); this.selectedId = null; this.syncMachines(); this.renderSide(); } },
       nextRound: () => this.nextRound(), toTitle: () => this.scene.start('Title'), toggleMute: () => { audio.setMuted(!audio.muted); return audio.muted; },
@@ -293,6 +293,7 @@ export class GameScene extends Phaser.Scene {
     kb?.on('keydown-SPACE', (e: KeyboardEvent) => { if (!gridKeys(e)) return; if (this.mode === 'build' && this.run.phase === 'build') this.startRun(); else if (this.mode === 'summary') this.nextRound(); });
     kb?.on('keydown-ESC', () => { if (ui.dialogOpen) return; if (this.tips.isOpen) this.closeTips(); else if (domFocus()) (document.activeElement as HTMLElement).blur(); else if (this.replayLabel) this.stopReplay(); else if (this.mode === 'running') this.setPaused(true); else if (this.mode === 'paused') this.setPaused(false); else this.keyEscape(); });
     kb?.on('keydown-M', () => { if (gridKeys()) audio.setMuted(!audio.muted); });
+    kb?.on('keydown-PERIOD', (e: KeyboardEvent) => { if (gridKeys(e) && this.mode === 'paused') this.stepTick(); }); // 0.8.12: one tick while paused
     kb?.on('keydown-DELETE', (e: KeyboardEvent) => { if (gridKeys(e)) this.keyDelete(); });
     kb?.on('keydown-BACKSPACE', (e: KeyboardEvent) => { if (gridKeys(e)) this.keyDelete(); });
     // keyboard-only placement: arrows move the cursor, Enter places / picks up, Tab cycles bin parts
@@ -547,8 +548,10 @@ export class GameScene extends Phaser.Scene {
     this.setHint(this.replayLabel ? 'Watching a verified replay: 1/2/4× change the speed, Skip jumps to the round result, Esc stops and returns to the title.' : 'Running… Jams glow red: an item waits for a free cell or a slow machine.');
   }
   setPaused(p: boolean) { this.ctl.setPaused(p); }
+  /** One tick while paused (0.8.12): the Step button or the . key; the veil shows the new tick. */
+  stepTick() { if (this.ctl.stepTick()) { audio.resume(); return; } if (this.mode === 'paused') this.panel.showPauseVeil(true, this.sim?.tick ?? 0); }
   private onPause(paused: boolean) {
-    if (paused) { audio.suspend(); this.renderSide(); this.panel.showPauseVeil(true); }
+    if (paused) { audio.suspend(); this.renderSide(); this.panel.showPauseVeil(true, this.sim?.tick ?? 0); }
     else { audio.resume(); this.panel.clearGridLayer(); this.renderSide(); }
   }
   /** Complete the round instantly (authoritative result comes from the run orchestrator). */
