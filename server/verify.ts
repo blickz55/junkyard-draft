@@ -11,6 +11,9 @@
  *   commitment to the next week and the previous week; a Friday's daily carries weeklyCommitment for the weekly opening that evening.
  * - Discord (PLAN-v4 0.7.6): with DISCORD_WEBHOOK_URL the verifier posts one message when a daily or weekly opens, when an open event gets a new #1
  *   and when an event freezes (medal thresholds); one per event type per seed, 429 honoured, other failures logged and dropped, never awaited by a request.
+ * - Name moderation (PLAN-v4 0.7.7): POST /report { playerId | hash, reason } (bearer, fixed reasons, 5/min) hides the reported name as
+ *   "player" on every board until a moderator acts; GET /moderation/reports and POST /moderation/clear|rename|rename-group (X-Moderation-Token)
+ *   with one JSON line per action in moderation.jsonl; scores are never touched and a report is never a ban.
  * - Groups (PLAN-v4 0.7.2): POST /groups { name } (bearer, filtered name, 8-char code), POST /groups/join|leave|rename|disband, GET /groups;
  *   ?group=<code> on /board, /histogram, /daily and /archive (bearer of a member) scopes entries to members' player ids.
  * - GET  /entry?hash=…[&seed=…] → one verified entry's seed, score, label, per-round earnings, frozen flag and medals (PLAN-v4 0.7.1):
@@ -56,7 +59,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { playSeed } from '../tools/autoplay-lib';
@@ -78,7 +81,7 @@ export { medalThresholds, medalFor, MEDAL_PERCENTILES, MEDAL_MIN_N, type Medals 
 export { mintSeed, commitmentFor, shiftDate, utcDate, isUtcDate, DAILY_WINDOW_MS } from './mint';
 import { validateBatch, FUNNEL, type EventBatch, type EventName, type Props } from '../game/src/telemetry/events';
 import pkg from '../package.json' with { type: 'json' };
-import { tagFor, labelFor, normaliseName, nameProblem, TOKEN_HEX } from '../game/src/identity/identity';
+import { tagFor, labelFor, normaliseName, nameProblem, TOKEN_HEX, REPORT_REASONS, HIDDEN_LABEL, type ReportReason } from '../game/src/identity/identity';
 
 /** Protocol level of this server's HTTP surface (PLAN-v3 §1): 2 adds identity (bearer tokens, /identity, DELETE /me, keep-best per player). */
 export const PROTOCOL = 2;
@@ -124,10 +127,21 @@ export const MAX_ARCHIVE_LIMIT = 100;
 export interface Group { code: string; name: string; creatorId: string | null; createdAt: string; renamedAt: string; playerIds: string[] }
 export const MAX_GROUPS_PER_PLAYER = 5, MAX_GROUP_MEMBERS = 50, GROUP_CODE_LEN = 8, GROUP_RATE_LIMIT = 5;
 const GROUP_CODE = /^[a-z2-7]{8}$/;
+// name moderation (PLAN-v4 0.7.7)
+export { REPORT_REASONS, HIDDEN_LABEL, type ReportReason };
+/** reports per minute per player; reporters kept per target; how often a report may hide the same name before a moderator has to act first */
+export const REPORT_RATE_LIMIT = 5, MAX_REPORTERS_PER_TARGET = 50, MAX_HIDES_PER_NAME = 2;
+/** where a player appeals a moderation decision: a placeholder the operator replaces before hosting (PLAN-v4 0.7.7) */
+export const APPEAL_CONTACT = 'moderation@example.invalid';
+export interface Report { reporterId: string; reason: ReportReason; at: string }
+/** per reported player: the name as reported, whether it is hidden, how often a moderator cleared it, the open reports */
+export interface ModerationRecord { name: string; hidden: boolean; hiddenAt?: string; clears: number; reports: Report[] }
+/** Every field a player (or a moderator) writes that reaches storage. Each passes nameProblem; tests/verifier.test.ts pushes a blocked string through every one of them and counts the call sites, so a field added without its check fails the suite (PLAN-v4 §1). */
+export const USER_WRITTEN_FIELDS = ['display name (POST /identity)', 'group name (POST /groups)', 'group name (POST /groups/rename)', 'anonymous label (POST /verify player)', 'forced display name (POST /moderation/rename)', 'forced group name (POST /moderation/rename-group)'] as const;
 /** Defaults the policy page publishes (PLAN-v3 0.6.5); env/flags override the rate limits at runtime. */
 export const DEFAULT_RATE_LIMIT = 60, DEFAULT_PLAYER_RATE_LIMIT = 2, IDENTITY_RATE_LIMIT = 5, DEFAULT_EVENTS_RATE_LIMIT = 30;
 export const DEFAULT_REPLAYS_PER_SEED = 100, DEFAULT_MAX_ENTRIES_PER_SEED = 1000, DEFAULT_MAX_SEEDS = 5000, DEFAULT_EVENTS_RETENTION_DAYS = 30;
-export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay>; pars?: Record<string, BotPar>; players?: Record<string, Player>; dailies?: Record<string, DailyRecord>; groups?: Record<string, Group> }
+export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay>; pars?: Record<string, BotPar>; players?: Record<string, Player>; dailies?: Record<string, DailyRecord>; groups?: Record<string, Group>; moderation?: Record<string, ModerationRecord> }
 
 export const MAX_BODY_BYTES = 512 * 1024;
 const MAX_BODY = MAX_BODY_BYTES;
@@ -200,6 +214,8 @@ export interface VerifierOptions {
   dailySecret?: string;
   /** announcements (PLAN-v4 0.7.6): called when a daily or weekly opens, an open event gets a new #1, or an event freezes; must never throw into the caller (the verifier swallows) */
   announce?: (ev: AnnounceEvent) => void;
+  /** moderation audit file (PLAN-v4 0.7.7): one JSON line per report and moderator action; default moderation.jsonl next to the board; null disables */
+  auditFile?: string | null;
 }
 
 /** The one comparator (PLAN-v2 0.5.5): score desc, fewer final-round machines, earlier receipt, then the hash so the order is total. Boards, histogram ranks and neighbours, retention and the returned rank all use it. */
@@ -212,11 +228,13 @@ export class Verifier {
   readonly maxSeeds: number;
   private readonly dailySecret: string;
   private readonly announceFn: ((ev: AnnounceEvent) => void) | null;
+  private readonly auditFile: string | null;
   /** Closed dailies older than HOT_DAYS live here (PLAN-v4 0.7.0): read-only, final, loaded lazily. */
   readonly cold: ColdStore;
   constructor(private file: string, opts: VerifierOptions = {}) {
     this.dailySecret = opts.dailySecret || randomBytes(32).toString('hex');
     this.announceFn = opts.announce ?? null;
+    this.auditFile = opts.auditFile === undefined ? path.join(path.dirname(file), 'moderation.jsonl') : opts.auditFile;
     this.cold = new ColdStore(path.join(path.dirname(file), 'cold'));
     this.replaysPerSeed = opts.replaysPerSeed ?? DEFAULT_REPLAYS_PER_SEED;
     this.maxEntriesPerSeed = opts.maxEntriesPerSeed ?? DEFAULT_MAX_ENTRIES_PER_SEED;
@@ -252,9 +270,12 @@ export class Verifier {
     return day.entries.map((e) => {
       if (!e.playerId) return e;
       const p = this.data.players?.[e.playerId];
-      return p ? { ...e, player: labelFor(p.name, p.tag) } : { ...e, player: 'deleted', playerId: undefined };
+      return p ? { ...e, player: this.labelOf(e.playerId, p) } : { ...e, player: 'deleted', playerId: undefined };
     });
   }
+  /** The label shown for a claimed player: Name#TAG, or "player" while a report hides the name (PLAN-v4 0.7.7). */
+  private labelOf(playerId: string, p: Player = this.data.players![playerId]): string { return this.data.moderation?.[playerId]?.hidden ? HIDDEN_LABEL : labelFor(p.name, p.tag); }
+  private relabel(entries: BoardEntry[], playerId: string, label: string): BoardEntry[] { return entries.map((e) => (e.playerId === playerId ? { ...e, player: label } : e)); }
   /** The issued record for a date or week id from the hot board or cold storage, never minting (PLAN-v4 0.7.0). */
   private issuedRecord(key: string): DailyRecord | null { return this.data.dailies?.[key] ?? this.cold.day(key)?.record ?? null; }
   /** The record behind a minted seed of either kind; null for ordinary, practice or unissued seeds. */
@@ -417,9 +438,11 @@ export class Verifier {
     if (prev && prev.renamedAt) { const since = now.getTime() - new Date(prev.renamedAt).getTime(); if (since < RENAME_COOLDOWN_MS) return { ok: false, error: 'name was changed recently; try again later', retryAfterSec: Math.ceil((RENAME_COOLDOWN_MS - since) / 1000) }; }
     const rec: Player = { name, tag, createdAt: prev?.createdAt ?? now.toISOString(), renamedAt: now.toISOString() };
     const players = { ...(this.data.players ?? {}), [playerId]: rec };
-    const label = labelFor(name, tag);
-    const entries = this.data.entries.map((e) => (e.playerId === playerId ? { ...e, player: label } : e)); // a rename follows the player onto the boards
-    this.commit({ ...this.data, players, entries });
+    const mod = this.data.moderation?.[playerId]; let moderation = this.data.moderation;
+    if (mod && !mod.hidden && mod.name !== name) { moderation = { ...moderation }; delete moderation[playerId]; } // a new name starts clean once the old one was cleared; a hidden name stays hidden until a moderator acts (PLAN-v4 0.7.7)
+    const label = mod?.hidden ? HIDDEN_LABEL : labelFor(name, tag);
+    const entries = this.relabel(this.data.entries, playerId, label); // a rename follows the player onto the boards
+    this.commit({ ...this.data, players, entries, ...(moderation !== this.data.moderation ? { moderation } : {}) });
     return { ok: true, player: { playerId, ...rec } };
   }
   /** GDPR-minimal deletion: the name goes, the player's entries are anonymised and lose their replays, the id is forgotten. */
@@ -430,8 +453,80 @@ export class Verifier {
     const entries = this.data.entries.map((e) => (e.playerId === playerId ? { ...e, player: 'deleted', playerId: undefined } : e));
     const groups: Record<string, Group> = {}; // memberships go too (PLAN-v4 0.7.2); an emptied group disappears
     for (const g of Object.values(this.data.groups ?? {})) { const rest = g.playerIds.filter((p) => p !== playerId); if (rest.length) groups[g.code] = { ...g, playerIds: rest, creatorId: g.creatorId === playerId ? rest[0] : g.creatorId }; }
-    this.commit({ ...this.data, players, replays, entries, groups });
+    const moderation = { ...(this.data.moderation ?? {}) }; delete moderation[playerId];
+    this.commit({ ...this.data, players, replays, entries, groups, moderation });
     return { entries: mine.length };
+  }
+
+  // ---------- name moderation (PLAN-v4 0.7.7) ----------
+  /** A report target: a claimed player by id, or by the hash of one of their verified entries (hot, or a kept cold replay). */
+  private reportTarget(t: { playerId?: unknown; hash?: unknown }): { playerId: string } | { error: string; status: 404 | 422 } {
+    if (typeof t.hash === 'string' && t.hash) {
+      const hash = t.hash;
+      const e = this.data.entries.find((x) => x.replayHash === hash) ?? (() => { const d = this.cold.dateOfReplay(hash); const day = d ? this.cold.day(d) : null; return day?.entries.find((x) => x.replayHash === hash); })();
+      if (!e) return { error: 'no verified entry with that hash', status: 404 };
+      if (!e.playerId || !this.data.players?.[e.playerId]) return { error: 'anonymous entries cannot be reported', status: 422 };
+      return { playerId: e.playerId };
+    }
+    if (typeof t.playerId === 'string' && /^[0-9a-f]{64}$/.test(t.playerId)) return this.data.players?.[t.playerId] ? { playerId: t.playerId } : { error: 'no such player', status: 404 };
+    return { error: 'a report needs a playerId or a replay hash', status: 422 };
+  }
+  /** Report a name: hides it as HIDDEN_LABEL on every board until a moderator acts (at most MAX_HIDES_PER_NAME times per name); never touches scores; one report per reporter per target. */
+  report(reporterId: string, target: { playerId?: unknown; hash?: unknown }, reason: unknown, now = new Date()): { ok: true; playerId: string; hidden: boolean; duplicate: boolean } | { ok: false; error: string; status: 404 | 422 } {
+    if (!this.data.players?.[reporterId]) return { ok: false, error: 'claim a name before reporting', status: 422 };
+    if (typeof reason !== 'string' || !(REPORT_REASONS as readonly string[]).includes(reason)) return { ok: false, error: `reason must be one of ${REPORT_REASONS.join(', ')}`, status: 422 };
+    const t = this.reportTarget(target); if ('error' in t) return { ok: false, ...t };
+    if (t.playerId === reporterId) return { ok: false, error: 'you cannot report yourself', status: 422 };
+    const p = this.data.players[t.playerId]; const prev = this.data.moderation?.[t.playerId];
+    const rec: ModerationRecord = prev && (prev.hidden || prev.name === p.name) ? { ...prev, reports: [...prev.reports] } : { name: p.name, hidden: false, clears: 0, reports: [] };
+    if (rec.reports.some((r) => r.reporterId === reporterId)) return { ok: true, playerId: t.playerId, hidden: rec.hidden, duplicate: true };
+    if (rec.reports.length < MAX_REPORTERS_PER_TARGET) rec.reports.push({ reporterId, reason: reason as ReportReason, at: now.toISOString() });
+    const hide = !rec.hidden && rec.clears < MAX_HIDES_PER_NAME; if (hide) { rec.hidden = true; rec.hiddenAt = now.toISOString(); }
+    this.commit({ ...this.data, entries: hide ? this.relabel(this.data.entries, t.playerId, HIDDEN_LABEL) : this.data.entries, moderation: { ...(this.data.moderation ?? {}), [t.playerId]: rec } });
+    this.audit({ at: now.toISOString(), action: 'report', playerId: t.playerId, name: p.name, reason, by: reporterId, hidden: rec.hidden, reports: rec.reports.length });
+    return { ok: true, playerId: t.playerId, hidden: rec.hidden, duplicate: false };
+  }
+  hidden(playerId: string): boolean { return !!this.data.moderation?.[playerId]?.hidden; }
+  /** What the moderator sees: every player with a hidden name or open reports, oldest first, with the reported and the current name. */
+  reports(): (ModerationRecord & { playerId: string; tag: string; currentName: string | null })[] {
+    const at = (m: ModerationRecord) => m.hiddenAt ?? m.reports[0]?.at ?? '';
+    return Object.entries(this.data.moderation ?? {}).filter(([, m]) => m.hidden || m.reports.length).map(([playerId, m]) => ({ playerId, tag: tagFor(playerId), currentName: this.data.players?.[playerId]?.name ?? null, ...m })).sort((a, b) => at(a).localeCompare(at(b)));
+  }
+  /** Moderator: the name is fine. It shows again, the reports close, and after MAX_HIDES_PER_NAME clears a report no longer hides this name. */
+  clearReports(playerId: unknown, now = new Date()): { ok: true; playerId: string; name: string | null; clears: number } | { ok: false; error: string; status: 404 } {
+    const m = typeof playerId === 'string' ? this.data.moderation?.[playerId] : undefined;
+    if (!m || typeof playerId !== 'string' || (!m.hidden && !m.reports.length)) return { ok: false, error: 'no open reports for that player', status: 404 };
+    const p = this.data.players?.[playerId] ?? null;
+    const rec: ModerationRecord = { name: p?.name ?? m.name, hidden: false, clears: m.clears + 1, reports: [] };
+    this.commit({ ...this.data, entries: p ? this.relabel(this.data.entries, playerId, labelFor(p.name, p.tag)) : this.data.entries, moderation: { ...(this.data.moderation ?? {}), [playerId]: rec } });
+    this.audit({ at: now.toISOString(), action: 'clear', playerId, name: rec.name, by: 'moderator', clears: rec.clears, closed: m.reports.length });
+    return { ok: true, playerId, name: p?.name ?? null, clears: rec.clears };
+  }
+  /** Moderator: force a display name (filtered like any other). The player's rename cooldown restarts, the reports close, the record is dropped. */
+  forceRename(playerId: unknown, rawName: unknown, now = new Date()): { ok: true; player: Player & { playerId: string } } | { ok: false; error: string; status: 404 | 422 } {
+    const p = typeof playerId === 'string' ? this.data.players?.[playerId] : undefined;
+    if (!p || typeof playerId !== 'string') return { ok: false, error: 'no such player', status: 404 };
+    const problem = nameProblem(rawName); if (problem) return { ok: false, error: problem, status: 422 };
+    const name = normaliseName(rawName); const rec: Player = { ...p, name, renamedAt: now.toISOString() };
+    const moderation = { ...(this.data.moderation ?? {}) }; const closed = moderation[playerId]?.reports.length ?? 0; delete moderation[playerId];
+    this.commit({ ...this.data, players: { ...(this.data.players ?? {}), [playerId]: rec }, entries: this.relabel(this.data.entries, playerId, labelFor(name, p.tag)), moderation });
+    this.audit({ at: now.toISOString(), action: 'rename', playerId, from: p.name, to: name, by: 'moderator', closed });
+    return { ok: true, player: { playerId, ...rec } };
+  }
+  /** Moderator: force a group name (filtered like any other); the creator's rename cooldown restarts. */
+  forceRenameGroup(code: unknown, rawName: unknown, now = new Date()): { ok: true; group: { code: string; name: string } } | { ok: false; error: string; status: 404 | 422 } {
+    const g = typeof code === 'string' ? this.data.groups?.[code] : undefined;
+    if (!g) return { ok: false, error: 'no such group', status: 404 };
+    const problem = nameProblem(rawName); if (problem) return { ok: false, error: `group ${problem}`, status: 422 };
+    const name = normaliseName(rawName);
+    this.commit({ ...this.data, groups: { ...(this.data.groups ?? {}), [g.code]: { ...g, name, renamedAt: now.toISOString() } } });
+    this.audit({ at: now.toISOString(), action: 'rename-group', code: g.code, from: g.name, to: name, by: 'moderator' });
+    return { ok: true, group: { code: g.code, name } };
+  }
+  /** One JSON line per report and moderator action (best effort: a failed append is logged and never undoes the action). */
+  private audit(row: Record<string, unknown>) {
+    if (!this.auditFile) return;
+    try { fs.mkdirSync(path.dirname(this.auditFile), { recursive: true }); fs.appendFileSync(this.auditFile, JSON.stringify(row) + '\n'); } catch (e) { console.error(`moderation audit append failed: ${(e as Error).message}`); }
   }
 
   submit(replayText: string, player = 'anonymous', playerId: string | null = null, now = new Date()): { ok: boolean; score?: number; error?: string; entry?: BoardEntry; recorded?: boolean; player?: string; late?: boolean; closesAt?: string } {
@@ -447,7 +542,7 @@ export class Verifier {
       if (!rec) return { ok: false, error: `rejected: not an issued ${isWeeklySeed(replay.seed) ? 'weekly' : 'daily'} seed` };
     }
     const claimed = playerId ? this.data.players?.[playerId] : undefined;
-    const label = claimed ? labelFor(claimed.name, claimed.tag) : String(player).replace(/\s+/g, ' ').trim().slice(0, 32) || 'anonymous';
+    const anon = normaliseName(player); const label = claimed ? this.labelOf(playerId!, claimed) : anon && !nameProblem(anon) ? anon : 'anonymous'; // the anonymous label is a user-written field too: filtered, and dropped rather than refused (PLAN-v4 §1)
     if (isMintedDailySeed(replay.seed) || isWeeklySeed(replay.seed)) { // after the close the run is verified and told so, but the final board never changes (PLAN-v3 0.6.2)
       const rec = this.issuedRecordForSeed(replay.seed)!;
       if (now.getTime() >= Date.parse(rec.closesAt)) { this.observeFreeze(now); return { ok: true, score: v.score, late: true, recorded: false, closesAt: rec.closesAt, player: label }; }
@@ -479,7 +574,10 @@ export class Verifier {
   /** Stored replay of a verified, current-version entry (boards written before replay storage existed have none). */
   replay(hash: string): (StoredReplay & { hash: string }) | null {
     const r = this.data.replays?.[hash] ?? (() => { const d = this.cold.dateOfReplay(hash); return d ? this.cold.day(d)?.replays[hash] : undefined; })();
-    return r && r.rulesVersion === RULES_VERSION ? { hash, ...r } : null;
+    if (!r || r.rulesVersion !== RULES_VERSION) return null;
+    const hot = this.data.entries.find((x) => x.replayHash === hash); // the label follows renames and moderation (PLAN-v4 0.7.7), the stored replay keeps the label at verification
+    const player = hot ? (hot.playerId && this.data.players?.[hot.playerId] ? this.labelOf(hot.playerId) : hot.player) : (() => { const d = this.cold.dateOfReplay(hash); const day = d ? this.cold.day(d) : null; return day ? this.coldEntries(day.record.seed).find((x) => x.replayHash === hash)?.player : undefined; })();
+    return { hash, ...r, player: player ?? r.player };
   }
   /** A verified entry for a challenge link (PLAN-v4 0.7.1): earnings and standing, never actions. Hot first, then cold (by kept replay, or by seed when given). */
   entry(hash: string, seed?: string | null): { seed: string; score: number; player: string; rounds: number[] | null; replayHash: string; verifiedAt: string; rulesVersion: number; frozen: boolean; medals: Medals | null } | null {
@@ -487,7 +585,7 @@ export class Verifier {
     if (!e) { const date = this.cold.dateOfReplay(hash) ?? (seed ? this.cold.dateOfSeed(seed) : null); if (date) { const day = this.cold.day(date); const found = day?.entries.find((x) => x.replayHash === hash); if (found && day) e = this.coldEntries(day.record.seed).find((x) => x.replayHash === hash) ?? found; } }
     if (!e) return null;
     const rec = this.issuedRecordForSeed(e.seed);
-    const player = e.playerId && this.data.players?.[e.playerId] ? labelFor(this.data.players[e.playerId].name, this.data.players[e.playerId].tag) : e.player;
+    const player = e.playerId && this.data.players?.[e.playerId] ? this.labelOf(e.playerId) : e.player;
     return { seed: e.seed, score: e.score, player, rounds: e.rounds ?? null, replayHash: e.replayHash, verifiedAt: e.verifiedAt, rulesVersion: e.rulesVersion, frozen: !!rec?.frozenAt, medals: rec?.frozenAt ? rec.medals ?? null : null };
   }
   /** Why a replay is not served: 'compacted' when its entry is on a cold day below the kept top (PLAN-v4 0.7.0), else 'unknown'. */
@@ -680,6 +778,9 @@ export function loadBoard(text: string): Board {
     if (raw.groups && typeof raw.groups === 'object') for (const [code, g] of Object.entries(raw.groups as Record<string, Group>)) if (g && GROUP_CODE.test(code) && typeof g.name === 'string' && Array.isArray(g.playerIds)) groups[code] = { code, name: g.name, creatorId: typeof g.creatorId === 'string' ? g.creatorId : null, createdAt: typeof g.createdAt === 'string' ? g.createdAt : '', renamedAt: typeof g.renamedAt === 'string' ? g.renamedAt : '', playerIds: g.playerIds.filter((p): p is string => typeof p === 'string' && /^[0-9a-f]{64}$/.test(p)) };
     if (Object.keys(dailies).length) out.dailies = dailies;
     if (Object.keys(groups).length) out.groups = groups;
+    const moderation: Record<string, ModerationRecord> = {};
+    if (raw.moderation && typeof raw.moderation === 'object') for (const [id, m] of Object.entries(raw.moderation as Record<string, ModerationRecord>)) if (m && /^[0-9a-f]{64}$/.test(id) && typeof m.name === 'string') moderation[id] = { name: m.name, hidden: !!m.hidden, ...(typeof m.hiddenAt === 'string' ? { hiddenAt: m.hiddenAt } : {}), clears: Number.isInteger(m.clears) ? m.clears : 0, reports: Array.isArray(m.reports) ? m.reports.filter((r) => r && typeof r.reporterId === 'string' && typeof r.reason === 'string' && typeof r.at === 'string') : [] };
+    if (Object.keys(moderation).length) out.moderation = moderation;
     return out;
   } catch { return { entries: [] }; }
 }
@@ -749,6 +850,8 @@ export class RateLimiter {
 export interface ServerOptions {
   /** announcement counters for /health (PLAN-v4 0.7.6) */
   announcer?: Announcer | null;
+  /** moderator token (PLAN-v4 0.7.7): X-Moderation-Token on /moderation/*; null or empty leaves those endpoints answering 403 */
+  moderationToken?: string | null;
   /** POST /verify limit per client IP per window (default 60 per 60 s); null disables */
   rateLimit?: { limit: number; windowMs: number } | null;
   /** honour X-Forwarded-For (only behind a proxy you control) */
@@ -782,6 +885,8 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const prl = new RateLimiter(opts.playerRateLimit ?? DEFAULT_PLAYER_RATE_LIMIT, 60_000, opts.now); // per-player submissions (PLAN-v3 §1 abuse baseline)
   const irl = new RateLimiter(IDENTITY_RATE_LIMIT, 60_000, opts.now); // per-player identity calls
   const grl = new RateLimiter(GROUP_RATE_LIMIT, 60_000, opts.now); // per-player group calls (PLAN-v4 0.7.2)
+  const rrl = new RateLimiter(REPORT_RATE_LIMIT, 60_000, opts.now); // per-player reports (PLAN-v4 0.7.7)
+  const modToken = opts.moderationToken || null;
   const MAX_EVENTS_BODY = 64 * 1024;
   const corsOrigin = opts.corsOrigin ?? '*';
   const log = opts.log === null ? null : opts.log ?? ((l: string) => console.log(l));
@@ -850,7 +955,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       // identity (PLAN-v3 0.6.0): the bearer is a device token; only its hash is used or stored
       const bearerId = playerIdFromToken(bearerOf(req));
       if (req.headers.authorization && !bearerId) return json(401, { ok: false, error: 'bad token' });
-      if (url.pathname === '/identity' && req.method === 'GET') { if (!bearerId) return json(401, { ok: false, error: 'token required' }); const p = verifier.player(bearerId); return p ? json(200, { ok: true, ...p }) : json(404, { ok: false, error: 'no name claimed for this token', playerId: bearerId, tag: tagFor(bearerId) }); }
+      if (url.pathname === '/identity' && req.method === 'GET') { if (!bearerId) return json(401, { ok: false, error: 'token required' }); const p = verifier.player(bearerId); return p ? json(200, { ok: true, ...p, ...(verifier.hidden(bearerId) ? { hidden: true, hiddenLabel: HIDDEN_LABEL } : {}) }) : json(404, { ok: false, error: 'no name claimed for this token', playerId: bearerId, tag: tagFor(bearerId) }); }
       if (url.pathname === '/identity' && req.method === 'POST') {
         if (!bearerId) { req.resume(); return json(401, { ok: false, error: 'token required' }); }
         const r = irl.take(bearerId); if (!r.ok) { req.resume(); return json(429, { ok: false, error: 'rate limited' }, { 'Retry-After': String(r.retryAfterSec) }); }
@@ -892,6 +997,44 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         if (!bearerId) return json(401, { ok: false, error: 'token required' });
         try { const r = verifier.deletePlayer(bearerId); return json(200, { ok: true, anonymisedEntries: r.entries }); }
         catch (e) { if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable; try again' }, { 'Retry-After': '5' }); return json(500, { ok: false, error: 'internal error' }); }
+      }
+      if (req.method === 'POST' && url.pathname === '/report') { // name moderation (PLAN-v4 0.7.7)
+        if (!bearerId) { req.resume(); return json(401, { ok: false, error: 'token required' }); }
+        const r = rrl.take(bearerId); if (!r.ok) { req.resume(); return json(429, { ok: false, error: 'rate limited' }, { 'Retry-After': String(r.retryAfterSec) }); }
+        let body = '';
+        req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
+        req.on('end', () => guarded(() => {
+          if (res.writableEnded) return;
+          type ReportBody = { playerId?: unknown; hash?: unknown; reason?: unknown }; let parsed: ReportBody | null = null;
+          try { parsed = JSON.parse(body || '{}') as ReportBody | null; } catch { return json(400, { ok: false, error: 'bad request' }); }
+          if (!parsed || typeof parsed !== 'object') return json(400, { ok: false, error: 'bad request' });
+          try { const out = verifier.report(bearerId, parsed, parsed.reason, new Date((opts.now ?? Date.now)())); if (!out.ok) return json(out.status, { ok: false, error: out.error }); json(200, out); }
+          catch (e) { if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable; try again' }, { 'Retry-After': '5' }); json(500, { ok: false, error: 'internal error' }); }
+        }));
+        return;
+      }
+      if (url.pathname.startsWith('/moderation/')) { // moderator endpoints (PLAN-v4 0.7.7): X-Moderation-Token, never a player bearer
+        if (!modToken) { req.resume(); return json(403, { ok: false, error: 'moderation is not enabled on this verifier (set MODERATION_TOKEN)' }); }
+        const given = req.headers['x-moderation-token']; const t = Buffer.from(Array.isArray(given) ? given[0] ?? '' : given ?? ''), want = Buffer.from(modToken);
+        if (t.length !== want.length || !timingSafeEqual(t, want)) { req.resume(); return json(401, { ok: false, error: 'bad moderation token' }); }
+        if (req.method === 'GET' && url.pathname === '/moderation/reports') return json(200, { ok: true, reports: verifier.reports(), reasons: REPORT_REASONS, hiddenLabel: HIDDEN_LABEL, maxHidesPerName: MAX_HIDES_PER_NAME });
+        const action = url.pathname.slice('/moderation/'.length);
+        if (req.method !== 'POST' || !['clear', 'rename', 'rename-group'].includes(action)) { req.resume(); return json(404, { ok: false, error: 'not found' }); }
+        let body = '';
+        req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
+        req.on('end', () => guarded(() => {
+          if (res.writableEnded) return;
+          type ModBody = { playerId?: unknown; code?: unknown; name?: unknown }; let parsed: ModBody | null = null;
+          try { parsed = JSON.parse(body || '{}') as ModBody | null; } catch { return json(400, { ok: false, error: 'bad request' }); }
+          if (!parsed || typeof parsed !== 'object') return json(400, { ok: false, error: 'bad request' });
+          try {
+            const now = new Date((opts.now ?? Date.now)());
+            const out = action === 'clear' ? verifier.clearReports(parsed.playerId, now) : action === 'rename' ? verifier.forceRename(parsed.playerId, parsed.name, now) : verifier.forceRenameGroup(parsed.code, parsed.name, now);
+            if (!out.ok) return json(out.status, { ok: false, error: out.error });
+            json(200, out);
+          } catch (e) { if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable; try again' }, { 'Retry-After': '5' }); json(500, { ok: false, error: 'internal error' }); }
+        }));
+        return;
       }
       if (req.method === 'POST' && url.pathname === '/verify') {
         if (rl) { const r = rl.take(ip); if (!r.ok) { req.resume(); return json(429, { ok: false, error: `rate limited: ${rl.limit} submissions per ${rl.windowMs / 1000}s` }, { 'Retry-After': String(r.retryAfterSec) }); } }
@@ -966,11 +1109,15 @@ if (isMain) {
   const webhookUrl = flag('discord-webhook') || process.env.DISCORD_WEBHOOK_URL || null; const dryRun = args.includes('--discord-dry-run') || process.env.DISCORD_DRY_RUN === '1';
   const announcer = new Announcer({ url: webhookUrl, dryRun });
   if (announcer.enabled) console.log(`discord announcements ${dryRun ? 'in dry run (printed, not posted)' : 'on'}: seed openings, new #1 on open events, freezes with medals`);
-  const verifier = new Verifier(file, { dailySecret, announce: (ev) => announcer.announce(ev) });
+  // name moderation (PLAN-v4 0.7.7): MODERATION_TOKEN / --moderation-token enables /moderation/*; the audit log sits next to the board (MODERATION_FILE overrides)
+  const moderationToken = flag('moderation-token') || process.env.MODERATION_TOKEN || null;
+  const auditFile = process.env.MODERATION_FILE || path.join(path.dirname(file), 'moderation.jsonl');
+  console.log(`moderation: POST /report on; moderator endpoints ${moderationToken ? 'on (X-Moderation-Token)' : 'off (set MODERATION_TOKEN)'}; audit ${auditFile}`);
+  const verifier = new Verifier(file, { dailySecret, announce: (ev) => announcer.announce(ev), auditFile });
   // cold storage (PLAN-v4 0.7.0): closed dailies older than HOT_DAYS leave the hot board at startup and once an hour
   try { const { moved } = verifier.splitCold(new Date()); if (moved.length) console.log(`cold: moved ${moved.length} closed day(s) to ${path.join(path.dirname(file), 'cold')}`); } catch (e) { console.error(`cold split failed: ${(e as Error).message}`); }
   setInterval(() => { try { verifier.splitCold(new Date()); } catch { /* next hour */ } }, 3_600_000).unref();
   const par = process.env.BOT_PAR === '0' ? null : new ParService(verifier, (s) => computeParInWorker(s, Number(process.env.BOT_PAR_CAP_MS || 20_000)));
-  createServer(verifier, { rateLimit: { limit, windowMs: 60_000 }, playerRateLimit, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events, par, announcer })
+  createServer(verifier, { rateLimit: { limit, windowMs: 60_000 }, playerRateLimit, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events, par, announcer, moderationToken })
     .listen(port, host, () => console.log(`replay verifier v${VERSION} → http://${host}:${port}/  (board: ${file}, events: ${events.file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, ${playerRateLimit}/min/player, CORS ${corsOrigin}${trustProxy ? ', trusting X-Forwarded-For' : ''})`));
 }

@@ -18,7 +18,9 @@ import { DIR_DX, DIR_DY, MACHINE_INFO, RULES } from '../../sim/rules';
 import type { Machine, Material, SimEvent } from '../../sim/types';
 import { BELT_FRAMES, CELL, itemTexture, machineTexture } from '../textures';
 import { baseScale, fit, setArt } from '../atlas';
-import { ui } from '../../ui/dom';
+import { ui, dialog, alertText } from '../../ui/dom';
+import { reportName } from '../verified';
+import { REPORT_REASONS } from '../../identity/identity';
 import { label, panel } from '../ui';
 import { CSS, FONT, P } from '../palette';
 import { audio } from '../audio';
@@ -44,6 +46,13 @@ export class GameScene extends Phaser.Scene {
     if (!o || n < 1 || n >= RULES.rounds) return;
     audio.unlock();
     this.scene.start('Game', { seed: this.run.seed, fresh: false, fork: { origin: { hash: o.hash, player: o.player }, actions: o.actions, round: n } });
+  }
+  /** Report the watched replay's player name (PLAN-v4 0.7.7): one reason from the fixed list, no free text. */
+  private reportName() {
+    const hash = this.replayOrigin?.hash; if (!hash) return;
+    const verifierUrl = new URLSearchParams(location.search).get('verifier') || import.meta.env.VERIFIER_URL;
+    void dialog(this, { title: `Report ${this.replayOrigin!.player}`, label: 'Why? The name is hidden as "player" on every board until a moderator reviews it. Scores are never affected. Pick one:', value: '', readonly: true, ok: 'Close', cancel: null,
+      extra: REPORT_REASONS.map((reason) => ({ label: reason, tid: `report-${reason}`, onClick: () => { void reportName(verifierUrl, hash, reason).then((line) => alertText(this, 'Report', line)); } })) });
   }
   private get replayRounds() { return this.ctl.replayRounds; }
   private lastFrame = 0;
@@ -152,6 +161,7 @@ export class GameScene extends Phaser.Scene {
       nextRound: () => this.nextRound(), toTitle: () => this.scene.start('Title'), toggleMute: () => { audio.setMuted(!audio.muted); return audio.muted; },
       reroll: () => { if (this.replayQueue) return; if (this.act({ t: 'reroll' })) { audio.lockIn(); if (!this.replayLabel) telemetry.track('reroll_used', { n: this.run.round }); this.renderSide(); } },
       forkHere: () => this.forkHere(),
+      ...(this.replayOrigin?.hash ? { reportName: () => this.reportName() } : {}),
     }, this.run.seed, this.replayLabel, audio.muted, this.run.forkedFrom ? forkLabelOf(this.run.forkedFrom) : null);
     this.tips = new TipsPanel(this, () => this.renderSide());
     this.suggestedTip = null;

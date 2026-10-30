@@ -40,12 +40,12 @@ export function clearClaimed() { const id = loadIdentity(); write({ ...id, name:
 export const bearerAllowed = (verifierUrl: string): boolean => /^https:\/\//i.test(verifierUrl) || /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(verifierUrl);
 export const authHeaders = (verifierUrl: string): Record<string, string> => (bearerAllowed(verifierUrl) ? { Authorization: `Bearer ${loadIdentity().token}` } : {});
 /** GET /identity: the name this token has claimed, or null (none, offline, refused). Caches a found claim. */
-export async function fetchClaimed(verifierUrl: string): Promise<{ name: string; tag: string } | null> {
+export async function fetchClaimed(verifierUrl: string): Promise<{ name: string; tag: string; hidden: boolean } | null> {
   try {
     const res = await fetch(`${verifierUrl}/identity`, { headers: authHeaders(verifierUrl) });
-    const body = await res.json() as { ok: boolean; name?: string; tag?: string; playerId?: string };
+    const body = await res.json() as { ok: boolean; name?: string; tag?: string; playerId?: string; hidden?: boolean };
     if (!res.ok || !body.ok || !body.name || !body.tag) { if (res.status === 404) clearClaimed(); return null; }
-    setClaimed(body.name, body.tag, body.playerId); return { name: body.name, tag: body.tag };
+    setClaimed(body.name, body.tag, body.playerId); return { name: body.name, tag: body.tag, hidden: body.hidden === true }; // hidden: reported, pending review (PLAN-v4 0.7.7)
   } catch { return null; }
 }
 export const recoveryCode = (): string => recoveryCodeFor(loadIdentity().token);

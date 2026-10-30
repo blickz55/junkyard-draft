@@ -13,6 +13,8 @@ import { MAX_SEED_LENGTH, sanitizeSeed, TUTORIAL_SEED } from '../sim/run';
 import { decodeReplay, verifyReplay } from '../sim/replay';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { identityDialog, playerLabel } from './identityDialog';
+import { loadIdentity, fetchClaimed, bearerAllowed } from '../render/identity';
+import { HIDDEN_LABEL } from '../identity/identity';
 import { acceptDaily, cachedDaily, fetchDaily, practiceSeed, todaySeed, revealGate, fetchWeekly } from '../render/daily';
 import { openArchive } from './ArchivePanel';
 import { openPolicy } from './PolicyPanel';
@@ -31,6 +33,10 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const verifierUrl = new URLSearchParams(location.search).get('verifier') || import.meta.env.VERIFIER_URL;
   const playerBtn = btn(playerLabel(), 'player', () => { void identityDialog(scene, verifierUrl, (note) => { playerBtn.textContent = playerLabel(); if (note) { playerNote.textContent = note; playerNote.style.display = ''; playerNote.dataset.testid = 'player-note'; } }); }, { small: true });
   const playerNote = h('div', { class: 'jd-mono jd-dim', style: 'font-size:0.6em; text-align:right; margin-top:-0.3em; display:none' }, ''); // shown (and given its test id) only after the identity dialog reports an outcome: the layout tests measure every [data-testid] against the overlay
+  if (loadIdentity().name && bearerAllowed(verifierUrl)) void fetchClaimed(verifierUrl).then((c) => { // the verifier's view of this player: a moderator's rename follows onto the button, a report shows its note (PLAN-v4 0.7.7)
+    playerBtn.textContent = playerLabel();
+    if (c?.hidden) { playerNote.textContent = `Your name was reported and shows as "${HIDDEN_LABEL}" on the boards until a moderator reviews it. Scores are not affected; appeals: see the fairness policy.`; playerNote.style.display = ''; playerNote.dataset.testid = 'player-note'; }
+  });
   const quality = loadSettings().renderQuality;
   const qualityLabel = quality === 'low' ? 'Resolution: Standard' : quality === 'high' ? 'Resolution: High' : `Resolution: Auto (${DPR}×)`;
   const qualityBtn = btn(qualityLabel, 'quality', () => { telemetry.track('settings_changed', { key: 'renderQuality' }); updateSettings({ renderQuality: quality === 'low' ? 'high' : 'low' }); location.reload(); }, { small: true, title: 'High = device pixel ratio (crisper), Standard = 1× (smoother on weak machines); applies on reload' });

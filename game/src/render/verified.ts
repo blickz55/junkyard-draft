@@ -5,6 +5,7 @@ import Phaser from 'phaser';
 import { REPLAY_FORMAT, validateReplayFile, verifyReplay } from '../sim/replay';
 import { authHeaders } from './identity';
 import type { Action } from '../sim/run';
+import type { ReportReason } from '../identity/identity';
 
 export interface VerifiedReplay { hash: string; seed: string; player: string; score: number; rulesVersion: number; actions: Action[]; verifiedAt: string }
 
@@ -22,6 +23,17 @@ export async function fetchVerifiedReplay(url: string, hash: string, seed?: stri
   return { hash, seed: file.seed, player, score: file.claimedScore, rulesVersion: file.rulesVersion, actions: file.actions, verifiedAt: file.createdAt };
 }
 
+/** Report the name behind a verified replay (PLAN-v4 0.7.7): the verifier hides it as "player" pending review. Resolves with one line for the player. */
+export async function reportName(url: string, hash: string, reason: ReportReason): Promise<string> {
+  try {
+    const res = await fetch(`${url}/report`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders(url) }, body: JSON.stringify({ hash, reason }) });
+    const body = await res.json() as { ok: boolean; hidden?: boolean; duplicate?: boolean; error?: string };
+    if (res.status === 401) return 'Reporting needs your player key: this verifier is not https, so it was not sent.';
+    if (!res.ok || !body.ok) return `The verifier did not take the report: ${body.error ?? res.status}.`;
+    if (body.duplicate) return 'You already reported this player; a moderator will review it.';
+    return body.hidden ? 'Reported. The name shows as "player" on every board until a moderator reviews it; scores are not affected.' : 'Reported for review. The name stays visible: it was already cleared twice.';
+  } catch { return 'The verifier did not answer; the report was not sent.'; }
+}
 export const replayLabel = (r: Pick<VerifiedReplay, 'player' | 'score'>) => `verified replay by ${r.player} ($${r.score})`;
 
 /** Start playback. Playback never records bests or submits (the Game/Results scenes check `replay`). */

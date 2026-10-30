@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Verifier, createServer, RateLimiter, clientIp, clampInt, replayId, loadBoard, StorageError, EventStore, histogramOf, niceStep, computeParSync, computeParInWorker, ParService, finalMachinesOf, TIE_BREAK, playerIdFromToken, RENAME_COOLDOWN_MS, roundsOf, type Board, type BoardEntry } from '../server/verify';
-import { tagFor } from '../game/src/identity/identity';
+import { tagFor, nameProblem } from '../game/src/identity/identity';
 import { build as esbuild } from 'esbuild';
 import net from 'node:net';
 import { createHash } from 'node:crypto';
@@ -1100,4 +1100,140 @@ test('discord webhook: seed openings, a new #1 and freezes post once each with a
     release(); await slow.idle(); assert.deepEqual(slow.stats, { posted: 2, dropped: 0, deduped: 0, retried: 0 }, 'the opening and the new #1 both went out afterwards');
     const h = await (await fetch(`${base}/health`)).json() as { discord?: { posted: number } }; assert.equal(h.discord?.posted, 2);
   } finally { close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ---- name moderation (PLAN-v4 0.7.7) ----
+test('name moderation: a report hides the name as "player" on every board, /entry and /replay (hot and cold); one report per reporter; a rename does not lift it; clear restores; after two clears a report no longer hides; a forced rename follows the player everywhere and restarts the cooldown; deletion drops the record; one audit row per action; HTTP guards and the moderator token', async () => {
+  const { REPORT_REASONS, HIDDEN_LABEL, MAX_HIDES_PER_NAME, REPORT_RATE_LIMIT } = await import('../server/verify');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-mod-')); const file = path.join(dir, 'board.json'); const audit = path.join(dir, 'moderation.jsonl');
+  const t0 = new Date('2030-03-12T10:00:00Z');
+  const v = new Verifier(file, { dailySecret: 'mod-secret' });
+  const tok = (c: string) => c.repeat(32); const [rep, tgt, third, unnamed] = ['a', 'b', 'c', 'd'].map((c) => playerIdFromToken(tok(c))!);
+  assert.ok(v.claim(rep, 'Reporter', t0).ok && v.claim(tgt, 'Rude Name', t0).ok && v.claim(third, 'Third', t0).ok);
+  const tag = tagFor(tgt); const label = `Rude Name#${tag}`;
+  const sub = (seed: string, pid: string | null, when = t0) => { const r = v.submit(JSON.stringify(exportReplay(finishedRun(seed))), 'anon label', pid, when); assert.ok(r.ok && r.recorded, JSON.stringify(r)); return r.entry!; };
+  // the target's entries: an ordinary seed, today's daily (hot) and a day old enough to go cold
+  const e1 = sub('mod-seed', tgt);
+  const today = v.dailyRecord('2030-03-12', t0)!; sub(today.seed, tgt);
+  const oldRec = v.dailyRecord('2030-01-10', new Date('2030-01-10T10:00:00Z'))!; const e3 = sub(oldRec.seed, tgt, new Date('2030-01-10T11:00:00Z'));
+  assert.ok(v.splitCold(t0).moved.includes('2030-01-10')); assert.equal(v.board(oldRec.seed)[0].player, label, 'a cold entry resolves its label');
+  const anonEntry = v.submit(JSON.stringify(exportReplay(twistRun('mod-seed'))), 'anon label', null, t0).entry!;
+  const where = (x: Verifier) => [x.board('mod-seed').find((e) => e.replayHash === e1.replayHash)!.player, x.daily(10, t0)!.entries[0].player, x.board(oldRec.seed)[0].player, x.entry(e1.replayHash)!.player, x.replay(e1.replayHash)!.player, x.replay(e3.replayHash)!.player, x.archive({}, t0).days.find((d) => d.date === '2030-01-10')!.top[0].player];
+  assert.deepEqual(where(v), Array(7).fill(label));
+  // refusals: reporter without a name, reason off the list, anonymous target, unknown targets, self
+  assert.deepEqual(v.report(unnamed, { playerId: tgt }, 'spam', t0), { ok: false, error: 'claim a name before reporting', status: 422 });
+  assert.deepEqual(REPORT_REASONS, ['offensive', 'impersonation', 'personal-info', 'spam', 'other']);
+  assert.equal((v.report(rep, { playerId: tgt }, 'because', t0) as { error: string }).error, `reason must be one of ${REPORT_REASONS.join(', ')}`);
+  assert.deepEqual(v.report(rep, { hash: anonEntry.replayHash }, 'spam', t0), { ok: false, error: 'anonymous entries cannot be reported', status: 422 });
+  assert.equal((v.report(rep, { hash: 'nope' }, 'spam', t0) as { status: number }).status, 404);
+  assert.equal((v.report(rep, { playerId: 'f'.repeat(64) }, 'spam', t0) as { status: number }).status, 404);
+  assert.equal((v.report(rep, {}, 'spam', t0) as { status: number }).status, 422);
+  assert.equal((v.report(rep, { playerId: rep }, 'spam', t0) as { error: string }).error, 'you cannot report yourself');
+  assert.equal(fs.existsSync(audit), false, 'refusals write no audit row');
+  // a report by hash hides the name everywhere; nothing else moves
+  assert.deepEqual(v.report(rep, { hash: e1.replayHash }, 'offensive', t0), { ok: true, playerId: tgt, hidden: true, duplicate: false });
+  assert.equal(v.hidden(tgt), true); assert.equal(HIDDEN_LABEL, 'player');
+  assert.deepEqual(where(v), Array(7).fill(HIDDEN_LABEL), 'hot board, daily, cold board, /entry, hot and cold replay, archive');
+  assert.equal(v.board('mod-seed').find((e) => e.replayHash === anonEntry.replayHash)!.player, 'anon label', 'other entries untouched');
+  assert.equal(v.board('mod-seed').find((e) => e.replayHash === e1.replayHash)!.score, e1.score, 'scores never change');
+  assert.equal(v.player(tgt)!.name, 'Rude Name', 'the record keeps the name; only its display is hidden');
+  // one report per reporter; a second reporter counts; the moderator's list
+  assert.deepEqual(v.report(rep, { playerId: tgt }, 'spam', t0), { ok: true, playerId: tgt, hidden: true, duplicate: true });
+  assert.deepEqual(v.report(third, { playerId: tgt }, 'impersonation', new Date(t0.getTime() + 1000)), { ok: true, playerId: tgt, hidden: true, duplicate: false });
+  const list = v.reports(); assert.equal(list.length, 1);
+  assert.deepEqual([list[0].playerId, list[0].name, list[0].currentName, list[0].tag, list[0].hidden, list[0].hiddenAt, list[0].clears], [tgt, 'Rude Name', 'Rude Name', tag, true, t0.toISOString(), 0]);
+  assert.deepEqual(list[0].reports.map((r) => [r.reporterId, r.reason]), [[rep, 'offensive'], [third, 'impersonation']]);
+  // the player renames while hidden: still hidden, the moderator sees both names; the hide survives a restart
+  const t1 = new Date(t0.getTime() + RENAME_COOLDOWN_MS + 1);
+  assert.ok(v.claim(tgt, 'Nicer', t1).ok); assert.equal(v.board('mod-seed').find((e) => e.replayHash === e1.replayHash)!.player, HIDDEN_LABEL, 'a rename does not lift a hide'); assert.equal(v.reports()[0].currentName, 'Nicer');
+  const again = new Verifier(file, { dailySecret: 'mod-secret' }); assert.equal(again.hidden(tgt), true); assert.equal(again.board('mod-seed').find((e) => e.replayHash === e1.replayHash)!.player, HIDDEN_LABEL);
+  // clear: shown again under the current name, reports closed, clears 1; nothing left to clear
+  assert.deepEqual(again.clearReports(tgt, t1), { ok: true, playerId: tgt, name: 'Nicer', clears: 1 });
+  assert.equal((again.clearReports(tgt, t1) as { status: number }).status, 404);
+  assert.deepEqual([again.board('mod-seed').find((e) => e.replayHash === e1.replayHash)!.player, again.board(oldRec.seed)[0].player, again.entry(e1.replayHash)!.player, again.replay(e3.replayHash)!.player], Array(4).fill(`Nicer#${tag}`));
+  assert.deepEqual(again.reports(), []);
+  // re-reported once more: hidden again; cleared again: clears 2; a third report is recorded but no longer hides
+  assert.equal((again.report(rep, { playerId: tgt }, 'other', t1) as { hidden: boolean }).hidden, true);
+  assert.equal(again.clearReports(tgt, t1).ok, true);
+  assert.deepEqual(again.report(third, { playerId: tgt }, 'spam', t1), { ok: true, playerId: tgt, hidden: false, duplicate: false });
+  assert.equal(again.board('mod-seed').find((e) => e.replayHash === e1.replayHash)!.player, `Nicer#${tag}`, `after ${MAX_HIDES_PER_NAME} clears a report no longer hides the name`);
+  assert.equal(again.reports()[0].reports.length, 1); assert.equal(again.reports()[0].clears, 2);
+  // a new name after a clear starts clean (the record goes with the rename) and can be hidden again
+  const t2 = new Date(t1.getTime() + RENAME_COOLDOWN_MS + 1);
+  assert.ok(again.claim(tgt, 'Newest', t2).ok); assert.deepEqual(again.reports(), []);
+  assert.equal((again.report(rep, { playerId: tgt }, 'offensive', t2) as { hidden: boolean }).hidden, true);
+  // forced rename: filtered, follows the player onto every board, drops the record, restarts the cooldown
+  assert.equal((again.forceRename(tgt, 'adm1n', t2) as { status: number }).status, 422);
+  assert.equal((again.forceRename('f'.repeat(64), 'Fine', t2) as { status: number }).status, 404);
+  const forced = again.forceRename(tgt, 'Player 1234', t2); assert.ok(forced.ok); if (forced.ok) { assert.equal(forced.player.name, 'Player 1234'); assert.equal(forced.player.tag, tag); }
+  assert.deepEqual([again.board('mod-seed').find((e) => e.replayHash === e1.replayHash)!.player, again.board(oldRec.seed)[0].player, again.daily(10, t2, '2030-03-12')!.entries[0].player, again.replay(e3.replayHash)!.player], Array(4).fill(`Player 1234#${tag}`)); // t2 is two days on: the 12th is final by then, still relabelled
+  assert.equal(again.hidden(tgt), false); assert.deepEqual(again.reports(), []);
+  const own = again.claim(tgt, 'Rude Again', new Date(t2.getTime() + 60_000)); assert.equal(own.ok, false); if (!own.ok) assert.match(own.error, /recently/);
+  // forced group rename, filtered too
+  const g = again.createGroup(rep, 'Lunch Crew', t2); assert.ok(g.ok); const code = g.ok ? g.group.code : '';
+  assert.equal((again.forceRenameGroup(code, 'adm1n', t2) as { status: number }).status, 422); assert.equal((again.forceRenameGroup('zzzzzzzz', 'x', t2) as { status: number }).status, 404);
+  assert.deepEqual(again.forceRenameGroup(code, 'Lunch Club', t2), { ok: true, group: { code, name: 'Lunch Club' } }); assert.equal(again.group(code)!.name, 'Lunch Club');
+  // deletion drops the record
+  assert.equal((again.report(rep, { playerId: third }, 'spam', t2) as { hidden: boolean }).hidden, true); again.deletePlayer(third); assert.equal(again.hidden(third), false); assert.deepEqual(again.reports(), []);
+  // the audit file: one row per report and moderator action, in order, nothing for refusals or duplicates
+  const rows = fs.readFileSync(audit, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as Record<string, unknown>);
+  assert.deepEqual(rows.map((r) => r.action), ['report', 'report', 'clear', 'report', 'clear', 'report', 'report', 'rename', 'rename-group', 'report']);
+  assert.deepEqual(rows[0], { at: t0.toISOString(), action: 'report', playerId: tgt, name: 'Rude Name', reason: 'offensive', by: rep, hidden: true, reports: 1 });
+  assert.deepEqual(rows[2], { at: t1.toISOString(), action: 'clear', playerId: tgt, name: 'Nicer', by: 'moderator', clears: 1, closed: 2 });
+  assert.deepEqual(rows[7], { at: t2.toISOString(), action: 'rename', playerId: tgt, from: 'Newest', to: 'Player 1234', by: 'moderator', closed: 1 });
+  assert.deepEqual(rows[8], { at: t2.toISOString(), action: 'rename-group', code, from: 'Lunch Crew', to: 'Lunch Club', by: 'moderator' });
+  // HTTP: a bearer and the per-player bucket on /report; the reported player is told; moderator endpoints 403 when off, 401 on a wrong or a player token, 200 with the token
+  const srv = await listen(again, { rateLimit: null, now: () => t2.getTime(), moderationToken: 'mod-token' });
+  const call = async (method: string, p: string, headers: Record<string, string>, body?: unknown) => { const r = await fetch(`${srv.base}${p}`, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: body === undefined ? undefined : JSON.stringify(body) }); return { status: r.status, json: await r.json() as Record<string, unknown> }; };
+  const bear = (c: string) => ({ Authorization: `Bearer ${tok(c)}` });
+  try {
+    assert.equal((await call('POST', '/report', {}, { playerId: tgt, reason: 'spam' })).status, 401);
+    assert.equal((await call('POST', '/identity', bear('e'), { name: 'Eve' })).status, 200);
+    const r1 = await call('POST', '/report', bear('e'), { playerId: tgt, reason: 'spam' }); assert.equal(r1.status, 200); assert.equal(r1.json.hidden, true);
+    const me = await call('GET', '/identity', bear('b')); assert.equal(me.json.hidden, true); assert.equal(me.json.hiddenLabel, HIDDEN_LABEL); assert.equal(me.json.name, 'Player 1234', 'the player is told, and keeps their name');
+    assert.equal((await call('POST', '/report', bear('e'), { playerId: tgt, reason: 'nope' })).status, 422);
+    assert.equal((await call('POST', '/report', bear('e'), { hash: 'nope', reason: 'spam' })).status, 404);
+    for (let i = 0; i < REPORT_RATE_LIMIT - 3; i++) assert.equal((await call('POST', '/report', bear('e'), { playerId: tgt, reason: 'spam' })).status, 200);
+    const limited = await call('POST', '/report', bear('e'), { playerId: tgt, reason: 'spam' }); assert.equal(limited.status, 429, 'every call counts against the bucket, duplicates and refusals too');
+    const off = await listen(again, { rateLimit: null });
+    try { assert.equal((await fetch(`${off.base}/moderation/reports`, { headers: { 'X-Moderation-Token': 'mod-token' } })).status, 403, 'off without MODERATION_TOKEN'); } finally { off.close(); }
+    assert.equal((await call('GET', '/moderation/reports', {})).status, 401);
+    assert.equal((await call('GET', '/moderation/reports', { 'X-Moderation-Token': 'mod-tokem' })).status, 401);
+    assert.equal((await call('GET', '/moderation/reports', bear('b'))).status, 401, 'a player bearer is not a moderator token');
+    const mod = { 'X-Moderation-Token': 'mod-token' };
+    const lst = await call('GET', '/moderation/reports', mod); assert.equal(lst.status, 200);
+    const reps = lst.json.reports as { playerId: string; hidden: boolean; name: string; reports: unknown[] }[]; assert.equal(reps.length, 1); assert.deepEqual([reps[0].playerId, reps[0].hidden, reps[0].name, reps[0].reports.length], [tgt, true, 'Player 1234', 1]); assert.deepEqual(lst.json.reasons, REPORT_REASONS);
+    assert.equal((await call('POST', '/moderation/clear', mod, { playerId: 'f'.repeat(64) })).status, 404);
+    assert.equal((await call('POST', '/moderation/clear', mod, { playerId: tgt })).status, 200); assert.equal((await call('GET', '/identity', bear('b'))).json.hidden, undefined);
+    assert.equal((await call('POST', '/moderation/rename', mod, { playerId: tgt, name: 'adm1n' })).status, 422);
+    const rn = await call('POST', '/moderation/rename', mod, { playerId: tgt, name: 'Renamed Http' }); assert.equal(rn.status, 200); assert.equal((rn.json.player as { name: string }).name, 'Renamed Http');
+    assert.equal(((await call('GET', '/board?seed=mod-seed', {})).json.entries as BoardEntry[]).find((e) => e.replayHash === e1.replayHash)!.player, `Renamed Http#${tag}`);
+    assert.equal((await call('POST', '/moderation/rename-group', mod, { code, name: 'Http Club' })).status, 200); assert.equal(again.group(code)!.name, 'Http Club');
+    assert.equal((await call('POST', '/moderation/other', mod, {})).status, 404);
+    assert.equal((await call('GET', '/health', {})).status, 200);
+  } finally { srv.close(); }
+});
+
+test('every user-written field passes the one name filter (PLAN-v4 §1): a blocked string is kept out of storage by each of USER_WRITTEN_FIELDS, and the verifier has exactly one nameProblem call site per field', async () => {
+  const { USER_WRITTEN_FIELDS } = await import('../server/verify');
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-fields-')), 'board.json');
+  const v = new Verifier(file, { auditFile: null });
+  const t0 = new Date('2030-03-12T10:00:00Z');
+  const a = playerIdFromToken('a'.repeat(32))!, b = playerIdFromToken('b'.repeat(32))!;
+  assert.ok(v.claim(a, 'Alice', t0).ok); const g = v.createGroup(a, 'Fine Group', t0); const code = g.ok ? g.group.code : '';
+  const BLOCKED = 'the 0ff1cial one'; // folds to "theofficialone": refused after leetspeak folding
+  assert.equal(nameProblem(BLOCKED), 'name is not allowed');
+  const pushes: Record<typeof USER_WRITTEN_FIELDS[number], () => boolean> = { // true when the blocked string was kept out of storage
+    'display name (POST /identity)': () => !v.claim(b, BLOCKED, t0).ok && v.player(b) === null,
+    'group name (POST /groups)': () => !v.createGroup(a, BLOCKED, t0).ok && v.groupsOf(a).every((x) => x.name !== BLOCKED),
+    'group name (POST /groups/rename)': () => !v.renameGroup(a, code, BLOCKED, t0).ok && v.group(code)!.name === 'Fine Group',
+    'anonymous label (POST /verify player)': () => { const r = v.submit(JSON.stringify(exportReplay(finishedRun('fields-seed'))), BLOCKED, null, t0); return r.ok === true && r.recorded === true && r.player === 'anonymous' && v.board('fields-seed')[0].player === 'anonymous' && v.replay(r.entry!.replayHash)!.player === 'anonymous'; },
+    'forced display name (POST /moderation/rename)': () => !v.forceRename(a, BLOCKED, t0).ok && v.player(a)!.name === 'Alice',
+    'forced group name (POST /moderation/rename-group)': () => !v.forceRenameGroup(code, BLOCKED, t0).ok && v.group(code)!.name === 'Fine Group',
+  };
+  assert.deepEqual(Object.keys(pushes).sort(), [...USER_WRITTEN_FIELDS].sort(), 'the enumeration and the verifier\'s list agree');
+  for (const field of USER_WRITTEN_FIELDS) assert.equal(pushes[field](), true, `${field} let a blocked string through`);
+  assert.equal(fs.readFileSync(file, 'utf8').includes(BLOCKED), false, 'the blocked string is nowhere in the stored board');
+  const src = fs.readFileSync(path.join(process.cwd(), 'server', 'verify.ts'), 'utf8');
+  assert.equal((src.match(/\bnameProblem\(/g) ?? []).length, USER_WRITTEN_FIELDS.length, 'a new nameProblem call site means a new user-written field: add it to USER_WRITTEN_FIELDS and to this test (the bugnet lesson)');
 });

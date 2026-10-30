@@ -38,6 +38,8 @@ export interface PanelActions {
   reroll(): void;
   /** continue the watched replay from the round just finished as a practice fork (PLAN-v4 0.7.3) */
   forkHere(): void;
+  /** report the watched replay's player name (PLAN-v4 0.7.7); present only while watching a verified replay with a hash */
+  reportName?: () => void;
 }
 
 /** Canvas-logical pixels → CSS length that follows the canvas scale and ignores local font-size (em would shrink inside small-text elements). */
@@ -254,7 +256,8 @@ export class GamePanel {
     layer.append(h('div', { class: 'jd-banner' },
       h('div', {}, h('div', { class: 'jd-head' }, `Round ${rec.round} result`), h('div', { class: 'jd-row', style: 'gap:0.6em; align-items:baseline' }, h('span', { class: 'jd-gold', style: 'font-size:1.875em; font-weight:700; line-height:1' }, `$${rec.earned}`), h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, `this round · total $${r.score}`))),
       btn(last ? 'Final score (Space)' : 'Next round (Space)', 'next', () => this.actions.nextRound(), { variant: 'primary' }),
-      this.replayMode && !last ? btn(`Continue from here as practice (after round ${r.rounds.length})`, 'fork-here', () => this.actions.forkHere(), { small: true, title: 'take over this layout and bin from the next round; a fork is labelled, never submitted and never your own best (PLAN-v4 0.7.3)' }) : null)); // PLAN-v4 0.7.3
+      this.replayMode && !last ? btn(`Continue from here as practice (after round ${r.rounds.length})`, 'fork-here', () => this.actions.forkHere(), { small: true, title: 'take over this layout and bin from the next round; a fork is labelled, never submitted and never your own best (PLAN-v4 0.7.3)' }) : null, // PLAN-v4 0.7.3
+      this.replayMode && this.actions.reportName ? btn('Report name…', 'report-name', () => this.actions.reportName!(), { small: true, title: 'report this player\'s display name to the moderators; it is hidden as "player" pending review, scores are never affected (PLAN-v4 0.7.7)' }) : null));
   }
   showPauseVeil(on: boolean) {
     this.gridLayer.replaceChildren();

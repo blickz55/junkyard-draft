@@ -24,7 +24,7 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
   const server = spawn(process.execPath, [path.join(ROOT, 'scripts/dev.mjs')], { env: { ...process.env, GAME_PORT: String(PORT) }, stdio: 'ignore' });
   const VPORT = 4499;
   const boardFile = path.join(fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-')), 'board.json');
-  const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), BOARD_FILE: boardFile, PLAYER_RATE_LIMIT: '100', DAILY_SECRET: 'e2e-daily-secret' }, stdio: 'ignore' });
+  const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), BOARD_FILE: boardFile, PLAYER_RATE_LIMIT: '100', DAILY_SECRET: 'e2e-daily-secret', MODERATION_TOKEN: 'e2e-moderator' }, stdio: 'ignore' });
   let browser, page;
   const errors = [];
   const api = (fn, ...args) => page.evaluate(({ fn, args }) => window.__jd[fn](...args), { fn, args });
@@ -566,6 +566,23 @@ test('junkyard draft: full run in the browser', { timeout: 180000 }, async () =>
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
     assert.match(await page.getByTestId('player').textContent(), /^Player: e2e player#[2-9A-HJKMNP-TV-Z]{4}$/);
+    // name moderation (PLAN-v4 0.7.7): this player reports Buddy's name by the hash of Buddy's verified daily run; the title strip then reads "player"; the moderator's clear restores it; scores never move
+    {
+      const strip = async () => { await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`); await page.waitForFunction(() => /\d\. \$\d+ /.test(document.querySelector('[data-testid=daily-board]')?.textContent || ''), null, { timeout: 15000 }); return page.getByTestId('daily-board').textContent(); };
+      assert.match(await strip(), /\$\d+ Buddy#[2-9A-HJKMNP-TV-Z]{4}/, 'Buddy is named on the strip before the report');
+      const bearer = { Authorization: `Bearer ${identity.token}`, 'Content-Type': 'application/json' };
+      const rep = await (await fetch(`http://127.0.0.1:${VPORT}/report`, { method: 'POST', headers: bearer, body: JSON.stringify({ hash: bsub.entry.replayHash, reason: 'offensive' }) })).json();
+      assert.deepEqual(rep, { ok: true, playerId: bsub.entry.playerId, hidden: true, duplicate: false });
+      const hiddenStrip = await strip(); assert.doesNotMatch(hiddenStrip, /Buddy/, 'the reported name is gone from the strip'); assert.match(hiddenStrip, /\$\d+ player(\s|$)/, 'the reported name reads "player" on the title strip');
+      const after = await (await fetch(`http://127.0.0.1:${VPORT}/daily`)).json(); const hiddenEntry = after.entries.find((e) => e.replayHash === bsub.entry.replayHash); assert.equal(hiddenEntry.score, bsub.entry.score, 'the score is untouched'); assert.equal(hiddenEntry.player, 'player');
+      const buddyView = await (await fetch(`http://127.0.0.1:${VPORT}/identity`, { headers: { Authorization: `Bearer ${buddyToken}` } })).json(); assert.equal(buddyView.hidden, true, 'Buddy is told'); assert.equal(buddyView.name, 'Buddy');
+      const mod = { 'X-Moderation-Token': 'e2e-moderator', 'Content-Type': 'application/json' };
+      assert.equal((await fetch(`http://127.0.0.1:${VPORT}/moderation/reports`)).status, 401, 'no token, no list');
+      const list = await (await fetch(`http://127.0.0.1:${VPORT}/moderation/reports`, { headers: mod })).json(); assert.equal(list.reports.length, 1); assert.equal(list.reports[0].name, 'Buddy'); assert.equal(list.reports[0].hidden, true);
+      assert.equal((await fetch(`http://127.0.0.1:${VPORT}/moderation/clear`, { method: 'POST', headers: mod, body: JSON.stringify({ playerId: bsub.entry.playerId }) })).status, 200);
+      assert.match(await strip(), /\$\d+ Buddy#[2-9A-HJKMNP-TV-Z]{4}/, 'cleared: the name is back on the strip');
+      const audit = fs.readFileSync(path.join(path.dirname(boardFile), 'moderation.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)); assert.deepEqual(audit.map((r) => r.action), ['report', 'clear'], 'one audit row per action next to the board');
+    }
     // keep_best_per_player (PLAN-v3 0.6.0): with the page's bearer, a better run on a seed replaces the entry, an equal one is verified but not recorded
     {
       const bearer = { Authorization: `Bearer ${identity.token}`, 'Content-Type': 'application/json' };

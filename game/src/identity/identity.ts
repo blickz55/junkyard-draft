@@ -44,6 +44,12 @@ export function nameProblem(raw: unknown): string | null {
   return null;
 }
 
+/** Report reasons (PLAN-v4 0.7.7): a fixed list, never free text; the verifier refuses anything else. */
+export const REPORT_REASONS = ['offensive', 'impersonation', 'personal-info', 'spam', 'other'] as const;
+export type ReportReason = typeof REPORT_REASONS[number];
+/** what every board shows instead of a reported name until a moderator acts */
+export const HIDDEN_LABEL = 'player';
+
 /** Recovery code: 16 bytes → 26 base32 characters in groups of 5-5-5-5-6, e.g. "7Q2MA-3KJ8P-…" */
 export function recoveryCodeFor(tokenHex: string): string {
   if (!TOKEN_HEX.test(tokenHex)) throw new Error('bad token');

@@ -66,7 +66,7 @@ async function main() {
   if (early.status !== 403) fail(`tomorrow's daily should be refused with 403, got ${early.status}`);
   console.log(`daily ${d.date} minted as ${d.seed}; commitment published; tomorrow refused`);
   const wk = await (await fetch(`${url}/weekly`)).json() as { minted?: boolean; seed?: string; week?: string; commitment?: string };
-  if (wk.minted !== true || !/^weekly-d{4}-Wd{2}-[a-z2-7]{8}$/.test(wk.seed ?? '') || !/^[0-9a-f]{64}$/.test(wk.commitment ?? '')) fail(`/weekly is not a minted weekly: ${JSON.stringify(wk)}`);
+  if (wk.minted !== true || !/^weekly-\d{4}-W\d{2}-[a-z2-7]{8}$/.test(wk.seed ?? '') || !/^[0-9a-f]{64}$/.test(wk.commitment ?? '')) fail(`/weekly is not a minted weekly: ${JSON.stringify(wk)}`);
   console.log(`weekly ${wk.week} minted as ${wk.seed}`);
   const twoBack = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
   const old = await (await fetch(`${url}/daily?date=${twoBack}`)).json() as { final?: boolean; frozenAt?: string | null };
@@ -78,6 +78,13 @@ async function main() {
   if (day.n < 5 ? day.medals !== null : !(day.medals && day.medals.n === day.n && day.medals.bronze <= day.medals.silver && day.medals.silver <= day.medals.gold)) fail(`medals must be null below five runs and ordered thresholds from five: ${JSON.stringify(day)}`);
   console.log(`medals for ${twoBack}: ${day.medals ? `gold ≥ $${day.medals.gold} · silver ≥ $${day.medals.silver} · bronze ≥ $${day.medals.bronze}` : 'none (fewer than five runs)'}`);
   console.log(`archive lists ${twoBack} as final`);
+  // name moderation (PLAN-v4 0.7.7): a report needs a bearer and a reason from the list; the moderator endpoints are off without MODERATION_TOKEN
+  if ((await fetch(`${url}/report`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hash: 'x', reason: 'spam' }) })).status !== 401) fail('/report without a bearer should be 401');
+  const badReason = await fetch(`${url}/report`, { method: 'POST', headers, body: JSON.stringify({ hash: body.player, reason: 'because' }) });
+  if (badReason.status !== 422) fail(`/report with a reason off the list should be 422, got ${badReason.status}`);
+  const mod = await fetch(`${url}/moderation/reports`);
+  if (mod.status !== 403 && mod.status !== 401) fail(`/moderation/reports without a token should be 403 (off) or 401 (on), got ${mod.status}`);
+  console.log(`moderation: /report guarded (401 without a bearer, 422 off-list reason); moderator endpoints ${mod.status === 403 ? 'off' : 'on and guarded'}`);
   const dup = await fetch(`${url}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(run), player: 'again' }) });
   if (dup.status !== 422) fail(`a duplicate replay should be refused with 422, got ${dup.status}`);
   console.log(`verified $${body.score} for ${seed}; board has 1 entry; duplicate refused`);
