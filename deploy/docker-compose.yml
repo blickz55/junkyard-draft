@@ -1,0 +1,58 @@
+# Junkyard Draft verifier on one VPS (production roadmap 0.8.5): the smoke-tested image from GHCR behind Caddy.
+#   cp .env.example .env && cp verifier.env.example verifier.env   # then fill both in (deploy/README.md)
+#   docker compose pull && docker compose up -d
+#   docker compose logs -f verifier
+# The board lives in the named volume junkyard_verifier-data (DATA_DIR=/data inside the container); find its host path
+# with `docker volume inspect -f '{{.Mountpoint}}' junkyard_verifier-data` (deploy/backup.cron reads it there).
+# The verifier's port is bound to the host's loopback only: Caddy reaches it over the compose network, the host-side
+# tools (moderate.ts, restore-drill.ts --live, image-smoke.ts) reach it at http://127.0.0.1:4400, nobody else can.
+# Both containers' stdout/stderr logs are rotated by the runtime (7 x 20 MB each).
+name: junkyard
+
+services:
+  verifier:
+    image: ghcr.io/blickz55/junkyard-verifier:${VERIFIER_TAG:-latest}
+    restart: unless-stopped
+    env_file: ./verifier.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "4400"
+      DATA_DIR: /data
+      TRUST_PROXY: "1"
+    volumes:
+      - verifier-data:/data
+    ports:
+      - "127.0.0.1:4400:4400"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "7"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      verifier:
+        condition: service_healthy
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in deploy/.env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in deploy/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "7"
+
+volumes:
+  verifier-data:
+  caddy-data:
+  caddy-config:

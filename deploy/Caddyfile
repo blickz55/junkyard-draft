@@ -1,0 +1,34 @@
+# Caddy in front of the replay verifier (production roadmap 0.8.5). Caddy terminates TLS for the verifier's host
+# (certificates from Let's Encrypt, renewed by itself), adds HSTS, and proxies to the verifier container over the compose
+# network. The verifier's own port is published only on the host's loopback (docker-compose.yml), so the only public
+# path to it is through here. The game itself is served by Cloudflare Pages from the apex (deploy/README.md), not by Caddy.
+# Variables come from deploy/.env through docker-compose.yml: DOMAIN (the apex; the verifier answers on verify.DOMAIN),
+# ACME_EMAIL (Let's Encrypt expiry notices).
+{
+	email {$ACME_EMAIL}
+	admin off
+}
+
+verify.{$DOMAIN} {
+	encode zstd gzip
+	# bodies are small JSON (a replay is at most 4000 actions; the verifier answers 413 above its own cap); refuse anything larger early
+	request_body {
+		max_size 2MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+	# X-Real-IP is the client; the verifier (TRUST_PROXY=1) reads it first, else the rightmost X-Forwarded-For hop, which
+	# Caddy appends itself (it strips any X-Forwarded-* a client sent, since no upstream proxy is trusted here).
+	reverse_proxy verifier:4400 {
+		header_up X-Real-IP {remote_host}
+	}
+	# access log to stdout as JSON: the container runtime rotates it (docker-compose.yml logging options)
+	log {
+		output stdout
+		format json
+	}
+}

@@ -1,0 +1,117 @@
+# Deploy (production roadmap 0.8.5). Runs after a GREEN `ci` run, never on its own build:
+#  - web: the ci run was a push to main → build dist/ with VERIFIER_URL baked (repository variable) and publish it to
+#    Cloudflare Pages (wrangler direct upload; dist/_headers carries the CSP header and the immutable bundle rule);
+#  - verifier: the ci run was a version tag (its image job pushed ghcr.io/<owner>/junkyard-verifier:<tag>) → over SSH,
+#    check out that tag in the VPS clone, pin VERIFIER_TAG in deploy/.env, `docker compose pull` + `up -d`, wait for
+#    /health on the loopback port, then from the runner check the public /health and run tools/mint-check.ts.
+# Both jobs are skipped (not failed) until the owner sets the variables below, so the workflow is inert before 0.8.5's
+# human half. Manual runs (workflow_dispatch) deploy the web from the chosen ref and/or a verifier tag given as input.
+# Repository variables: VERIFIER_URL (https://verify.<domain>), CF_PAGES_PROJECT, DEPLOY_HOST, DEPLOY_USER.
+# Secrets: CLOUDFLARE_API_TOKEN (Pages edit on the account), CLOUDFLARE_ACCOUNT_ID, DEPLOY_SSH_KEY (an ed25519 key whose
+# public half is in the deploy user's authorized_keys), DEPLOY_KNOWN_HOSTS (`ssh-keyscan <host>` output).
+name: deploy
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      web:
+        description: deploy the web build of this ref to Cloudflare Pages
+        type: boolean
+        default: true
+      verifier_tag:
+        description: verifier image tag to deploy over SSH (empty = skip)
+        type: string
+        default: ''
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  web:
+    if: >-
+      vars.CF_PAGES_PROJECT != '' && vars.VERIFIER_URL != '' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.web) ||
+       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build the web with the hosted verifier baked in
+        env:
+          VERIFIER_URL: ${{ vars.VERIFIER_URL }}
+        run: |
+          case "$VERIFIER_URL" in https://*) ;; *) echo "::error::VERIFIER_URL must be https (the client only sends its token to https or loopback): $VERIFIER_URL"; exit 1;; esac
+          npm run build
+          node -e "const b=require('./dist/build.json'); if (b.verifierUrl!==process.env.VERIFIER_URL) { console.error('build.json verifierUrl', b.verifierUrl); process.exit(1) } console.log('bundle', b.bundle, 'verifier', b.verifierUrl)"
+          grep -q "connect-src 'self' $VERIFIER_URL" dist/_headers && echo "_headers carries the CSP for $VERIFIER_URL"
+      - name: Publish dist/ to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=${{ vars.CF_PAGES_PROJECT }} --branch=main --commit-hash=${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }} --commit-dirty=true
+      - name: Summary
+        run: echo "web deployed from ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }} to Pages project ${{ vars.CF_PAGES_PROJECT }} (verifier ${{ vars.VERIFIER_URL }})" >> "$GITHUB_STEP_SUMMARY"
+  verifier:
+    if: >-
+      vars.DEPLOY_HOST != '' && vars.VERIFIER_URL != '' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.verifier_tag != '') ||
+       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'v')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - name: Resolve the tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = workflow_dispatch ]; then TAG='${{ inputs.verifier_tag }}'; else TAG='${{ github.event.workflow_run.head_branch }}'; fi
+          case "$TAG" in v[0-9]*) ;; *) echo "::error::not a version tag: $TAG"; exit 1;; esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: SSH key and known hosts
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+      - name: Pull and restart the verifier on the VPS
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          TARGET: ${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o BatchMode=yes "$TARGET" "TAG='$TAG' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd /opt/junkyard-draft
+          git fetch --quiet --tags origin
+          git checkout --quiet "$TAG"
+          cd deploy
+          if grep -q '^VERIFIER_TAG=' .env; then sed -i "s/^VERIFIER_TAG=.*/VERIFIER_TAG=$TAG/" .env; else echo "VERIFIER_TAG=$TAG" >> .env; fi
+          docker compose pull --quiet verifier
+          docker compose up -d --remove-orphans
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:4400/health > /dev/null && break; sleep 2; done
+          curl -sf http://127.0.0.1:4400/health | head -c 400; echo
+          docker image prune -f > /dev/null
+          echo "verifier $TAG running on $(hostname)"
+          REMOTE
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Public health and today's mint through Caddy
+        env:
+          VERIFIER_URL: ${{ vars.VERIFIER_URL }}
+        run: |
+          curl -sf "$VERIFIER_URL/health" | head -c 600; echo
+          node --import tsx tools/mint-check.ts "$VERIFIER_URL"
+          echo "verifier ${{ steps.tag.outputs.tag }} deployed to $VERIFIER_URL" >> "$GITHUB_STEP_SUMMARY"

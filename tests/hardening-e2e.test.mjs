@@ -22,9 +22,11 @@ const EVIL = 'https://evil.invalid';
 
 test('hardened production build: ?verifier= ignored off loopback, CSP holds through a round, storage failure is announced', { timeout: 240000 }, async () => {
   const dist = fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-dist-'));
-  const { size } = await buildDist({ root: ROOT, dist, verifierUrl: VERIFIER, reports: false });
+  const { size, bundle } = await buildDist({ root: ROOT, dist, verifierUrl: VERIFIER, reports: false });
   assert.ok(size > 100000, 'bundle built');
+  assert.match(bundle, /^main-[A-Z0-9]{8}.js$/, 'the production bundle carries a content hash (0.8.5)'); assert.ok(fs.existsSync(path.join(dist, bundle)));
   const html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
+  assert.ok(html.includes(`./${bundle}`), 'the page references the hashed bundle');
   const csp = /http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(html)?.[1];
   assert.ok(csp, 'CSP meta present in the built page');
   assert.match(csp, /(^|; )script-src 'self'(;|$)/, 'scripts only from the page origin, no inline, no eval');

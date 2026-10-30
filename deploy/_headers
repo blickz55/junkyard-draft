@@ -1,0 +1,28 @@
+# Cloudflare Pages header file for the hosted game (production roadmap 0.8.5). This is a TEMPLATE: `npm run build` renders
+# it into dist/_headers with __CSP__ (the same policy as the page's <meta>, plus frame-ancestors, which only a header can
+# carry) and __BUNDLE__ (the content-hashed main-<hash>.js of that build). Paths use Cloudflare's syntax: `*` matches
+# anything; every rule whose path matches is applied. Cache-Control is set per path group so no two rules overlap:
+# the page, build.json and policy.json are revalidated on every load (no-cache: still served from cache while a
+# conditional request confirms it); the hashed bundle is immutable for a year (a new build has a new name); the public
+# assets (sounds, art) for a day.
+/*
+  Content-Security-Policy: __CSP__
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/build.json
+  Cache-Control: no-cache
+/policy.json
+  Cache-Control: no-cache
+/__BUNDLE__
+  Cache-Control: public, max-age=31536000, immutable
+/sfx/*
+  Cache-Control: public, max-age=86400
+/art/*
+  Cache-Control: public, max-age=86400

@@ -8,5 +8,5 @@ import { fileURLToPath } from 'node:url';
 import { buildDist } from './build-lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const { size, commit } = await buildDist({ root: ROOT, dist: path.join(ROOT, 'dist') });
-console.log(`built dist/ (main.js ${(size / 1024).toFixed(0)} KiB, commit ${commit})`);
+const { size, commit, bundle } = await buildDist({ root: ROOT, dist: path.join(ROOT, 'dist') });
+console.log(`built dist/ (${bundle} ${(size / 1024).toFixed(0)} KiB, commit ${commit}; _headers rendered)`);

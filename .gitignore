@@ -44,3 +44,7 @@ reports/
 /junkyard-*.webm
 /_tmp-*
 /tools/scratch-*
+
+# deploy secrets and the per-host compose variables (deploy/*.example are the templates)
+deploy/.env
+deploy/verifier.env
