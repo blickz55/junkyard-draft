@@ -9,6 +9,8 @@ import type Phaser from 'phaser';
 import { h, btn, ui, textureImg } from './dom';
 import { canReroll, type RunState } from '../sim/run';
 import { explainRunError } from '../sim/advice';
+import { analyseRound } from '../sim/bottleneck';
+import { bottleneckLine } from '../content/bottleneck';
 import type { Machine, Material } from '../sim/types';
 import { MACHINE_INFO, RULES } from '../sim/rules';
 import { cellIndex } from '../sim/sim';
@@ -212,6 +214,10 @@ export class GamePanel {
     let any = false;
     for (const m of mats) if (res.shipped[m]) { any = true; this.side.append(h('div', { class: 'jd-row', style: 'gap:0.5em; margin-top:0.25em; font-size:0.875em' }, textureImg(this.scene.game, `i-${m}`, m), `${res.shipped[m]} × ${m} @ $${RULES.value[m]} = $${res.shipped[m] * RULES.value[m]}`)); }
     if (!any) this.side.append(h('div', { class: 'jd-dim', style: 'font-size:0.875em' }, 'nothing'));
+    // the bottleneck line (production roadmap 0.8.8): what held the line and the pool fixes; the next draft repeats it as the hint
+    const bottleneck = analyseRound(rec.layout, res, rec.round + 1);
+    this.side.append(h('div', { class: 'jd-head', style: 'margin-top:0.6em' }, 'What held the line'));
+    this.side.append(h('div', { class: bottleneck.kind === 'balanced' ? 'jd-green' : 'jd-amber', tid: 'bottleneck', style: 'font-size:0.8125em' }, bottleneckLine(bottleneck)));
     this.side.append(h('div', { class: 'jd-head', style: 'margin-top:0.6em' }, 'Diagnostics'));
     this.side.append(h('div', { class: notes.length ? 'jd-red' : 'jd-green', style: 'font-size:0.8125em; white-space:pre-line' }, notes.slice(0, 5).join('\n') || 'Clean run: nothing waited, every hopper kept flowing.'));
     this.side.append(h('div', { class: 'jd-head', style: 'margin-top:0.6em' }, 'Round history'));

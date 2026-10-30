@@ -212,8 +212,10 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
 
     // 5) remaining rounds through the dev API (pick first offer, run, next); round 2 sells the part instead
     await api('next');
+    let lastBottleneck = '';
     for (let r = 2; r <= 6; r++) {
       await page.waitForFunction((rr) => window.__jd.phase() === 'draft' && window.__jd.state().round === rr, r);
+      if (r === 3) assert.equal(await api('hint'), `Last round: ${lastBottleneck}`, 'the draft hint repeats the previous round\'s bottleneck line');
       await api('pick', 0);
       if (r === 2) {
         const before = (await api('state')).score;
@@ -239,6 +241,10 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
       }
       await api('finishRun');
       await page.waitForFunction(() => window.__jd.mode() === 'summary');
+      // the bottleneck line (0.8.8): one sentence on the summary naming what held the line, repeated as the next draft's hint
+      const bottleneck = await page.getByTestId('bottleneck').textContent();
+      assert.match(bottleneck, /^(The (hopper|conveyor|crusher|furnace|press|splitter) at \d,\d |Supply held the line|Nothing held the line|Nothing reached a dock)/, `round ${r} bottleneck line: ${bottleneck}`);
+      if (r === 2) lastBottleneck = bottleneck;
       if (r >= 3) {
         // pooled_pops_never_exceed_the_pool: finishRun ships a whole round in one frame; the +$ pops come from a 16-slot pool
         const ctr = await api('counters');

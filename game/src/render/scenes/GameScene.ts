@@ -7,6 +7,8 @@ import type { ForkOrigin } from '../../sim/run';
 import { RULES_VERSION } from '../../sim/types';
 import { decideQuality, QUALITY_PROBE_FRAMES } from '../quality';
 import { explainRunError, inputTravelDirs, outputDirs, placementWarning } from '../../sim/advice';
+import { analyseRound } from '../../sim/bottleneck';
+import { bottleneckLine } from '../../content/bottleneck';
 import { isTutorialSeed, type Action, type RoundRecord, type RunState } from '../../sim/run';
 import { runLayout } from '../../sim/sim';
 import { cellIndex, type SimState } from '../../sim/sim';
@@ -482,6 +484,10 @@ export class GameScene extends Phaser.Scene {
       text = "New here? 'Learn (3 min)' on the title screen walks through every rule in three short rounds. Or dive in: pick a machine.";
     }
     if (this.ctl.resumeNotice) { text = this.ctl.resumeNotice; this.ctl.resumeNotice = null; }
+    if (!text && r.phase === 'draft' && r.rounds.length && !this.replayLabel) { // 0.8.8: the last round's bottleneck line is the draft's hint
+      const last = r.rounds[r.rounds.length - 1];
+      text = `Last round: ${bottleneckLine(analyseRound(last.layout, last.result, r.round))}`;
+    }
     if (!text) {
       const tips = ['Scrap $1 → crusher → shards $3 → furnace → ingot $12.', 'Conveyors accept from behind or the side; crushers, furnaces and splitters only from behind.', 'A splitter alternates left and right. Two furnaces beat one.', 'Docks take items from any side. A second hopper doubles raw supply.', 'Right-click or R rotates. Drop a machine on the bin to remove it.', `A press squeezes ${RULES.pressShards} shards into one $${RULES.value.plate} plate: less than a furnace, but it never backs a line up.`, 'Keyboard: arrows move the cursor, Enter places or picks up, Tab cycles bin parts.'];
       text = tips[(r.round + r.layout.machines.length) % tips.length];
