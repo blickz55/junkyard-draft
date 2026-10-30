@@ -15,7 +15,8 @@ import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { audio } from '../render/audio';
 import { authHeaders, bearerAllowed, claimName, loadIdentity } from '../render/identity';
 import { labelFor } from '../identity/identity';
-import { todaySeed, revealGate } from '../render/daily';
+import { todaySeed, revealGate, todayUTC } from '../render/daily';
+import { shiftUtcDate } from '../daily/streak';
 import { medalFor, medalsLine, type Medals } from '../daily/medals';
 import { openPolicy } from './PolicyPanel';
 import { openPrivacy } from './PrivacyPanel';
@@ -32,21 +33,42 @@ import { materialName } from '../content/machines';
 /** What the scene keeps so tests and later screens can read it. */
 export interface ResultsHost extends Phaser.Scene { lastRank: Rank | null; lastPlayer: string; lastShareText: string; lastPercentile: number | null; lastN: number; lastMedal: string | null; cardInput: (() => CardInput) | null; exportCard(): Promise<{ size: number; width: number; height: number; filename: string; savedTo: string; footer: string }>; verifiedHash: string | null; matchesStoredSubmission(): Promise<boolean>; exportClip(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number }>; exportGif(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number; frames: number }> }
 
-export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: boolean; replayLabel?: string; newOverall: boolean; newSeed: boolean; challenge?: Challenge; replayHash?: string; replayPlayer?: string; newFork?: boolean }) {
+export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: boolean; replayLabel?: string; newOverall: boolean; newSeed: boolean; challenge?: Challenge; replayHash?: string; replayPlayer?: string; newFork?: boolean; prevSeedBest?: number | null }) {
   const fork = run.forkedFrom ?? null; // PLAN-v4 0.7.3
   const bests = loadBests();
   const go = (seed: string) => { audio.unlock(); scene.scene.start('Game', { seed, fresh: true, challenge: o.challenge && o.challenge.seed === seed ? o.challenge : undefined }); }; // a retry keeps the challenge; another yard drops it (PLAN-v4 0.7.1)
   const verifierUrl = resolveVerifierUrl();
   const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
 
+  // the results card (production roadmap 0.9.2): the standing sentence leads, then the money, then the deltas (the foreman's mark,
+  // this device's best on the yard, the medal on a closed daily); the yard label and the rest follow; rank and the top five are below the fold
+  const isToday = !o.replayed && !fork && run.seed === todaySeed();
+  const scope = isToday ? t('results.scopeToday') : t('results.scopeYard');
+  const headline = h('div', { class: 'jd-head', tid: 'headline', style: 'font-size:1.0625em; letter-spacing:0.08em; text-transform:none' }, o.replayed ? t('results.headReplay') : t('results.head'));
+  const setHeadline = (text: string, standing: boolean) => { headline.textContent = text; headline.classList.toggle('jd-dim', !standing); headline.classList.toggle('jd-amber', standing); };
+  setHeadline(headline.textContent ?? '', false);
+  const deltas = h('div', { class: 'jd-row jd-center', tid: 'deltas', style: 'gap:0.3em 1.1em; margin-top:0.3em; font-size:0.875em; min-height:1.3em' });
+  const renderDeltas = () => {
+    deltas.replaceChildren();
+    if (o.replayed) return;
+    if (botPar != null) { const d = run.score - botPar; deltas.append(h('span', { class: d > 0 ? 'jd-green' : d < 0 ? 'jd-dim' : 'jd-amber', tid: 'delta-par' }, d > 0 ? t('results.deltaParOver', { d: money(d) }) : d < 0 ? t('results.deltaParUnder', { d: money(d) }) : t('results.deltaParEqual'))); }
+    if (!fork) {
+      const prev = o.prevSeedBest ?? null; const d = prev == null ? null : run.score - prev;
+      deltas.append(h('span', { class: d != null && d > 0 ? 'jd-green' : 'jd-dim', tid: 'delta-best' }, d == null ? t('results.deltaBestFirst') : d > 0 ? t('results.deltaBestOver', { d: money(d) }) : d < 0 ? t('results.deltaBestUnder', { d: money(d), best: money(prev!) }) : t('results.deltaBestEqual')));
+    }
+    if (scene.lastMedal) deltas.append(h('span', { class: 'jd-badge-pill', tid: 'medal', style: 'font-size:0.75em' }, t('results.medalPill', { medal: cap(scene.lastMedal) })));
+  };
+  const yesterdayBest = (() => { if (!isToday) return null; const y = shiftUtcDate(todayUTC(), -1); for (const [seed, b] of Object.entries(bests.bySeed)) if (dailyDateOf(seed) === y) return b.score; return null; })();
   const header = h('div', { style: 'text-align:center' },
-    h('div', { class: 'jd-head' }, t('results.head')),
+    headline,
     h('div', { class: 'jd-gold jd-pop', tid: 'score', style: 'font-size:4.25em; font-weight:700; line-height:1.05' }, money(run.score)),
+    deltas,
     h('div', { class: `jd-mono ${o.replayed ? 'jd-blue' : 'jd-dim'}`, tid: 'results-subtitle', style: 'font-size:0.8125em; margin-top:0.25em; overflow-wrap:anywhere' }, `${t('results.subtitle', { yard: yardLabel(run.seed) })}${o.replayed ? t('results.subtitleReplay', { label: o.replayLabel ?? t('results.replayPlayback') }) : ''}${fork ? t('results.subtitleTry', { label: forkLabel(fork) }) : ''}`),
     fork ? h('div', { class: o.newFork ? 'jd-green' : 'jd-dim', tid: 'fork-best', style: 'margin-top:0.25em; font-size:0.875em' }, o.newFork ? t('results.newTryBest', { score: money(run.score) }) : t('results.tryBest', { score: money(loadForkBests()[run.seed]?.score ?? run.score) }))
     : o.newOverall ? h('div', { class: 'jd-green', style: 'font-weight:700; letter-spacing:0.1em; margin-top:0.25em' }, t('results.newOverall'))
       : o.newSeed ? h('div', { class: 'jd-green', style: 'margin-top:0.25em' }, t('results.newYard'))
         : h('div', { class: 'jd-dim', style: 'font-size:0.875em; margin-top:0.25em' }, bests.overall ? t('results.bestLine', { score: money(bests.overall.score), seed: bests.overall.seed }) : ''),
+    yesterdayBest != null ? h('div', { class: 'jd-mono jd-dim', tid: 'since-yesterday', style: 'font-size:0.8125em; margin-top:0.3em' }, t('results.sinceYesterday', { yesterday: money(yesterdayBest), today: money(run.score), delta: run.score > yesterdayBest ? t('results.deltaUp', { d: money(run.score - yesterdayBest) }) : run.score < yesterdayBest ? money(run.score - yesterdayBest) : t('results.deltaSame') })) : null,
     o.challenge && !o.replayed ? h('div', { class: 'jd-mono jd-amber', tid: 'challenge-result', style: 'font-size:0.8125em; margin-top:0.3em' }, t('results.challengeLine', { score: money(run.score), player: o.challenge.player, theirs: money(o.challenge.score), outcome: challengeOutcome(run.score, o.challenge).text })) : null);
 
   // non-ranked badges (PLAN-v1 0.4.6): recognition, never a ladder; Minimalist needs the foreman's mark, so the row is refreshed when it lands
@@ -57,14 +79,14 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     badgeRow.replaceChildren(...earned.map((b) => h('span', { class: 'jd-badge-pill', tid: `badge-${b.id}`, title: b.text }, b.title)));
     if (earned.length) badgeRow.append(h('span', { class: 'jd-dim', style: 'font-size:0.6875em' }, t('results.badgesNote')));
   };
-  renderBadges();
+  renderBadges(); renderDeltas();
   header.append(badgeRow);
   // the foreman (0.9.1): the first game on this device, else the band once everyone today has answered, else offline
   const foreman = foremanBox(!o.replayed && !fork && bests.runs === 1 ? foremanSays('resultsFirst') : '', 'foreman', 'margin:0.4em auto 0; max-width:44em; text-align:left');
   header.append(foreman);
   let foremanSettled = !!foreman.textContent?.trim() && bests.runs === 1;
   const max = Math.max(1, ...run.rounds.map((r) => r.earned));
-  const rounds = h('div', { class: 'jd-panel' }, h('div', { class: 'jd-head' }, t('results.roundByRound')),
+  const rounds = h('div', { class: 'jd-panel', tid: 'round-bars' }, h('div', { class: 'jd-head' }, t('results.roundByRound')),
     ...run.rounds.map((r, i) => h('div', { class: 'jd-row', style: 'margin-top:0.4em; flex-wrap:nowrap' },
       h('span', { class: 'jd-dim', style: 'width:5em; font-size:0.875em' }, t('results.round', { n: r.round })),
       h('div', { style: 'flex:1' }, h('div', { class: `jd-bar${i === run.rounds.length - 1 ? ' jd-bar-last' : ''}`, style: `width:${Math.round((100 * r.earned) / max)}%` })),
@@ -102,16 +124,18 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       if (hg.botPar == null && attempt < 22) setTimeout(() => { if (histBox.isConnected) void loadHistogram(attempt + 1); }, 4000); // the first game on a yard waits for the mark: keep asking for ~90 s (a loaded server can take that long), then stop
       const parLine = hg.botPar != null ? h('div', { class: 'jd-mono jd-dim', tid: 'bot-par', style: 'font-size:0.75em; margin-top:0.3em' }, t('results.foremanLine', { score: money(hg.botPar), suffix: run.score > hg.botPar ? t('results.foremanBeat') : run.score === hg.botPar ? t('results.foremanMatched') : '' })) : null;
       if (hg.mine) { scene.lastPercentile = hg.mine.percentile; scene.lastN = hg.n; if (!foremanSettled) { setForeman(foreman, foremanSays(resultsBand(hg.mine.percentile, hg.n))); foremanSettled = true; } }
+      if (!o.replayed) setHeadline(hg.mine ? (hg.n >= 5 ? t('results.headBetter', { pct: int(hg.mine.percentile), n: int(hg.n), scope }) : t('results.headRank', { rank: int(hg.mine.rank), n: hg.n, scope })) : hg.n ? t('results.headUnchecked', { n: hg.n, scope }) : t('results.head'), !!hg.mine);
       if (hg.botPar != null && hg.botPar !== botPar) { botPar = hg.botPar; renderBadges(); }
+      renderDeltas();
       if (!hg.n) { if (parLine) histBox.append(parLine); return; }
       const maxBin = Math.max(1, ...hg.bins.map((b) => b.count));
       histBox.append(h('div', { class: 'jd-hist', role: 'img', ariaLabel: t('results.histAria', { n: hg.n }) }, ...hg.bins.map((b, i) => h('div', { class: `jd-hist-bin${hg.mine && hg.mine.bin === i ? ' jd-hist-mine' : ''}`, tid: `hist-bin-${i}`, title: `${money(b.from)}–${money(b.to)}: ${int(b.count)}` }, h('div', { class: 'jd-hist-count' }, b.count ? int(b.count) : ''), h('div', { class: 'jd-hist-bar', style: `height:${Math.max(2, Math.round((100 * b.count) / maxBin))}%` })))));
       histBox.append(h('div', { class: 'jd-hist-axis' }, h('span', {}, money(0)), h('span', {}, money(hg.bins[hg.bins.length - 1].to))));
-      const pct = hg.mine ? (hg.n >= 5 ? t('results.pctBetter', { pct: int(hg.mine.percentile), n: int(hg.n), rank: int(hg.mine.rank) }) : t('results.pctFew', { n: hg.n, rank: int(hg.mine.rank) })) : t('results.pctNone', { n: hg.n });
+      const pct = hg.mine ? (hg.n >= 5 ? t('results.rankLine', { rank: int(hg.mine.rank), n: int(hg.n) }) : t('results.pctFew', { n: hg.n, rank: int(hg.mine.rank) })) : t('results.pctNone', { n: hg.n });
       histBox.append(h('div', { class: hg.mine ? 'jd-amber' : 'jd-dim', tid: 'percentile', style: 'font-size:0.8125em; margin-top:0.3em; font-weight:700' }, pct));
       if (parLine) histBox.append(parLine);
       if (hg.medals) { // a closed daily: the server sent thresholds (PLAN-v3 0.6.4); the medal is named only for this game's checked entry
-        const medal = hg.mine ? medalFor(hg.mine.score, hg.medals) : null; scene.lastMedal = medal;
+        const medal = hg.mine ? medalFor(hg.mine.score, hg.medals) : null; scene.lastMedal = medal; renderDeltas();
         histBox.append(h('div', { class: 'jd-mono jd-amber', tid: 'medals', style: 'font-size:0.75em; margin-top:0.3em' }, t('results.medals', { line: medalsLine(hg.medals), yours: hg.mine ? t('results.medalsYours', { medal: medal ?? t('results.medalNone') }) : '' })));
       }
       if (hg.mine && hg.around.length > 1) histBox.append(h('div', { class: 'jd-around', tid: 'around' }, ...hg.around.map((a) => h('div', { class: a.mine ? 'jd-mine' : '' }, `#${int(a.rank)}  ${money(a.score)}  ${a.mine ? t('common.you') : a.player}`))));
@@ -152,6 +176,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       if (!keepStatus) setStatus(t('results.statusOnline'));
     } catch {
       showOfflineBoard();
+      if (!o.replayed) setHeadline(t('results.headOffline'), false);
       if (!foremanSettled && !o.replayed) { setForeman(foreman, foremanSays('resultsOffline')); foremanSettled = true; }
       if (!keepStatus) setStatus(t('results.statusOffline'));
     }
@@ -229,9 +254,11 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
     const fallback = () => { void showText(scene, title, text); };
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
   };
-  // share (PLAN-v1 0.4.3): spoiler-free glyph grid by default, per-round dollars in the detailed variant, link only on request
+  // share (PLAN-v1 0.4.3): spoiler-free glyph grid by default, per-round dollars in the detailed variant; the link is on by default
+  // (production roadmap 0.9.2, opt-out): the "Beat this" link once this game is checked, the yard's link before that
   const linkToggle = h('input', { type: 'checkbox', tid: 'share-link', ariaLabel: t('results.addLinkAria') });
-  const permalink = () => (linkToggle.checked ? `${location.origin}${location.pathname}?scene=game&seed=${encodeURIComponent(run.seed)}` : undefined);
+  linkToggle.checked = true;
+  const permalink = () => (linkToggle.checked ? (scene.verifiedHash ? challengeLink(scene.verifiedHash) : `${location.origin}${location.pathname}?scene=game&seed=${encodeURIComponent(run.seed)}`) : undefined);
   const buildShare = (variant: 'grid' | 'detailed') => shareText({ seed: run.seed, score: run.score, rulesVersion: run.rulesVersion, rounds: run.rounds.map((r) => r.earned), player: scene.lastPlayer || undefined, rank: scene.lastRank, percentile: scene.lastPercentile, n: scene.lastN, daysPlayed: daysPlayed(), streak: currentStreak(), medal: scene.lastMedal ?? undefined, fork: fork ? { player: fork.player, round: fork.round } : undefined, challenge: o.challenge && !o.replayed ? { player: o.challenge.player, score: o.challenge.score } : undefined, permalink: permalink(), variant, rerolls: run.rerolls, badges: badgesFor(run, botPar).map((b) => b.title) });
   scene.cardInput = () => ({ seed: run.seed, score: run.score, rounds: run.rounds.map((r) => r.earned), rulesVersion: run.rulesVersion, player: scene.lastPlayer || undefined, verified: !!scene.verifiedHash, rank: scene.lastRank, percentile: scene.lastPercentile, n: scene.lastN, medal: scene.lastMedal, group: loadGroup(), challenge: o.challenge && !o.replayed ? { player: o.challenge.player, score: o.challenge.score } : null, fork: fork ? { player: fork.player, round: fork.round } : null, permalink: permalink(), build: import.meta.env.BUILD }); // PLAN-v4 0.7.4
   const cardBtn = btn(t('results.cardBtn'), 'share-card', async () => {

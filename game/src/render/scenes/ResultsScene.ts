@@ -83,12 +83,12 @@ export class ResultsScene extends Phaser.Scene {
     applyDpr(this);
     const fork = !!run.forkedFrom; // PLAN-v4 0.7.3: a fork is practice: it never touches the save, the bests or the days played
     if (!data.replayed && !fork) clearSave(); // a watched replay is someone else's run: the player's own unfinished save stays untouched
-    const rec = data.replayed || fork ? { newOverall: false, newSeed: false } : recordBest(run.seed, run.score);
+    const rec = data.replayed || fork ? { newOverall: false, newSeed: false, prevSeedBest: null } : recordBest(run.seed, run.score);
     const forkRec = fork ? recordForkBest(run.seed, run.score) : { newFork: false };
     if (!data.replayed && !fork) { recordDayPlayed(); recordRun(run.seed, run.score); } // 0.8.7: the device's own history per seed, shown on the results board when the verifier is away
     audio.roundEnd(true);
     this.lastRank = null; this.lastPlayer = ''; this.lastShareText = ''; this.lastPercentile = null; this.lastN = 0; this.lastMedal = null; this.lastCard = null; this.cardInput = null;
-    mountResults(this, run, { replayed: !!data.replayed, replayLabel: data.replayLabel, newOverall: rec.newOverall, newSeed: rec.newSeed, challenge: data.challenge, replayHash: data.replayHash, replayPlayer: data.replayPlayer, newFork: forkRec.newFork });
+    mountResults(this, run, { replayed: !!data.replayed, replayLabel: data.replayLabel, newOverall: rec.newOverall, newSeed: rec.newSeed, prevSeedBest: rec.prevSeedBest, challenge: data.challenge, replayHash: data.replayHash, replayPlayer: data.replayPlayer, newFork: forkRec.newFork });
     this.events.once('shutdown', () => ui.unmount());
   }
 }

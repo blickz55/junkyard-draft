@@ -59,6 +59,8 @@ test('0.8.7 offline scenario: run, see the saved-and-waiting state, bring the ve
     const status = () => page.evaluate(() => document.querySelector('[data-testid=status]')?.textContent || '');
     await page.waitForFunction(() => /^Offline: your game is saved on this device/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
     assert.equal(await page.getByTestId('board-head').textContent(), 'Your games on this yard · this device');
+    assert.equal(await page.getByTestId('headline').textContent(), 'Game complete · offline', 'the card\'s headline says offline (0.9.2)');
+    assert.equal(await page.getByTestId('delta-best').textContent(), 'your first game on this yard');
     assert.match(await page.getByTestId('history-0').textContent(), /^1\. \$\d+  this game$/);
     assert.match(await page.getByTestId('history-note').textContent(), /^1 game of yours on this yard, this device only\./);
     const score1 = Number((await page.getByTestId('score').textContent()).replace('$', ''));

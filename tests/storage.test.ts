@@ -33,7 +33,7 @@ test('bests: null bySeed, wrong primitive types and extra junk fall back field b
   assert.deepEqual(plain(storage.loadBests(2)), { overall: null, bySeed: {}, runs: 0 });
   // recording on top of a damaged file produces a clean file
   const rec = storage.recordBest('seed-z', 500);
-  assert.deepEqual(rec, { newOverall: true, newSeed: true });
+  assert.deepEqual(rec, { newOverall: true, newSeed: true, prevSeedBest: null });
   assert.equal(storage.loadBests().overall?.score, 500);
 });
 
@@ -76,10 +76,10 @@ test('seeds that collide with inherited object properties round-trip as ordinary
   for (const seed of ['__proto__', 'constructor', 'toString', 'hasOwnProperty']) {
     store.clear();
     const r = storage.recordBest(seed, 150);
-    assert.deepEqual(r, { newOverall: true, newSeed: true }, `${seed}: first record is a new best`);
+    assert.deepEqual(r, { newOverall: true, newSeed: true, prevSeedBest: null }, `${seed}: first record is a new best`);
     const b = storage.loadBests();
     assert.equal(b.bySeed[seed]?.score, 150, `${seed}: best stored and read back`);
-    assert.deepEqual(storage.recordBest(seed, 120), { newOverall: false, newSeed: false }, `${seed}: a lower score is not a new best`);
+    assert.deepEqual(storage.recordBest(seed, 120), { newOverall: false, newSeed: false, prevSeedBest: 150 }, `${seed}: a lower score is not a new best, and the earlier best is answered for the card's delta (0.9.2)`);
     assert.equal(storage.loadBests().bySeed[seed]?.score, 150);
     storage.recordSubmission(seed, { score: 150, replayHash: 'h1', verifiedAt: '', player: 'p' });
     assert.equal(storage.loadSubmissions()[seed]?.replayHash, 'h1', `${seed}: submission stored and read back`);

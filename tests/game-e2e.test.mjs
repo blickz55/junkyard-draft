@@ -292,6 +292,14 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     assert.equal(`${identity.name}#${identity.tag}`, board.entries[0].player, 'the claimed name and tag are cached on the device');
     assert.equal(typeof board.entries[0].finalMachines, 'number', 'the verifier derived the tie-break field');
     assert.match(await page.evaluate(() => document.querySelector('[data-testid=tie-rule]')?.textContent ?? ''), /^Equal scores: fewer machines in round 6/, 'the tie rule is printed under the board (PLAN-v2 0.5.5)');
+    // the results card (production roadmap 0.9.2): the standing sentence leads, then the money, then the deltas; round bars, the board and the Play / Share / Watch rows follow in that order
+    await page.waitForFunction(() => /^Rank 1 of 1 checked game on this yard$/.test(document.querySelector('[data-testid=headline]')?.textContent || ''), null, { timeout: 10000 });
+    assert.match(await page.getByTestId('delta-par').textContent(), /^(\+\$\d+ over|−\$\d+ under|exactly) the foreman's mark$/, "the foreman's mark delta");
+    assert.equal(await page.getByTestId('delta-best').textContent(), 'your first game on this yard');
+    const order = await page.evaluate(() => ['headline', 'score', 'deltas', 'round-bars', 'board', 'actions-play', 'actions-share', 'actions-watch'].map((id) => document.querySelector(`[data-testid=${id}]`)).map((el, i, arr) => !!el && (i === 0 || (arr[i - 1].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0)));
+    assert.deepEqual(order, Array(8).fill(true), 'the card reads headline, money, deltas, round bars, board, Play, Share, Watch');
+    for (const [w, hh] of [[390, 844], [1920, 1080]]) { await page.setViewportSize({ width: w, height: hh }); await wait(500); await page.screenshot({ path: path.join(SHOTS, `results-${w}-${Date.now()}.png`), fullPage: true }); } // for the owner's review (0.9.2 acceptance)
+    await page.setViewportSize({ width: 1120, height: 700 }); await wait(400);
     // share text: copied to the clipboard with seed, score and verified rank
     // without a clipboard (headless), copying opens the select-and-copy dialog (review F04): close it like a player would
     const dismissCopyDialog = async () => { await wait(400); /* the clipboard promise rejects asynchronously before the dialog opens */ if (await page.locator('[data-testid=dialog]').count()) { await page.getByTestId('dialog-ok').click(); await wait(100); } };
@@ -299,16 +307,20 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     await page.waitForFunction(() => !!window.__jdGame.scene.getScene('Results').lastShareText, null, { timeout: 5000 }); // clipboard availability varies in headless runs; the text itself is what matters
     const shared = await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText); // headless clipboard contents are not reliably readable
     // spoiler_free_share (PLAN-v1 0.4.3): label · score, six glyphs, the standing, days played; no URL, no per-round dollars, no layout
-    assert.match(shared, /^Junkyard Draft · yard e2e-seed · \$\d+\n[░▒▓█]{6}\n#1 of 1 on the board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\n1 day played$/, `default share text: ${JSON.stringify(shared)}`);
-    assert.doesNotMatch(shared, /https?:|rounds \$|hopper|conveyor|crusher/);
+    assert.match(shared, /^Junkyard Draft · yard e2e-seed · \$\d+\n[░▒▓█]{6}\n#1 of 1 on the board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\n1 day played\nhttp:\/\/127\.0\.0\.1:\d+\/\?challenge=[0-9a-f]+(&verifier=[^\n]+)?$/, `default share text (0.9.2: the "Beat this" link of the checked game by default): ${JSON.stringify(shared)}`);
+    assert.doesNotMatch(shared, /rounds \$|hopper|conveyor|crusher|seed=/);
     await dismissCopyDialog();
     await page.getByTestId('share-link').check();
     await page.getByTestId('share-detailed').click();
     await page.waitForFunction(() => /rounds \$/.test(window.__jdGame.scene.getScene('Results').lastShareText), null, { timeout: 5000 });
     const detailed = await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText);
-    assert.match(detailed, new RegExp(`\\nrounds \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+\\nchecked by the Junkyard Draft server(\\nbadges: [^\\n]+)?\\n1 day played\\nhttp:\\/\\/127\\.0\\.0\\.1:\\d+\\/\\?scene=game&seed=e2e-seed$`), `detailed share text with link: ${JSON.stringify(detailed)}`);
+    assert.match(detailed, new RegExp(`\\nrounds \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+\\nchecked by the Junkyard Draft server(\\nbadges: [^\\n]+)?\\n1 day played\\nhttp:\\/\\/127\\.0\\.0\\.1:\\d+\\/\\?challenge=[0-9a-f]+(&verifier=[^\\n]+)?$`), `detailed share text with link: ${JSON.stringify(detailed)}`);
     await dismissCopyDialog();
-    await page.getByTestId('share-link').uncheck();
+    await page.getByTestId('share-link').uncheck(); // opt-out (0.9.2): unticked, no link at all
+    await page.getByTestId('share').click();
+    await page.waitForFunction(() => !/https?:/.test(window.__jdGame.scene.getScene('Results').lastShareText), null, { timeout: 5000 });
+    assert.match(await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText), /\n1 day played$/, 'unticked: the share text ends without a link');
+    await dismissCopyDialog();
     // non_ranked_badges (PLAN-v1 0.4.6): pills are known badges and the detailed verified text lists exactly them
     const pills = await page.evaluate(() => [...document.querySelectorAll('[data-testid=badges] .jd-badge-pill')].map((p) => ({ id: p.dataset.testid, title: p.textContent })));
     for (const p of pills) assert.ok(['badge-clean', 'badge-minimalist', 'badge-full-grid'].includes(p.id), `known badge: ${p.id}`);

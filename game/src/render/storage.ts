@@ -141,18 +141,20 @@ export const loadBests = (version: number = RULES_VERSION): Bests => loadBestsAl
 /** Bests kept under other rules versions (newest version first), for the title's archived block. */
 export const loadArchivedBests = (): { version: number; bests: Bests }[] => Object.entries(loadBestsAll().byVersion).filter(([k, b]) => Number(k) !== RULES_VERSION && (b.overall || b.runs > 0)).map(([k, bests]) => ({ version: Number(k), bests })).sort((a, b) => b.version - a.version);
 /** Records a finished run locally under `version` (the current rules by default). Returns which records were beaten. */
-export function recordBest(seed: string, score: number, version: number = RULES_VERSION): { newOverall: boolean; newSeed: boolean } {
+/** Records a finished run; `prevSeedBest` is this device's best on the seed before this run (null on the first game there), for the results card's delta (0.9.2). */
+export function recordBest(seed: string, score: number, version: number = RULES_VERSION): { newOverall: boolean; newSeed: boolean; prevSeedBest: number | null } {
   const all = loadBestsAll();
   const b = all.byVersion[String(version)] ?? emptyBests();
   const at = new Date().toISOString();
-  const newSeed = !own(b.bySeed, seed) || score > b.bySeed[seed].score;
+  const prevSeedBest = own(b.bySeed, seed) ? b.bySeed[seed].score : null;
+  const newSeed = prevSeedBest == null || score > prevSeedBest;
   if (newSeed) b.bySeed[seed] = { score, at };
   const newOverall = !b.overall || score > b.overall.score;
   if (newOverall) b.overall = { score, seed, at };
   b.runs++;
   all.byVersion[String(version)] = b;
   write(K.bests, all);
-  return { newOverall, newSeed };
+  return { newOverall, newSeed, prevSeedBest };
 }
 
 /** Display name sent with verified submissions (shown publicly on boards). Empty until the player chooses one. */
