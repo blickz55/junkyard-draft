@@ -7,15 +7,48 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
 import { chromium, ROOT, SHOTS, until } from './e2e/fixture.mjs';
 
 const { buildDist } = await import('../scripts/build-lib.mjs');
 const { serveDir } = await import('../tools/static-lib.mjs');
 
+// a mock verifier (0.10.4): no daily (the title stays in practice mode), the push routes record what the title sends
+const pushCalls = [];
+const mock = http.createServer((req, res) => {
+  const cors = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  };
+  const json = (code, body) => {
+    res.writeHead(code, { 'Content-Type': 'application/json', ...cors });
+    res.end(JSON.stringify(body));
+  };
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, cors);
+    return res.end();
+  }
+  const p = new URL(req.url, 'http://x').pathname;
+  if (p === '/health') return json(200, { ok: true, version: 'mock', rulesVersion: 3, protocol: 2 });
+  if (p === '/push/vapid') return json(200, { ok: true, publicKey: Buffer.alloc(65, 4).toString('base64url') });
+  if (p === '/push/subscribe' || p === '/push/unsubscribe') {
+    let body = '';
+    req.on('data', (c) => (body += c));
+    req.on('end', () => {
+      pushCalls.push({ path: p, body: JSON.parse(body), auth: req.headers.authorization ?? null });
+      json(200, p === '/push/subscribe' ? { ok: true, hourUtc: JSON.parse(body).hourUtc, subscriptions: 1 } : { ok: true, removed: true });
+    });
+    return;
+  }
+  return json(404, { ok: false, error: 'not here' });
+});
+await new Promise((r) => mock.listen(0, '127.0.0.1', r));
+const MOCK = `http://127.0.0.1:${mock.address().port}`;
 const distA = fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-dist-'));
 const distB = fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-dist-'));
-const built = await buildDist({ root: ROOT, dist: distA, verifierUrl: 'http://127.0.0.1:9', reports: false });
+const built = await buildDist({ root: ROOT, dist: distA, verifierUrl: MOCK, reports: false });
 // the second deploy: the same build with another worker version (a new commit changes the version string the same way)
 fs.cpSync(distA, distB, { recursive: true });
 fs.writeFileSync(
@@ -31,6 +64,7 @@ page.on('pageerror', (e) => errors.push(String(e)));
 after(async () => {
   await browser.close().catch(() => {});
   await srv.close();
+  mock.close();
   for (const d of [distA, distB]) fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 const api = (fn, ...args) => page.evaluate(({ fn, args }) => window.__jd[fn](...args), { fn, args });
@@ -173,3 +207,62 @@ test('the install offer: not before the second finished run; then the prompt, In
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('jd.install.v1')).installed), true);
   assert.deepEqual(errors, []);
 });
+
+test(
+  'the daily reminder (0.10.4): the hour picker and the button subscribe through the worker and tell our server the UTC hour; off again unsubscribes',
+  { timeout: 120000 },
+  async () => {
+    // the browser's push machinery, stood in for: a subscription object the page can hand to our server
+    await ctx.addInitScript(() => {
+      const fake = {
+        endpoint: 'https://push.example/sub/1',
+        toJSON() {
+          return { endpoint: this.endpoint, keys: { p256dh: 'B'.repeat(87), auth: 'A'.repeat(22) } };
+        },
+        unsubscribe: () => {
+          window.__unsubscribed = (window.__unsubscribed || 0) + 1;
+          return Promise.resolve(true);
+        },
+      };
+      PushManager.prototype.subscribe = () => Promise.resolve(fake);
+      PushManager.prototype.getSubscription = () => Promise.resolve(fake);
+    });
+    await page.goto(`${srv.url}/?dev=1`);
+    await title();
+    await when(() => /^Reminder$/.test(document.querySelector('[data-testid=reminder]')?.textContent || ''));
+    await page.getByTestId('reminder').click();
+    await when(() => !!document.querySelector('[data-testid=reminder-dialog]'));
+    await page.selectOption('[data-testid=push-hour]', '9');
+    const offset = await page.evaluate(() => new Date().getTimezoneOffset());
+    await page.getByTestId('push').click();
+    await until(() => pushCalls.some((c) => c.path === '/push/subscribe'), { timeout: 15000, what: 'the subscription reaching our server' });
+    const sub = pushCalls.find((c) => c.path === '/push/subscribe');
+    assert.equal(sub.body.hourUtc, Math.floor(((((9 * 60 + offset) % 1440) + 1440) % 1440) / 60), 'the chosen local hour as a UTC hour');
+    assert.equal(sub.body.subscription.endpoint, 'https://push.example/sub/1');
+    assert.ok(sub.body.subscription.keys.p256dh && sub.body.subscription.keys.auth, "the browser's keys travel with it");
+    await when(() => /Stop reminders/.test(document.querySelector('[data-testid=push]')?.textContent || ''));
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('jd.push.v1')).hourLocal), 9);
+    assert.equal(await page.evaluate(() => document.querySelector('[data-testid=push-hour]').disabled), true, 'the hour is fixed while the reminder is on');
+    await page.screenshot({ path: path.join(SHOTS, `pwa-reminder-${Date.now()}.png`) });
+    await page.getByTestId('reminder-close').click();
+    await when(() => !document.querySelector('[data-testid=reminder-dialog]'));
+    await when(() => /^Reminder: /.test(document.querySelector('[data-testid=reminder]')?.textContent || ''), null, 5000);
+    // a reload keeps it; off again
+    await page.goto(`${srv.url}/?dev=1`);
+    await title();
+    await when(() => /^Reminder: /.test(document.querySelector('[data-testid=reminder]')?.textContent || ''));
+    await page.getByTestId('reminder').click();
+    await when(() => /Stop reminders/.test(document.querySelector('[data-testid=push]')?.textContent || ''));
+    await page.getByTestId('push').click();
+    await until(() => pushCalls.some((c) => c.path === '/push/unsubscribe'), { timeout: 15000, what: 'the unsubscribe reaching our server' });
+    assert.equal(pushCalls.find((c) => c.path === '/push/unsubscribe').body.endpoint, 'https://push.example/sub/1');
+    await when(() => /Remind me/.test(document.querySelector('[data-testid=push]')?.textContent || ''));
+    assert.equal(await page.evaluate(() => window.__unsubscribed), 1, 'the browser subscription was released');
+    assert.equal(await page.evaluate(() => localStorage.getItem('jd.push.v1')), 'null');
+    await page.keyboard.press('Escape');
+    await when(
+      () => !document.querySelector('[data-testid=reminder-dialog]') && /^Reminder$/.test(document.querySelector('[data-testid=reminder]')?.textContent || ''),
+    );
+    assert.deepEqual(errors, []);
+  },
+);

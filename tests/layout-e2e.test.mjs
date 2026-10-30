@@ -43,6 +43,14 @@ const geometry = () => {
       const s = document.querySelector('#ui .jd-screen');
       return s ? s.scrollWidth - s.clientWidth : 0;
     })(),
+    widest: [...document.querySelectorAll('#ui *')]
+      .map((el) => ({ el, r: el.getBoundingClientRect() }))
+      .filter(({ r }) => r.width > 0 && r.right > u.right + 1)
+      .slice(0, 6)
+      .map(
+        ({ el, r }) =>
+          `${el.tagName.toLowerCase()}${el.className ? '.' + String(el.className).split(' ').join('.') : ''}${el.dataset.testid ? '#' + el.dataset.testid : ''}:${Math.round(r.right - u.right)}px`,
+      ), // what sticks out, for the failure message
     scrollY: (() => {
       const s = document.querySelector('#ui .jd-screen');
       return s ? s.scrollHeight - s.clientHeight : 0;
@@ -101,7 +109,7 @@ for (const vp of VIEWPORTS) {
       const t = await page.evaluate(geometry);
       assert.equal(t.textScale, '1.3', 'text at 130 %');
       assert.deepEqual(t.outsideX, [], `title: nothing sticks out sideways at ${name}`);
-      assert.equal(t.scrollX, 0, `title: no horizontal overflow at ${name}`);
+      assert.equal(t.scrollX, 0, `title: no horizontal overflow at ${name} (sticking out: ${t.widest.join(', ') || 'nothing by rect'})`);
       if (!vp.phone && vp.w >= 1280) assert.equal(t.scrollY, 0, `title: no scrolling on a laptop or desktop at ${name}`);
       assert.ok((await page.evaluate(visibleAndHit, 'daily')).ok, 'the daily button is on screen and not covered');
       await shot('title');
@@ -195,7 +203,7 @@ for (const vp of VIEWPORTS) {
       await frames(2);
       const res = await page.evaluate(geometry);
       assert.deepEqual(res.outsideX, [], `results: nothing sticks out sideways at ${name}`);
-      assert.equal(res.scrollX, 0, `results: no horizontal overflow at ${name}`);
+      assert.equal(res.scrollX, 0, `results: no horizontal overflow at ${name} (sticking out: ${res.widest.join(', ') || 'nothing by rect'})`);
       assert.ok((await page.evaluate(visibleAndHit, 'headline')).ok, `${name}: the results headline is on screen`);
       await shot('results');
       assert.deepEqual(page.errors, [], `no page errors at ${name}`);

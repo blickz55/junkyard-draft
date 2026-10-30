@@ -71,7 +71,7 @@ export function buildLegal(): Legal {
       {
         title: 'On your device',
         items: [
-          "The game stores in your browser's local storage (the desktop edition: under your user profile): your settings (sound, text size, motion, resolution, the play-statistics switch), the current save, your local best scores by rules version, the days you played, a random 128-bit device key with the display name and tag you chose, the group code you joined, and, only while play statistics are on, a random install id with the events not yet sent.",
+          "The game stores in your browser's local storage (the desktop edition: under your user profile): your settings (sound, text size, motion, resolution, the play-statistics switch), the current save, your local best scores by rules version, the days you played, a random 128-bit device key with the display name and tag you chose, the group code you joined, the daily reminder's hour and subscription address if you turned it on, and, only while play statistics are on, a random install id with the events not yet sent.",
           'Nothing on your device is sent anywhere except as the next section describes. Clearing the site\'s data in your browser removes all of it; "Delete my data" in the game replaces the device key and removes the name, the group code and the statistics state, and leaves your local scores and settings alone.',
         ],
       },
@@ -84,6 +84,7 @@ export function buildLegal(): Legal {
           'Moderation. Reports you file (your player id, the reported player, one reason from a fixed list, the time), reports filed about your name, and every moderator action on a name (hide, confirm, clear, forced rename) in an audit log. Purpose: names fit for a public board. Legal basis: the legitimate interest in a safe service.',
           `Request logs. One line per request with the method, path, status, duration and a hash of your network address salted with the day, so the same address cannot be followed from one day to the next. The address itself is not written: the reverse proxy in front of the verifier is configured to drop it from its access log as well. Purpose: abuse limits and debugging. Legal basis: the legitimate interest in a service that stays up. Kept by rotation, ${O.logRotation} per service, which is days to weeks depending on traffic.`,
           `Play statistics, only if you turn them on. Events from a fixed list of ${eventCount} names (which tutorial step you reached, that a game completed, that a share was copied, and the like), a random install id, and the same daily-salted address hash. Never seeds other than daily and tutorial labels, never layouts, never your player id. Legal basis: consent, withdrawn by turning the switch off, which also deletes the install id and the queue on your device. Kept ${DEFAULT_EVENTS_RETENTION_DAYS} days on the server.`,
+          'Daily reminder, only if you turn it on. The push subscription your browser issues (an address at your browser maker\'s push service and two keys that let only your browser read the message) and the hour you chose, with your player id when you have claimed a name. Purpose: one notification a day, "The yard is open", the same for everyone, nothing else. Legal basis: consent, withdrawn by turning the reminder off, which deletes the subscription; "Delete my data" removes it too, and a subscription the push service reports gone is dropped.',
           'Not collected: no e-mail address, no password, no cookies, no advertising or analytics scripts, no payment data, no precise location. The desktop edition sends nothing the web game does not.',
         ],
       },
@@ -100,6 +101,7 @@ export function buildLegal(): Legal {
           `Processors that run the service for the operator: ${O.hosting.verifier}; ${O.hosting.site}; ${O.hosting.source}; ${O.hosting.certificates}; ${O.hosting.chat}.`,
           "Your browser connects to Cloudflare's network to load the game and to the verifier's host to submit runs and read boards; each sees your network address the way any web server does, under its own privacy policy. The verifier itself stores no addresses.",
           "The boards are public. Anyone can see your display name and tag, your scores and ranks and, within the fairness policy's reveal rules, your replays; a Discord channel the operator connects shows the same facts. Nothing is sold, and there is no advertising.",
+          "If you turn the daily reminder on, your browser maker's push service (Apple, Google or Mozilla, depending on the browser) relays one encrypted message a day: it sees that a message went to your browser, not what it says.",
         ],
       },
       {

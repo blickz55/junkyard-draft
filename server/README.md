@@ -27,6 +27,11 @@ Protocol level 2 (PLAN-v3 §1, reported by `/health`): identity is additive. A c
 | GET | `/health` | `{ ok, version, rulesVersion, protocol, entries, entriesAllVersions, uptimeSec }` |
 | POST | `/events` `{ installId, consent: true, events[] }` | opt-in funnel events (PLAN-v1 0.3.7): only the fixed vocabulary in `game/src/telemetry/events.ts`, consent explicit, ≤ 100 events, 30 req/min/IP; appended to `events.jsonl` with a daily-salted IP hash (422 rejected, 429 limited, 503 storage) |
 | GET | `/funnel` | unique installs per first-session step and event counts (what `npm run funnel` prints from the file) |
+| GET | `/push/vapid` | the daily reminder's VAPID public key (production roadmap 0.10.4); 503 unless the verifier runs with `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` |
+| POST | `/push/subscribe` `{ subscription: { endpoint, keys: { p256dh, auth } }, hourUtc }` (+ optional bearer) | store the browser's push subscription with the UTC hour (0–23) for one message a day, "The yard is open"; upsert by endpoint; the bearer's player id is kept so `DELETE /me` removes it; 422 on a malformed subscription or hour, 507 when the store is full (50 000); the write limiter applies; `{ ok, hourUtc, subscriptions }` |
+| POST | `/push/unsubscribe` `{ endpoint }` | remove the row; `{ ok, removed }`. A subscription the push service answers 404 or 410 for, or that fails five days running, is dropped by the sender; `/health` reports `push: { enabled, subscriptions, sent, removed, failed }` |
+
+**Runtime dependency (the first, by the production roadmap's rule 6): `web-push`** builds the VAPID-signed, aes128gcm-encrypted request the push services require (RFC 8291 / 8292); writing that by hand is more risk than the dependency. The verifier posts the request itself (`server/push.ts`), one message a day per subscription at its hour (a 60 s timer), never anything else until the social notifications (0.11.7). Keys: `npx web-push generate-vapid-keys`, kept with the other secrets; `VAPID_SUBJECT` is the contact address (`mailto:`). Rows live in `push.json` next to the board (`PUSH_FILE` overrides).
 
 ## Run
 ```

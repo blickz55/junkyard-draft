@@ -19,6 +19,9 @@ const UTC_DATE_TIME = new Intl.DateTimeFormat('en-GB', {
 const UTC_DATE = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' });
 const UTC_DAY = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', month: 'long', day: 'numeric' });
 
+const LOCAL_HOUR = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
+/** "9:00 AM": a local hour of the day (the daily reminder's picker, 0.10.4). */
+export const localHour = (hour: number): string => LOCAL_HOUR.format(new Date(2026, 0, 1, hour, 0, 0));
 /** "$1758"; negative amounts use the typographic minus the share text always used: "−$40". */
 export const money = (n: number): string => (n < 0 ? `−${MONEY.format(-n)}` : MONEY.format(n));
 export const int = (n: number): string => INT.format(n);

@@ -4,6 +4,7 @@
 # output and its permissions never reach the container; the final file is copied world-readable for the nonroot user.
 # The verifier imports game/src/sim, game/src/telemetry, game/src/identity, game/src/daily and tools/autoplay-lib.ts (review F06): tests/verifier.test.ts rebuilds
 # the bundle from exactly the paths this file copies (minus .dockerignore), so a new import that the image lacks fails the suite.
+# web-push (0.10.4) is not bundled: the final stage installs the production dependencies and server/push.ts loads it on first use.
 # No Docker on the dev machine: the image itself is built and smoke-tested by .github/workflows/ci.yml.
 
 FROM node:24-alpine AS build
@@ -23,6 +24,9 @@ RUN npm run verifier:build
 FROM node:24-alpine
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=4400 DATA_DIR=/data RATE_LIMIT=60 CORS_ORIGIN=*
 WORKDIR /app
+# the runtime dependencies (0.10.4: web-push, loaded only when the daily reminder is on; the bundle leaves it outside)
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=build --chmod=0644 /app/server/dist/verify.mjs ./verify.mjs
 RUN mkdir -p /data && chown node:node /data
 USER node

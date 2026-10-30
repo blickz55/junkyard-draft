@@ -44,6 +44,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/web-push": "^3.6.4",
     "electron": "^45.0.0",
     "electron-builder": "^26.18.0",
     "esbuild": "0.28.2",
@@ -102,5 +103,8 @@
       "uninstallDisplayName": "Junkyard Draft"
     }
   },
-  "author": "Jon"
+  "author": "Jon",
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
 }

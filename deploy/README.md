@@ -19,7 +19,7 @@ What is in this directory:
 | `docker-compose.yml` | the verifier (GHCR image, named volume, `TRUST_PROXY=1`, port on 127.0.0.1 only, rotated logs) and Caddy |
 | `Caddyfile` | TLS for `verify.<DOMAIN>`, HSTS, `X-Real-IP`, 2 MB body cap, JSON access log |
 | `.env.example` → `.env` | compose variables: `DOMAIN`, `ACME_EMAIL`, `VERIFIER_TAG` (the deploy workflow pins the tag here) |
-| `verifier.env.example` → `verifier.env` | the container's secrets and settings: `DAILY_SECRET`, `MODERATION_TOKEN`, `CORS_ORIGIN`, `DISCORD_WEBHOOK_URL` |
+| `verifier.env.example` → `verifier.env` | the container's secrets and settings: `DAILY_SECRET`, `MODERATION_TOKEN`, `CORS_ORIGIN`, `DISCORD_WEBHOOK_URL`, and (0.10.4) `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` for the daily reminder (`npx web-push generate-vapid-keys`; empty keeps reminders off) |
 | `_headers` | template for Cloudflare Pages; `npm run build` renders it into `dist/_headers` with the CSP header and the immutable rule for the content-hashed `main-<hash>.js` |
 | `backup.cron` | nightly archive of the volume, nightly off-box copy, Sunday restore drill (0.8.3) |
 | `../.github/workflows/deploy.yml` | after a green `ci` run: main → Pages; a `v*` tag → pull and restart the verifier over SSH, then `/health` and `tools/mint-check.ts` |

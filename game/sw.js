@@ -25,6 +25,35 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('message', (e) => {
   if (e.data === 'skip-waiting') self.skipWaiting();
 });
+// the daily reminder (0.10.4): our server sends one message a day to those who asked; a tap opens the yard
+self.addEventListener('push', (e) => {
+  let data;
+  try {
+    data = e.data ? e.data.json() : {};
+  } catch {
+    data = { body: e.data ? e.data.text() : '' };
+  }
+  const icon = new URL('icons/icon-192.png', self.location.href).href;
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'Junkyard Draft', {
+      body: data.body || 'The yard is open.',
+      icon,
+      badge: icon,
+      tag: data.tag || 'jd-daily',
+      data: { url: new URL(data.url || './', self.location.href).href },
+    }),
+  );
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || self.location.href;
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const open = list.find((c) => 'focus' in c);
+      return open ? open.focus() : self.clients.openWindow(url);
+    }),
+  );
+});
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;

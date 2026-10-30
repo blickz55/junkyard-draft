@@ -41,7 +41,9 @@ import { openGroups } from './GroupsPanel';
 import { groupHeaders, groupParam, loadGroup, saveGroup } from '../render/groups';
 import { t } from '../content/strings';
 import { pwa } from '../render/pwa';
-import { money, int } from '../content/format';
+import { money, int, localHour } from '../content/format';
+import { pushSupported, loadReminder } from '../render/push';
+import { openReminder } from './ReminderPanel';
 
 export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const save = loadSave();
@@ -373,7 +375,27 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
       'div',
       { class: 'jd-row jd-between' },
       h('div', { class: 'jd-head' }, t('title.bestsHead')),
-      btn(t('title.record'), 'record', () => openRecord(scene), { small: true, title: t('title.recordTitle') }),
+      h(
+        'span',
+        { class: 'jd-row', style: 'gap:0.4em' },
+        // the daily reminder (0.10.4) opens a dialog from here, so the title grows by nothing
+        ...(pushSupported()
+          ? [
+              (() => {
+                const reminderLabel = () => {
+                  const r = loadReminder();
+                  return r ? t('title.reminderOn', { time: localHour(r.hourLocal) }) : t('title.reminder');
+                };
+                const b = btn(reminderLabel(), 'reminder', () => openReminder(scene, verifierUrl, () => (b.textContent = reminderLabel())), {
+                  small: true,
+                  title: t('title.pushNote'),
+                });
+                return b;
+              })(),
+            ]
+          : []),
+        btn(t('title.record'), 'record', () => openRecord(scene), { small: true, title: t('title.recordTitle') }),
+      ),
     ),
     h(
       'div',
@@ -562,6 +584,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
         saveGroup(null);
         throw new Error('group unavailable');
       }
+      if (!r.ok) throw new Error(`no daily (${r.status})`); // a server with no board today: the practice yard, said plainly (the catch below)
       return r.json();
     })
     .then(
@@ -579,7 +602,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
         const info = acceptDaily(d);
         if (!info) {
           practiceMode(t('title.practiceOtherDay', { date: d.date ?? t('title.anotherDay') }));
-          line.textContent = t('title.boardOtherDay', { seed: d.seed });
+          line.textContent = t('title.boardOtherDay', { seed: d.seed ?? t('title.anotherDay') });
           return;
         }
         const seed = info.seed;

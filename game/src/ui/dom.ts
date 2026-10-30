@@ -172,6 +172,7 @@ const STYLE = `
 #ui .jd-controls td { text-align: left; vertical-align: top; padding: 0.3em 0.5em; border-bottom: 1px solid #3f382d; }
 #ui .jd-btn:focus-visible, #ui input:focus-visible, #ui .jd-entry:focus-visible { outline: 3px solid #d6f0ff; outline-offset: 2px; }
 #ui input[type=range] { accent-color: ${CSS.amber}; width: 12em; }
+#ui .jd-select { font: inherit; font-size: 0.8125em; background: #1a1612; color: ${CSS.text}; border: 1px solid #3f382d; border-radius: 0.2em; padding: 0.35em 0.5em; }
 #ui .jd-entry { font: inherit; font-family: ${MONO}; font-size: 0.75em; background: none; border: 0; color: ${CSS.text}; text-align: left; padding: 0.1em 0; cursor: pointer; }
 #ui .jd-entry:hover { color: ${CSS.blue}; }
 #ui .jd-entry:disabled { cursor: default; color: ${CSS.text}; }
@@ -192,6 +193,8 @@ const STYLE = `
 #ui .jd-hist-mini { display: inline-flex; align-items: flex-end; gap: 1px; height: 1.6em; vertical-align: middle; margin-left: 0.75em; }
 #ui .jd-hist-mini .jd-hist-bar { width: 0.45em; }
 #ui .jd-around { font-family: ${MONO}; font-size: 0.7em; margin-top: 0.3em; columns: 2; column-gap: 1.5em; }
+#ui .jd-results, #ui .jd-title { overflow-wrap: anywhere; } /* a wider fallback font (DejaVu Sans on the CI runner) must never push a line past the viewport */
+#ui .jd-results .jd-grid2 > *, #ui .jd-title .jd-grid2 > * { min-width: 0; }
 #ui .jd-around .jd-mine { color: ${CSS.amber}; font-weight: 700; }
 `;
 

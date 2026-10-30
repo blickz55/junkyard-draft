@@ -82,6 +82,7 @@ import { Rng } from '../game/src/sim/rng';
 import { decodeReplay, canonicalReplayJson, type ReplayFile } from '../game/src/sim/replay';
 import { replay as replayRun, type RunState } from '../game/src/sim/run';
 import { RULES_VERSION } from '../game/src/sim/types';
+import { PushStore, PushError, validateHour, validateSubscription } from './push';
 import { isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
 import { mintSeed, mintWeeklySeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS, base32Lower } from './mint';
 import { isWeekId, isWeeklySeed, weeklyIdOf, weeklyWindow, currentWeekId, nextWeekId, prevWeekId, isoWeekId } from '../game/src/sim/weekly';
@@ -2064,6 +2065,8 @@ export interface ServerOptions {
   now?: () => number;
   /** opt-in funnel events store; null (default) disables POST /events and GET /funnel */
   events?: EventStore | null;
+  /** push subscriptions for the daily reminder (0.10.4); absent, or present without VAPID keys, the push routes answer 503 */
+  push?: PushStore | null;
   /** POST /events limit per client IP per minute (default 30) */
   eventsRateLimit?: number;
   /** POST /verify limit per player id per minute when a bearer is present (default 2) */
@@ -2165,6 +2168,7 @@ export function clientIp(req: http.IncomingMessage, trustProxy: boolean): string
 export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const rl = opts.rateLimit === null ? null : new RateLimiter(opts.rateLimit?.limit ?? 60, opts.rateLimit?.windowMs ?? 60_000, opts.now);
   const events = opts.events ?? null;
+  const push = opts.push ?? null;
   const par = opts.par ?? null;
   const verify = opts.verify ?? null;
   const withPar = (seed: string) => {
@@ -2266,6 +2270,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           entries: verifier.size,
           entriesAllVersions: verifier.sizeAllVersions,
           cold: { days: verifier.cold.dayCount, replays: verifier.cold.replayCount },
+          push: push ? { enabled: push.enabled, subscriptions: push.count, ...push.stats } : null,
           ...(opts.announcer?.enabled ? { discord: opts.announcer.stats } : {}),
           uptimeSec: Math.round((Date.now() - started) / 1000),
           ...verifier.health,
@@ -2552,11 +2557,68 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         }
         try {
           const r = verifier.deletePlayer(bearerId);
-          return json(200, { ok: true, anonymisedEntries: r.entries, coldReplaysDropped: r.coldReplays });
+          const pushRemoved = push?.unsubscribePlayer(bearerId) ?? 0; // 0.10.4: the reminder goes with the player
+          return json(200, { ok: true, anonymisedEntries: r.entries, coldReplaysDropped: r.coldReplays, pushSubscriptionsRemoved: pushRemoved });
         } catch (e) {
           if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable; try again' }, { 'Retry-After': '5' });
           return json(500, { ok: false, error: 'internal error' });
         }
+      }
+      // push for the daily (0.10.4): the public key, subscribe (upsert by endpoint, the UTC hour, the bearer's player when present), unsubscribe
+      if (url.pathname === '/push/vapid' || url.pathname === '/push/subscribe' || url.pathname === '/push/unsubscribe') {
+        if (!push || !push.enabled) {
+          req.resume();
+          return json(503, { ok: false, error: 'push is not enabled on this verifier (set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY)' });
+        }
+        if (req.method === 'GET' && url.pathname === '/push/vapid') return json(200, { ok: true, publicKey: push.publicKey });
+        if (req.method !== 'POST' || url.pathname === '/push/vapid') {
+          req.resume();
+          return json(405, { ok: false, error: 'method not allowed' });
+        }
+        {
+          const w = writeLimited();
+          if (w != null) {
+            req.resume();
+            return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) });
+          }
+        }
+        let body = '';
+        req.on('data', (c) => {
+          body += c;
+          if (body.length > 8192) {
+            json(413, { ok: false, error: 'too large', code: 'too-large' });
+            req.destroy();
+          }
+        });
+        req.on('end', () =>
+          guarded(() => {
+            if (res.writableEnded) return;
+            let parsed: { subscription?: unknown; hourUtc?: unknown; endpoint?: unknown };
+            try {
+              parsed = JSON.parse(body || '{}') as typeof parsed;
+            } catch (e) {
+              return json(400, { ok: false, error: `bad request: ${(e as Error).message}` });
+            }
+            if (!parsed || typeof parsed !== 'object') return json(400, { ok: false, error: 'bad request: an object is expected' });
+            try {
+              if (url.pathname === '/push/unsubscribe') {
+                const endpoint = typeof parsed.endpoint === 'string' ? parsed.endpoint : '';
+                if (!endpoint) return json(400, { ok: false, error: 'endpoint required' });
+                return json(200, { ok: true, removed: push.unsubscribe(endpoint) });
+              }
+              const sub = validateSubscription(parsed.subscription);
+              if (typeof sub === 'string') return json(422, { ok: false, error: sub });
+              const hour = validateHour(parsed.hourUtc);
+              if (typeof hour === 'string') return json(422, { ok: false, error: hour });
+              const row = push.subscribe({ ...sub, hourUtc: hour, playerId: bearerId });
+              return json(200, { ok: true, hourUtc: row.hourUtc, subscriptions: push.count });
+            } catch (e) {
+              if (e instanceof PushError) return json(e.statusCode, { ok: false, error: e.message });
+              throw e;
+            }
+          }),
+        );
+        return;
       }
       if (req.method === 'POST' && url.pathname === '/report') {
         // name moderation (PLAN-v4 0.7.7)
@@ -2900,6 +2962,24 @@ if (isMain) {
       ? `re-simulation: one job at a time in a worker thread, ${verify.capMs} ms cap, ${verify.maxQueue} waiting at most`
       : 're-simulation: inline on the event loop (RESIM_INLINE=1)',
   );
+  // push for the daily (0.10.4): VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY turn it on (`npx web-push generate-vapid-keys`); the subscriptions live next to the board
+  const vapidPublic = process.env.VAPID_PUBLIC_KEY || '',
+    vapidPrivate = process.env.VAPID_PRIVATE_KEY || '';
+  const push = new PushStore(process.env.PUSH_FILE || path.join(path.dirname(file), 'push.json'), {
+    vapid:
+      vapidPublic && vapidPrivate
+        ? { publicKey: vapidPublic, privateKey: vapidPrivate, subject: process.env.VAPID_SUBJECT || 'mailto:contact@junkyarddraft.com' }
+        : null,
+  });
+  console.log(
+    push.enabled
+      ? `push: on, ${push.count} subscription(s), one message a day at each subscriber's hour (${push.file})`
+      : 'push: off (set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY to send the daily reminder)',
+  );
+  if (push.enabled)
+    setInterval(() => {
+      push.tick().catch((e) => console.error(`push tick failed: ${(e as Error).message}`));
+    }, 60_000).unref();
   const server = createServer(verifier, {
     rateLimit: { limit, windowMs: 60_000 },
     playerRateLimit,
@@ -2909,6 +2989,7 @@ if (isMain) {
     trustProxy,
     log: process.env.VERIFIER_LOG === '0' ? null : undefined,
     events,
+    push,
     par,
     verify,
     announcer,

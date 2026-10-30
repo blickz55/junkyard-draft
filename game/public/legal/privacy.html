@@ -31,7 +31,7 @@
     </section>
     <section>
       <h2>On your device</h2>
-      <p>The game stores in your browser's local storage (the desktop edition: under your user profile): your settings (sound, text size, motion, resolution, the play-statistics switch), the current save, your local best scores by rules version, the days you played, a random 128-bit device key with the display name and tag you chose, the group code you joined, and, only while play statistics are on, a random install id with the events not yet sent.</p>
+      <p>The game stores in your browser's local storage (the desktop edition: under your user profile): your settings (sound, text size, motion, resolution, the play-statistics switch), the current save, your local best scores by rules version, the days you played, a random 128-bit device key with the display name and tag you chose, the group code you joined, the daily reminder's hour and subscription address if you turned it on, and, only while play statistics are on, a random install id with the events not yet sent.</p>
       <p>Nothing on your device is sent anywhere except as the next section describes. Clearing the site's data in your browser removes all of it; &quot;Delete my data&quot; in the game replaces the device key and removes the name, the group code and the statistics state, and leaves your local scores and settings alone.</p>
     </section>
     <section>
@@ -42,6 +42,7 @@
       <p>Moderation. Reports you file (your player id, the reported player, one reason from a fixed list, the time), reports filed about your name, and every moderator action on a name (hide, confirm, clear, forced rename) in an audit log. Purpose: names fit for a public board. Legal basis: the legitimate interest in a safe service.</p>
       <p>Request logs. One line per request with the method, path, status, duration and a hash of your network address salted with the day, so the same address cannot be followed from one day to the next. The address itself is not written: the reverse proxy in front of the verifier is configured to drop it from its access log as well. Purpose: abuse limits and debugging. Legal basis: the legitimate interest in a service that stays up. Kept by rotation, 7 files of 20 MB each per service, which is days to weeks depending on traffic.</p>
       <p>Play statistics, only if you turn them on. Events from a fixed list of 25 names (which tutorial step you reached, that a game completed, that a share was copied, and the like), a random install id, and the same daily-salted address hash. Never seeds other than daily and tutorial labels, never layouts, never your player id. Legal basis: consent, withdrawn by turning the switch off, which also deletes the install id and the queue on your device. Kept 7 days on the server.</p>
+      <p>Daily reminder, only if you turn it on. The push subscription your browser issues (an address at your browser maker's push service and two keys that let only your browser read the message) and the hour you chose, with your player id when you have claimed a name. Purpose: one notification a day, &quot;The yard is open&quot;, the same for everyone, nothing else. Legal basis: consent, withdrawn by turning the reminder off, which deletes the subscription; &quot;Delete my data&quot; removes it too, and a subscription the push service reports gone is dropped.</p>
       <p>Not collected: no e-mail address, no password, no cookies, no advertising or analytics scripts, no payment data, no precise location. The desktop edition sends nothing the web game does not.</p>
     </section>
     <section>
@@ -54,6 +55,7 @@
       <p>Processors that run the service for the operator: Hetzner Online GmbH (virtual server in the European Union); Cloudflare, Inc. (Pages hosting, DNS and e-mail forwarding for the domain); GitHub, Inc. (source code, releases, the desktop installer); Let's Encrypt (TLS certificates for the verifier's host name); Discord Inc. (only when the operator connects a channel: open and close announcements and new #1 scores, the same facts the public board shows).</p>
       <p>Your browser connects to Cloudflare's network to load the game and to the verifier's host to submit runs and read boards; each sees your network address the way any web server does, under its own privacy policy. The verifier itself stores no addresses.</p>
       <p>The boards are public. Anyone can see your display name and tag, your scores and ranks and, within the fairness policy's reveal rules, your replays; a Discord channel the operator connects shows the same facts. Nothing is sold, and there is no advertising.</p>
+      <p>If you turn the daily reminder on, your browser maker's push service (Apple, Google or Mozilla, depending on the browser) relays one encrypted message a day: it sees that a message went to your browser, not what it says.</p>
     </section>
     <section>
       <h2>Where</h2>
