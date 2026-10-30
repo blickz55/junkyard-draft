@@ -17,6 +17,7 @@ import { labelFor } from '../identity/identity';
 import { todaySeed, revealGate } from '../render/daily';
 import { medalFor, medalsLine, type Medals } from '../daily/medals';
 import { openPolicy } from './PolicyPanel';
+import { openPrivacy } from './PrivacyPanel';
 import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
 import { groupHeaders, groupParam, loadGroup } from '../render/groups';
 import { forkLabelOf } from '../sim/fork';
@@ -253,7 +254,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
       btn('Retry this seed', 'retry', () => go(run.seed), { variant: 'primary' }),
       btn('New random seed', 'newseed', () => go(randomSeed()), { variant: 'steel' }),
       btn("Today's challenge", 'daily', () => go(todaySeed()), { variant: 'steel' })),
-    h('div', { class: 'jd-row jd-center' }, fork ? null : submitBtn, shareBtn, detailedBtn, shareLinkLabel, cardBtn, fork ? null : challengeBtn, clipBtn, gifBtn, fork ? null : exportBtn, fork ? null : downloadBtn, btn('Policy', 'policy', () => openPolicy(scene), { small: true, title: 'fairness and verification policy' }), btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
+    h('div', { class: 'jd-row jd-center' }, fork ? null : submitBtn, shareBtn, detailedBtn, shareLinkLabel, cardBtn, fork ? null : challengeBtn, clipBtn, gifBtn, fork ? null : exportBtn, fork ? null : downloadBtn, btn('Policy', 'policy', () => openPolicy(scene), { small: true, title: 'fairness and verification policy' }), btn('Privacy', 'privacy', () => openPrivacy(scene, verifierUrl, 'privacy'), { small: true, title: 'privacy notice, terms, guidelines; download or delete your data (0.8.6)' }), btn('Title screen', 'title', () => scene.scene.start('Title'), { small: true })),
     status);
   ui.mount(scene, screen, (e) => { if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) go(run.seed); });
   void loadBoard();

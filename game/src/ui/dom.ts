@@ -76,6 +76,8 @@ const STYLE = `
 #ui .jd-btn-steel { background: #8e9aa6; color: #1a1612; }
 #ui .jd-btn-dark { background: #5a6670; color: ${CSS.text}; }
 #ui .jd-btn-small { font-size: 0.75em; padding: 0.4em 0.9em; }
+#ui .jd-link { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; pointer-events: auto; }
+#ui .jd-link:focus-visible { outline: 2px solid ${CSS.amber}; outline-offset: 2px; }
 #ui .jd-btn:hover:not(:disabled) { filter: brightness(1.12); }
 #ui .jd-btn-dark:hover:not(:disabled) { filter: brightness(0.88); }
 #ui .jd-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 1px 0 rgba(0,0,0,0.35); }

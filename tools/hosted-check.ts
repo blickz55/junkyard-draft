@@ -53,6 +53,9 @@ async function main(): Promise<number> {
   // 1. the site
   const page = await fetch(`${origin}/`, { redirect: 'manual' });
   check('site: / answers 200', page.status === 200, `status ${page.status}`);
+  for (const id of ['privacy', 'terms', 'guidelines']) { // 0.8.6: the legal pages are reachable from outside the game too
+    try { const r = await fetch(`${origin}/legal/${id}.html`); const t = r.ok ? await r.text() : ''; check(`site: legal/${id}.html served as a page`, r.ok && /text\/html/.test(r.headers.get('content-type') || '') && /<h1>/.test(t), `status ${r.status} ${r.headers.get('content-type') || ''}`); } catch (e) { check(`site: legal/${id}.html served as a page`, false, String(e)); }
+  }
   const html = await page.text();
   const csp = page.headers.get('content-security-policy');
   if (checkHeaders) {

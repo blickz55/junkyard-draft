@@ -64,6 +64,7 @@ test('deploy: compose, Caddyfile, env templates, cron and the deploy workflow sa
   assert.match(caddy, /Strict-Transport-Security "max-age=31536000; includeSubDomains"/);
   assert.match(caddy, /reverse_proxy verifier:4400 \{\s*header_up X-Real-IP \{remote_host\}/, 'the client address reaches the verifier as X-Real-IP');
   assert.match(caddy, /email \{\$ACME_EMAIL\}/); assert.match(caddy, /admin off/);
+  assert.match(caddy, /format filter \{\s*wrap json\s*fields \{[^}]*request>remote_ip delete[^}]*request>client_ip delete[^}]*request>headers>X-Forwarded-For delete/, 'the access log drops the client address (0.8.6: the privacy notice promises no log stores it)');
   const env = read('deploy/.env.example'); for (const k of ['DOMAIN', 'ACME_EMAIL', 'VERIFIER_TAG']) assert.match(env, new RegExp(`^${k}=`, 'm'));
   const venv = read('deploy/verifier.env.example'); for (const k of ['DAILY_SECRET', 'MODERATION_TOKEN', 'CORS_ORIGIN', 'DISCORD_WEBHOOK_URL']) assert.match(venv, new RegExp(`^${k}=`, 'm'));
   assert.doesNotMatch(venv, /^DAILY_SECRET=.+/m, 'the template carries no secret value');

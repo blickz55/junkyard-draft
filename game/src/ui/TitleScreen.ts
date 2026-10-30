@@ -20,6 +20,7 @@ import { HIDDEN_LABEL } from '../identity/identity';
 import { acceptDaily, cachedDaily, fetchDaily, practiceSeed, todaySeed, revealGate, fetchWeekly } from '../render/daily';
 import { openArchive } from './ArchivePanel';
 import { openPolicy } from './PolicyPanel';
+import { openPrivacy } from './PrivacyPanel';
 import { openGroups } from './GroupsPanel';
 import { groupHeaders, groupParam, loadGroup, saveGroup } from '../render/groups';
 
@@ -47,7 +48,9 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const top = h('div', { class: 'jd-row jd-between' },
     h('span', { class: 'jd-mono jd-dim', style: 'font-size:0.7em' }, `build ${import.meta.env.BUILD}`),
     h('div', { class: 'jd-row', style: 'gap:0.5em' }, playerBtn, qualityBtn, statsBtn));
-  const statsNote = h('div', { class: 'jd-mono jd-dim', tid: 'telemetry-note', style: 'font-size:0.6em; text-align:right; margin-top:-0.3em' }, 'Anonymous play statistics only: which steps you reach, never seeds or layouts.');
+  // the consent toggle's note carries the link to the privacy notice and the data buttons (production roadmap 0.8.6)
+  const privacyLink = h('button', { class: 'jd-link', tid: 'privacy', type: 'button', title: 'privacy notice, terms, community guidelines; download or delete everything stored about you', onClick: () => openPrivacy(scene, verifierUrl, 'privacy', () => { playerBtn.textContent = playerLabel(); statsBtn.textContent = statsLabel(); playerNote.textContent = ''; playerNote.style.display = 'none'; }) }, 'Privacy & data'); // after a deletion the player button, the statistics button and the claim note are refreshed
+  const statsNote = h('div', { class: 'jd-mono jd-dim', tid: 'telemetry-note', style: 'font-size:0.6em; text-align:right; margin-top:-0.3em' }, 'Anonymous play statistics only: which steps you reach, never seeds or layouts. ', privacyLink);
 
   // hero
   const hero = h('div', { style: 'text-align:center' },

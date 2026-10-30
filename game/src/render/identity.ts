@@ -55,6 +55,33 @@ export function restoreIdentity(code: string): boolean {
   const token = tokenFromRecoveryCode(code); if (!token) return false;
   write({ token, playerId: null, name: null, tag: null }); return true;
 }
+/** GET /me/export (production roadmap 0.8.6): everything the verifier stores under this device's player id, or an error line. */
+export async function exportMyData(verifierUrl: string): Promise<{ ok: true; data: Record<string, unknown>; entries: number; replays: number } | { ok: false; error: string }> {
+  if (!bearerAllowed(verifierUrl)) return { ok: false, error: 'the verifier is not https, so the key cannot be sent' };
+  try {
+    const res = await fetch(`${verifierUrl}/me/export`, { headers: authHeaders(verifierUrl) });
+    const body = await res.json() as { ok: boolean; error?: string; entries?: { replay: unknown }[] };
+    if (!res.ok || !body.ok) return { ok: false, error: body.error ?? `export refused (${res.status})` };
+    const entries = Array.isArray(body.entries) ? body.entries : [];
+    return { ok: true, data: body as Record<string, unknown>, entries: entries.length, replays: entries.filter((e) => e.replay).length };
+  } catch { return { ok: false, error: 'the verifier did not answer' }; }
+}
+/** Replace the device key with a fresh one (after a deletion: nothing may link the anonymised entries to this device again). */
+export function resetIdentity(): void { write({ token: randomToken(), playerId: null, name: null, tag: null }); }
+/**
+ * DELETE /me (0.8.6, the in-game button): the verifier forgets the player, then the device forgets the key. The local
+ * half runs only after the server confirmed (a key rotated before the server answered would orphan the server's copy).
+ */
+export async function deleteMyData(verifierUrl: string): Promise<{ ok: true; anonymisedEntries: number; coldReplaysDropped: number } | { ok: false; error: string }> {
+  if (!bearerAllowed(verifierUrl)) return { ok: false, error: 'the verifier is not https, so the key cannot be sent' };
+  try {
+    const res = await fetch(`${verifierUrl}/me`, { method: 'DELETE', headers: authHeaders(verifierUrl) });
+    const body = await res.json() as { ok: boolean; error?: string; anonymisedEntries?: number; coldReplaysDropped?: number };
+    if (!res.ok || !body.ok) return { ok: false, error: body.error ?? `deletion refused (${res.status})` };
+    resetIdentity();
+    return { ok: true, anonymisedEntries: body.anonymisedEntries ?? 0, coldReplaysDropped: body.coldReplaysDropped ?? 0 };
+  } catch { return { ok: false, error: 'the verifier did not answer; nothing was deleted' }; }
+}
 /** Claim or confirm the display name with the verifier; resolves with the label or null when the server is unreachable or refused. */
 export async function claimName(verifierUrl: string, name: string): Promise<{ name: string; tag: string } | { error: string } | null> {
   try {

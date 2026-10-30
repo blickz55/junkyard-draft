@@ -84,6 +84,15 @@ export class ColdStore {
     if (indexChanged) this.writeJson(path.join(this.dir, 'index.json'), this.index);
     return dropped;
   }
+  /** A player's entries across every month file with the kept replay when there is one (0.8.6, GET /me/export); ascending by day. */
+  entriesOf(playerId: string): { key: string; seed: string; entry: BoardEntry; replay: StoredReplay | null }[] {
+    const out: { key: string; seed: string; entry: BoardEntry; replay: StoredReplay | null }[] = [];
+    for (const f of this.monthFiles()) {
+      const m = this.readJson<ColdMonth>(path.join(this.dir, f)); if (!m || typeof m.days !== 'object') continue;
+      for (const [key, day] of Object.entries(m.days)) for (const e of day.entries) if (e.playerId === playerId) out.push({ key, seed: day.record.seed, entry: e, replay: day.replays[e.replayHash] ?? null });
+    }
+    return out.sort((a, b) => a.key.localeCompare(b.key));
+  }
   /** Bytes on disk across month files and the index (for /health and the measurement tool). */
   bytes(): number {
     try { return fs.readdirSync(this.dir).filter((f) => f.endsWith('.json')).reduce((n, f) => n + fs.statSync(path.join(this.dir, f)).size, 0); } catch { return 0; }

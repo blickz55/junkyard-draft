@@ -91,6 +91,7 @@ export { mintWeeklySeed } from './mint';
 export { currentWeekId, weeklyWindow, isWeeklySeed, weeklyIdOf } from '../game/src/sim/weekly';
 import { medalThresholds, type Medals } from '../game/src/daily/medals';
 import { ColdStore, HOT_DAYS, COLD_REPLAYS_PER_DAY, type ColdDay } from './cold';
+import { OPERATOR } from '../game/src/content/operator';
 export { HOT_DAYS, COLD_REPLAYS_PER_DAY, ColdStore } from './cold';
 export { medalThresholds, medalFor, MEDAL_PERCENTILES, MEDAL_MIN_N, type Medals } from '../game/src/daily/medals';
 export { mintSeed, commitmentFor, shiftDate, utcDate, isUtcDate, DAILY_WINDOW_MS } from './mint';
@@ -98,7 +99,7 @@ import { validateBatch, FUNNEL, type EventBatch, type EventName, type Props } fr
 import pkg from '../package.json' with { type: 'json' };
 import { tagFor, labelFor, normaliseName, nameProblem, TOKEN_HEX, REPORT_REASONS, HIDDEN_LABEL, type ReportReason } from '../game/src/identity/identity';
 
-/** Protocol level of this server's HTTP surface (PLAN-v3 §1): 2 adds identity (bearer tokens, /identity, DELETE /me, keep-best per player). */
+/** Protocol level of this server's HTTP surface (PLAN-v3 §1): 2 adds identity (bearer tokens, /identity, DELETE /me, keep-best per player); GET /me/export (0.8.6) only grows it. */
 export const PROTOCOL = 2;
 export const RENAME_COOLDOWN_MS = 24 * 60 * 60_000;
 /** A claimed identity: the player id is the SHA-256 of a device token the server never stores. */
@@ -167,8 +168,8 @@ export interface ReportPolicy { reporters: number; establishedDays: number; expi
 export const DEFAULT_REPORT_POLICY: ReportPolicy = { reporters: 2, establishedDays: 7, expiryHours: 72 };
 /** Past dailies and weeklies can be asked for (and minted) only this many days back from today (0.8.1): bounds what unauthenticated reads can write. */
 export const DAILY_HISTORY_DAYS = 400;
-/** where a player appeals a moderation decision: a placeholder the operator replaces before hosting (PLAN-v4 0.7.7) */
-export const APPEAL_CONTACT = 'moderation@example.invalid';
+/** where a player appeals a moderation decision (PLAN-v4 0.7.7): a mailbox on the game's domain (0.8.6; game/src/content/operator.ts) */
+export const APPEAL_CONTACT: string = OPERATOR.appealEmail;
 export interface Report { reporterId: string; reason: ReportReason; at: string; /** the reporter held a verified entry old enough when reporting (0.8.1); only these count toward a hide */ established?: boolean }
 /** per reported player: the name as reported, whether it is hidden, how often a moderator cleared it, the open reports */
 export interface ModerationRecord { name: string; hidden: boolean; hiddenAt?: string; clears: number; reports: Report[]; /** a moderator confirmed the hide (0.8.1): it no longer expires, only clear or rename lifts it */ confirmedAt?: string }
@@ -181,6 +182,8 @@ export const DEFAULT_READ_RATE_LIMIT = 300, DEFAULT_WRITE_RATE_LIMIT = 30;
 /** claimed identities kept (0.8.1); over the cap the oldest identities that never submitted and belong to no group are evicted first */
 export const DEFAULT_MAX_PLAYERS = 20_000;
 export const DEFAULT_REPLAYS_PER_SEED = 100, DEFAULT_MAX_ENTRIES_PER_SEED = 1000, DEFAULT_MAX_SEEDS = 5000, DEFAULT_EVENTS_RETENTION_DAYS = 7; // events: 7 days, as the policy page always said (0.8.1 reconciled the code)
+/** GET /me/export (0.8.6) */
+export interface PlayerExport { exportedAt: string; protocol: number; rulesVersion: number; playerId: string; tag: string; player: { name: string; tag: string; createdAt: string; renamedAt: string; hidden: boolean } | null; entries: (BoardEntry & { storage: 'hot' | 'cold'; replay: StoredReplay | null })[]; groups: { code: string; name: string; members: number; creator: boolean }[]; moderation: { name: string; hidden: boolean; hiddenAt: string | null; confirmedAt: string | null; clears: number; reports: number } | null; reportsFiled: { reason: ReportReason; at: string }[]; notes: string[] }
 export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay>; pars?: Record<string, BotPar>; players?: Record<string, Player>; dailies?: Record<string, DailyRecord>; groups?: Record<string, Group>; moderation?: Record<string, ModerationRecord> }
 
 export const MAX_BODY_BYTES = 512 * 1024;
@@ -555,6 +558,29 @@ export class Verifier {
     this.commit({ ...this.data, players, replays, entries, groups, moderation });
     let coldReplays = 0; try { coldReplays = this.cold.dropPlayer(playerId); } catch (e) { console.error(`cold deletion for ${playerId.slice(0, 8)}… failed: ${(e as Error).message}`); } // 0.8.1: the kept cold replays go too (the policy promised it)
     return { entries: mine.length, coldReplays };
+  }
+  /**
+   * Everything stored under a player id (production roadmap 0.8.6; the access and portability right): the claimed record,
+   * every hot and cold entry with its stored replay when one is kept, group memberships, the moderation record of the
+   * name (counts only: the reporters are other people's data) and the reports this player filed (reason and time; the
+   * target is another player's data). Opt-in play statistics are keyed by a separate random install id and cannot be
+   * linked to a player id, so they are absent by construction. A player who never claimed a name still gets their entries.
+   */
+  exportPlayer(playerId: string, now = new Date()): PlayerExport {
+    const player = this.player(playerId);
+    const hot = this.data.entries.filter((e) => e.playerId === playerId).map((e) => ({ ...this.withLabel(e, now), storage: 'hot' as const, replay: this.data.replays?.[e.replayHash] ?? null }));
+    const cold = this.cold.entriesOf(playerId).map((c) => ({ ...c.entry, player: player ? this.labelOf(playerId, player, now) : c.entry.player, storage: 'cold' as const, replay: c.replay }));
+    const mod = this.data.moderation?.[playerId];
+    const reportsFiled = Object.values(this.data.moderation ?? {}).flatMap((m) => m.reports.filter((r) => r.reporterId === playerId).map((r) => ({ reason: r.reason, at: r.at }))).sort((a, b) => a.at.localeCompare(b.at));
+    return {
+      exportedAt: now.toISOString(), protocol: PROTOCOL, rulesVersion: RULES_VERSION, playerId, tag: tagFor(playerId),
+      player: player ? { name: player.name, tag: player.tag, createdAt: player.createdAt, renamedAt: player.renamedAt, hidden: this.isHidden(mod, now) } : null,
+      entries: [...hot, ...cold].sort((a, b) => a.verifiedAt.localeCompare(b.verifiedAt)),
+      groups: this.groupsOf(playerId),
+      moderation: mod ? { name: mod.name, hidden: mod.hidden, hiddenAt: mod.hiddenAt ?? null, confirmedAt: mod.confirmedAt ?? null, clears: mod.clears, reports: mod.reports.length } : null,
+      reportsFiled,
+      notes: ['Entries carry the label shown on the boards at export time; replays are kept for a seed\'s top entries and for the top entries of closed days only, so an entry may have replay: null.', 'Play statistics (if you opted in) are stored under a random install id that is never linked to this player id; they are not part of this export.', 'Request logs hold a daily-salted hash of the address, never an identifier of this player; they are not part of this export.'],
+    };
   }
 
   // ---------- name moderation (PLAN-v4 0.7.7) ----------
@@ -1221,6 +1247,10 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           } catch (e) { if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable; try again' }, { 'Retry-After': '5' }); json(500, { ok: false, error: 'internal error' }); }
         }));
         return;
+      }
+      if (url.pathname === '/me/export' && req.method === 'GET') { // 0.8.6: the access right; the read limiter above applies
+        if (!bearerId) return json(401, { ok: false, error: 'token required' });
+        return json(200, { ok: true, ...verifier.exportPlayer(bearerId, new Date((opts.now ?? Date.now)())) });
       }
       if (url.pathname === '/me' && req.method === 'DELETE') {
         if (!bearerId) return json(401, { ok: false, error: 'token required' });

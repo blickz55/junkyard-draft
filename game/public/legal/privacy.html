@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy notice · Junkyard Draft</title>
+  <meta name="description" content="Junkyard Draft has no accounts, no e-mail sign-up, no cookies and no advertising. The game keeps your settings and best scores on your device. The verifier keeps what public leaderboards need: the replays you submit, the display name you choose and a hash of a key your device made. You can download or delete all of it from the game, and nothing identifies you to us beyond that key." />
+  <style>
+    :root { color-scheme: dark; }
+    html, body { margin: 0; background: #1a1612; color: #e8dcc8; font: 16px/1.5 system-ui, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 42em; margin: 0 auto; padding: 1.5em 1.25em 3em; }
+    h1 { color: #f0b429; letter-spacing: 0.08em; font-size: 1.6em; margin: 0.4em 0 0.2em; }
+    h2 { color: #f0b429; font-size: 0.95em; letter-spacing: 0.15em; text-transform: uppercase; margin: 1.8em 0 0.4em; }
+    p { margin: 0.5em 0; }
+    nav, footer { color: #a39a86; font-size: 0.85em; }
+    nav a, footer a, p a { color: #e8dcc8; }
+    .summary { border-left: 3px solid #f0b429; padding-left: 0.9em; color: #d9cdb6; margin: 1em 0 0; }
+    .meta { color: #a39a86; font-size: 0.85em; margin-top: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <nav><a href="../">← Junkyard Draft</a> · <strong>Privacy notice</strong> · <a href="./terms.html">Terms of play</a> · <a href="./guidelines.html">Community guidelines (v0)</a></nav>
+    <h1>Privacy notice</h1>
+    <p class="meta">Junkyard Draft · last changed 2026-10-30 · rules version 3, verifier protocol 2</p>
+    <p class="summary">Junkyard Draft has no accounts, no e-mail sign-up, no cookies and no advertising. The game keeps your settings and best scores on your device. The verifier keeps what public leaderboards need: the replays you submit, the display name you choose and a hash of a key your device made. You can download or delete all of it from the game, and nothing identifies you to us beyond that key.</p>
+    <section>
+      <h2>Who is responsible</h2>
+      <p>The data controller is Jon (GitHub: blickz55), living in the United States, who operates Junkyard Draft at https://junkyarddraft.com. Contact for anything in this notice: contact@junkyarddraft.com.</p>
+      <p>This notice covers the game at junkyarddraft.com, the desktop edition (which talks to the same verifier) and the verifier at verify.junkyarddraft.com. It was last changed on 2026-10-30.</p>
+    </section>
+    <section>
+      <h2>On your device</h2>
+      <p>The game stores in your browser's local storage (the desktop edition: under your user profile): your settings (sound, text size, motion, resolution, the play-statistics switch), the current save, your local best scores by rules version, the days you played, a random 128-bit device key with the display name and tag you chose, the group code you joined, and, only while play statistics are on, a random install id with the events not yet sent.</p>
+      <p>Nothing on your device is sent anywhere except as the next section describes. Clearing the site's data in your browser removes all of it; &quot;Delete my data&quot; in the game replaces the device key and removes the name, the group code and the statistics state, and leaves your local scores and settings alone.</p>
+    </section>
+    <section>
+      <h2>What the verifier stores, and why</h2>
+      <p>Verified entries. When you submit a run, the verifier stores the replay (seed, your actions, the rules version), the score, the time, the label you chose, the replay's hash and, when you have claimed a name, your player id. Purpose: public leaderboards whose scores were re-simulated rather than trusted. Legal basis: the agreement you enter by submitting (the terms and the fairness policy) and the legitimate interest in boards that are correct.</p>
+      <p>Your identity. A player id, which is the SHA-256 hash of the key your device created, and the display name and tag you chose with the time of your last rename. The key itself leaves your device only as a bearer header over TLS to the verifier, which hashes it before any use and never stores or logs it. Purpose: one best entry per player, renames that follow you onto every board, groups, and deletion. Legal basis: the agreement.</p>
+      <p>Groups. The codes of the groups you joined (at most 5), keyed by player id. Purpose: boards scoped to the people you chose. Legal basis: the agreement.</p>
+      <p>Moderation. Reports you file (your player id, the reported player, one reason from a fixed list, the time), reports filed about your name, and every moderator action on a name (hide, confirm, clear, forced rename) in an audit log. Purpose: names fit for a public board. Legal basis: the legitimate interest in a safe service.</p>
+      <p>Request logs. One line per request with the method, path, status, duration and a hash of your network address salted with the day, so the same address cannot be followed from one day to the next. The address itself is not written: the reverse proxy in front of the verifier is configured to drop it from its access log as well. Purpose: abuse limits and debugging. Legal basis: the legitimate interest in a service that stays up. Kept by rotation, 7 files of 20 MB each per service, which is days to weeks depending on traffic.</p>
+      <p>Play statistics, only if you turn them on. Events from a fixed list of 25 names (which tutorial step you reached, that a game completed, that a share was copied, and the like), a random install id, and the same daily-salted address hash. Never seeds other than daily and tutorial labels, never layouts, never your player id. Legal basis: consent, withdrawn by turning the switch off, which also deletes the install id and the queue on your device. Kept 7 days on the server.</p>
+      <p>Not collected: no e-mail address, no password, no cookies, no advertising or analytics scripts, no payment data, no precise location. The desktop edition sends nothing the web game does not.</p>
+    </section>
+    <section>
+      <h2>How long</h2>
+      <p>Entries and replays follow the fairness policy's retention: replays are kept for each seed's top 100 entries; 30 days after a daily closes it moves to cold storage, where every entry and the final board stay and only the top 10 replays remain; boards are kept 400 days back. Your name and group memberships stay until you delete them.</p>
+      <p>Play-statistics events: 7 days. Logs: by rotation, as above. Nightly backups of the verifier's data are kept for 14 days, so a record you deleted can survive in a backup for up to 14 days before it is gone everywhere; backups are used to recover from a failure, never to restore a deleted player.</p>
+    </section>
+    <section>
+      <h2>Who else sees it</h2>
+      <p>Processors that run the service for the operator: Hetzner Online GmbH (virtual server in the European Union); Cloudflare, Inc. (Pages hosting, DNS and e-mail forwarding for the domain); GitHub, Inc. (source code, releases, the desktop installer); Let's Encrypt (TLS certificates for the verifier's host name); Discord Inc. (only when the operator connects a channel: open and close announcements and new #1 scores, the same facts the public board shows).</p>
+      <p>Your browser connects to Cloudflare's network to load the game and to the verifier's host to submit runs and read boards; each sees your network address the way any web server does, under its own privacy policy. The verifier itself stores no addresses.</p>
+      <p>The boards are public. Anyone can see your display name and tag, your scores and ranks and, within the fairness policy's reveal rules, your replays; a Discord channel the operator connects shows the same facts. Nothing is sold, and there is no advertising.</p>
+    </section>
+    <section>
+      <h2>Where</h2>
+      <p>The verifier runs in the European Union. The operator lives in the United States and reaches the data from there to run the service. Cloudflare serves the game from the location nearest to you.</p>
+    </section>
+    <section>
+      <h2>Your rights</h2>
+      <p>Download everything stored under your player id: &quot;Download my data&quot; in the game (Privacy &amp; data), or GET /me/export with your key. The file lists your entries with their replays where kept, your group memberships, the moderation record of your name and the reports you filed.</p>
+      <p>Delete it: &quot;Delete my data&quot; in the game, or DELETE /me with your key. Your name is removed, your entries stay on the boards anonymised as &quot;deleted&quot; with the score only, their replays are dropped from live and cold storage, your group memberships end, and the key on your device is replaced, so nothing links the old entries to you.</p>
+      <p>Correct it: the player button renames you (once every 24 hours); turning play statistics off ends that processing at once.</p>
+      <p>Object to or ask about anything here at contact@junkyarddraft.com. Because the verifier knows you only by the hash of your device key, a request about a specific player has to come from the device that holds the key or from its recovery code: by e-mail alone we cannot tell whose data is whose, and we will not guess.</p>
+      <p>If you live in the EU, the EEA or the UK you may also complain to your data protection authority; elsewhere, to the body responsible for privacy where you live.</p>
+    </section>
+    <section>
+      <h2>Children</h2>
+      <p>The game is not directed at children under 13 and collects no personal information to play. Display names are public: do not use a real name, and if you are under 13 do not claim a name or turn play statistics on.</p>
+    </section>
+    <section>
+      <h2>Changes</h2>
+      <p>The date at the top changes with the text, and every change is listed in the repository's changelog at https://github.com/blickz55/junkyard-draft. The fairness policy, generated from the code, describes the exact rules, limits and retention in force and is part of this notice.</p>
+    </section>
+    <footer>
+      <p>Contact: <a href="mailto:contact@junkyarddraft.com">contact@junkyarddraft.com</a> · moderation appeals: <a href="mailto:moderation@junkyarddraft.com">moderation@junkyarddraft.com</a> · source: <a href="https://github.com/blickz55/junkyard-draft">https://github.com/blickz55/junkyard-draft</a></p>
+      <p>Generated from tools/legal-lib.ts by tools/make-policy.ts; the fairness policy next to this page (policy.json in the game) is generated from the code the same way.</p>
+    </footer>
+  </main>
+</body>
+</html>

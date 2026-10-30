@@ -1,0 +1,60 @@
+Junkyard Draft — Source-Available Licence, version 1 (2026-10-30)
+
+Copyright (c) 2026 Jon (GitHub: blickz55). All rights reserved.
+
+The source code of Junkyard Draft is published so that anyone can read how the game, its
+simulation and its replay verifier work, check that the verified leaderboards do what the
+fairness policy says, run the game for themselves and contribute improvements. It is not
+free software: the rights below are the only ones granted.
+
+1. Permitted. Subject to the conditions in section 3 you may, free of charge:
+   a. view, download and keep copies of this repository;
+   b. build and run the game, the verifier and the tools on machines you control, for
+      personal, educational or development use, including a verifier that only you and the
+      people you invite can reach;
+   c. modify the code for those uses and keep your modifications private;
+   d. submit modifications, bug reports and other contributions to the official repository
+      (section 4);
+   e. quote reasonable excerpts of the code with attribution, for commentary, teaching or
+      review.
+
+2. Not permitted without the copyright holder's prior written permission:
+   a. distributing the game, the verifier, the tools, builds or installers, modified or not,
+      to the public, including hosting a playable copy on a public web site or app store;
+   b. operating a publicly reachable instance of the verifier or a leaderboard presented as
+      Junkyard Draft or as connected to it;
+   c. commercial use of any kind, including advertising, paid access and bundling;
+   d. use of the name "Junkyard Draft", the logo, the wordmark, the artwork, the sound
+      effects, the music and the share-card designs (the "brand assets"), except to refer
+      to the game truthfully. The brand assets are not licensed under this document at all.
+
+3. Conditions. Every copy you keep or share under section 1 carries this licence and the
+   copyright notice unchanged. You do not remove or alter notices in the files. You do not
+   present a modified version as the original or imply the copyright holder's endorsement.
+
+4. Contributions. By submitting a contribution to the official repository you license it
+   to the copyright holder under these same terms and, in addition, grant the copyright
+   holder a perpetual, worldwide, royalty-free right to use, modify, relicense and
+   distribute it as part of Junkyard Draft under any licence, including open-source
+   licences. You confirm that you have the right to make that grant. You keep your own
+   copyright and may use your contribution elsewhere.
+
+5. Third-party components keep their own licences (see package.json and the vendor
+   directory, notably Phaser under the MIT licence). Nothing here restricts them.
+
+6. No warranty. The software is provided "as is", without warranty of any kind, express or
+   implied, including the warranties of merchantability, fitness for a particular purpose
+   and non-infringement. In no event shall the copyright holder be liable for any claim,
+   damages or other liability arising from the software or its use.
+
+7. Termination. The rights in section 1 end automatically if you breach this licence. They
+   are restored if you cure the breach within 30 days of becoming aware of it, unless the
+   holder tells you otherwise. Sections 2, 4, 6 and 7 survive termination.
+
+8. Governing law: the law of the copyright holder's place of residence, the United States,
+   without regard to its conflict-of-laws rules.
+
+Why this licence and not an open-source one: the engine may be relicensed later (the
+contribution grant in section 4 keeps that possible), but the name, the art and the hosted
+leaderboards are what make the game one place to play, and the holder wants a single public
+instance while it is small. Questions: contact@junkyarddraft.com.

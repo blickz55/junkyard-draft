@@ -15,6 +15,7 @@ COPY game/src/sim ./game/src/sim
 COPY game/src/telemetry ./game/src/telemetry
 COPY game/src/identity ./game/src/identity
 COPY game/src/daily ./game/src/daily
+COPY game/src/content ./game/src/content
 COPY tools/autoplay-lib.ts ./tools/autoplay-lib.ts
 COPY server ./server
 RUN npm run verifier:build

@@ -26,9 +26,19 @@ verify.{$DOMAIN} {
 	reverse_proxy verifier:4400 {
 		header_up X-Real-IP {remote_host}
 	}
-	# access log to stdout as JSON: the container runtime rotates it (docker-compose.yml logging options)
+	# access log to stdout as JSON: the container runtime rotates it (docker-compose.yml logging options). The client address
+	# and the forwarded-for headers are dropped from every line (0.8.6): the verifier's own log keeps a daily-salted hash of
+	# the address for abuse diagnostics, and the privacy notice promises that no log stores the address itself.
 	log {
 		output stdout
-		format json
+		format filter {
+			wrap json
+			fields {
+				request>remote_ip delete
+				request>client_ip delete
+				request>headers>X-Forwarded-For delete
+				request>headers>X-Real-Ip delete
+			}
+		}
 	}
 }
