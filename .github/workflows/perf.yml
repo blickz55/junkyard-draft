@@ -2,7 +2,8 @@
 # headless Chromium against the dev server and compares it with the CI baseline committed at
 # docs/baselines/ci/perf-ci.json using tools/perf-gate.ts --strict (an empty or unmatched report fails). GitHub runners
 # render with software GL, so CI numbers are only comparable with CI numbers: the gate fails on a >25 % script-time
-# regression or on more dropped frames than the CI baseline plus 5 % of frames. The baseline was committed from this
+# regression or on a dropped-frame share above the CI baseline's plus 15 % of frames (--dropped-slack 0.15: the software
+# renderer's drop count varies by a quarter between identical runs, see STATUS session 51). The baseline was committed from this
 # workflow's own artifact on 2026-10-30 (production roadmap 0.8.4), so the gate is armed; to re-baseline after a deliberate
 # rendering change, download the perf-ci artifact of a green run on main and commit it at that path.
 name: perf
@@ -48,4 +49,4 @@ jobs:
       - name: Gate against the CI baseline
         run: |
           BASE=docs/baselines/ci/perf-ci.json
-          if [ -f "$BASE" ]; then node --import tsx tools/perf-gate.ts perf-ci.json "$BASE" --strict; else echo "::warning::no CI baseline at $BASE yet; download the perf-ci artifact and commit it there to arm the gate"; fi
+          if [ -f "$BASE" ]; then node --import tsx tools/perf-gate.ts perf-ci.json "$BASE" --strict --dropped-slack 0.15; else echo "::warning::no CI baseline at $BASE yet; download the perf-ci artifact and commit it there to arm the gate"; fi
