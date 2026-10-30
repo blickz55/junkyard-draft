@@ -76,7 +76,7 @@ test('hardened production build: ?verifier= ignored off loopback, CSP holds thro
     const { ctx, page } = await context();
     await page.goto(`${ORIGIN}/?dev=1&verifier=${EVIL}`);
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 30000 });
-    await page.waitForFunction("!!document.querySelector('[data-testid=daily-board]')", null, { timeout: 20000 });
+    await page.waitForFunction(() => !!document.querySelector('[data-testid=daily-board]'), null, { timeout: 20000 });
     await wait(1500);
     assert.equal(hits.evil, 0, 'no request reached the link\'s verifier');
     assert.ok(hits.verifier >= 1, `the baked verifier was asked (${hits.verifier} requests)`);

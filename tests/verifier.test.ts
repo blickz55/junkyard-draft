@@ -228,11 +228,17 @@ test('http: POST /verify is rate limited per client IP with Retry-After; GETs ar
     const pre = await fetch(`${base}/verify`, { method: 'OPTIONS' });
     assert.equal(pre.status, 204); assert.equal(pre.headers.get('access-control-allow-origin'), 'https://game.example');
     assert.match(pre.headers.get('access-control-allow-headers') ?? '', /Authorization/, 'a cross-origin page may send the identity bearer (PLAN-v3 0.6.0)'); assert.match(pre.headers.get('access-control-allow-methods') ?? '', /DELETE/, 'DELETE /me is reachable cross-origin');
-    assert.ok(logs.some((l) => / POST \/verify 429 /.test(l)), 'request log line for the limited call');
+    const limitedLine = logs.map((l) => JSON.parse(l) as { method: string; path: string; status: number; ip: string; id: string }).find((j) => j.method === 'POST' && j.path === '/verify' && j.status === 429);
+    assert.ok(limitedLine, 'request log line for the limited call (one JSON object per request, 0.8.1)'); assert.match(limitedLine!.ip, /^[0-9a-f]{16}$/, 'the address is logged as a daily-salted hash'); assert.match(limitedLine!.id, /^[0-9a-f]{8}$/);
   } finally { server.closeAllConnections(); server.close(); }
   // without trustProxy the header is ignored
   const req = { headers: { 'x-forwarded-for': '10.9.9.9' }, socket: { remoteAddress: '127.0.0.1' } } as unknown as import('node:http').IncomingMessage;
   assert.equal(clientIp(req, false), '127.0.0.1'); assert.equal(clientIp(req, true), '10.9.9.9');
+  // 0.8.1: behind the proxy the rightmost hop is the client (the proxy appended it); the leftmost is whatever the client claimed; X-Real-IP wins when present
+  const spoofed = { headers: { 'x-forwarded-for': '1.2.3.4, 10.9.9.9' }, socket: { remoteAddress: '127.0.0.1' } } as unknown as import('node:http').IncomingMessage;
+  assert.equal(clientIp(spoofed, true), '10.9.9.9', 'a client-supplied first hop cannot pick its own limiter key');
+  const real = { headers: { 'x-real-ip': '10.5.5.5', 'x-forwarded-for': '1.2.3.4' }, socket: { remoteAddress: '127.0.0.1' } } as unknown as import('node:http').IncomingMessage;
+  assert.equal(clientIp(real, true), '10.5.5.5');
 });
 
 test('verifier bundles to a single file that exports the server pieces (what the Docker image runs)', async () => {
@@ -839,9 +845,10 @@ test('cold storage: frozen days older than HOT_DAYS move to monthly files with e
   try {
     const miss = await fetch(`${base}/replay?hash=${after[10].replayHash}&seed=${encodeURIComponent(coldRec.seed)}`); assert.equal(miss.status, 404); const body = await miss.json() as { reason: string; error: string }; assert.equal(body.reason, 'compacted'); assert.match(body.error, /top 10 replays/);
     assert.equal((await fetch(`${base}/replay?hash=${after[10].replayHash}`)).status, 404);
-    assert.equal((await fetch(`${base}/replay?hash=${after[0].replayHash}`)).status, 200, 'a kept cold replay is served (the day is closed, so no reveal gate)');
-    const h = await (await fetch(`${base}/health`)).json() as { cold: { days: number; replays: number } }; assert.deepEqual(h.cold, { days: 21, replays: 210 });
-    const b = await (await fetch(`${base}/board?seed=${encodeURIComponent(coldRec.seed)}&limit=100`)).json() as { entries: { replayAvailable: boolean }[] }; assert.equal(b.entries.length, 50); assert.equal(b.entries.filter((e) => e.replayAvailable).length, 10);
+    assert.equal((await fetch(`${base}/replay?hash=${after[0].replayHash}`)).status, 404, 'the deleted player\'s kept cold replay is gone too (0.8.1)');
+    assert.equal((await fetch(`${base}/replay?hash=${after[1].replayHash}`)).status, 200, 'another kept cold replay is served (the day is closed, so no reveal gate)');
+    const h = await (await fetch(`${base}/health`)).json() as { cold: { days: number; replays: number } }; assert.deepEqual(h.cold, { days: 21, replays: 189 } /* 210 kept, minus the deleted player's one per day (0.8.1) */);
+    const b = await (await fetch(`${base}/board?seed=${encodeURIComponent(coldRec.seed)}&limit=100`)).json() as { entries: { replayAvailable: boolean }[] }; assert.equal(b.entries.length, 50); assert.equal(b.entries.filter((e) => e.replayAvailable).length, 9, "the ten kept replays minus the deleted player's (0.8.1)");
   } finally { close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -1107,7 +1114,7 @@ test('name moderation: a report hides the name as "player" on every board, /entr
   const { REPORT_REASONS, HIDDEN_LABEL, MAX_HIDES_PER_NAME, REPORT_RATE_LIMIT } = await import('../server/verify');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-mod-')); const file = path.join(dir, 'board.json'); const audit = path.join(dir, 'moderation.jsonl');
   const t0 = new Date('2030-03-12T10:00:00Z');
-  const v = new Verifier(file, { dailySecret: 'mod-secret' });
+  const v = new Verifier(file, { dailySecret: 'mod-secret', reportPolicy: { reporters: 1, establishedDays: 0 } }); // the 0.7.7 rule (one report from any named player hides); the 0.8.1 default policy has its own test
   const tok = (c: string) => c.repeat(32); const [rep, tgt, third, unnamed] = ['a', 'b', 'c', 'd'].map((c) => playerIdFromToken(tok(c))!);
   assert.ok(v.claim(rep, 'Reporter', t0).ok && v.claim(tgt, 'Rude Name', t0).ok && v.claim(third, 'Third', t0).ok);
   const tag = tagFor(tgt); const label = `Rude Name#${tag}`;
@@ -1146,7 +1153,7 @@ test('name moderation: a report hides the name as "player" on every board, /entr
   // the player renames while hidden: still hidden, the moderator sees both names; the hide survives a restart
   const t1 = new Date(t0.getTime() + RENAME_COOLDOWN_MS + 1);
   assert.ok(v.claim(tgt, 'Nicer', t1).ok); assert.equal(v.board('mod-seed').find((e) => e.replayHash === e1.replayHash)!.player, HIDDEN_LABEL, 'a rename does not lift a hide'); assert.equal(v.reports()[0].currentName, 'Nicer');
-  const again = new Verifier(file, { dailySecret: 'mod-secret' }); assert.equal(again.hidden(tgt), true); assert.equal(again.board('mod-seed').find((e) => e.replayHash === e1.replayHash)!.player, HIDDEN_LABEL);
+  const again = new Verifier(file, { dailySecret: 'mod-secret', reportPolicy: { reporters: 1, establishedDays: 0 } }); assert.equal(again.hidden(tgt, t1), true); assert.equal(again.board('mod-seed').find((e) => e.replayHash === e1.replayHash)!.player, HIDDEN_LABEL);
   // clear: shown again under the current name, reports closed, clears 1; nothing left to clear
   assert.deepEqual(again.clearReports(tgt, t1), { ok: true, playerId: tgt, name: 'Nicer', clears: 1 });
   assert.equal((again.clearReports(tgt, t1) as { status: number }).status, 404);

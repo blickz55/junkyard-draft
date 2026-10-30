@@ -48,6 +48,8 @@ jobs:
         run: |
           docker restart verifier
           node --import tsx tools/image-smoke.ts http://127.0.0.1:4400 --expect-entries 1
+      - name: Request log carries no address and no group code (0.8.1)
+        run: docker logs verifier 2>&1 | node --import tsx tools/log-check.ts
       - name: Container logs
         if: always()
         run: docker logs verifier || true

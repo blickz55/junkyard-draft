@@ -40,15 +40,16 @@ Discord (PLAN-v4 0.7.6): `DISCORD_WEBHOOK_URL` (or `--discord-webhook`) makes th
 Name moderation (PLAN-v4 0.7.7): `POST /report` is always on; `MODERATION_TOKEN` (or `--moderation-token`) enables `GET /moderation/reports` and `POST /moderation/clear|rename|rename-group` for `node --import tsx tools/moderate.ts <url> list|clear|rename|rename-group … --token T`; the audit log is `moderation.jsonl` next to the board (`MODERATION_FILE`). The appeal address on the policy page is a placeholder (`APPEAL_CONTACT` in `server/verify.ts`) the operator replaces before hosting.
 
 Env vars with the same meaning: `HOST`, `PORT`, `DATA_DIR` (or `BOARD_FILE`), `EVENTS_FILE` (default next to the board), `EVENTS_RETENTION_DAYS` (30), `CORS_ORIGIN`, `RATE_LIMIT`, `PLAYER_RATE_LIMIT` (2), `DAILY_SECRET` (or `--daily-secret`; without it the verifier generates one into `<data dir>/daily-secret` with mode 0600 and says so: **back it up**, the ranked daily seeds derive from it). Rotating the secret keeps every issued day (their seeds are stored) but the commitment published on the last day under the old secret will not match the first day under the new one; `tools/rehearse-rollback.ts` rehearses the rotation
-(POST /verify per client IP per minute), `TRUST_PROXY=1` (use `X-Forwarded-For` behind a reverse proxy you
-control), `VERIFIER_LOG=0` (silence the one-line-per-request log).
+(POST /verify per client IP per minute), `TRUST_PROXY=1` (behind a reverse proxy you control: the client is `X-Real-IP`, else the **rightmost** `X-Forwarded-For` hop, the one your proxy appended; 0.8.1), `VERIFIER_LOG=0` (silence the request log), and the 0.8.1 knobs `READ_RATE_LIMIT` (300 GETs/min/address, `/health` exempt), `WRITE_RATE_LIMIT` (30 identity/group/report/deletion calls per minute per address), `MAX_PLAYERS` (20,000 claimed identities; over the cap the oldest that never submitted and sit in no group are evicted, else `POST /identity` answers 503), `REPORT_HIDE_REPORTERS` (2), `REPORTER_ESTABLISHED_DAYS` (7; `0` lets any named player count), `HIDE_EXPIRY_HOURS` (72).
+
+0.8.1 also: the request log is one JSON object per line `{ ts, id, ip, method, path, status, ms }` where `ip` is a 16-hex daily-salted hash (never the address) and `group=` codes are redacted to `~`; every response carries `X-Request-Id` and every 500 logs its exception with that id to stderr; header/request/keep-alive timeouts are 15 s / 30 s / 5 s; SIGTERM or SIGINT stops accepting, lets in-flight requests and queued Discord posts finish and exits 0 (hard stop after 10 s); past dailies and weeklies can be asked for at most 400 days back (`historyStart` in `/health`); `/health` adds `hotFileBytes`, `lastCommitMs`, `commits`, `players`, `coldBytes`, `par { busy, queued, failures }` and `limiters { ip, player, read, write, events }` (the SQLite trigger's inputs); `DELETE /me` also drops the player's kept cold replays (`coldReplaysDropped`); opt-in events keep their address hash 7 days. Name moderation: a report hides a name only when two established reporters agree (or a moderator `confirm`s), an unconfirmed hide lapses after 72 h, `POST /moderation/confirm` and `tools/moderate.ts confirm` make it stand.
 
 ## Docker
 ```
 docker build -t junkyard-verifier .
 docker run -d --name verifier -p 4400:4400 -v verifier-data:/data -e CORS_ORIGIN=https://your.site junkyard-verifier
 ```
-The image was written without Docker available on the dev machine and has **not been built yet**.
+CI builds the image on every push, starts it on a named volume, runs `tools/image-smoke.ts` and `tools/mint-check.ts` against it, restarts it and checks the entry survived, and (0.8.1) pipes `docker logs` through `tools/log-check.ts` to prove no address and no group code reached the request log.
 
 ## Pointing the game at it
 `VERIFIER_URL=https://verifier.your.site npm run build` bakes the URL into `dist/` (default

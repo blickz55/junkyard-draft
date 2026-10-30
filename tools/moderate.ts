@@ -4,6 +4,7 @@
  * endpoints, and the verifier appends one JSON line per action to moderation.jsonl next to the board.
  *   node --import tsx tools/moderate.ts <verifier-url> list
  *   node --import tsx tools/moderate.ts <verifier-url> clear <playerId>            the name is fine: shown again, reports closed
+ *   node --import tsx tools/moderate.ts <verifier-url> confirm <playerId>          the hide stands until clear or rename (0.8.1: unconfirmed hides lapse after 72 h)
  *   node --import tsx tools/moderate.ts <verifier-url> rename <playerId> <name>    force a display name (filtered like any other)
  *   node --import tsx tools/moderate.ts <verifier-url> rename-group <code> <name>  force a group name
  * The token comes from --token or MODERATION_TOKEN. Exit 0 on success, 1 on a refusal or a failed request, 2 on usage.
@@ -15,12 +16,12 @@ const url = args.find((a) => /^https?:\/\//.test(a));
 const flagAt = args.indexOf('--token'); const token = flagAt >= 0 ? args[flagAt + 1] : process.env.MODERATION_TOKEN;
 const rest = args.filter((a, i) => a !== url && i !== flagAt && i !== flagAt + 1);
 const [cmd, a1, a2] = rest;
-const usage = () => { console.error('usage: moderate <verifier-url> list | clear <playerId> | rename <playerId> <name> | rename-group <code> <name>   [--token T | MODERATION_TOKEN]'); process.exit(2); };
-if (!url || !cmd || !['list', 'clear', 'rename', 'rename-group'].includes(cmd)) usage();
+const usage = () => { console.error('usage: moderate <verifier-url> list | clear <playerId> | confirm <playerId> | rename <playerId> <name> | rename-group <code> <name>   [--token T | MODERATION_TOKEN]'); process.exit(2); };
+if (!url || !cmd || !['list', 'clear', 'confirm', 'rename', 'rename-group'].includes(cmd)) usage();
 if (!token) { console.error('no moderation token: pass --token or set MODERATION_TOKEN (the verifier was started with the same value)'); process.exit(2); }
-if ((cmd === 'clear' && !a1) || ((cmd === 'rename' || cmd === 'rename-group') && (!a1 || !a2))) usage();
+if (((cmd === 'clear' || cmd === 'confirm') && !a1) || ((cmd === 'rename' || cmd === 'rename-group') && (!a1 || !a2))) usage();
 
-type Row = ModerationRecord & { playerId: string; tag: string; currentName: string | null };
+type Row = ModerationRecord & { playerId: string; tag: string; currentName: string | null; expiresAt?: string | null };
 const call = async (method: string, p: string, body?: unknown) => {
   const r = await fetch(`${url}${p}`, { method, headers: { 'Content-Type': 'application/json', 'X-Moderation-Token': token! }, body: body === undefined ? undefined : JSON.stringify(body) });
   const json = await r.json() as Record<string, unknown> & { ok?: boolean; error?: string };
@@ -36,11 +37,12 @@ async function main() {
     for (const r of out.reports) {
       const reasons = new Map<string, number>(); for (const x of r.reports) reasons.set(x.reason, (reasons.get(x.reason) ?? 0) + 1);
       const renamed = r.currentName !== null && r.currentName !== r.name ? ` · renamed since to "${r.currentName}"` : r.currentName === null ? ' · player deleted since' : '';
-      console.log(`${r.playerId}\n  "${r.name}"#${r.tag}${renamed}\n  ${r.hidden ? `HIDDEN since ${r.hiddenAt}` : 'shown'} · cleared ${r.clears}× · ${r.reports.length} report(s): ${[...reasons].map(([k, n]) => `${k}×${n}`).join(', ') || 'none open'}${r.reports[0] ? ` · first ${r.reports[0].at}` : ''}`);
+      console.log(`${r.playerId}\n  "${r.name}"#${r.tag}${renamed}\n  ${r.hidden ? `HIDDEN since ${r.hiddenAt}${r.confirmedAt ? ' (confirmed)' : r.expiresAt ? `, lapses ${r.expiresAt}` : ''}` : 'shown'} · cleared ${r.clears}× · ${r.reports.length} report(s): ${[...reasons].map(([k, n]) => `${k}×${n}`).join(', ') || 'none open'}${r.reports[0] ? ` · first ${r.reports[0].at}` : ''}`);
     }
-    console.log(`\nreasons: ${out.reasons.join(', ')}. Act with: clear <playerId> · rename <playerId> <name> · rename-group <code> <name>`);
+    console.log(`\nreasons: ${out.reasons.join(', ')}. Act with: clear <playerId> · confirm <playerId> · rename <playerId> <name> · rename-group <code> <name>`);
     return;
   }
+  if (cmd === 'confirm') { const out = await call('POST', '/moderation/confirm', { playerId: a1 }); if (out) console.log(`confirmed ${a1}: "${out.name}" stays hidden until clear or rename`); return; }
   if (cmd === 'clear') { const out = await call('POST', '/moderation/clear', { playerId: a1 }); if (out) console.log(`cleared ${a1}: name "${out.name}" shown again (cleared ${out.clears}× in all)`); return; }
   if (cmd === 'rename') { const out = await call('POST', '/moderation/rename', { playerId: a1, name: a2 }) as { player?: { name: string; tag: string } } | null; if (out?.player) console.log(`renamed ${a1} to ${out.player.name}#${out.player.tag}; the player's own rename cooldown restarted`); return; }
   const out = await call('POST', '/moderation/rename-group', { code: a1, name: a2 }) as { group?: { code: string; name: string } } | null; if (out?.group) console.log(`renamed group ${out.group.code} to "${out.group.name}"`);

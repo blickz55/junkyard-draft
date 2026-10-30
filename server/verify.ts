@@ -55,6 +55,15 @@
  * Run (dev):   node --import tsx server/verify.ts
  * Run (prod):  npm run verifier:build && node server/dist/verify.mjs --host 0.0.0.0 --data-dir /data
  * CLI flags --host --port --data-dir --cors-origin --rate-limit override the env vars of the same name.
+ *
+ * Hardening, first cut (production roadmap 0.8.1): behind TRUST_PROXY the client is the rightmost X-Forwarded-For hop (or
+ * X-Real-IP); per-address limiters on every write (identity, groups, reports, deletion) and on reads (/health exempt); past
+ * dailies and weeklies can be minted only within DAILY_HISTORY_DAYS of today; identities are capped and never-submitting
+ * ones are evicted first; the request log is one JSON line per request with a request id and a daily-salted address hash
+ * (never the address, never a group code); every 500 logs its exception; header and request timeouts; a SIGTERM drain;
+ * /health reports the hot file's bytes, the last commit's duration, the par queue and limiter cardinalities; a report hides
+ * a name only when two established reporters agree or a moderator confirms, and an unconfirmed hide expires after 72 h;
+ * deletion also drops a player's cold replays; opt-in events keep their address hash for 7 days.
  */
 import http from 'node:http';
 import fs from 'node:fs';
@@ -131,16 +140,25 @@ const GROUP_CODE = /^[a-z2-7]{8}$/;
 export { REPORT_REASONS, HIDDEN_LABEL, type ReportReason };
 /** reports per minute per player; reporters kept per target; how often a report may hide the same name before a moderator has to act first */
 export const REPORT_RATE_LIMIT = 5, MAX_REPORTERS_PER_TARGET = 50, MAX_HIDES_PER_NAME = 2;
+/** Report-to-hide policy (0.8.1): a name hides when `reporters` distinct established reporters agree (established = holding a verified entry at least `establishedDays` old; 0 means any player with a claimed name counts) or when a moderator confirms the hide; an unconfirmed hide expires after `expiryHours`. */
+export interface ReportPolicy { reporters: number; establishedDays: number; expiryHours: number }
+export const DEFAULT_REPORT_POLICY: ReportPolicy = { reporters: 2, establishedDays: 7, expiryHours: 72 };
+/** Past dailies and weeklies can be asked for (and minted) only this many days back from today (0.8.1): bounds what unauthenticated reads can write. */
+export const DAILY_HISTORY_DAYS = 400;
 /** where a player appeals a moderation decision: a placeholder the operator replaces before hosting (PLAN-v4 0.7.7) */
 export const APPEAL_CONTACT = 'moderation@example.invalid';
-export interface Report { reporterId: string; reason: ReportReason; at: string }
+export interface Report { reporterId: string; reason: ReportReason; at: string; /** the reporter held a verified entry old enough when reporting (0.8.1); only these count toward a hide */ established?: boolean }
 /** per reported player: the name as reported, whether it is hidden, how often a moderator cleared it, the open reports */
-export interface ModerationRecord { name: string; hidden: boolean; hiddenAt?: string; clears: number; reports: Report[] }
+export interface ModerationRecord { name: string; hidden: boolean; hiddenAt?: string; clears: number; reports: Report[]; /** a moderator confirmed the hide (0.8.1): it no longer expires, only clear or rename lifts it */ confirmedAt?: string }
 /** Every field a player (or a moderator) writes that reaches storage. Each passes nameProblem; tests/verifier.test.ts pushes a blocked string through every one of them and counts the call sites, so a field added without its check fails the suite (PLAN-v4 §1). */
 export const USER_WRITTEN_FIELDS = ['display name (POST /identity)', 'group name (POST /groups)', 'group name (POST /groups/rename)', 'anonymous label (POST /verify player)', 'forced display name (POST /moderation/rename)', 'forced group name (POST /moderation/rename-group)'] as const;
 /** Defaults the policy page publishes (PLAN-v3 0.6.5); env/flags override the rate limits at runtime. */
 export const DEFAULT_RATE_LIMIT = 60, DEFAULT_PLAYER_RATE_LIMIT = 2, IDENTITY_RATE_LIMIT = 5, DEFAULT_EVENTS_RATE_LIMIT = 30;
-export const DEFAULT_REPLAYS_PER_SEED = 100, DEFAULT_MAX_ENTRIES_PER_SEED = 1000, DEFAULT_MAX_SEEDS = 5000, DEFAULT_EVENTS_RETENTION_DAYS = 30;
+/** per-address limits (0.8.1): reads (every GET but /health) and writes (identity, groups, reports, deletion) per minute */
+export const DEFAULT_READ_RATE_LIMIT = 300, DEFAULT_WRITE_RATE_LIMIT = 30;
+/** claimed identities kept (0.8.1); over the cap the oldest identities that never submitted and belong to no group are evicted first */
+export const DEFAULT_MAX_PLAYERS = 20_000;
+export const DEFAULT_REPLAYS_PER_SEED = 100, DEFAULT_MAX_ENTRIES_PER_SEED = 1000, DEFAULT_MAX_SEEDS = 5000, DEFAULT_EVENTS_RETENTION_DAYS = 7; // events: 7 days, as the policy page always said (0.8.1 reconciled the code)
 export interface Board { entries: BoardEntry[]; replays?: Record<string, StoredReplay>; pars?: Record<string, BotPar>; players?: Record<string, Player>; dailies?: Record<string, DailyRecord>; groups?: Record<string, Group>; moderation?: Record<string, ModerationRecord> }
 
 export const MAX_BODY_BYTES = 512 * 1024;
@@ -216,6 +234,10 @@ export interface VerifierOptions {
   announce?: (ev: AnnounceEvent) => void;
   /** moderation audit file (PLAN-v4 0.7.7): one JSON line per report and moderator action; default moderation.jsonl next to the board; null disables */
   auditFile?: string | null;
+  /** report-to-hide policy (0.8.1); defaults to DEFAULT_REPORT_POLICY */
+  reportPolicy?: Partial<ReportPolicy>;
+  /** claimed identities kept (0.8.1); default DEFAULT_MAX_PLAYERS */
+  maxPlayers?: number;
 }
 
 /** The one comparator (PLAN-v2 0.5.5): score desc, fewer final-round machines, earlier receipt, then the hash so the order is total. Boards, histogram ranks and neighbours, retention and the returned rank all use it. */
@@ -231,7 +253,13 @@ export class Verifier {
   private readonly auditFile: string | null;
   /** Closed dailies older than HOT_DAYS live here (PLAN-v4 0.7.0): read-only, final, loaded lazily. */
   readonly cold: ColdStore;
+  readonly reportPolicy: ReportPolicy;
+  readonly maxPlayers: number;
+  /** what /health reports about the hot file (0.8.1): bytes written by the last commit (or found on disk), its duration, how many commits */
+  private stats = { hotFileBytes: 0, lastCommitMs: 0, commits: 0 };
   constructor(private file: string, opts: VerifierOptions = {}) {
+    this.reportPolicy = { ...DEFAULT_REPORT_POLICY, ...(opts.reportPolicy ?? {}) };
+    this.maxPlayers = opts.maxPlayers ?? DEFAULT_MAX_PLAYERS;
     this.dailySecret = opts.dailySecret || randomBytes(32).toString('hex');
     this.announceFn = opts.announce ?? null;
     this.auditFile = opts.auditFile === undefined ? path.join(path.dirname(file), 'moderation.jsonl') : opts.auditFile;
@@ -240,8 +268,14 @@ export class Verifier {
     this.maxEntriesPerSeed = opts.maxEntriesPerSeed ?? DEFAULT_MAX_ENTRIES_PER_SEED;
     this.maxSeeds = opts.maxSeeds ?? DEFAULT_MAX_SEEDS;
     this.data = fs.existsSync(file) ? loadBoard(fs.readFileSync(file, 'utf8')) : { entries: [] };
+    try { this.stats.hotFileBytes = fs.statSync(file).size; } catch { /* no file yet */ }
     this.deriveTieBreaks();
   }
+  /** Hot-file and identity figures for /health (0.8.1): the inputs of the SQLite trigger (5 MB / 50 ms), observable at last. */
+  get health() { return { ...this.stats, players: Object.keys(this.data.players ?? {}).length, coldBytes: this.cold.bytes() }; }
+  /** The earliest UTC date a daily (or a weekly's opening Friday) may be asked for: today minus DAILY_HISTORY_DAYS (0.8.1). */
+  historyStart(now = new Date()): string { return shiftDate(utcDate(now), -DAILY_HISTORY_DAYS); }
+  private withinHistory(date: string, now: Date): boolean { return date >= this.historyStart(now); }
   /** Entries recorded before finalMachines existed get it from their stored replay (current version only); persisted when anything changed. */
   private deriveTieBreaks() {
     let changed = false;
@@ -258,23 +292,29 @@ export class Verifier {
   }
 
   /** Current-version entries for a seed in board order. Entries persisted under another rules version never rank. */
-  private rank(seed: string, data: Board = this.data, members?: ReadonlySet<string> | null): BoardEntry[] {
-    const hot = data.entries.filter((e) => e.seed === seed && e.rulesVersion === RULES_VERSION).sort(byRank);
-    const all = hot.length || data !== this.data ? hot : this.coldEntries(seed).filter((e) => e.rulesVersion === RULES_VERSION).sort(byRank);
+  private rank(seed: string, data: Board = this.data, members?: ReadonlySet<string> | null, now = new Date()): BoardEntry[] {
+    const hot = data.entries.filter((e) => e.seed === seed && e.rulesVersion === RULES_VERSION).sort(byRank).map((e) => this.withLabel(e, now));
+    const all = hot.length || data !== this.data ? hot : this.coldEntries(seed, now).filter((e) => e.rulesVersion === RULES_VERSION).sort(byRank);
     return members ? all.filter((e) => !!e.playerId && members.has(e.playerId)) : all; // a group board: members' verified entries only, ranks recomputed over them (PLAN-v4 0.7.2)
   }
   /** A cold day's entries with labels resolved against the current identities (renames and deletions follow the player without rewriting cold files). */
-  private coldEntries(seed: string): BoardEntry[] {
+  private coldEntries(seed: string, now = new Date()): BoardEntry[] {
     const date = this.cold.dateOfSeed(seed); if (!date) return [];
     const day = this.cold.day(date); if (!day || day.record.seed !== seed) return [];
     return day.entries.map((e) => {
       if (!e.playerId) return e;
       const p = this.data.players?.[e.playerId];
-      return p ? { ...e, player: this.labelOf(e.playerId, p) } : { ...e, player: 'deleted', playerId: undefined };
+      return p ? { ...e, player: this.labelOf(e.playerId, p, now) } : { ...e, player: 'deleted', playerId: undefined };
     });
   }
+  /** A hot entry with its label resolved now (0.8.1): a hide that expired reads as the name again without a rewrite. */
+  private withLabel(e: BoardEntry, now: Date): BoardEntry { if (!e.playerId) return e; const p = this.data.players?.[e.playerId]; if (!p) return e; const label = this.labelOf(e.playerId, p, now); return label === e.player ? e : { ...e, player: label }; }
+  /** Whether a moderation record hides the name at `now` (0.8.1): hidden and either confirmed by a moderator or within the expiry window. */
+  isHidden(m: ModerationRecord | undefined, now = new Date()): boolean { if (!m || !m.hidden) return false; if (m.confirmedAt || !m.hiddenAt) return true; return now.getTime() < Date.parse(m.hiddenAt) + this.reportPolicy.expiryHours * 3_600_000; }
+  /** When an unconfirmed hide lapses; null when not hidden or confirmed. */
+  hideExpiresAt(m: ModerationRecord | undefined): string | null { return m && m.hidden && !m.confirmedAt && m.hiddenAt ? new Date(Date.parse(m.hiddenAt) + this.reportPolicy.expiryHours * 3_600_000).toISOString() : null; }
   /** The label shown for a claimed player: Name#TAG, or "player" while a report hides the name (PLAN-v4 0.7.7). */
-  private labelOf(playerId: string, p: Player = this.data.players![playerId]): string { return this.data.moderation?.[playerId]?.hidden ? HIDDEN_LABEL : labelFor(p.name, p.tag); }
+  private labelOf(playerId: string, p: Player = this.data.players![playerId], now = new Date()): string { return this.isHidden(this.data.moderation?.[playerId], now) ? HIDDEN_LABEL : labelFor(p.name, p.tag); }
   private relabel(entries: BoardEntry[], playerId: string, label: string): BoardEntry[] { return entries.map((e) => (e.playerId === playerId ? { ...e, player: label } : e)); }
   /** The issued record for a date or week id from the hot board or cold storage, never minting (PLAN-v4 0.7.0). */
   private issuedRecord(key: string): DailyRecord | null { return this.data.dailies?.[key] ?? this.cold.day(key)?.record ?? null; }
@@ -292,6 +332,7 @@ export class Verifier {
     const w = isWeekId(week) ? weeklyWindow(week) : null; if (!w || Date.parse(w.opensAt) > now.getTime()) return null;
     const have = this.data.dailies?.[week]; if (have) { this.observeFreeze(now); return this.data.dailies![week]; }
     const cold = this.cold.day(week)?.record; if (cold) return cold;
+    if (!this.withinHistory(w.openDate, now)) return null; // 0.8.1: nothing older than DAILY_HISTORY_DAYS is minted on request
     const rec: DailyRecord = { kind: 'weekly', week, date: w.openDate, opensAt: w.opensAt, seed: mintWeeklySeed(this.dailySecret, week), commitment: commitmentFor(mintWeeklySeed(this.dailySecret, nextWeekId(week)!)), issuedAt: now.toISOString(), closesAt: w.closesAt, rulesVersion: RULES_VERSION, build: VERSION };
     const next = { ...this.data, dailies: { ...(this.data.dailies ?? {}), [week]: rec } };
     try { this.commit(next); } catch { this.data = next; }
@@ -303,7 +344,7 @@ export class Verifier {
   weekly(limit = 10, now = new Date(), week = currentWeekId(now), members?: ReadonlySet<string> | null): (Omit<DailyRecord, 'frozenAt'> & { frozenAt: string | null; final: boolean; now: string; verified: true; minted: true; entries: BoardEntry[]; previous: { week: string; seed: string; commitment: string } | null }) | null {
     const rec = this.weeklyRecord(week, now); if (!rec) return null;
     const pw = prevWeekId(week); const prev = pw ? this.weeklyRecord(pw, now) : null;
-    return { ...rec, frozenAt: rec.frozenAt ?? null, final: !!rec.frozenAt, now: now.toISOString(), verified: true, minted: true, entries: this.board(rec.seed, Math.min(MAX_DAILY_LIMIT, limit), members), previous: prev ? { week: prev.week!, seed: prev.seed, commitment: prev.commitment } : null };
+    return { ...rec, frozenAt: rec.frozenAt ?? null, final: !!rec.frozenAt, now: now.toISOString(), verified: true, minted: true, entries: this.board(rec.seed, Math.min(MAX_DAILY_LIMIT, limit), members, now), previous: prev ? { week: prev.week!, seed: prev.seed, commitment: prev.commitment } : null };
   }
   /**
    * Move frozen dailies older than HOT_DAYS to cold storage: every entry, the record, the par and only the top
@@ -361,14 +402,17 @@ export class Verifier {
   private commit(candidate: Board) {
     const dir = path.dirname(this.file);
     const tmp = path.join(dir, `.board-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`);
+    const t0 = performance.now(); let bytes = 0;
     try {
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(tmp, JSON.stringify(candidate, null, 1));
+      const text = JSON.stringify(candidate, null, 1); bytes = Buffer.byteLength(text);
+      fs.writeFileSync(tmp, text);
       fs.renameSync(tmp, this.file);
     } catch (e) {
       try { fs.rmSync(tmp, { force: true }); } catch { /* best effort */ }
       throw new StorageError(`storage unavailable: ${(e as Error).message}`);
     }
+    this.stats = { hotFileBytes: bytes, lastCommitMs: Math.round((performance.now() - t0) * 100) / 100, commits: this.stats.commits + 1 };
     this.data = candidate;
   }
 
@@ -430,14 +474,28 @@ export class Verifier {
   /** Identity records (PLAN-v3 0.6.0). */
   player(id: string): (Player & { playerId: string }) | null { const p = this.data.players?.[id]; return p ? { playerId: id, ...p } : null; }
   /** Claim or rename a display name for a player id. Returns the record or a refusal. */
-  claim(playerId: string, rawName: unknown, now = new Date()): { ok: true; player: Player & { playerId: string } } | { ok: false; error: string; retryAfterSec?: number } {
+  /** Identities with no entry (any version), no group and no moderation record, oldest first: what the cap evicts (0.8.1). */
+  private evictablePlayers(players: Record<string, Player>): string[] {
+    const keep = new Set<string>();
+    for (const e of this.data.entries) if (e.playerId) keep.add(e.playerId);
+    for (const g of Object.values(this.data.groups ?? {})) for (const p of g.playerIds) keep.add(p);
+    for (const id of Object.keys(this.data.moderation ?? {})) keep.add(id);
+    return Object.entries(players).filter(([id]) => !keep.has(id)).sort((a, b) => a[1].createdAt.localeCompare(b[1].createdAt)).map(([id]) => id);
+  }
+  claim(playerId: string, rawName: unknown, now = new Date()): { ok: true; player: Player & { playerId: string } } | { ok: false; error: string; retryAfterSec?: number; /** the identity cap is full and nothing can be evicted (0.8.1): 503, try later */ busy?: true } {
     const problem = nameProblem(rawName); if (problem) return { ok: false, error: problem };
     const name = normaliseName(rawName); const tag = tagFor(playerId);
     const prev = this.data.players?.[playerId];
     if (prev && prev.name === name) return { ok: true, player: { playerId, ...prev } };
     if (prev && prev.renamedAt) { const since = now.getTime() - new Date(prev.renamedAt).getTime(); if (since < RENAME_COOLDOWN_MS) return { ok: false, error: 'name was changed recently; try again later', retryAfterSec: Math.ceil((RENAME_COOLDOWN_MS - since) / 1000) }; }
     const rec: Player = { name, tag, createdAt: prev?.createdAt ?? now.toISOString(), renamedAt: now.toISOString() };
-    const players = { ...(this.data.players ?? {}), [playerId]: rec };
+    const players = { ...(this.data.players ?? {}) };
+    if (!prev && Object.keys(players).length >= this.maxPlayers) { // 0.8.1: identities are free to mint, so the map is capped; the oldest that never submitted and sit in no group go first
+      const need = Object.keys(players).length - this.maxPlayers + 1; const evict = this.evictablePlayers(players).slice(0, need);
+      if (evict.length < need) return { ok: false, error: 'too many players right now; try again later', busy: true };
+      for (const id of evict) delete players[id];
+    }
+    players[playerId] = rec;
     const mod = this.data.moderation?.[playerId]; let moderation = this.data.moderation;
     if (mod && !mod.hidden && mod.name !== name) { moderation = { ...moderation }; delete moderation[playerId]; } // a new name starts clean once the old one was cleared; a hidden name stays hidden until a moderator acts (PLAN-v4 0.7.7)
     const label = mod?.hidden ? HIDDEN_LABEL : labelFor(name, tag);
@@ -446,7 +504,7 @@ export class Verifier {
     return { ok: true, player: { playerId, ...rec } };
   }
   /** GDPR-minimal deletion: the name goes, the player's entries are anonymised and lose their replays, the id is forgotten. */
-  deletePlayer(playerId: string): { entries: number } {
+  deletePlayer(playerId: string): { entries: number; coldReplays: number } {
     const mine = this.data.entries.filter((e) => e.playerId === playerId);
     const players = { ...(this.data.players ?? {}) }; delete players[playerId];
     const replays = { ...(this.data.replays ?? {}) }; for (const e of mine) delete replays[e.replayHash];
@@ -455,7 +513,8 @@ export class Verifier {
     for (const g of Object.values(this.data.groups ?? {})) { const rest = g.playerIds.filter((p) => p !== playerId); if (rest.length) groups[g.code] = { ...g, playerIds: rest, creatorId: g.creatorId === playerId ? rest[0] : g.creatorId }; }
     const moderation = { ...(this.data.moderation ?? {}) }; delete moderation[playerId];
     this.commit({ ...this.data, players, replays, entries, groups, moderation });
-    return { entries: mine.length };
+    let coldReplays = 0; try { coldReplays = this.cold.dropPlayer(playerId); } catch (e) { console.error(`cold deletion for ${playerId.slice(0, 8)}… failed: ${(e as Error).message}`); } // 0.8.1: the kept cold replays go too (the policy promised it)
+    return { entries: mine.length, coldReplays };
   }
 
   // ---------- name moderation (PLAN-v4 0.7.7) ----------
@@ -479,18 +538,30 @@ export class Verifier {
     if (t.playerId === reporterId) return { ok: false, error: 'you cannot report yourself', status: 422 };
     const p = this.data.players[t.playerId]; const prev = this.data.moderation?.[t.playerId];
     const rec: ModerationRecord = prev && (prev.hidden || prev.name === p.name) ? { ...prev, reports: [...prev.reports] } : { name: p.name, hidden: false, clears: 0, reports: [] };
-    if (rec.reports.some((r) => r.reporterId === reporterId)) return { ok: true, playerId: t.playerId, hidden: rec.hidden, duplicate: true };
-    if (rec.reports.length < MAX_REPORTERS_PER_TARGET) rec.reports.push({ reporterId, reason: reason as ReportReason, at: now.toISOString() });
-    const hide = !rec.hidden && rec.clears < MAX_HIDES_PER_NAME; if (hide) { rec.hidden = true; rec.hiddenAt = now.toISOString(); }
+    if (rec.reports.some((r) => r.reporterId === reporterId)) return { ok: true, playerId: t.playerId, hidden: this.isHidden(rec, now), duplicate: true };
+    const established = this.reportPolicy.establishedDays <= 0 || this.data.entries.some((e) => e.playerId === reporterId && e.rulesVersion === RULES_VERSION && Date.parse(e.verifiedAt) <= now.getTime() - this.reportPolicy.establishedDays * 86_400_000);
+    if (rec.reports.length < MAX_REPORTERS_PER_TARGET) rec.reports.push({ reporterId, reason: reason as ReportReason, at: now.toISOString(), ...(established ? { established: true } : {}) });
+    if (rec.hidden && !this.isHidden(rec, now)) { rec.hidden = false; delete rec.hiddenAt; } // an unconfirmed hide that lapsed is over; a fresh quorum may hide again
+    const standing = rec.reports.filter((r) => r.established).length;
+    const hide = !rec.hidden && rec.clears < MAX_HIDES_PER_NAME && standing >= this.reportPolicy.reporters; if (hide) { rec.hidden = true; rec.hiddenAt = now.toISOString(); }
     this.commit({ ...this.data, entries: hide ? this.relabel(this.data.entries, t.playerId, HIDDEN_LABEL) : this.data.entries, moderation: { ...(this.data.moderation ?? {}), [t.playerId]: rec } });
     this.audit({ at: now.toISOString(), action: 'report', playerId: t.playerId, name: p.name, reason, by: reporterId, hidden: rec.hidden, reports: rec.reports.length });
     return { ok: true, playerId: t.playerId, hidden: rec.hidden, duplicate: false };
   }
-  hidden(playerId: string): boolean { return !!this.data.moderation?.[playerId]?.hidden; }
+  hidden(playerId: string, now = new Date()): boolean { return this.isHidden(this.data.moderation?.[playerId], now); }
+  /** Moderator: the hide stands (0.8.1). A hidden or lapsed name with open reports is hidden from now until clear or rename; it no longer expires. */
+  confirmHide(playerId: unknown, now = new Date()): { ok: true; playerId: string; name: string } | { ok: false; error: string; status: 404 } {
+    const m = typeof playerId === 'string' ? this.data.moderation?.[playerId] : undefined;
+    if (!m || typeof playerId !== 'string' || (!m.hidden && !m.reports.length)) return { ok: false, error: 'no open reports for that player', status: 404 };
+    const rec: ModerationRecord = { ...m, hidden: true, hiddenAt: m.hiddenAt ?? now.toISOString(), confirmedAt: now.toISOString() };
+    this.commit({ ...this.data, entries: this.relabel(this.data.entries, playerId, HIDDEN_LABEL), moderation: { ...(this.data.moderation ?? {}), [playerId]: rec } });
+    this.audit({ at: now.toISOString(), action: 'confirm', playerId, name: m.name, by: 'moderator', reports: m.reports.length });
+    return { ok: true, playerId, name: m.name };
+  }
   /** What the moderator sees: every player with a hidden name or open reports, oldest first, with the reported and the current name. */
-  reports(): (ModerationRecord & { playerId: string; tag: string; currentName: string | null })[] {
+  reports(now = new Date()): (ModerationRecord & { playerId: string; tag: string; currentName: string | null; /** when an unconfirmed hide lapses (0.8.1); null when shown or confirmed */ expiresAt: string | null })[] {
     const at = (m: ModerationRecord) => m.hiddenAt ?? m.reports[0]?.at ?? '';
-    return Object.entries(this.data.moderation ?? {}).filter(([, m]) => m.hidden || m.reports.length).map(([playerId, m]) => ({ playerId, tag: tagFor(playerId), currentName: this.data.players?.[playerId]?.name ?? null, ...m })).sort((a, b) => at(a).localeCompare(at(b)));
+    return Object.entries(this.data.moderation ?? {}).filter(([, m]) => m.hidden || m.reports.length).map(([playerId, m]) => ({ playerId, tag: tagFor(playerId), currentName: this.data.players?.[playerId]?.name ?? null, ...m, hidden: this.isHidden(m, now), expiresAt: this.hideExpiresAt(m) })).sort((a, b) => at(a).localeCompare(at(b)));
   }
   /** Moderator: the name is fine. It shows again, the reports close, and after MAX_HIDES_PER_NAME clears a report no longer hides this name. */
   clearReports(playerId: unknown, now = new Date()): { ok: true; playerId: string; name: string | null; clears: number } | { ok: false; error: string; status: 404 } {
@@ -547,7 +618,8 @@ export class Verifier {
       const rec = this.issuedRecordForSeed(replay.seed)!;
       if (now.getTime() >= Date.parse(rec.closesAt)) { this.observeFreeze(now); return { ok: true, score: v.score, late: true, recorded: false, closesAt: rec.closesAt, player: label }; }
     }
-    const entry: BoardEntry = { seed: replay.seed, score: v.score, player: label, verifiedAt: new Date().toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash, finalMachines: finalMachinesOf(replay) ?? undefined, rounds: roundsOf(replay) ?? undefined, ...(playerId ? { playerId } : {}) };
+    // verifiedAt is the injected clock (0.8.1): reporter standing and tie-breaks read this stamp, so a fake clock in tests governs it too
+    const entry: BoardEntry = { seed: replay.seed, score: v.score, player: label, verifiedAt: now.toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash, finalMachines: finalMachinesOf(replay) ?? undefined, rounds: roundsOf(replay) ?? undefined, ...(playerId ? { playerId } : {}) };
     // keep-best per (seed, player): a worse or equal run is verified but not recorded; a better one replaces the old entry and its replay
     let entries = this.data.entries; const replays = { ...(this.data.replays ?? {}) };
     if (playerId) {
@@ -567,25 +639,25 @@ export class Verifier {
     if (event) { const top = this.rank(replay.seed)[0]; if (top && top.replayHash === replayHash && !(prevTop && playerId && prevTop.playerId === playerId)) this.announce({ kind: 'lead', record: event, entry: top, previous: prevTop }); } // a new #1 on an open event (PLAN-v4 0.7.6); a leader improving their own run is not news
     return { ok: true, score: v.score, entry, recorded: true, player: label };
   }
-  board(seed: string, limit = 20, members?: ReadonlySet<string> | null): BoardEntry[] {
+  board(seed: string, limit = 20, members?: ReadonlySet<string> | null, now = new Date()): BoardEntry[] {
     const n = Math.min(MAX_BOARD_LIMIT, Math.max(1, Math.floor(limit) || 1));
-    return this.rank(seed, this.data, members).slice(0, n).map((e) => ({ ...e, replayAvailable: !!this.data.replays?.[e.replayHash] || !!this.cold.dateOfReplay(e.replayHash) }));
+    return this.rank(seed, this.data, members, now).slice(0, n).map((e) => ({ ...e, replayAvailable: !!this.data.replays?.[e.replayHash] || !!this.cold.dateOfReplay(e.replayHash) }));
   }
   /** Stored replay of a verified, current-version entry (boards written before replay storage existed have none). */
-  replay(hash: string): (StoredReplay & { hash: string }) | null {
+  replay(hash: string, now = new Date()): (StoredReplay & { hash: string }) | null {
     const r = this.data.replays?.[hash] ?? (() => { const d = this.cold.dateOfReplay(hash); return d ? this.cold.day(d)?.replays[hash] : undefined; })();
     if (!r || r.rulesVersion !== RULES_VERSION) return null;
     const hot = this.data.entries.find((x) => x.replayHash === hash); // the label follows renames and moderation (PLAN-v4 0.7.7), the stored replay keeps the label at verification
-    const player = hot ? (hot.playerId && this.data.players?.[hot.playerId] ? this.labelOf(hot.playerId) : hot.player) : (() => { const d = this.cold.dateOfReplay(hash); const day = d ? this.cold.day(d) : null; return day ? this.coldEntries(day.record.seed).find((x) => x.replayHash === hash)?.player : undefined; })();
+    const player = hot ? (hot.playerId && this.data.players?.[hot.playerId] ? this.labelOf(hot.playerId, undefined, now) : hot.player) : (() => { const d = this.cold.dateOfReplay(hash); const day = d ? this.cold.day(d) : null; return day ? this.coldEntries(day.record.seed, now).find((x) => x.replayHash === hash)?.player : undefined; })();
     return { hash, ...r, player: player ?? r.player };
   }
   /** A verified entry for a challenge link (PLAN-v4 0.7.1): earnings and standing, never actions. Hot first, then cold (by kept replay, or by seed when given). */
-  entry(hash: string, seed?: string | null): { seed: string; score: number; player: string; rounds: number[] | null; replayHash: string; verifiedAt: string; rulesVersion: number; frozen: boolean; medals: Medals | null } | null {
+  entry(hash: string, seed?: string | null, now = new Date()): { seed: string; score: number; player: string; rounds: number[] | null; replayHash: string; verifiedAt: string; rulesVersion: number; frozen: boolean; medals: Medals | null } | null {
     let e = this.data.entries.find((x) => x.replayHash === hash && x.rulesVersion === RULES_VERSION);
-    if (!e) { const date = this.cold.dateOfReplay(hash) ?? (seed ? this.cold.dateOfSeed(seed) : null); if (date) { const day = this.cold.day(date); const found = day?.entries.find((x) => x.replayHash === hash); if (found && day) e = this.coldEntries(day.record.seed).find((x) => x.replayHash === hash) ?? found; } }
+    if (!e) { const date = this.cold.dateOfReplay(hash) ?? (seed ? this.cold.dateOfSeed(seed) : null); if (date) { const day = this.cold.day(date); const found = day?.entries.find((x) => x.replayHash === hash); if (found && day) e = this.coldEntries(day.record.seed, now).find((x) => x.replayHash === hash) ?? found; } }
     if (!e) return null;
     const rec = this.issuedRecordForSeed(e.seed);
-    const player = e.playerId && this.data.players?.[e.playerId] ? this.labelOf(e.playerId) : e.player;
+    const player = e.playerId && this.data.players?.[e.playerId] ? this.labelOf(e.playerId, undefined, now) : e.player;
     return { seed: e.seed, score: e.score, player, rounds: e.rounds ?? null, replayHash: e.replayHash, verifiedAt: e.verifiedAt, rulesVersion: e.rulesVersion, frozen: !!rec?.frozenAt, medals: rec?.frozenAt ? rec.medals ?? null : null };
   }
   /** Why a replay is not served: 'compacted' when its entry is on a cold day below the kept top (PLAN-v4 0.7.0), else 'unknown'. */
@@ -621,7 +693,7 @@ export class Verifier {
   /** Number of cached pars (for tests and /health). */
   get parCount() { return Object.keys(this.data.pars ?? {}).length; }
   /** Verified score distribution for a seed; `hash` locates the caller's own entry. */
-  histogram(seed: string, hash?: string, members?: ReadonlySet<string> | null): Histogram { return { seed, ...histogramOf(this.rank(seed, this.data, members), hash) }; }
+  histogram(seed: string, hash?: string, members?: ReadonlySet<string> | null, now = new Date()): Histogram { return { seed, ...histogramOf(this.rank(seed, this.data, members, now), hash) }; }
   /** The issued daily for a UTC date, minting and persisting it on first request; null when that day has not opened yet (PLAN-v3 0.6.1). */
   /** Hand an event to the announcer (PLAN-v4 0.7.6); announcing never affects the operation that caused it. */
   private announce(ev: AnnounceEvent) { if (!this.announceFn) return; try { this.announceFn(ev); } catch { /* the announcer logs its own trouble */ } }
@@ -642,6 +714,7 @@ export class Verifier {
     if (!isUtcDate(date) || date > utcDate(now)) return null;
     const have = this.data.dailies?.[date]; if (have) { this.observeFreeze(now); return this.data.dailies![date]; }
     const cold = this.cold.day(date)?.record; if (cold) return cold; // a closed day in cold storage is final: never re-minted
+    if (!this.withinHistory(date, now)) return null; // 0.8.1: nothing older than DAILY_HISTORY_DAYS is minted on request
     const friday = new Date(dayStartMs(date)).getUTCDay() === 5;
     const rec: DailyRecord = { date, seed: mintSeed(this.dailySecret, date), commitment: commitmentFor(mintSeed(this.dailySecret, shiftDate(date, 1))), issuedAt: now.toISOString(), closesAt: new Date(dayStartMs(date) + DAILY_WINDOW_MS).toISOString(), rulesVersion: RULES_VERSION, build: VERSION, ...(friday ? { weeklyCommitment: commitmentFor(mintWeeklySeed(this.dailySecret, isoWeekId(new Date(dayStartMs(date))))) } : {}) }; // PLAN-v4 0.7.5: a Friday's daily commits to the weekly opening at 18:00 UTC
     const next = { ...this.data, dailies: { ...(this.data.dailies ?? {}), [date]: rec } };
@@ -663,7 +736,7 @@ export class Verifier {
     const days: ArchiveDay[] = [];
     for (const key of keys.slice(0, limit)) {
       const r = this.data.dailies?.[key] ?? this.cold.day(key)?.record; if (!r) continue;
-      days.push({ date: r.date, key, kind: r.kind === 'weekly' ? 'weekly' : 'daily', seed: r.seed, closesAt: r.closesAt, frozenAt: r.frozenAt ?? r.closesAt, n: this.rank(r.seed, this.data, members).length, botPar: this.par(r.seed), medals: r.medals ?? null, top: this.board(r.seed, 5, members) });
+      days.push({ date: r.date, key, kind: r.kind === 'weekly' ? 'weekly' : 'daily', seed: r.seed, closesAt: r.closesAt, frozenAt: r.frozenAt ?? r.closesAt, n: this.rank(r.seed, this.data, members, now).length, botPar: this.par(r.seed), medals: r.medals ?? null, top: this.board(r.seed, 5, members, now) });
     }
     return { days, nextTo: keys.length > limit ? dateOfKey(keys[limit]) : null };
   }
@@ -680,7 +753,7 @@ export class Verifier {
   daily(limit = 10, now = new Date(), date = utcDate(now), members?: ReadonlySet<string> | null): (Omit<DailyRecord, 'frozenAt'> & { frozenAt: string | null; final: boolean; now: string; verified: true; minted: true; entries: BoardEntry[]; previous: { date: string; seed: string; commitment: string } | null }) | null {
     const rec = this.dailyRecord(date, now); if (!rec) return null;
     const prev = this.dailyRecord(shiftDate(date, -1), now);
-    return { ...rec, frozenAt: rec.frozenAt ?? null, final: !!rec.frozenAt, now: now.toISOString(), verified: true, minted: true, entries: this.board(rec.seed, Math.min(MAX_DAILY_LIMIT, limit), members), previous: prev ? { date: prev.date, seed: prev.seed, commitment: prev.commitment } : null };
+    return { ...rec, frozenAt: rec.frozenAt ?? null, final: !!rec.frozenAt, now: now.toISOString(), verified: true, minted: true, entries: this.board(rec.seed, Math.min(MAX_DAILY_LIMIT, limit), members, now), previous: prev ? { date: prev.date, seed: prev.seed, commitment: prev.commitment } : null };
   }
 }
 
@@ -779,7 +852,7 @@ export function loadBoard(text: string): Board {
     if (Object.keys(dailies).length) out.dailies = dailies;
     if (Object.keys(groups).length) out.groups = groups;
     const moderation: Record<string, ModerationRecord> = {};
-    if (raw.moderation && typeof raw.moderation === 'object') for (const [id, m] of Object.entries(raw.moderation as Record<string, ModerationRecord>)) if (m && /^[0-9a-f]{64}$/.test(id) && typeof m.name === 'string') moderation[id] = { name: m.name, hidden: !!m.hidden, ...(typeof m.hiddenAt === 'string' ? { hiddenAt: m.hiddenAt } : {}), clears: Number.isInteger(m.clears) ? m.clears : 0, reports: Array.isArray(m.reports) ? m.reports.filter((r) => r && typeof r.reporterId === 'string' && typeof r.reason === 'string' && typeof r.at === 'string') : [] };
+    if (raw.moderation && typeof raw.moderation === 'object') for (const [id, m] of Object.entries(raw.moderation as Record<string, ModerationRecord>)) if (m && /^[0-9a-f]{64}$/.test(id) && typeof m.name === 'string') moderation[id] = { name: m.name, hidden: !!m.hidden, ...(typeof m.hiddenAt === 'string' ? { hiddenAt: m.hiddenAt } : {}), clears: Number.isInteger(m.clears) ? m.clears : 0, reports: Array.isArray(m.reports) ? m.reports.filter((r) => r && typeof r.reporterId === 'string' && typeof r.reason === 'string' && typeof r.at === 'string').map((r) => ({ reporterId: r.reporterId, reason: r.reason, at: r.at, ...(r.established === true ? { established: true } : {}) })) : [], ...(typeof m.confirmedAt === 'string' ? { confirmedAt: m.confirmedAt } : {}) };
     if (Object.keys(moderation).length) out.moderation = moderation;
     return out;
   } catch { return { entries: [] }; }
@@ -869,10 +942,43 @@ export interface ServerOptions {
   playerRateLimit?: number;
   /** bot-par jobs (PLAN-v1 0.4.5); null (default) means pars are never computed */
   par?: ParService | null;
+  /** per-address GET limit per minute (0.8.1; /health exempt); default DEFAULT_READ_RATE_LIMIT; null disables */
+  readRateLimit?: number | null;
+  /** per-address limit per minute on identity, group, report and deletion calls (0.8.1); default DEFAULT_WRITE_RATE_LIMIT; null disables */
+  writeRateLimit?: number | null;
+  /** where a 500's exception goes as one JSON line (0.8.1); default console.error; null disables */
+  errorLog?: ((line: string) => void) | null;
+  /** socket timeouts (0.8.1); defaults 15 s headers, 30 s request, 5 s keep-alive */
+  timeouts?: { headersMs?: number; requestMs?: number; keepAliveMs?: number };
 }
 
+/** Daily-salted hash of a client address for the request log (0.8.1): one key per client within a UTC day, unlinkable across days or restarts; never the address. */
+export const hashIp = (salt: string, ip: string, now = new Date()): string => createHash('sha256').update(`${salt}:${now.toISOString().slice(0, 10)}:${ip}`).digest('hex').slice(0, 16);
+/** The request path as logged (0.8.1): a group code is the only membership secret and never reaches the log. */
+export const redactPath = (p: string): string => p.replace(/([?&]group=)[^&]*/g, '$1~');
+
+export interface ShutdownOptions { announcer?: { idle(): Promise<void> } | null; log?: ((line: string) => void) | null; /** hard stop after this many ms */ graceMs?: number; exit?: (code: number) => void; /** signals to hook; [] for tests that call the returned function */ signals?: NodeJS.Signals[] }
+/** SIGTERM/SIGINT drain (0.8.1): stop accepting, let in-flight requests and queued announcements finish, then exit 0; a hard stop with exit 1 after graceMs. Returns the shutdown function. */
+export function installShutdown(server: http.Server, o: ShutdownOptions = {}): () => Promise<void> {
+  const log = o.log === null ? null : o.log ?? ((l: string) => console.log(l)); const exit = o.exit ?? ((c: number) => process.exit(c)); const grace = o.graceMs ?? 10_000; let started = false;
+  const shutdown = async () => {
+    if (started) return; started = true;
+    log?.(JSON.stringify({ ts: new Date().toISOString(), event: 'shutdown', graceMs: grace }));
+    const hard = setTimeout(() => { try { server.closeAllConnections(); } catch { /* already closed */ } exit(1); }, grace); hard.unref();
+    await new Promise<void>((r) => { server.close(() => r()); try { server.closeIdleConnections(); } catch { /* not listening */ } });
+    try { await o.announcer?.idle(); } catch { /* the announcer logs its own trouble */ }
+    clearTimeout(hard); exit(0);
+  };
+  for (const s of o.signals ?? ['SIGTERM', 'SIGINT']) process.once(s, () => { void shutdown(); });
+  return shutdown;
+}
+
+/** The client address. Behind a proxy you control (trustProxy): X-Real-IP, else the RIGHTMOST X-Forwarded-For hop, the one your proxy appended; the leftmost is whatever the client sent (0.8.1 fixed the spoofable first-hop read). */
 export function clientIp(req: http.IncomingMessage, trustProxy: boolean): string {
-  if (trustProxy) { const xf = req.headers['x-forwarded-for']; const first = (Array.isArray(xf) ? xf[0] : xf || '').split(',')[0].trim(); if (first) return first; }
+  if (trustProxy) {
+    const real = req.headers['x-real-ip']; const r = (Array.isArray(real) ? real[0] : real || '').trim(); if (r) return r;
+    const xf = req.headers['x-forwarded-for']; const hops = (Array.isArray(xf) ? xf.join(',') : xf || '').split(',').map((s) => s.trim()).filter(Boolean); if (hops.length) return hops[hops.length - 1];
+  }
   return req.socket.remoteAddress || 'unknown';
 }
 
@@ -886,6 +992,10 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const irl = new RateLimiter(IDENTITY_RATE_LIMIT, 60_000, opts.now); // per-player identity calls
   const grl = new RateLimiter(GROUP_RATE_LIMIT, 60_000, opts.now); // per-player group calls (PLAN-v4 0.7.2)
   const rrl = new RateLimiter(REPORT_RATE_LIMIT, 60_000, opts.now); // per-player reports (PLAN-v4 0.7.7)
+  const readRl = opts.readRateLimit === null ? null : new RateLimiter(opts.readRateLimit ?? DEFAULT_READ_RATE_LIMIT, 60_000, opts.now); // per-address reads (0.8.1)
+  const writeRl = opts.writeRateLimit === null ? null : new RateLimiter(opts.writeRateLimit ?? DEFAULT_WRITE_RATE_LIMIT, 60_000, opts.now); // per-address writes (0.8.1)
+  const logSalt = randomBytes(16).toString('hex');
+  const errorLog = opts.errorLog === null ? null : opts.errorLog ?? ((l: string) => console.error(l));
   const modToken = opts.moderationToken || null;
   const MAX_EVENTS_BODY = 64 * 1024;
   const corsOrigin = opts.corsOrigin ?? '*';
@@ -895,20 +1005,27 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const server = http.createServer((req, res) => {
     const t0 = Date.now();
     const ip = clientIp(req, !!opts.trustProxy);
+    const reqId = randomBytes(4).toString('hex'); // 0.8.1: echoed as X-Request-Id, in the log line and in the error log, so a player's report and the operator's log meet
     const json = (code: number, body: unknown, extra: Record<string, string> = {}, pathForLog = req.url ?? '') => {
       if (res.writableEnded) return;
-      res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...cors, ...extra }); res.end(JSON.stringify(body));
-      log?.(`${new Date().toISOString()} ${ip} ${req.method} ${pathForLog} ${code} ${Date.now() - t0}ms`);
+      res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Request-Id': reqId, ...cors, ...extra }); res.end(JSON.stringify(body));
+      const now = new Date((opts.now ?? Date.now)());
+      log?.(JSON.stringify({ ts: new Date().toISOString(), id: reqId, ip: hashIp(logSalt, ip, now), method: req.method, path: redactPath(pathForLog), status: code, ms: Date.now() - t0 }));
     };
-    /** Asynchronous handlers (request 'end') run outside the route() try/catch: anything they throw would kill the process. */
-    const guarded = (fn: () => void) => { try { fn(); } catch { if (!res.writableEnded) json(500, { ok: false, error: 'internal error' }); } };
+    const failed = (e: unknown) => { errorLog?.(JSON.stringify({ ts: new Date().toISOString(), id: reqId, method: req.method, path: redactPath(req.url ?? ''), error: e instanceof Error ? `${e.name}: ${e.message}` : String(e), stack: e instanceof Error && e.stack ? e.stack.split('\n').slice(1, 6).map((l) => l.trim()) : undefined })); if (!res.writableEnded) json(500, { ok: false, error: 'internal error', requestId: reqId }); };
+    /** Asynchronous handlers (request 'end') run outside the route() try/catch: anything they throw would kill the process. Every 500 logs its exception (0.8.1). */
+    const guarded = (fn: () => void) => { try { fn(); } catch (e) { failed(e); } };
+    /** Per-address write limit (0.8.1) on identity, group, report and deletion calls; null when allowed, else the Retry-After seconds. */
+    const writeLimited = (): number | null => { if (!writeRl) return null; const r = writeRl.take(ip); return r.ok ? null : r.retryAfterSec; };
     let url: URL;
     try { url = new URL(req.url || '/', 'http://localhost'); } catch { req.resume(); return json(400, { ok: false, error: 'bad request: malformed URL' }, {}, '(malformed)'); }
     const route = () => {
       if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
-      if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, protocol: PROTOCOL, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, cold: { days: verifier.cold.dayCount, replays: verifier.cold.replayCount }, ...(opts.announcer?.enabled ? { discord: opts.announcer.stats } : {}), uptimeSec: Math.round((Date.now() - started) / 1000) });
+      if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, protocol: PROTOCOL, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, cold: { days: verifier.cold.dayCount, replays: verifier.cold.replayCount }, ...(opts.announcer?.enabled ? { discord: opts.announcer.stats } : {}), uptimeSec: Math.round((Date.now() - started) / 1000),
+        ...verifier.health, par: par ? { busy: par.busy, queued: par.queued, failures: par.failures } : null, limiters: { ip: rl?.keys ?? 0, player: prl.keys, read: readRl?.keys ?? 0, write: writeRl?.keys ?? 0, events: erl?.keys ?? 0 }, historyStart: verifier.historyStart(new Date((opts.now ?? Date.now)())), log: 'json' }); // 0.8.1: the SQLite trigger's inputs, the par queue and limiter cardinalities, visible
+      if (req.method === 'GET' && readRl) { const r = readRl.take(ip); if (!r.ok) return json(429, { ok: false, error: `rate limited: ${readRl.limit} reads per minute per address` }, { 'Retry-After': String(r.retryAfterSec) }); } // 0.8.1: every read but /health
       if (req.method === 'GET' && url.pathname === '/replay') {
-        const r = verifier.replay(url.searchParams.get('hash') || '');
+        const r = verifier.replay(url.searchParams.get('hash') || '', new Date((opts.now ?? Date.now)()));
         if (!r) { const why = verifier.replayMissingReason(url.searchParams.get('hash') || '', url.searchParams.get('seed')); return json(404, why === 'compacted' ? { ok: false, reason: 'compacted', error: `replay compacted: only the top ${COLD_REPLAYS_PER_DAY} replays of a day older than ${HOT_DAYS} days are kept; the entry and its score stay on the final board` } : { ok: false, error: 'no verified replay with that hash' }); }
         const bearer = playerIdFromToken(bearerOf(req)); if (req.headers.authorization && !bearer) return json(401, { ok: false, error: 'bad token' });
         const gate = verifier.revealGate(r.seed, bearer, new Date((opts.now ?? Date.now)()));
@@ -927,11 +1044,11 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const now = new Date((opts.now ?? Date.now)()); const dateQ = url.searchParams.get('date');
         if (dateQ !== null && !isUtcDate(dateQ)) return json(400, { ok: false, error: 'date must be YYYY-MM-DD' });
         const d = verifier.daily(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT), now, dateQ ?? undefined, gs.members);
-        if (!d) return json(403, { ok: false, error: `the daily for ${dateQ} has not opened yet (dailies open at 00:00 UTC)`, today: utcDate(now) });
+        if (!d) return json(403, dateQ && dateQ < verifier.historyStart(now) ? { ok: false, error: `dailies are kept ${DAILY_HISTORY_DAYS} days back; ${dateQ} is before ${verifier.historyStart(now)}`, historyStart: verifier.historyStart(now) } : { ok: false, error: `the daily for ${dateQ} has not opened yet (dailies open at 00:00 UTC)`, today: utcDate(now) });
         return json(200, { ok: true, ...d, group: gs.group, botPar: withPar(d.seed), tieBreak: TIE_BREAK });
       }
       if (req.method === 'GET' && url.pathname === '/entry') { // challenge links (PLAN-v4 0.7.1): earnings, never actions
-        const e = verifier.entry((url.searchParams.get('hash') || '').slice(0, 64), (url.searchParams.get('seed') || '').slice(0, 64) || null);
+        const e = verifier.entry((url.searchParams.get('hash') || '').slice(0, 64), (url.searchParams.get('seed') || '').slice(0, 64) || null, new Date((opts.now ?? Date.now)()));
         if (!e) return json(404, { ok: false, error: 'no verified entry with that hash' });
         if (!e.rounds) return json(404, { ok: false, reason: 'no-rounds', error: 'that entry has no per-round earnings (verified before 0.7.1 without a stored replay)' });
         return json(200, { ok: true, ...e });
@@ -941,7 +1058,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const now = new Date((opts.now ?? Date.now)()); const weekQ = url.searchParams.get('week');
         if (weekQ !== null && !isWeekId(weekQ)) return json(400, { ok: false, error: 'week must be an ISO week like 2030-W11' });
         const w = verifier.weekly(clampInt(url.searchParams.get('limit'), 10, MAX_DAILY_LIMIT), now, weekQ ?? undefined, gs.members);
-        if (!w) return json(403, { ok: false, error: `the weekly ${weekQ} has not opened yet (weeklies open Friday 18:00 UTC)`, currentWeek: currentWeekId(now) });
+        if (!w) return json(403, weekQ && isWeekId(weekQ) && weeklyWindow(weekQ)!.openDate < verifier.historyStart(now) ? { ok: false, error: `weeklies are kept ${DAILY_HISTORY_DAYS} days back; ${weekQ} opened before ${verifier.historyStart(now)}`, historyStart: verifier.historyStart(now) } : { ok: false, error: `the weekly ${weekQ} has not opened yet (weeklies open Friday 18:00 UTC)`, currentWeek: currentWeekId(now) });
         return json(200, { ok: true, ...w, group: gs.group, botPar: withPar(w.seed), tieBreak: TIE_BREAK });
       }
       if (req.method === 'GET' && url.pathname === '/archive') {
@@ -950,15 +1067,16 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const gs = groupScope(); if (!gs.ok) return json(gs.status, { ok: false, error: gs.error });
         return json(200, { ok: true, ...verifier.archive({ from: from ?? undefined, to: to ?? undefined, limit: clampInt(url.searchParams.get('limit'), 30, MAX_ARCHIVE_LIMIT) }, now, gs.members), group: gs.group, tieBreak: TIE_BREAK });
       }
-      if (req.method === 'GET' && url.pathname === '/histogram') { const gs = groupScope(); if (!gs.ok) return json(gs.status, { ok: false, error: gs.error }); const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { ok: true, ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined, gs.members), group: gs.group, botPar: withPar(seed), medals: verifier.medalsForSeed(seed, new Date((opts.now ?? Date.now)())), tieBreak: TIE_BREAK }); }
-      if (req.method === 'GET' && url.pathname === '/board') { const gs = groupScope(); if (!gs.ok) return json(gs.status, { ok: false, error: gs.error }); const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { seed, verified: true, entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT), gs.members), group: gs.group, botPar: withPar(seed), tieBreak: TIE_BREAK }); }
+      if (req.method === 'GET' && url.pathname === '/histogram') { const gs = groupScope(); if (!gs.ok) return json(gs.status, { ok: false, error: gs.error }); const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { ok: true, ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined, gs.members, new Date((opts.now ?? Date.now)())), group: gs.group, botPar: withPar(seed), medals: verifier.medalsForSeed(seed, new Date((opts.now ?? Date.now)())), tieBreak: TIE_BREAK }); }
+      if (req.method === 'GET' && url.pathname === '/board') { const gs = groupScope(); if (!gs.ok) return json(gs.status, { ok: false, error: gs.error }); const seed = (url.searchParams.get('seed') || '').slice(0, 64); return json(200, { seed, verified: true, entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT), gs.members, new Date((opts.now ?? Date.now)())), group: gs.group, botPar: withPar(seed), tieBreak: TIE_BREAK }); }
       // identity (PLAN-v3 0.6.0): the bearer is a device token; only its hash is used or stored
       const bearerId = playerIdFromToken(bearerOf(req));
       if (req.headers.authorization && !bearerId) return json(401, { ok: false, error: 'bad token' });
-      if (url.pathname === '/identity' && req.method === 'GET') { if (!bearerId) return json(401, { ok: false, error: 'token required' }); const p = verifier.player(bearerId); return p ? json(200, { ok: true, ...p, ...(verifier.hidden(bearerId) ? { hidden: true, hiddenLabel: HIDDEN_LABEL } : {}) }) : json(404, { ok: false, error: 'no name claimed for this token', playerId: bearerId, tag: tagFor(bearerId) }); }
+      if (url.pathname === '/identity' && req.method === 'GET') { if (!bearerId) return json(401, { ok: false, error: 'token required' }); const p = verifier.player(bearerId); return p ? json(200, { ok: true, ...p, ...(verifier.hidden(bearerId, new Date((opts.now ?? Date.now)())) ? { hidden: true, hiddenLabel: HIDDEN_LABEL } : {}) }) : json(404, { ok: false, error: 'no name claimed for this token', playerId: bearerId, tag: tagFor(bearerId) }); }
       if (url.pathname === '/identity' && req.method === 'POST') {
         if (!bearerId) { req.resume(); return json(401, { ok: false, error: 'token required' }); }
         const r = irl.take(bearerId); if (!r.ok) { req.resume(); return json(429, { ok: false, error: 'rate limited' }, { 'Retry-After': String(r.retryAfterSec) }); }
+        { const w = writeLimited(); if (w != null) { req.resume(); return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) }); } }
         let body = '';
         req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
         req.on('end', () => guarded(() => {
@@ -967,7 +1085,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           try { parsed = JSON.parse(body) as { name?: unknown }; } catch { return json(400, { ok: false, error: 'bad request' }); }
           try {
             const out = verifier.claim(bearerId, parsed && typeof parsed === 'object' ? parsed.name : undefined, new Date((opts.now ?? Date.now)()));
-            if (!out.ok) return json(out.retryAfterSec ? 429 : 422, { ok: false, error: out.error }, out.retryAfterSec ? { 'Retry-After': String(out.retryAfterSec) } : {});
+            if (!out.ok) return json(out.busy ? 503 : out.retryAfterSec ? 429 : 422, { ok: false, error: out.error }, out.busy ? { 'Retry-After': '60' } : out.retryAfterSec ? { 'Retry-After': String(out.retryAfterSec) } : {});
             json(200, { ok: true, ...out.player });
           } catch (e) { if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable; try again' }, { 'Retry-After': '5' }); json(500, { ok: false, error: 'internal error' }); }
         }));
@@ -977,6 +1095,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       if (req.method === 'POST' && /^\/groups(\/(join|leave|rename|disband))?$/.test(url.pathname)) { // PLAN-v4 0.7.2
         if (!bearerId) { req.resume(); return json(401, { ok: false, error: 'token required' }); }
         const r = grl.take(bearerId); if (!r.ok) { req.resume(); return json(429, { ok: false, error: 'rate limited' }, { 'Retry-After': String(r.retryAfterSec) }); }
+        { const w = writeLimited(); if (w != null) { req.resume(); return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) }); } }
         const action = url.pathname.split('/')[2] ?? 'create';
         let body = '';
         req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
@@ -995,12 +1114,14 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       }
       if (url.pathname === '/me' && req.method === 'DELETE') {
         if (!bearerId) return json(401, { ok: false, error: 'token required' });
-        try { const r = verifier.deletePlayer(bearerId); return json(200, { ok: true, anonymisedEntries: r.entries }); }
+        { const w = writeLimited(); if (w != null) return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) }); }
+        try { const r = verifier.deletePlayer(bearerId); return json(200, { ok: true, anonymisedEntries: r.entries, coldReplaysDropped: r.coldReplays }); }
         catch (e) { if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable; try again' }, { 'Retry-After': '5' }); return json(500, { ok: false, error: 'internal error' }); }
       }
       if (req.method === 'POST' && url.pathname === '/report') { // name moderation (PLAN-v4 0.7.7)
         if (!bearerId) { req.resume(); return json(401, { ok: false, error: 'token required' }); }
         const r = rrl.take(bearerId); if (!r.ok) { req.resume(); return json(429, { ok: false, error: 'rate limited' }, { 'Retry-After': String(r.retryAfterSec) }); }
+        { const w = writeLimited(); if (w != null) { req.resume(); return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) }); } }
         let body = '';
         req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
         req.on('end', () => guarded(() => {
@@ -1017,9 +1138,9 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         if (!modToken) { req.resume(); return json(403, { ok: false, error: 'moderation is not enabled on this verifier (set MODERATION_TOKEN)' }); }
         const given = req.headers['x-moderation-token']; const t = Buffer.from(Array.isArray(given) ? given[0] ?? '' : given ?? ''), want = Buffer.from(modToken);
         if (t.length !== want.length || !timingSafeEqual(t, want)) { req.resume(); return json(401, { ok: false, error: 'bad moderation token' }); }
-        if (req.method === 'GET' && url.pathname === '/moderation/reports') return json(200, { ok: true, reports: verifier.reports(), reasons: REPORT_REASONS, hiddenLabel: HIDDEN_LABEL, maxHidesPerName: MAX_HIDES_PER_NAME });
+        if (req.method === 'GET' && url.pathname === '/moderation/reports') return json(200, { ok: true, reports: verifier.reports(new Date((opts.now ?? Date.now)())), reasons: REPORT_REASONS, hiddenLabel: HIDDEN_LABEL, maxHidesPerName: MAX_HIDES_PER_NAME, policy: verifier.reportPolicy });
         const action = url.pathname.slice('/moderation/'.length);
-        if (req.method !== 'POST' || !['clear', 'rename', 'rename-group'].includes(action)) { req.resume(); return json(404, { ok: false, error: 'not found' }); }
+        if (req.method !== 'POST' || !['clear', 'confirm', 'rename', 'rename-group'].includes(action)) { req.resume(); return json(404, { ok: false, error: 'not found' }); }
         let body = '';
         req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
         req.on('end', () => guarded(() => {
@@ -1029,7 +1150,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           if (!parsed || typeof parsed !== 'object') return json(400, { ok: false, error: 'bad request' });
           try {
             const now = new Date((opts.now ?? Date.now)());
-            const out = action === 'clear' ? verifier.clearReports(parsed.playerId, now) : action === 'rename' ? verifier.forceRename(parsed.playerId, parsed.name, now) : verifier.forceRenameGroup(parsed.code, parsed.name, now);
+            const out = action === 'clear' ? verifier.clearReports(parsed.playerId, now) : action === 'confirm' ? verifier.confirmHide(parsed.playerId, now) : action === 'rename' ? verifier.forceRename(parsed.playerId, parsed.name, now) : verifier.forceRenameGroup(parsed.code, parsed.name, now);
             if (!out.ok) return json(out.status, { ok: false, error: out.error });
             json(200, out);
           } catch (e) { if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable; try again' }, { 'Retry-After': '5' }); json(500, { ok: false, error: 'internal error' }); }
@@ -1076,10 +1197,12 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       }
       json(404, { ok: false, error: 'not found' });
     };
-    try { route(); } catch { json(500, { ok: false, error: 'internal error' }); }
+    try { route(); } catch (e) { failed(e); }
   });
   // malformed HTTP at the socket level (not a parsable request): answer 400 and close instead of letting the parser error propagate
   server.on('clientError', (_err, socket) => { if (socket.writable) socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n'); socket.destroy(); });
+  // 0.8.1: a slow or silent client holds a socket for seconds, not minutes (Node's defaults are 60 s / 300 s)
+  server.headersTimeout = opts.timeouts?.headersMs ?? 15_000; server.requestTimeout = opts.timeouts?.requestMs ?? 30_000; server.keepAliveTimeout = opts.timeouts?.keepAliveMs ?? 5_000;
   return server;
 }
 
@@ -1096,6 +1219,10 @@ if (isMain) {
   const limit = Number(flag('rate-limit') || process.env.RATE_LIMIT || DEFAULT_RATE_LIMIT);
   const trustProxy = process.env.TRUST_PROXY === '1';
   const playerRateLimit = Number(process.env.PLAYER_RATE_LIMIT || DEFAULT_PLAYER_RATE_LIMIT); // POST /verify per player id per minute (PLAN-v3 §1)
+  // 0.8.1: per-address read and write limits, the identity cap and the report-to-hide policy
+  const readRateLimit = Number(process.env.READ_RATE_LIMIT || DEFAULT_READ_RATE_LIMIT), writeRateLimit = Number(process.env.WRITE_RATE_LIMIT || DEFAULT_WRITE_RATE_LIMIT);
+  const maxPlayers = Number(process.env.MAX_PLAYERS || DEFAULT_MAX_PLAYERS);
+  const reportPolicy: ReportPolicy = { reporters: Number(process.env.REPORT_HIDE_REPORTERS || DEFAULT_REPORT_POLICY.reporters), establishedDays: process.env.REPORTER_ESTABLISHED_DAYS != null && process.env.REPORTER_ESTABLISHED_DAYS !== '' ? Number(process.env.REPORTER_ESTABLISHED_DAYS) : DEFAULT_REPORT_POLICY.establishedDays, expiryHours: Number(process.env.HIDE_EXPIRY_HOURS || DEFAULT_REPORT_POLICY.expiryHours) };
   // opt-in funnel events live next to the board (EVENTS_FILE overrides); retention is enforced at start and hourly
   const events = new EventStore(process.env.EVENTS_FILE || path.join(path.dirname(file), 'events.jsonl'), Number(process.env.EVENTS_RETENTION_DAYS || DEFAULT_EVENTS_RETENTION_DAYS));
   const pruned = events.prune(); if (pruned) console.log(`events: pruned ${pruned} rows older than ${events.retentionDays} days`);
@@ -1113,11 +1240,13 @@ if (isMain) {
   const moderationToken = flag('moderation-token') || process.env.MODERATION_TOKEN || null;
   const auditFile = process.env.MODERATION_FILE || path.join(path.dirname(file), 'moderation.jsonl');
   console.log(`moderation: POST /report on; moderator endpoints ${moderationToken ? 'on (X-Moderation-Token)' : 'off (set MODERATION_TOKEN)'}; audit ${auditFile}`);
-  const verifier = new Verifier(file, { dailySecret, announce: (ev) => announcer.announce(ev), auditFile });
+  const verifier = new Verifier(file, { dailySecret, announce: (ev) => announcer.announce(ev), auditFile, reportPolicy, maxPlayers });
+  console.log(`reports hide a name after ${reportPolicy.reporters} established reporter(s) (entry ≥ ${reportPolicy.establishedDays} day(s) old${reportPolicy.establishedDays <= 0 ? ': any claimed player' : ''}) or a moderator's confirm; unconfirmed hides expire after ${reportPolicy.expiryHours} h; identities capped at ${maxPlayers}; reads ${readRateLimit}/min/address, writes ${writeRateLimit}/min/address; log: one JSON line per request with a daily-salted address hash`);
   // cold storage (PLAN-v4 0.7.0): closed dailies older than HOT_DAYS leave the hot board at startup and once an hour
   try { const { moved } = verifier.splitCold(new Date()); if (moved.length) console.log(`cold: moved ${moved.length} closed day(s) to ${path.join(path.dirname(file), 'cold')}`); } catch (e) { console.error(`cold split failed: ${(e as Error).message}`); }
   setInterval(() => { try { verifier.splitCold(new Date()); } catch { /* next hour */ } }, 3_600_000).unref();
   const par = process.env.BOT_PAR === '0' ? null : new ParService(verifier, (s) => computeParInWorker(s, Number(process.env.BOT_PAR_CAP_MS || 20_000)));
-  createServer(verifier, { rateLimit: { limit, windowMs: 60_000 }, playerRateLimit, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events, par, announcer, moderationToken })
-    .listen(port, host, () => console.log(`replay verifier v${VERSION} → http://${host}:${port}/  (board: ${file}, events: ${events.file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, ${playerRateLimit}/min/player, CORS ${corsOrigin}${trustProxy ? ', trusting X-Forwarded-For' : ''})`));
+  const server = createServer(verifier, { rateLimit: { limit, windowMs: 60_000 }, playerRateLimit, readRateLimit, writeRateLimit, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events, par, announcer, moderationToken });
+  server.listen(port, host, () => console.log(`replay verifier v${VERSION} → http://${host}:${port}/  (board: ${file}, events: ${events.file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, ${playerRateLimit}/min/player, CORS ${corsOrigin}${trustProxy ? ', trusting the rightmost X-Forwarded-For hop / X-Real-IP' : ''})`));
+  installShutdown(server, { announcer }); // 0.8.1: SIGTERM/SIGINT stop accepting, finish in-flight requests and queued announcements, exit 0 (hard stop after 10 s)
 }

@@ -24,13 +24,13 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
   const server = spawn(process.execPath, [path.join(ROOT, 'scripts/dev.mjs')], { env: { ...process.env, GAME_PORT: String(PORT) }, stdio: 'ignore' });
   const VPORT = 4499;
   const boardFile = path.join(fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-')), 'board.json');
-  const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), BOARD_FILE: boardFile, PLAYER_RATE_LIMIT: '100', DAILY_SECRET: 'e2e-daily-secret', MODERATION_TOKEN: 'e2e-moderator', BOT_PAR_CAP_MS: '120000' }, stdio: 'ignore' });
+  const verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), BOARD_FILE: boardFile, PLAYER_RATE_LIMIT: '100', DAILY_SECRET: 'e2e-daily-secret', MODERATION_TOKEN: 'e2e-moderator', BOT_PAR_CAP_MS: '120000', REPORT_HIDE_REPORTERS: '1', REPORTER_ESTABLISHED_DAYS: '0', READ_RATE_LIMIT: '100000', WRITE_RATE_LIMIT: '100000' }, stdio: 'ignore' });
   let browser, page;
   const errors = [];
   const api = (fn, ...args) => page.evaluate(({ fn, args }) => window.__jd[fn](...args), { fn, args });
   try {
     browser = await chromium.launch();
-    page = await browser.newPage({ viewport: { width: 1120, height: 700 } });
+    page = await browser.newPage({ viewport: { width: 1120, height: 700 }, bypassCSP: true }); // string predicates below are polled with eval; the CSP itself is tested by tests/hardening-e2e.test.mjs
     page.on('pageerror', (e) => errors.push(String(e)));
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
     await waitServer();
@@ -537,7 +537,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     await page.waitForFunction(() => /· group Lunch Crew$/.test(document.querySelector('[data-testid=daily-mode]')?.textContent || ''), null, { timeout: 15000 });
     let buddyToken;
     {
-      const buddy = await browser.newContext({ viewport: { width: 1120, height: 700 } });
+      const buddy = await browser.newContext({ viewport: { width: 1120, height: 700 }, bypassCSP: true });
       const p2 = await buddy.newPage();
       await p2.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
       await p2.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });

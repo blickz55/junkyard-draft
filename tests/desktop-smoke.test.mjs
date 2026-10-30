@@ -28,22 +28,22 @@ test('packaged desktop app: launches, plays a round, no page errors', { skip: !f
     const saved = await page.evaluate("window.jdDesktop.saveClip ? window.jdDesktop.saveClip('smoke-test.webm', new Uint8Array([1, 2, 3]).buffer) : 'no-bridge'");
     if (saved !== 'no-bridge') { assert.ok(fs.existsSync(saved) && fs.statSync(saved).size === 3, `clip written through the bridge at ${saved}`); fs.rmSync(saved, { force: true }); }
     // text entry without window.prompt (review F04): the title's player name, custom seed and replay import are DOM dialogs
-    await page.waitForFunction("!!document.querySelector('[data-testid=player]')", null, { timeout: 20000 });
+    await page.waitForFunction(() => !!document.querySelector('[data-testid=player]'), null, { timeout: 20000 }); // function predicates: the built page's CSP (0.8.0) blocks the eval that polls a string one
     await page.click('[data-testid=player]');
     await page.fill('[data-testid=dialog-input]', 'Desk Tester');
     await page.keyboard.press('Enter');
-    await page.waitForFunction("document.querySelector('[data-testid=player]')?.textContent === 'Player: Desk Tester'", null, { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector('[data-testid=player]')?.textContent === 'Player: Desk Tester', null, { timeout: 5000 });
     await page.click('[data-testid=import]');
     await page.fill('[data-testid=dialog-input]', 'not json');
     await page.click('[data-testid=dialog-ok]');
-    await page.waitForFunction("/Could not read replay/.test(document.querySelector('[data-testid=dialog]')?.textContent || '')", null, { timeout: 5000 });
+    await page.waitForFunction(() => /Could not read replay/.test(document.querySelector('[data-testid=dialog]')?.textContent || ''), null, { timeout: 5000 });
     await page.click('[data-testid=dialog-ok]');
     await page.click('[data-testid=custom]');
     await page.fill('[data-testid=dialog-input]', 'desk-seed');
     await page.click('[data-testid=dialog-ok]');
-    await page.waitForFunction("!!window.__jd && window.__jd.phase() === 'draft' && window.__jd.state().seed === 'desk-seed'", null, { timeout: 20000 });
+    await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft' && window.__jd.state().seed === 'desk-seed', null, { timeout: 20000 });
     await page.evaluate("location.search = '?dev=1&scene=game&seed=smoke-seed'");
-    await page.waitForFunction("!!window.__jd && window.__jd.phase() === 'draft'", null, { timeout: 20000 });
+    await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 20000 });
     const api = (fn, ...a) => page.evaluate(`window.__jd[${JSON.stringify(fn)}](...${JSON.stringify(a)})`);
     const st0 = await api('state');
     assert.equal(st0.round, 1);
@@ -55,7 +55,7 @@ test('packaged desktop app: launches, plays a round, no page errors', { skip: !f
     await api('run');
     await wait(600); // let a few animated ticks render in the real window
     await api('finishRun');
-    await page.waitForFunction("window.__jd.mode() === 'summary'", null, { timeout: 15000 });
+    await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 15000 });
     const rec = (await api('state')).rounds[0];
     assert.ok(rec.earned > 38, `crusher line earned ${rec.earned} > starter 38`);
     assert.ok(rec.shipped.shards > 0);

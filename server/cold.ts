@@ -65,6 +65,25 @@ export class ColdStore {
     for (const h of Object.keys(day.replays)) this.index.replays[h] = date;
     this.writeJson(path.join(this.dir, 'index.json'), this.index);
   }
+  /** Every month file name in the directory. */
+  private monthFiles(): string[] { try { return fs.readdirSync(this.dir).filter((f) => /^\d{4}-\d{2}\.json$/.test(f)); } catch { return []; } }
+  /** A deleted player's kept replays leave every month file and the index; their entries stay anonymised as "deleted" (production roadmap 0.8.1: the policy's deletion promise now holds cold too). Returns the number of replays dropped. */
+  dropPlayer(playerId: string): number {
+    let dropped = 0; let indexChanged = false;
+    for (const f of this.monthFiles()) {
+      const m = this.readJson<ColdMonth>(path.join(this.dir, f)); if (!m || typeof m.days !== 'object') continue;
+      let changed = false;
+      for (const day of Object.values(m.days)) {
+        if (!day.entries.some((e) => e.playerId === playerId)) continue;
+        for (const e of day.entries) if (e.playerId === playerId) { if (day.replays[e.replayHash]) { delete day.replays[e.replayHash]; dropped++; } if (this.index.replays[e.replayHash]) { delete this.index.replays[e.replayHash]; indexChanged = true; } }
+        day.entries = day.entries.map((e) => (e.playerId === playerId ? { ...e, player: 'deleted', playerId: undefined } : e));
+        changed = true;
+      }
+      if (changed) { this.writeJson(path.join(this.dir, f), m); this.cache.delete(f.slice(0, 7)); }
+    }
+    if (indexChanged) this.writeJson(path.join(this.dir, 'index.json'), this.index);
+    return dropped;
+  }
   /** Bytes on disk across month files and the index (for /health and the measurement tool). */
   bytes(): number {
     try { return fs.readdirSync(this.dir).filter((f) => f.endsWith('.json')).reduce((n, f) => n + fs.statSync(path.join(this.dir, f)).size, 0); } catch { return 0; }

@@ -85,6 +85,11 @@ async function main() {
   const mod = await fetch(`${url}/moderation/reports`);
   if (mod.status !== 403 && mod.status !== 401) fail(`/moderation/reports without a token should be 403 (off) or 401 (on), got ${mod.status}`);
   console.log(`moderation: /report guarded (401 without a bearer, 422 off-list reason); moderator endpoints ${mod.status === 403 ? 'off' : 'on and guarded'}`);
+  // 0.8.1: a group-scoped read without a bearer is refused; its code must not reach the request log (tools/log-check.ts reads the container's log after this)
+  if ((await fetch(`${url}/board?seed=${encodeURIComponent(seed)}&group=smokecode`)).status !== 401) fail('a group-scoped read without a bearer should be 401');
+  const h2 = await (await fetch(`${url}/health`)).json() as { hotFileBytes?: number; lastCommitMs?: number; limiters?: { read?: number }; log?: string; historyStart?: string };
+  if (typeof h2.hotFileBytes !== 'number' || typeof h2.lastCommitMs !== 'number' || !h2.limiters || h2.log !== 'json' || !h2.historyStart) fail(`/health lacks the 0.8.1 fields: ${JSON.stringify(h2)}`);
+  console.log(`health: hot file ${h2.hotFileBytes} B, last commit ${h2.lastCommitMs} ms, history from ${h2.historyStart}`);
   const dup = await fetch(`${url}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(run), player: 'again' }) });
   if (dup.status !== 422) fail(`a duplicate replay should be refused with 422, got ${dup.status}`);
   console.log(`verified $${body.score} for ${seed}; board has 1 entry; duplicate refused`);

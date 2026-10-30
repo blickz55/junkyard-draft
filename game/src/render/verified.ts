@@ -31,7 +31,7 @@ export async function reportName(url: string, hash: string, reason: ReportReason
     if (res.status === 401) return 'Reporting needs your player key: this verifier is not https, so it was not sent.';
     if (!res.ok || !body.ok) return `The verifier did not take the report: ${body.error ?? res.status}.`;
     if (body.duplicate) return 'You already reported this player; a moderator will review it.';
-    return body.hidden ? 'Reported. The name shows as "player" on every board until a moderator reviews it; scores are not affected.' : 'Reported for review. The name stays visible: it was already cleared twice.';
+    return body.hidden ? 'Reported. The name shows as "player" on every board until a moderator reviews it; scores are not affected.' : body.duplicate ? 'You already reported this name; a moderator will review it.' : 'Reported for review. The name hides once enough established players report it, or when a moderator acts; scores are not affected.';
   } catch { return 'The verifier did not answer; the report was not sent.'; }
 }
 export const replayLabel = (r: Pick<VerifiedReplay, 'player' | 'score'>) => `verified replay by ${r.player} ($${r.score})`;
