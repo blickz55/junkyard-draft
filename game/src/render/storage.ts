@@ -88,11 +88,27 @@ export function validateSubmissions(raw: unknown): Record<string, Submission> {
   return out;
 }
 
-/** Parse a key; a missing key, unparsable JSON or storage access failure yields `undefined` for the validator to turn into a fallback. */
-function readRaw(key: string): unknown {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : undefined; } catch { return undefined; }
+/**
+ * Storage health (production roadmap 0.8.0): the first failed read or write flips this and tells listeners once, so the
+ * UI can say that progress is not being saved (a full quota, a private window, a blocked origin) instead of losing saves,
+ * bests and the name silently. Unparsable JSON is not a storage failure.
+ */
+let storageBroken = false; let storageReason = '';
+const storageListeners: ((reason: string) => void)[] = [];
+export const storageFailed = (): boolean => storageBroken;
+export function onStorageFailure(cb: (reason: string) => void): void { storageListeners.push(cb); if (storageBroken) cb(storageReason); }
+export function markStorageFailure(err: unknown): void {
+  if (storageBroken) return;
+  storageBroken = true; storageReason = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  for (const cb of storageListeners) { try { cb(storageReason); } catch { /* a listener must not break storage */ } }
 }
-function write(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable */ } }
+/** Parse a key; a missing key or unparsable JSON yields `undefined` for the validator to turn into a fallback; a storage access failure does too and is announced. */
+function readRaw(key: string): unknown {
+  let v: string | null;
+  try { v = localStorage.getItem(key); } catch (e) { markStorageFailure(e); return undefined; }
+  try { return v ? JSON.parse(v) : undefined; } catch { return undefined; }
+}
+function write(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { markStorageFailure(e); } }
 
 export const loadSettings = (): Settings => validateSettings(readRaw(K.settings), { volume: 0.7, muted: false, reducedMotion: systemReducedMotion(), textScale: 1, renderQuality: 'auto', telemetry: false, buses: { ui: 1, factory: 1, music: 1 }, reducedAudio: false });
 export const saveSettings = (s: Settings) => write(K.settings, s);
@@ -139,7 +155,7 @@ export function recordBest(seed: string, score: number, version: number = RULES_
 
 /** Display name sent with verified submissions (shown publicly on boards). Empty until the player chooses one. */
 export const loadPlayer = (): string => { try { return cleanPlayer(localStorage.getItem(K.player)); } catch { return ''; } };
-export const savePlayer = (name: string) => { try { const n = cleanPlayer(name); if (n) localStorage.setItem(K.player, n); else localStorage.removeItem(K.player); } catch { /* ignore */ } };
+export const savePlayer = (name: string) => { try { const n = cleanPlayer(name); if (n) localStorage.setItem(K.player, n); else localStorage.removeItem(K.player); } catch (e) { markStorageFailure(e); } };
 
 /** Every version's submissions; migrates the pre-0.5.0 key once. */
 export function loadSubmissionsAll(): SubmissionsByVersion {
@@ -183,8 +199,9 @@ export const currentStreak = (now = new Date()): number => streakOf(loadDailyDat
 export const loadReadTips = (): string[] => { const raw = readRaw(K.tips); return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : []; };
 export const markTipRead = (id: string) => { const all = loadReadTips(); if (!all.includes(id)) { all.push(id); write(K.tips, all); } };
 
-export const isOnboarded = () => { try { return localStorage.getItem(K.onboarded) === '1'; } catch { return true; } };
-export const setOnboarded = () => { try { localStorage.setItem(K.onboarded, '1'); } catch { /* ignore */ } };
+/** False when storage fails: a browser that cannot remember the flag should see the onboarding, not skip it (0.8.0). */
+export const isOnboarded = () => { try { return localStorage.getItem(K.onboarded) === '1'; } catch (e) { markStorageFailure(e); return false; } };
+export const setOnboarded = () => { try { localStorage.setItem(K.onboarded, '1'); } catch (e) { markStorageFailure(e); } };
 
 export function randomSeed(): string {
   const words = ['rust', 'bolt', 'gear', 'weld', 'spark', 'scrap', 'ingot', 'belt', 'crate', 'forge', 'piston', 'rivet'];

@@ -1,6 +1,8 @@
+import { verifierUrl as resolveVerifierUrl } from '../render/config';
+import { diagnostics } from '../render/errlog';
 /** Title screen as DOM (DOSSIER-v1 0.4.0). The Phaser TitleScene keeps the decorative belt and the tips panel; everything else lives here. */
 import type Phaser from 'phaser';
-import { h, btn, ui, alertText, dialog, promptText } from './dom';
+import { h, btn, ui, alertText, dialog, promptText, showText } from './dom';
 import { RULES_VERSION } from '../sim/types';
 import type { TipsPanel } from './TipsPanel';
 import { telemetry } from '../render/telemetry';
@@ -30,7 +32,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const restart = () => scene.scene.restart();
 
   // top bar: build, player, resolution, share stats
-  const verifierUrl = new URLSearchParams(location.search).get('verifier') || import.meta.env.VERIFIER_URL;
+  const verifierUrl = resolveVerifierUrl();
   const playerBtn = btn(playerLabel(), 'player', () => { void identityDialog(scene, verifierUrl, (note) => { playerBtn.textContent = playerLabel(); if (note) { playerNote.textContent = note; playerNote.style.display = ''; playerNote.dataset.testid = 'player-note'; } }); }, { small: true });
   const playerNote = h('div', { class: 'jd-mono jd-dim', style: 'font-size:0.6em; text-align:right; margin-top:-0.3em; display:none' }, ''); // shown (and given its test id) only after the identity dialog reports an outcome: the layout tests measure every [data-testid] against the overlay
   if (loadIdentity().name && bearerAllowed(verifierUrl)) void fetchClaimed(verifierUrl).then((c) => { // the verifier's view of this player: a moderator's rename follows onto the button, a report shows its note (PLAN-v4 0.7.7)
@@ -85,6 +87,8 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const muteBtn = btn(audio.muted ? 'Unmute' : 'Mute', 'mute', () => { audio.setMuted(!audio.muted); muteBtn.textContent = audio.muted ? 'Unmute' : 'Mute'; }, { small: true });
   const motionBtn = btn(prefs.reducedMotion ? 'Reduced' : 'Full', 'motion', () => { telemetry.track('settings_changed', { key: 'reducedMotion' }); prefs.setReducedMotion(!prefs.reducedMotion); restart(); }, { small: true });
   const textBtn = btn(prefs.textScaleLabel(), 'textscale', () => { telemetry.track('settings_changed', { key: 'textScale' }); prefs.setTextScale(prefs.nextTextScale()); restart(); }, { small: true });
+  // production roadmap 0.8.0: build, browser, settings, storage health and the last ten errors as text for a bug report; never the identity or the key
+  const diagBtn = btn('Copy diagnostics', 'diagnostics', () => { const text = diagnostics(); const done = () => { diagBtn.textContent = 'Copied'; setTimeout(() => { diagBtn.textContent = 'Copy diagnostics'; }, 1500); }; const fallback = () => { void showText(scene, 'Diagnostics', text); }; if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback(); }, { small: true, title: 'Build, browser, settings and the last errors on this device, for a bug report. No identity, no key.' });
   const bestsPanel = h('div', { class: 'jd-panel' },
     h('div', { class: 'jd-head' }, 'Local personal bests'),
     h('div', { style: 'margin-top:0.35em; font-size:0.9375em' }, bests.overall ? `Best score: $${bests.overall.score}  (seed ${bests.overall.seed})` : 'No finished runs yet on this device.'),
@@ -100,7 +104,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
       d.dataset.testid = 'audio-buses';
       return d;
     })(),
-    h('div', { class: 'jd-row', style: 'margin-top:0.4em' }, h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, 'Motion'), motionBtn, h('span', { class: 'jd-dim', style: 'font-size:0.8125em; margin-left:0.5em' }, 'Text size'), textBtn));
+    h('div', { class: 'jd-row', style: 'margin-top:0.4em' }, h('span', { class: 'jd-dim', style: 'font-size:0.8125em' }, 'Motion'), motionBtn, h('span', { class: 'jd-dim', style: 'font-size:0.8125em; margin-left:0.5em' }, 'Text size'), textBtn, diagBtn));
 
   // today's verified board (optional verifier)
   const url = verifierUrl;

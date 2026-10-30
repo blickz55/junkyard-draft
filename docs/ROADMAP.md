@@ -85,6 +85,10 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [ ] ⚑ Commit the CI perf baseline to `docs/baselines/ci/perf-ci.json` from the perf workflow's artifact to arm the strict gate
 - [ ] ⚑ First green run of `ci.yml` on GitHub (the image job needs the hosted runner's Docker; nothing can build the image on the dev PC)
 
+## M11 — production roadmap v0.8 Real (`docs/PRODUCTION-ROADMAP.md` §5; in progress)
+- [x] 0.8.0 client hardening: `?verifier=` only in dev builds and on loopback pages, CSP in page and Electron, storage-failure banner, error log + Copy diagnostics (`tests/config.test.ts`, `tests/hardening-e2e.test.mjs`)
+- [ ] 0.8.1 verifier hardening, first cut · [ ] 0.8.2 single-pass re-simulation in a worker · [ ] 0.8.3 backups and restore drill · [ ] 0.8.4 release pipeline · [ ] ⚑ 0.8.5 deploy · [ ] ⚑ 0.8.6 legal minimum · [ ] 0.8.7 player-facing copy and the offline state · [ ] 0.8.8 the bottleneck line · [ ] ⚑ 0.8.9 uptime, alerting, Discord · [ ] ⚑ 0.8.10 first human playtests · [ ] 0.8.11 determinism across engines · [ ] 0.8.12 single-step while paused
+
 ## M10 — v0.7 Play with people (PLAN-v4, released as 0.7.0, protocol 2, rules version 3 unchanged)
 - [x] 0.7.0 storage: hot/cold split and replay compaction (`server/cold.ts`, `HOT_DAYS` 30, top 10 replays per cold day, `docs/baselines/0.7/storage-split-*.json`); 0.7.0b SQLite scheduled only when a measured beta month crosses the 5 MB / 50 ms trigger
 - [x] 0.7.1 challenge link with per-round earnings (`roundsOf` derived at verification, `GET /entry`, the challenge overlay and outcome on the results and share text)

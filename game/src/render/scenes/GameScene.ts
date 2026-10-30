@@ -1,3 +1,4 @@
+import { verifierUrl as resolveVerifierUrl } from '../config';
 import Phaser from 'phaser';
 import { applyDpr, DPR } from '../dpr';
 import type { Challenge } from '../challenge';
@@ -50,7 +51,7 @@ export class GameScene extends Phaser.Scene {
   /** Report the watched replay's player name (PLAN-v4 0.7.7): one reason from the fixed list, no free text. */
   private reportName() {
     const hash = this.replayOrigin?.hash; if (!hash) return;
-    const verifierUrl = new URLSearchParams(location.search).get('verifier') || import.meta.env.VERIFIER_URL;
+    const verifierUrl = resolveVerifierUrl();
     void dialog(this, { title: `Report ${this.replayOrigin!.player}`, label: 'Why? The name is hidden as "player" on every board until a moderator reviews it. Scores are never affected. Pick one:', value: '', readonly: true, ok: 'Close', cancel: null,
       extra: REPORT_REASONS.map((reason) => ({ label: reason, tid: `report-${reason}`, onClick: () => { void reportName(verifierUrl, hash, reason).then((line) => alertText(this, 'Report', line)); } })) });
   }

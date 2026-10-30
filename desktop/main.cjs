@@ -1,6 +1,6 @@
 // Electron shell for Junkyard Draft. Loads the production bundle from dist/ (run `npm run build` first).
 // Offline only: no remote content, no telemetry. The Control Room is a dev tool and is not packaged.
-const { app, BrowserWindow, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, session } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 
@@ -37,5 +37,9 @@ function createWindow() {
   mainWindow = win;
   win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
 }
-app.whenReady().then(() => { createWindow(); app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); }); });
+app.whenReady().then(() => {
+  // production roadmap 0.8.0: the built page carries its Content-Security-Policy as a <meta> (scripts and connections only to itself and the baked verifier); the shell adds a permission handler that denies everything, since the game never asks for a device permission
+  session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+  session.defaultSession.setPermissionCheckHandler(() => false);
+  createWindow(); app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); }); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

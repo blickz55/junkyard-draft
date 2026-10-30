@@ -1,3 +1,4 @@
+import { verifierUrl as resolveVerifierUrl } from '../render/config';
 /** Results screen as DOM (DOSSIER-v1 0.4.0): score, round bars, what shipped, the local verified board, submission and sharing. */
 import type Phaser from 'phaser';
 import { h, btn, ui, textureImg, promptText, showText } from './dom';
@@ -29,7 +30,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: { replayed: b
   const fork = run.forkedFrom ?? null; // PLAN-v4 0.7.3
   const bests = loadBests();
   const go = (seed: string) => { audio.unlock(); scene.scene.start('Game', { seed, fresh: true, challenge: o.challenge && o.challenge.seed === seed ? o.challenge : undefined }); }; // a retry keeps the challenge; another seed drops it (PLAN-v4 0.7.1)
-  const verifierUrl = new URLSearchParams(location.search).get('verifier') || import.meta.env.VERIFIER_URL;
+  const verifierUrl = resolveVerifierUrl();
 
   const header = h('div', { style: 'text-align:center' },
     h('div', { class: 'jd-head' }, 'Run complete'),

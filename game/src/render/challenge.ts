@@ -4,12 +4,22 @@
  * carries no replay and no layout: the verifier's `/entry` answers earnings only, so the 0.6.6 reveal gate holds on an
  * open daily. A challenge played inside a daily's window counts on the daily board through the normal verified path.
  */
+import { overrideAllowed } from './config';
+
 export interface Challenge { hash: string; seed: string; player: string; score: number; rounds: number[] }
 
-/** The shareable URL for an entry; keeps the `verifier` query parameter so local and test setups follow the same server. */
+/** Pure: the shareable URL for an entry; `verifierOverride` is appended only when the caller says overrides count here. */
+export function buildChallengeLink(origin: string, pathname: string, hash: string, verifierOverride: string | null): string {
+  return `${origin}${pathname}?challenge=${encodeURIComponent(hash)}${verifierOverride ? `&verifier=${encodeURIComponent(verifierOverride)}` : ''}`;
+}
+/**
+ * The shareable URL for an entry. In dev builds and on loopback pages the `verifier` query parameter is kept so local and
+ * test setups follow the same server; a hosted build never propagates it (production roadmap 0.8.0: a link must not be
+ * able to point the recipient's client, and its bearer token, at another host).
+ */
 export function challengeLink(hash: string): string {
-  const verifier = new URLSearchParams(location.search).get('verifier');
-  return `${location.origin}${location.pathname}?challenge=${encodeURIComponent(hash)}${verifier ? `&verifier=${encodeURIComponent(verifier)}` : ''}`;
+  const override = overrideAllowed() ? new URLSearchParams(location.search).get('verifier') : null;
+  return buildChallengeLink(location.origin, location.pathname, hash, override);
 }
 
 /** Fetch the challenger's entry; null when unknown, offline, or without per-round earnings. */

@@ -149,3 +149,24 @@ test('days played: one entry per UTC date, malformed rows dropped, bounded', () 
   store.set('jd.days.v1', '"junk"');
   assert.equal(storage.daysPlayed(), 0);
 });
+
+// production roadmap 0.8.0: a storage failure is announced once and never read as "already onboarded"
+test('storage health: a failing write flips storageFailed once, tells listeners, and isOnboarded reads false', () => {
+  const ls = (globalThis as unknown as { localStorage: Storage }).localStorage;
+  const origSet = ls.setItem; const origGet = ls.getItem;
+  const reasons: string[] = [];
+  storage.onStorageFailure((r) => reasons.push(r));
+  assert.equal(storage.storageFailed(), false);
+  ls.setItem = () => { const e = new Error('the quota has been exceeded'); e.name = 'QuotaExceededError'; throw e; };
+  try {
+    storage.saveSettings(storage.loadSettings());
+    assert.equal(storage.storageFailed(), true);
+    storage.saveSettings(storage.loadSettings()); // a second failure does not notify again
+    assert.deepEqual(reasons, ['QuotaExceededError: the quota has been exceeded']);
+    ls.getItem = () => { throw new Error('access denied'); };
+    assert.equal(storage.isOnboarded(), false, 'a browser that cannot remember the flag sees the onboarding');
+    assert.deepEqual(storage.loadReadTips(), [], 'reads fall back');
+    const late: string[] = []; storage.onStorageFailure((r) => late.push(r));
+    assert.deepEqual(late, reasons, 'a listener added after the failure hears it at once');
+  } finally { ls.setItem = origSet; ls.getItem = origGet; }
+});

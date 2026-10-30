@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
-import { buildOptions } from './esbuild-config.mjs';
+import { buildOptions, cspFor } from './esbuild-config.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, '.dev-build');
@@ -21,7 +21,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; cha
 http.createServer((req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
   if (url.pathname === '/' || url.pathname === '/index.html') {
-    const html = fs.readFileSync(path.join(ROOT, 'game', 'index.html'), 'utf8').replace('/src/main.ts', '/main.js').replace('__BUILD__', 'dev');
+    const html = fs.readFileSync(path.join(ROOT, 'game', 'index.html'), 'utf8').replace('/src/main.ts', '/main.js').replace('__BUILD__', 'dev').replace('__CSP__', cspFor({ dev: true }));
     res.writeHead(200, { 'Content-Type': MIME['.html'], 'Cache-Control': 'no-store' }); return res.end(html);
   }
   const pub = path.join(ROOT, 'game', 'public', url.pathname);

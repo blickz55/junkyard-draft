@@ -52,7 +52,7 @@ The image was written without Docker available on the dev machine and has **not 
 
 ## Pointing the game at it
 `VERIFIER_URL=https://verifier.your.site npm run build` bakes the URL into `dist/` (default
-`http://127.0.0.1:4400`). A `?verifier=` query parameter still overrides it at runtime (used by tests).
+`http://127.0.0.1:4400`). A `?verifier=` query parameter overrides it at runtime **only in dev builds and on pages served from a loopback host** (tests and local setups); a hosted build ignores it, so a link can never point a player's client, and its bearer token, at another host (production roadmap 0.8.0, `game/src/render/config.ts`). The built page also carries a Content-Security-Policy whose `connect-src` names the baked verifier origin, so the hosted verifier's origin must match `VERIFIER_URL` exactly (scheme, host, port).
 
 ## Storage: measured headroom and the SQLite trigger (PLAN-v3 0.6.7)
 The board is one JSON file rewritten atomically on every commit. The policy trigger for moving to SQLite is **5 MB on disk or 50 ms per commit**. `tools/storage-measure.ts` synthesises boards in the post-retention shape (≤ 1000 entries and ≤ 100 stored replays per seed, one identity per player, one record and one par per day) and times the real commit path; baselines on the dev PC (Ryzen 9 9950X3D, Node 24, Windows) in `docs/baselines/0.6/`:

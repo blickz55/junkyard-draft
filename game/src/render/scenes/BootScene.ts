@@ -1,3 +1,4 @@
+import { verifierUrl as resolveVerifierUrl } from '../config';
 import Phaser from 'phaser';
 import { generateTextures } from '../textures';
 import { queueArt, buildArtAtlas } from '../atlas';
@@ -20,7 +21,7 @@ export class BootScene extends Phaser.Scene {
     const params = new URLSearchParams(location.search);
     const challenge = params.get('challenge');
     if (challenge && /^[0-9a-f]{8,64}$/i.test(challenge)) { // PLAN-v4 0.7.1: a challenge link plays the challenger's seed with their earnings overlaid; unknown or offline → title
-      const verifier = params.get('verifier') || import.meta.env.VERIFIER_URL;
+      const verifier = resolveVerifierUrl();
       void fetchChallenge(verifier, challenge.toLowerCase()).then((c) => { if (c) this.scene.start('Game', { seed: c.seed, fresh: true, challenge: c }); else this.scene.start('Title'); });
       return;
     }

@@ -4,6 +4,7 @@
  * confirmed are cached too. The token leaves the device only as a bearer header on POSTs. Recovery = the token as a code.
  */
 import { tagFor, recoveryCodeFor, tokenFromRecoveryCode, TOKEN_HEX } from '../identity/identity';
+import { markStorageFailure } from './storage';
 
 export interface Identity { token: string; playerId: string | null; name: string | null; tag: string | null }
 const KEY = 'jd.identity.v1';
@@ -16,7 +17,7 @@ function randomToken(): string {
 function read(): Identity | null {
   try { const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Identity> | null; if (!raw || typeof raw.token !== 'string' || !TOKEN_HEX.test(raw.token)) return null; return { token: raw.token, playerId: typeof raw.playerId === 'string' ? raw.playerId : null, name: typeof raw.name === 'string' ? raw.name : null, tag: typeof raw.tag === 'string' ? raw.tag : null }; } catch { return null; }
 }
-function write(id: Identity) { try { localStorage.setItem(KEY, JSON.stringify(id)); } catch { /* storage unavailable: the identity lives for this session only */ } }
+function write(id: Identity) { try { localStorage.setItem(KEY, JSON.stringify(id)); } catch (e) { markStorageFailure(e); /* the identity lives for this session only; the banner says so (0.8.0) */ } }
 
 /** The device identity, created on first use. */
 export function loadIdentity(): Identity {

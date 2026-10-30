@@ -8,6 +8,15 @@ import { P } from './render/palette';
 import { devEnabled } from './render/devapi';
 import { DPR } from './render/dpr';
 import { telemetry } from './render/telemetry';
+import { verifierUrl as resolveVerifierUrl } from './render/config';
+import { installErrorLog } from './render/errlog';
+import { onStorageFailure } from './render/storage';
+import { showBanner } from './ui/banner';
+
+// production roadmap 0.8.0: keep the last ten uncaught errors on the device for the title's "Copy diagnostics" button,
+// and say so the moment storage refuses a write instead of losing saves, bests and the name silently
+installErrorLog();
+onStorageFailure(() => showBanner('storage', 'This browser is not saving your progress. Runs still play, but saves, bests and your name will be gone after a reload.'));
 
 declare global {
   interface ImportMeta { env: { DEV: boolean; BUILD: string; VERIFIER_URL: string } }
@@ -40,7 +49,7 @@ const game = new Phaser.Game({
 });
 
 // opt-in funnel events go to the same verifier the boards use; nothing is sent unless the player turned it on
-telemetry.configure({ url: () => new URLSearchParams(location.search).get('verifier') || import.meta.env.VERIFIER_URL });
+telemetry.configure({ url: () => resolveVerifierUrl() });
 telemetry.init();
 
 // Expose for dev tooling only (scene key lookups), behind the same gate as window.__jd; competitive authority never lives here.
