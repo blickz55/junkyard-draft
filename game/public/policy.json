@@ -38,6 +38,13 @@
     "offerFromRound": {
       "tuner": 3
     },
+    "lateOfferGuarantee": {
+      "rounds": [],
+      "kinds": [
+        "hopper",
+        "crusher"
+      ]
+    },
     "tunerBonus": 1,
     "tunerMinHold": 2,
     "experimental": {
@@ -84,6 +91,7 @@
         "6 rounds on an 8×6 grid, 80 ticks per round. Score = total money shipped.",
         "Reroll: once per round in the draft for $40 from the running score; the new offers come from their own stream, so a reroll never changes a later round.",
         "Tuner: adjacent crusher, furnace and press work 1 tick faster; offered from round 3.",
+        "Late-round offer guarantee (\"lateOfferGuarantee\"): off: measured in the 0.9.6 study and not shipped; every draft is the plain draw.",
         "The full tuning table (prices, weights, process times) is the \"rules\" object of this document."
       ]
     },

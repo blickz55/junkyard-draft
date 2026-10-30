@@ -97,7 +97,7 @@ const q = (sorted: number[], p: number) => sorted[Math.min(sorted.length - 1, Ma
 const mean = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 0);
 
 /** Set a dotted path on RULES, returning a restore function. */
-function override(rules: Record<string, number>): () => void {
+export function override(rules: Record<string, number>): () => void {
   const undo: (() => void)[] = [];
   for (const [path, value] of Object.entries(rules)) {
     const parts = path.split('.');

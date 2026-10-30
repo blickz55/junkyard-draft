@@ -88,6 +88,9 @@ function offersFrom(rng: Rng, round: number, guaranteeCrusher: boolean): Machine
     const k = rng.weighted(weights);
     if (!offers.includes(k)) offers.push(k);
   }
+  // late-round guarantee (0.9.6 candidate; inert while RULES.lateOfferGuarantee.rounds is empty): a draft with none of the guaranteed kinds swaps its last card for one of them
+  const late = RULES.lateOfferGuarantee;
+  if (late.rounds.includes(round) && !offers.some((k) => late.kinds.includes(k))) offers[offers.length - 1] = late.kinds[rng.int(late.kinds.length)];
   // deterministic shuffle so the forced crusher is not always first
   for (let i = offers.length - 1; i > 0; i--) {
     const j = rng.int(i + 1);

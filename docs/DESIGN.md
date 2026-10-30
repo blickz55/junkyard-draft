@@ -88,6 +88,32 @@ Identical seeds give identical offers; nothing in progression changes scoring. L
 - 2026-10-25 Press balance pass (`tools/balance.ts`, 40 seeds × 120 tries, identical offers, press drafted vs refused): v2 press is taken in 19 of 56 rounds it is offered (34%), never lowers a seed's score (0 worse / 7 better, +44 mean when taken, +247 best) and lifts the mean by 19. A 1-tick hold is statistically identical (+1 mean), so not worth a version bump. Plate $9 / $10 raise the pick rate to 41% but turn the press into a trap for a greedy drafter (3 seeds regress, worst −394): the machine must stay clearly below the furnace per shard. Decision: keep v2 unchanged; a shard left in a press at round end is shown on its badge.
 - 2026-10-25 Rules v2: Plate Press added (2 shards → 1 plate $8, 2 ticks) as the first machine with a real draft decision against the furnace; conveyor weight 34 → 30 to make room. Keyboard-only placement added for accessibility; it reuses the same rule-checked actions as the mouse.
 - 2026-10-25 Chain movement resolved by repeated passes (bounded by item count) rather than two-phase planning: simpler, deterministic; the earlier fixed 8-pass cap falsely stalled long chains and was removed.
+- 2026-10-30 Dead rounds study (production roadmap 0.9.6, `tools/dead-rounds.ts`, 20 and 40 seeds × 120 tries): no candidate passes the gate (flat rounds under 12 of 120 from 29; the best, a late-round hopper-or-crusher guarantee, reaches 25 and leaves two of forty seeds worse). Rules v3 stays; the guarantee remains an inert knob (`RULES.lateOfferGuarantee`) so the study can be rerun; recommendation no-go, ⚑ the owner's written go/no-go below.
+
+## Decision: dead rounds stay a tuning fact, not a system (production roadmap 0.9.6, 2026-10-30)
+
+**Question.** Rounds 4–6 often offer nothing that improves a finished line ("flat" rounds: the autoplayer's best pick leaves the round's earnings where they were). The autoplay baseline since v0.5 counts 29 flat rounds in 120 (20 seeds × 6 rounds, 120 tries per round, greedy search). The roadmap allows one tuning pass before 1.0, provided it adds nothing a player must learn, and sets the gate: flat rounds under 12 of 120, no seed worse on identical offers, every score replay-verified, the derived sanity bound unchanged.
+
+**Candidates measured** (`tools/dead-rounds.ts`; the baseline reproduces the v0.5 figure exactly; every score replay-verified under each candidate's rules; `docs/baselines/0.9/dead-rounds-0.9.6.json`):
+
+| candidate | flat rounds (20 seeds, of 120) | by round 1..6 | median | mean Δ vs v3 | seeds worse / better | offers changed | bound | gate |
+|---|---|---|---|---|---|---|---|---|
+| rules v3 (baseline) | **29** | 0/3/4/9/6/8 | $1748 | — | — | — | 20220 | — |
+| late guarantee, rounds 4–5 | 25 | 0/3/4/6/5/8 | $1748 | +39 | 0 / 5 | 13 | 20220 | fail: 25 ≥ 12 |
+| late guarantee, rounds 4–6 | 24 | 0/3/4/6/5/7 | $1748 | +37 | 0 / 6 | 16 | 20220 | fail: 24 ≥ 12 |
+| slag $2 | 29 | 0/3/4/9/6/8 | $1748 | 0 | 0 / 0 | 0 | 20220 | fail: no effect |
+| sell $12 | 29 | 0/3/4/9/6/8 | $1748 | 0 | 0 / 0 | 0 | 20232 | fail: no effect, bound moves |
+| furnace hold 2 | 36 | 0/3/5/10/9/9 | $2290 | +402 | 0 / 19 | 0 | 20220 | fail: more flat rounds |
+| hopper period 3 | 36 | 0/3/5/10/9/9 | $1542 | −327 | 20 / 0 | 0 | 13668 | fail: everything worse |
+| guarantee 4–5 + slag $2 | 25 | 0/3/4/6/5/8 | $1748 | +39 | 0 / 5 | 13 | 20220 | fail: 25 ≥ 12 |
+
+On 40 seeds (240 rounds; `dead-rounds-0.9.6-40seeds.json`): baseline 57 flat; guarantee 4–5 → 49 with 2 seeds worse and 8 better (+$18 mean); guarantee 4–6 → 47 with 2 worse and 11 better; slag $2 → 56 (one seed +$1); sell $12 → 57; furnace hold 2 → 75 (+$370 mean); hopper period 3 → 78 (all 40 worse).
+
+**Reading.** The late-round guarantee is the only candidate that moves the number, and it moves it by about an eighth: the dead rounds are not mostly "no useful card on offer" but "the line is finished": on an 8×6 grid with one or two hoppers feeding one belt, by round 4 most seeds have a crusher, a furnace and the supply they can use, and another hopper or crusher adds nothing unless the player rebuilds. A faster furnace proves the point from the other side: it raises every score by a quarter and *adds* dead rounds, because the line saturates a round earlier. Slag and sell nudges do not reach the metric at all (the greedy autoplayer neither melts raw scrap on purpose nor sells). A slower hopper only hurts.
+
+**Decision (recommendation).** No candidate ships. Rules v3 stays; no `RULES_VERSION` bump, no golden regeneration, no cutover. The guarantee stays in the rules module as an inert knob (`lateOfferGuarantee: { rounds: [], kinds: ['hopper', 'crusher'] }`, byte-identical offers while the list is empty, `tests/draft-guarantee.test.ts`) so the study is reproducible and the policy page shows it off. Late-round depth, if the owner wants it at all, is a v1.x question (the roadmap's own answer is "none of them" to depth systems before 1.0); the social layer (v0.11) is what gives rounds 4–6 a reason: the same yard, other people's lines.
+
+⚑ **Owner's written go/no-go:** pending. The recommendation is no-go; the numbers above are the evidence.
 
 ## Scenario namespaces and rules identity (review F13, 2026-10-29)
 

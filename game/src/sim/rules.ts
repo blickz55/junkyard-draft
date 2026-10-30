@@ -24,6 +24,12 @@ export const RULES = {
   draftWeights: { conveyor: 30, crusher: 18, furnace: 15, splitter: 15, hopper: 10, press: 10, dock: 8, sieve: 0, tuner: 10 } as Record<MachineKind, number>,
   /** Round-tiered offers (PLAN-v2 0.5.3): a kind listed here is offered only from that round on; everything else from round 1. Seed-fair: depends on (seed, round) only. */
   offerFromRound: { tuner: 3 } as Partial<Record<MachineKind, number>>,
+  /**
+   * Late-round offer guarantee (production roadmap 0.9.6, a candidate under study): in the rounds listed, a draft that would offer none of
+   * the kinds replaces its last card with one of them, drawn from the same stream. Seed-fair like round 1's crusher. Rules v3: no rounds,
+   * so nothing changes; shipping it means listing rounds and bumping RULES_VERSION (the owner's go/no-go, docs/DESIGN.md).
+   */
+  lateOfferGuarantee: { rounds: [] as number[], kinds: ['hopper', 'crusher'] as MachineKind[] },
   /** A Tuner shortens the hold of every orthogonally adjacent processor by this many ticks (never below one tick; two Tuners do not stack). */
   tunerBonus: 1,
   /** A Tuner only affects processors whose normal hold is at least this many ticks (2 = every processor; 3 = the furnace alone today). */

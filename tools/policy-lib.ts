@@ -67,6 +67,7 @@ export function buildPolicy(): Policy {
         `${RULES.rounds} rounds on an ${RULES.gridWidth}×${RULES.gridHeight} grid, ${RULES.ticksPerRound} ticks per round. Score = total money shipped.`,
         `Reroll: once per round in the draft for $${RULES.rerollCost} from the running score; the new offers come from their own stream, so a reroll never changes a later round.`,
         `Tuner: adjacent crusher, furnace and press work ${RULES.tunerBonus} tick faster; offered from round ${RULES.offerFromRound.tuner ?? 1}.`,
+        `Late-round offer guarantee ("lateOfferGuarantee"): ${RULES.lateOfferGuarantee.rounds.length ? `in rounds ${RULES.lateOfferGuarantee.rounds.join(', ')} a draft always carries a ${RULES.lateOfferGuarantee.kinds.join(' or ')}` : 'off: measured in the 0.9.6 study and not shipped; every draft is the plain draw'}.`,
         `The full tuning table (prices, weights, process times) is the "rules" object of this document.`,
       ],
     },
