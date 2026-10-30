@@ -7,63 +7,144 @@
    "seed": "golden-ordinary-1",
    "score": 1758,
    "actions": 99,
-   "note": "autoplayer line (bounded search, fixed rng stream)"
+   "note": "autoplayer line (bounded search, fixed rng stream)",
+   "stateHash": "ec17f4739281d4a8151e293dc1ba4ecde06805f622baa71b5c43b2ce94deac97",
+   "roundHashes": [
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "a7f8f3b769ffa1eded6b119590e78215f1d1d0bcc4d97617f30fa4853e4f72f8",
+    "a7f8f3b769ffa1eded6b119590e78215f1d1d0bcc4d97617f30fa4853e4f72f8",
+    "a7f8f3b769ffa1eded6b119590e78215f1d1d0bcc4d97617f30fa4853e4f72f8",
+    "a7f8f3b769ffa1eded6b119590e78215f1d1d0bcc4d97617f30fa4853e4f72f8",
+    "f0f489191fae8bfbf8d31af29eac5c591f6882979ab4ab2d778c1f1b5dff71ce"
+   ]
   },
   {
    "file": "golden-ordinary-2.json",
    "seed": "golden-ordinary-2",
    "score": 1974,
    "actions": 111,
-   "note": "autoplayer line (bounded search, fixed rng stream)"
+   "note": "autoplayer line (bounded search, fixed rng stream)",
+   "stateHash": "44b59497ffe30be3f6fa8157f803666413796b4969730e1857009529d11bee7a",
+   "roundHashes": [
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "63ffd1714e334945f9b43520cc87418008919c1f0b735e1140c432b829b26634",
+    "f2d3d1d6734a6bf1cc70edbb768d3537add023b859b525ee94b973c8cb9aba1c",
+    "39ab4c4ad9a3e73a8ac4d6ea0c43be7d84abe4f017990fa2fda90e741ecdf88c",
+    "39ab4c4ad9a3e73a8ac4d6ea0c43be7d84abe4f017990fa2fda90e741ecdf88c",
+    "3e0d0d6b23be1bd15e97e01f7f21fb4bfc72669979dc6e01dc1dd4d3632e1940"
+   ]
   },
   {
    "file": "golden-sell.json",
    "seed": "golden-sell",
    "score": 734,
    "actions": 25,
-   "note": "crusher placed in round 1, every later pick sold ($10 each)"
+   "note": "crusher placed in round 1, every later pick sold ($10 each)",
+   "stateHash": "7e6636b21ae8c983594ffbd1b5d7e0099764109b7f97ba4d6daf7794171b54cd",
+   "roundHashes": [
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069"
+   ]
   },
   {
    "file": "golden-press.json",
    "seed": "golden-press-0",
    "score": 834,
    "actions": 22,
-   "note": "crusher at (2,2) then a press at (3,2): shards become plates from round 2"
+   "note": "crusher at (2,2) then a press at (3,2): shards become plates from round 2",
+   "stateHash": "88e33bd4164406a0579832f3d716f433fd680f939346b7e86b8779a5d9eb906f",
+   "roundHashes": [
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "8afbf84fc3653e827928f635b453333bf3d2030629f61062144b02fef76e57e7",
+    "8afbf84fc3653e827928f635b453333bf3d2030629f61062144b02fef76e57e7",
+    "8afbf84fc3653e827928f635b453333bf3d2030629f61062144b02fef76e57e7",
+    "8afbf84fc3653e827928f635b453333bf3d2030629f61062144b02fef76e57e7",
+    "8afbf84fc3653e827928f635b453333bf3d2030629f61062144b02fef76e57e7"
+   ]
   },
   {
    "file": "golden-churn.json",
    "seed": "golden-churn",
    "score": 684,
    "actions": 30,
-   "note": "rotate/unplace/re-place churn in round 1 (what undo/redo records)"
+   "note": "rotate/unplace/re-place churn in round 1 (what undo/redo records)",
+   "stateHash": "cc3ffd25474b4e5010d4c39e713d1c5c0a7e8d3f7a2c2df1a7acc6e49b4007db",
+   "roundHashes": [
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069"
+   ]
   },
   {
    "file": "golden-reroll.json",
    "seed": "golden-reroll",
    "score": 644,
    "actions": 21,
-   "note": "crusher at (2,2) in round 1, a reroll (−$40) before the round-2 pick"
+   "note": "crusher at (2,2) in round 1, a reroll (−$40) before the round-2 pick",
+   "stateHash": "5eb45d96d2a7204b022be727c277cb2491c3a0b7e1e8d4882f0e4a93e9c420f6",
+   "roundHashes": [
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069"
+   ]
   },
   {
    "file": "tutorial-1.json",
    "seed": "tutorial-1",
    "score": 684,
    "actions": 20,
-   "note": "the tutorial scenario (constrained drafts, spare conveyors); scenario semantics are versioned with RULES_VERSION from 0.4.1 on"
+   "note": "the tutorial scenario (constrained drafts, spare conveyors); scenario semantics are versioned with RULES_VERSION from 0.4.1 on",
+   "stateHash": "604995cbf07c5c57b1e69cd9593e2c410272882e34c0e3e72bbf08b93aa8ee84",
+   "roundHashes": [
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069"
+   ]
   },
   {
    "file": "tutorialish.json",
    "seed": "tutorialish",
    "score": 228,
    "actions": 18,
-   "note": "a tutorial-looking name without the dash: an ordinary seed, never a scenario"
+   "note": "a tutorial-looking name without the dash: an ordinary seed, never a scenario",
+   "stateHash": "5bc43165710559fbf187077db2054aa1758906319dbcd1fb10f911baedd50967",
+   "roundHashes": [
+    "7d56486700310512b02dd56ae47222ee8aa5f77a9b95780476f4e9ad222a4690",
+    "7d56486700310512b02dd56ae47222ee8aa5f77a9b95780476f4e9ad222a4690",
+    "7d56486700310512b02dd56ae47222ee8aa5f77a9b95780476f4e9ad222a4690",
+    "7d56486700310512b02dd56ae47222ee8aa5f77a9b95780476f4e9ad222a4690",
+    "7d56486700310512b02dd56ae47222ee8aa5f77a9b95780476f4e9ad222a4690",
+    "7d56486700310512b02dd56ae47222ee8aa5f77a9b95780476f4e9ad222a4690"
+   ]
   },
   {
    "file": "daily-2026-10-29.json",
    "seed": "daily-2026-10-29",
    "score": 684,
    "actions": 20,
-   "note": "a daily seed label"
+   "note": "a daily seed label",
+   "stateHash": "e72b925251856bdeb468557cc85fe6f67bbb3bad46ca52478af3d4493aaee35b",
+   "roundHashes": [
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
+    "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069"
+   ]
   }
  ]
 }

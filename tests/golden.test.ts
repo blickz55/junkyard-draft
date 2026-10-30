@@ -8,10 +8,11 @@ import path from 'node:path';
 import { decodeReplay, verifyReplay } from '../game/src/sim/replay';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { isTutorialSeed } from '../game/src/sim/run';
+import { digestReplay } from '../game/src/sim/digest';
 
 const DIR = path.resolve(process.cwd(), 'tests', 'golden');
 const ARCHIVE = path.join(DIR, 'archive');
-const index = JSON.parse(fs.readFileSync(path.join(DIR, 'INDEX.json'), 'utf8')) as { rulesVersion: number; entries: { file: string; seed: string; score: number; actions: number }[] };
+const index = JSON.parse(fs.readFileSync(path.join(DIR, 'INDEX.json'), 'utf8')) as { rulesVersion: number; entries: { file: string; seed: string; score: number; actions: number; stateHash: string; roundHashes: string[] }[] };
 
 test('golden corpus: recorded under the current rules version and complete', () => {
   assert.equal(index.rulesVersion, RULES_VERSION, 'the corpus belongs to the current rules; regenerate it when the version is bumped');
@@ -44,5 +45,9 @@ for (const e of index.entries) {
     const v = verifyReplay(r);
     assert.equal(v.ok, true, `${e.file}: ${v.error ?? `score ${v.score} vs claimed ${v.claimed}`}`);
     assert.equal(v.score, e.score); assert.equal(v.finished, true);
+    // 0.8.11: the recorded digests are what this engine (Node) computes; tests/engines-e2e.test.mjs holds the browsers to the same
+    const d = digestReplay(r);
+    assert.match(e.stateHash, /^[0-9a-f]{64}$/); assert.equal(d.state, e.stateHash, `${e.file}: the final-state hash drifted`);
+    assert.equal(e.roundHashes.length, 6); assert.deepEqual(d.rounds, e.roundHashes, `${e.file}: a round's event stream drifted`);
   });
 }

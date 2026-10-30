@@ -1,7 +1,8 @@
 # Correctness CI: typecheck, the full test suite (sim, verifier, Control Room, browser e2e in Chromium), the production bundle
 # and the verifier bundle on every push and pull request; then the verifier's Docker image is really built, started,
 # health-checked, fed a legal replay, restarted on the same volume, checked for persistence and for a clean request log.
-# On a version tag (production roadmap 0.8.4) the image is pushed to GHCR, and the Windows job builds the NSIS installer
+# The engines job (production roadmap 0.8.11) installs Chromium, Firefox and WebKit and checks that the sim bundle hashes every
+# golden replay the same way in all three as Node does. On a version tag (production roadmap 0.8.4) the image is pushed to GHCR, and the Windows job builds the NSIS installer
 # and the web bundle, runs the packaged-app smoke test and publishes a GitHub Release with SHA-256 checksums.
 # Concurrency: a newer push to the same branch cancels the older run; tag runs are never cancelled.
 name: ci
@@ -39,6 +40,26 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run verifier:build
+  engines:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Playwright browser cache (three engines)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-engines-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: "Determinism across engines (0.8.11): every golden replay hashes the same in Chromium, Firefox and WebKit as in Node"
+        run: ENGINES_REQUIRED=1 node --import tsx --test tests/engines-e2e.test.mjs
+      - name: "Determinism lint over game/src/sim"
+        run: node --import tsx tools/determinism-lint.ts
   image:
     runs-on: ubuntu-latest
     timeout-minutes: 20

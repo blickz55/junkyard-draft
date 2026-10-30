@@ -16,7 +16,7 @@ export interface ReplayFile {
 
 export function exportReplay(s: RunState, build?: string): ReplayFile {
   if (s.forkedFrom) throw new Error(`a forked run cannot be exported: it continues ${s.forkedFrom.player}'s run from round ${s.forkedFrom.round} as practice`); // PLAN-v4 0.7.3
-  return { format: REPLAY_FORMAT, rulesVersion: s.rulesVersion, seed: s.seed, actions: s.actions.slice(), claimedScore: s.score, createdAt: new Date().toISOString(), build };
+  return { format: REPLAY_FORMAT, rulesVersion: s.rulesVersion, seed: s.seed, actions: s.actions.slice(), claimedScore: s.score, createdAt: new Date().toISOString(), build }; // determinism: createdAt is metadata the simulation never reads (0.8.11 lint)
 }
 
 export function encodeReplay(r: ReplayFile): string { return JSON.stringify(r); }

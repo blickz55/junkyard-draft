@@ -5,6 +5,8 @@
  * and the corpus is regenerated on purpose. Covers: ordinary seeds (autoplayer lines), a sold part, a press, undo-style
  * unplace/re-place churn, the tutorial scenario, a tutorial-looking name that is NOT a scenario, and a daily seed.
  *   node --import tsx tools/make-golden.ts          # rewrites tests/golden/*.json (deterministic)
+ *   node --import tsx tools/make-golden.ts --digests  # 0.8.11: touches no replay; rewrites only INDEX.json's stateHash / roundHashes
+ *                                                     # from the files on disk (tests/engines-e2e.test.mjs compares engines against them)
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,8 +16,25 @@ import { RULES } from '../game/src/sim/rules';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { playSeed } from './autoplay-lib';
 import { Rng } from '../game/src/sim/rng';
+import { digestRun, digestReplay } from '../game/src/sim/digest';
+import { decodeReplay } from '../game/src/sim/replay';
 
 const OUT = path.resolve(process.cwd(), 'tests', 'golden');
+
+if (process.argv.includes('--digests')) { // production roadmap 0.8.11: record the hashes without regenerating a single replay
+  const indexFile = path.join(OUT, 'INDEX.json');
+  const idx = JSON.parse(fs.readFileSync(indexFile, 'utf8')) as { rulesVersion: number; generatedBy: string; entries: Record<string, unknown>[] };
+  if (idx.rulesVersion !== RULES_VERSION) throw new Error(`the corpus is rules v${idx.rulesVersion}, this checkout is v${RULES_VERSION}: regenerate instead`);
+  for (const e of idx.entries) {
+    const d = digestReplay(decodeReplay(fs.readFileSync(path.join(OUT, e.file as string), 'utf8')));
+    if (d.score !== e.score) throw new Error(`${e.file}: re-simulates to $${d.score}, index says $${e.score}`);
+    e.stateHash = d.state; e.roundHashes = d.rounds;
+    console.log(`${e.file}  state ${d.state.slice(0, 12)}…  ${d.rounds.length} rounds`);
+  }
+  fs.writeFileSync(indexFile, JSON.stringify(idx, null, 1) + '\n');
+  console.log(`wrote digests for ${idx.entries.length} replays into tests/golden/INDEX.json (rules v${RULES_VERSION})`);
+  process.exit(0);
+}
 
 /** Finish a run with a simple policy: pick the preferred kind when offered, otherwise the first offer; `shape` edits round 1. */
 function finish(seed: string, prefer: string[], shape?: (s: RunState) => void): RunState {
@@ -76,12 +95,13 @@ corpus.push({ name: 'daily-2026-10-29', run: finish('daily-2026-10-29', ['crushe
 
 fs.mkdirSync(OUT, { recursive: true });
 for (const f of fs.readdirSync(OUT)) if (f.endsWith('.json')) fs.rmSync(path.join(OUT, f));
-const index: { file: string; seed: string; score: number; actions: number; note: string }[] = [];
+const index: { file: string; seed: string; score: number; actions: number; note: string; stateHash: string; roundHashes: string[] }[] = [];
 for (const c of corpus) {
   const rep = exportReplay(c.run, `golden-${RULES_VERSION}`);
   const file = `${c.name}.json`;
   fs.writeFileSync(path.join(OUT, file), JSON.stringify(rep, null, 0) + '\n');
-  index.push({ file, seed: c.run.seed, score: c.run.score, actions: rep.actions.length, note: c.note });
+  const d = digestRun(c.run); // 0.8.11: the final-state and per-round event hashes every engine must reproduce
+  index.push({ file, seed: c.run.seed, score: c.run.score, actions: rep.actions.length, note: c.note, stateHash: d.state, roundHashes: d.rounds });
   console.log(`${file}  seed=${c.run.seed}  $${c.run.score}  ${rep.actions.length} actions`);
 }
 fs.writeFileSync(path.join(OUT, 'INDEX.json'), JSON.stringify({ rulesVersion: RULES_VERSION, generatedBy: 'tools/make-golden.ts', entries: index }, null, 1) + '\n');
