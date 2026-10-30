@@ -87,6 +87,7 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 
 ## M13 — production roadmap v0.10 Phone (`docs/PRODUCTION-ROADMAP.md` §5; in progress)
 - [x] 0.10.0 responsive layout: `render/viewport.ts` (the canvas sizes to its container), `render/layout.ts` (`fitBoard`, `boardCameraCenter`), the CSS-grid shell in `ui/GamePanel.ts` (laptop, portrait phone with the bottom sheet, portrait tablet, short landscape), device-class text sizes and 44 px touch targets in `ui/dom.ts`; `tests/layout-e2e.test.mjs` (the matrix at 130 %, six viewports) and `tests/layout.test.ts` · [ ] ⚑ the owner reviews the screenshots per viewport (`.control-room/screenshots/layout-*.png`)
+- [x] 0.10.1 touch and the action table: `content/controls.ts` (keys, mouse, touch per action; the controller binds from it, the Tips panel lists it, the build panel's keyboard line is composed from it), taps / long-press drag / two-finger rotate in `render/InputController.ts`, audio unlock on the first tap; `tests/touch-e2e.test.mjs` (six rounds by touch only), `tests/controls.test.ts`
 
 ## M12 — production roadmap v0.9 Clear (`docs/PRODUCTION-ROADMAP.md` §5; done)
 - [x] 0.9.0 the string table and the glossary: `game/src/content/strings.ts` + `glossary.ts` + `format.ts` + `locale.ts`; sim text moved to `content/` (machines, tips, advice, badges, fork); `tools/strings-lint.ts`; the pseudo-locale and `tests/pseudo-e2e.test.mjs` at 130 % (`tests/strings.test.ts`) · ⚑ the owner reviews Appendix B's choices (crews, yard, a try, our server)

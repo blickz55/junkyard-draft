@@ -69,6 +69,7 @@ export const TIP_DEMOS: readonly TipDemo[] = [
     check: (r) => r.shipped.ingot >= 11 && (r.cellStats[cell(2, 0, 5)]?.tuned ?? 0) >= 11,
   },
   { id: 'sell', machine: null, layout: null, ticks: 0, check: () => true },
+  { id: 'controls', machine: null, layout: null, ticks: 0, check: () => true }, // 0.10.1: the action table, rendered by the panel from content/controls.ts
 ];
 
 /** Run a tip's demo for one loop (what the panel animates) and return the result. */

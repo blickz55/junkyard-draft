@@ -23,7 +23,7 @@ import { isTutorialSeed, type Action, type RoundRecord, type RunState } from '..
 import type { SimState } from '../../sim/sim';
 import { RoundController, type Mode } from '../RoundController';
 import { TipsPanel } from '../../ui/TipsPanel';
-import { GamePanel, type PanelState } from '../../ui/GamePanel';
+import { GamePanel, coarsePointer, type PanelState } from '../../ui/GamePanel';
 import { telemetry } from '../telemetry';
 import { RULES } from '../../sim/rules';
 import type { SimEvent } from '../../sim/types';
@@ -273,7 +273,10 @@ export class GameScene extends Phaser.Scene {
       for (let x = 0; x < RULES.gridWidth; x++) fit(this.add.image(GRID_X + x * CELL, GRID_Y + y * CELL, 'tile')).setOrigin(0);
     this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H).setOrigin(0).setStrokeStyle(2, P.panelLine);
     panel(this, GRID_X, BIN_Y, GRID_W, BIN_H, 0.9);
-    label(this, GRID_X + 10, BIN_Y + 6, t('game.shelfLabel'), 12, CSS.amber, { fontStyle: 'bold', letterSpacing: 1 });
+    label(this, GRID_X + 10, BIN_Y + 6, t(coarsePointer() ? 'game.shelfLabelTouch' : 'game.shelfLabel'), 12, CSS.amber, {
+      fontStyle: 'bold',
+      letterSpacing: 1,
+    });
   }
   /** Leave a watched replay at any point: nothing was recorded, nothing to save. */
   stopReplay() {
@@ -372,6 +375,7 @@ export class GameScene extends Phaser.Scene {
       },
       setToast: (toast) => this.panel?.setToast(toast),
       cellXY: (x, y) => this.cellXY(x, y),
+      binSlotXY: (i) => binSlotXY(i),
     };
   }
   rotateSelected() {

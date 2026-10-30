@@ -32,6 +32,7 @@ import { challengerTotal, type Challenge } from '../render/challenge';
 import { t } from '../content/strings';
 import { money, int } from '../content/format';
 import { machineName, machineBlurb, materialName } from '../content/machines';
+import { keyboardHelpList } from '../content/controls';
 
 export type PanelMode = 'build' | 'running' | 'paused' | 'summary';
 
@@ -89,6 +90,8 @@ const TABLET_MQ = [mq('orientation', 'portrait'), mq('min-width', '600px'), mq('
 /** grid-template-areas from rows of area names */
 const areas = (rows: string[][]) => rows.map((r) => `"${r.join(' ')}"`).join(' ');
 const compactLayout = () => typeof matchMedia === 'function' && matchMedia(COMPACT_MQ).matches;
+/** A finger rather than a mouse (0.10.1): the help lines say tap, the shelf label too. */
+export const coarsePointer = () => typeof matchMedia === 'function' && matchMedia(mq('pointer', 'coarse')).matches;
 const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
 const pos = (m: Machine) => `${m.x + 1},${m.y + 1}`;
 
@@ -509,8 +512,8 @@ export class GamePanel {
           ),
         );
       } else {
-        this.side.append(h('div', { class: 'jd-dim', style: 'font-size:0.875em' }, t('game.buildHelp')));
-        this.side.append(h('div', { class: 'jd-dim', style: 'font-size:0.875em; margin-top:0.4em' }, t('game.keyboardHelp')));
+        this.side.append(h('div', { class: 'jd-dim', style: 'font-size:0.875em' }, t(coarsePointer() ? 'game.buildHelpTouch' : 'game.buildHelp')));
+        this.side.append(h('div', { class: 'jd-dim', style: 'font-size:0.875em; margin-top:0.4em' }, t('game.keyboardHelp', { list: keyboardHelpList() })));
       }
       this.side.append(
         h(

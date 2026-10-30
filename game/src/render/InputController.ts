@@ -3,6 +3,11 @@
  * cursor and the machine held "in hand", the selection, the shortcuts, and the feedback that belongs to input: the hover
  * tile, the ghost's arrows, the red flash, and the toast at a cell (0.9.3: a refusal or a warning that stays until the next
  * action). It applies rule-checked actions through the host and never touches the run itself.
+ *
+ * 0.10.1: one action table (content/controls.ts) for mouse, touch and keys. The keys are bound from the table. A tap
+ * (a touch shorter than the long press, or a click that did not drag) takes a shelf part in hand, places the part in
+ * hand on a cell, selects a machine, or clears the selection on empty yard; a long press starts a touch drag; two
+ * fingers on the yard rotate the selection; the first tap on the yard unlocks sound.
  */
 import Phaser from 'phaser';
 import type { Action, RunState } from '../sim/run';
@@ -16,6 +21,8 @@ import { fit, setArt } from './atlas';
 import { audio } from './audio';
 import { ui } from '../ui/dom';
 import { BIN_Y, GRID_W, GRID_X, GRID_Y } from './layout';
+import { DPR } from './dpr';
+import { CONTROLS, LONG_PRESS_MS, TAP_SLOP_PX, type ControlId } from '../content/controls';
 
 export interface MachineView {
   c: Phaser.GameObjects.Container;
@@ -53,6 +60,8 @@ export interface InputHost {
   redo(): void;
   setToast(toast: Toast | null): void;
   cellXY(x: number, y: number): { px: number; py: number };
+  /** shelf slot i's top-left (the selection frame sits on a held shelf part, 0.10.1) */
+  binSlotXY(i: number): { px: number; py: number };
 }
 
 export class InputController {
@@ -65,6 +74,8 @@ export class InputController {
   lastReject = '';
   toast: Toast | null = null;
   private lastShortcutAt = 0;
+  /** pointers that took part in a two-finger rotate: their release is not a tap (0.10.1) */
+  private readonly multi = new Set<number>();
   private hover!: Phaser.GameObjects.Image;
   private ghostGfx!: Phaser.GameObjects.Graphics;
   private selection!: Phaser.GameObjects.Image;
@@ -114,12 +125,9 @@ export class InputController {
 
   // ---------- pointer and keys ----------
   private setupInput() {
-    const toCell = (p: Phaser.Input.Pointer) => {
-      const x = Math.floor((p.worldX - GRID_X) / CELL),
-        y = Math.floor((p.worldY - GRID_Y) / CELL); // world coordinates: the camera is zoomed on HiDPI
-      return x >= 0 && y >= 0 && x < RULES.gridWidth && y < RULES.gridHeight ? { x, y } : null;
-    };
+    const toCell = (p: Phaser.Input.Pointer) => this.toCell(p);
     const input = this.scene.input;
+    input.addPointer(1); // a second finger (the two-finger rotate, 0.10.1)
     input.on('dragstart', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image) => {
       if (this.mode !== 'build' || this.host.playback) return;
       const v = obj.getData('view') as MachineView;
@@ -192,6 +200,24 @@ export class InputController {
       this.host.renderSide();
       if (p.rightButtonDown()) this.rotateSelected();
     });
+    // taps and fingers (0.10.1)
+    input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      audio.unlock(); // the first tap on the yard unlocks sound (DOM buttons do the same in ui/dom.ts)
+      input.dragTimeThreshold = p.wasTouch ? LONG_PRESS_MS : 0; // a finger drags after a long press; a mouse at once
+      if (!p.wasTouch) return;
+      const fingers = input.manager.pointers.filter((q) => q.isDown && q.wasTouch);
+      if (fingers.length >= 2) {
+        for (const q of fingers) this.multi.add(q.id);
+        if (this.dragging) this.cancelDrag();
+        this.rotateSelected();
+      }
+    });
+    input.on('pointerup', (p: Phaser.Input.Pointer) => {
+      if (this.multi.delete(p.id)) return;
+      if (!p.wasTouch && p.button !== 0) return; // right and middle buttons have their own meaning
+      if (p.getDistance() > TAP_SLOP_PX * DPR) return; // it moved: a drag, handled above
+      this.tap(p);
+    });
     const kb = input.keyboard;
     // Gameplay shortcuts belong to the grid (review F05): they stand down while a DOM control has focus (Enter/Space/Tab
     // then keep their native meaning on buttons and inputs) and while the tips panel or a dialog is open. No global
@@ -205,77 +231,73 @@ export class InputController {
       e?.preventDefault();
       return true;
     };
-    kb?.on('keydown-R', (e: KeyboardEvent) => {
-      if (gridKeys(e)) this.rotateSelected();
-    });
     // Phaser queues a modifier+key keydown twice in Chromium (two listeners, differing timeStamps slip past its own bailout); one shortcut per 30 ms
     const once = (e: KeyboardEvent) => {
       if (e.timeStamp - this.lastShortcutAt < 30) return false;
       this.lastShortcutAt = e.timeStamp;
       return true;
     };
-    kb?.on('keydown-Z', (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && once(e) && gridKeys()) {
-        e.preventDefault();
-        if (e.shiftKey) this.host.redo();
-        else this.host.undo();
-      }
-    });
-    kb?.on('keydown-Y', (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && once(e) && gridKeys()) {
-        e.preventDefault();
-        this.host.redo();
-      }
-    });
-    kb?.on('keydown-SPACE', (e: KeyboardEvent) => {
-      if (!gridKeys(e)) return;
-      if (this.mode === 'build' && this.run.phase === 'build') this.host.startRun();
-      else if (this.mode === 'summary') this.host.nextRound();
-    });
-    kb?.on('keydown-ESC', () => {
-      if (ui.dialogOpen) return;
-      if (this.host.tipsOpen) this.host.closeTips();
-      else if (domFocus()) (document.activeElement as HTMLElement).blur();
-      else if (this.host.watching) this.host.stopReplay();
-      else if (this.mode === 'running') this.host.setPaused(true);
-      else if (this.mode === 'paused') this.host.setPaused(false);
-      else this.keyEscape();
-    });
-    kb?.on('keydown-M', () => {
-      if (gridKeys()) audio.setMuted(!audio.muted);
-    });
-    kb?.on('keydown-PERIOD', (e: KeyboardEvent) => {
-      if (gridKeys(e) && this.mode === 'paused') this.host.stepTick();
-    }); // 0.8.12: one tick while paused
-    kb?.on('keydown-DELETE', (e: KeyboardEvent) => {
-      if (gridKeys(e)) this.keyDelete();
-    });
-    kb?.on('keydown-BACKSPACE', (e: KeyboardEvent) => {
-      if (gridKeys(e)) this.keyDelete();
-    });
-    // keyboard-only placement: arrows move the cursor, Enter places / picks up, Tab cycles bin parts
-    kb?.on('keydown-UP', (e: KeyboardEvent) => {
-      if (gridKeys(e)) this.moveCursor(0, -1);
-    });
-    kb?.on('keydown-DOWN', (e: KeyboardEvent) => {
-      if (gridKeys(e)) this.moveCursor(0, 1);
-    });
-    kb?.on('keydown-LEFT', (e: KeyboardEvent) => {
-      if (gridKeys(e)) this.moveCursor(-1, 0);
-    });
-    kb?.on('keydown-RIGHT', (e: KeyboardEvent) => {
-      if (gridKeys(e)) this.moveCursor(1, 0);
-    });
-    kb?.on('keydown-ENTER', (e: KeyboardEvent) => {
-      if (gridKeys(e)) this.keyEnter();
-    });
-    kb?.on('keydown-TAB', (e: KeyboardEvent) => {
-      if (gridKeys(e)) this.keyTab();
-    });
-    for (const n of [1, 2, 3])
-      kb?.on(`keydown-${['ONE', 'TWO', 'THREE'][n - 1]}`, () => {
-        if (gridKeys() && this.run.phase === 'draft' && !this.host.playback) this.host.pick(n - 1);
-      });
+    // the action table (content/controls.ts): each control's keys call its handler; the Tips panel lists the same table
+    const handlers: Record<ControlId, (key: string, e: KeyboardEvent) => void> = {
+      pick: (key) => {
+        if (gridKeys() && this.run.phase === 'draft' && !this.host.playback) this.host.pick(['ONE', 'TWO', 'THREE'].indexOf(key));
+      },
+      hold: (_key, e) => {
+        if (gridKeys(e)) this.keyTab();
+      },
+      place: (key, e) => {
+        if (!gridKeys(e)) return;
+        if (key === 'ENTER') this.keyEnter();
+        else this.moveCursor(key === 'LEFT' ? -1 : key === 'RIGHT' ? 1 : 0, key === 'UP' ? -1 : key === 'DOWN' ? 1 : 0);
+      },
+      move: () => {}, // pointer gestures only; the keyboard moves through place
+      select: () => {},
+      rotate: (_key, e) => {
+        if (gridKeys(e)) this.rotateSelected();
+      },
+      toShelf: (_key, e) => {
+        if (gridKeys(e)) this.keyDelete();
+      },
+      undo: (_key, e) => {
+        if (once(e) && gridKeys()) {
+          e.preventDefault();
+          this.host.undo();
+        }
+      },
+      redo: (_key, e) => {
+        if (once(e) && gridKeys()) {
+          e.preventDefault();
+          this.host.redo();
+        }
+      },
+      start: (_key, e) => {
+        if (gridKeys(e) && this.mode === 'build' && this.run.phase === 'build') this.host.startRun();
+      },
+      next: (_key, e) => {
+        if (gridKeys(e) && this.mode === 'summary') this.host.nextRound();
+      },
+      pause: () => {
+        if (ui.dialogOpen) return;
+        if (this.host.tipsOpen) this.host.closeTips();
+        else if (domFocus()) (document.activeElement as HTMLElement).blur();
+        else if (this.host.watching) this.host.stopReplay();
+        else if (this.mode === 'running') this.host.setPaused(true);
+        else if (this.mode === 'paused') this.host.setPaused(false);
+        else this.keyEscape();
+      },
+      step: (_key, e) => {
+        if (gridKeys(e) && this.mode === 'paused') this.host.stepTick();
+      }, // 0.8.12: one tick while paused
+      mute: () => {
+        if (gridKeys()) audio.setMuted(!audio.muted);
+      },
+    };
+    for (const c of CONTROLS)
+      for (const b of c.keys)
+        kb?.on(`keydown-${b.key}`, (e: KeyboardEvent) => {
+          if (!!b.ctrl !== (e.ctrlKey || e.metaKey) || !!b.shift !== e.shiftKey) return; // a chord binds only its own modifiers
+          handlers[c.id](b.key, e);
+        });
     const onBlur = () => {
       if (this.mode === 'running') this.host.setPaused(true);
     };
@@ -315,6 +337,50 @@ export class InputController {
   refresh() {
     this.updateSelection();
     this.updateCursor();
+  }
+
+  // ---------- taps (0.10.1) ----------
+  private toCell(p: Phaser.Input.Pointer) {
+    const x = Math.floor((p.worldX - GRID_X) / CELL),
+      y = Math.floor((p.worldY - GRID_Y) / CELL); // world coordinates: the camera is zoomed and scrolled
+    return x >= 0 && y >= 0 && x < RULES.gridWidth && y < RULES.gridHeight ? { x, y } : null;
+  }
+  /** A tap: a shelf part goes in (or out of) hand, the part in hand is placed on an empty cell, a machine is selected, empty yard clears the selection. */
+  private tap(p: Phaser.Input.Pointer) {
+    if (this.mode !== 'build' || this.host.playback) return;
+    const hit = this.scene.input
+      .hitTestPointer(p)
+      .map((o) => (o as Phaser.GameObjects.Image).getData?.('view') as MachineView | undefined)
+      .find((v) => !!v);
+    const cell = this.toCell(p);
+    if (hit) {
+      if (hit.inBin) {
+        this.heldId = this.heldId === hit.m.id ? null : hit.m.id;
+        this.selectedId = hit.m.id;
+        this.cursor = null;
+        audio.click();
+      } else if (this.heldId != null && this.heldId !== hit.m.id) {
+        audio.invalid();
+        this.flashBad(hit.m.x, hit.m.y);
+        this.showReject(explainRunError('cell occupied'), { x: hit.m.x, y: hit.m.y });
+        return;
+      } else {
+        this.selectedId = hit.m.id;
+        this.heldId = null;
+      }
+    } else if (cell) {
+      if (this.heldId != null) {
+        this.cursor = cell; // place through the keyboard path (its feedback and sounds), then hide the cursor again
+        this.keyEnter();
+        this.cursor = null;
+        this.updateCursor();
+        return;
+      }
+      this.selectedId = null;
+    } else return;
+    this.clearToast('warning');
+    this.host.syncMachines();
+    this.host.renderSide();
   }
 
   // ---------- feedback: toasts, ghost, flash ----------
@@ -380,11 +446,12 @@ export class InputController {
   // ---------- selection, cursor, keyboard placement ----------
   private updateSelection() {
     const m = this.machineById(this.selectedId);
-    if (!m || m.x < 0 || this.run.bin.some((b) => b.id === m.id)) {
+    const slot = m ? this.run.bin.findIndex((b) => b.id === m.id) : -1;
+    if (!m || (slot < 0 && m.x < 0)) {
       this.selection.setVisible(false);
       return;
     }
-    const { px, py } = this.host.cellXY(m.x, m.y);
+    const { px, py } = slot >= 0 ? this.host.binSlotXY(slot) : this.host.cellXY(m.x, m.y); // a selected shelf part wears the frame on its slot (0.10.1)
     this.selection.setPosition(px, py).setVisible(true);
   }
   /** First arrow press reveals the cursor (on the selected machine, else top-left) without moving it. */

@@ -167,6 +167,9 @@ const STYLE = `
 #ui .jd-tips-text { margin: 0; font-size: 0.8125em; }
 #ui .jd-tips-demo { display: block; border: 1px solid #3f382d; align-self: center; max-width: 100%; height: auto; }
 #ui .jd-tips-watch { color: ${CSS.amber}; font-size: 0.75em; }
+#ui .jd-controls { border-collapse: collapse; width: 100%; font-size: 0.8125em; }
+#ui .jd-controls th { text-align: left; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.75em; color: ${CSS.amber}; padding: 0.3em 0.5em; border-bottom: 1px solid #3f382d; }
+#ui .jd-controls td { text-align: left; vertical-align: top; padding: 0.3em 0.5em; border-bottom: 1px solid #3f382d; }
 #ui .jd-btn:focus-visible, #ui input:focus-visible, #ui .jd-entry:focus-visible { outline: 3px solid #d6f0ff; outline-offset: 2px; }
 #ui input[type=range] { accent-color: ${CSS.amber}; width: 12em; }
 #ui .jd-entry { font: inherit; font-family: ${MONO}; font-size: 0.75em; background: none; border: 0; color: ${CSS.text}; text-align: left; padding: 0.1em 0; cursor: pointer; }

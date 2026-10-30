@@ -16,7 +16,8 @@ import { loadReadTips, markTipRead } from '../render/storage';
 import { prefs } from '../render/prefs';
 import { telemetry } from '../render/telemetry';
 import { btn, h, ui } from './dom';
-import { t } from '../content/strings';
+import { t, type StringKey } from '../content/strings';
+import { controlRows } from '../content/controls';
 import { materialName } from '../content/machines';
 
 const DEMO_CELL = 54;
@@ -150,6 +151,7 @@ export class TipsPanel {
     this.body.replaceChildren(h('div', { class: 'jd-tips-title' }, tip.title), h('p', { class: 'jd-dim jd-tips-text' }, tip.text));
     this.canvas = null;
     this.watch = null;
+    if (tip.id === 'controls') this.body.append(controlsTable()); // 0.10.1: the action table is the key list
     if (!tip.layout) return;
     const gw = tip.layout.width * DEMO_CELL,
       gh = tip.layout.height * DEMO_CELL;
@@ -248,4 +250,21 @@ export class TipsPanel {
     this.demoSim = null;
     this.demoTip = null;
   }
+}
+
+/** The action table as a table: one row per action, its keys, the mouse gesture and the touch gesture (content/controls.ts). */
+export function controlsTable(): HTMLElement {
+  const th = (k: StringKey) => h('th', {}, t(k));
+  return h(
+    'table',
+    { class: 'jd-controls', tid: 'controls-table' },
+    h('thead', {}, h('tr', {}, th('controls.head.action'), th('controls.head.keys'), th('controls.head.mouse'), th('controls.head.touch'))),
+    h(
+      'tbody',
+      {},
+      ...controlRows().map((r) =>
+        h('tr', { tid: `control-${r.id}` }, h('td', { style: 'font-weight:700' }, r.label), h('td', {}, r.keys), h('td', {}, r.mouse), h('td', {}, r.touch)),
+      ),
+    ),
+  );
 }

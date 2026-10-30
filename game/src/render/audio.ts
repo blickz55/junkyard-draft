@@ -56,8 +56,11 @@ class Synth {
     void this.samples.decode(this.ctx); // bytes arrived with the boot loader; decoding needs a context
     return this.ctx;
   }
+  /** how many gestures asked for the context (the touch e2e checks the first tap on the yard asks) */
+  unlockAttempts = 0;
   /** Call from a user gesture so the context can start. */
   unlock() {
+    this.unlockAttempts++;
     const c = this.ensure();
     if (c && c.state === 'suspended') void c.resume();
   }
@@ -96,6 +99,8 @@ class Synth {
       buses: { ...this.buses },
       muted: this.muted,
       volume: this.volume,
+      unlockAttempts: this.unlockAttempts,
+      contextState: this.ctx?.state ?? null,
       duckedNow: performance.now() < this.duckUntil,
       hum: { ...this.humState },
       samples: this.samples.stats(),
