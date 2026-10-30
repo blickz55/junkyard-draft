@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.8, production roadmap)
 
+### 0.8.3 backups and the restore drill — 2026-10-30 (no rules change, protocol 2)
+- `tools/backup.ts` archives a verifier data directory (board, cold months, audit, events) into one tar.gz with a SHA-256 manifest, never the daily secret, to a local directory (pruned by count) or an rclone remote; `tools/restore-drill.ts` unpacks an archive, verifies every hash, starts a verifier on the copy and proves it answers the archive's counts and serves sampled entries at their archived scores; `deploy/backup.cron` schedules the nightly archive, the off-box copy and a weekly drill. Three tests run the whole thing against a fixture. 174 tests.
+
 ### 0.8.2 re-simulation in a worker, single pass — 2026-10-30 (no rules change, protocol 2)
 - A submission is prepared without simulation (decode, rules version, identical duplicate, issued seed), re-simulated once (score, last-round machines and per-round earnings from one run instead of three) in a persistent worker thread with a 10 s cap and a bounded queue, then recorded on the event loop; 503 `busy` and 422 `resim-timeout` record nothing. Every refusal carries a reason `code` beside its `error`. Boards keep a per-seed sorted index so reads and retention stop sorting the whole board. `tools/load.ts` floods a verifier and samples `/health`; the 0.8.2 baseline (60/min from three addresses for two minutes) shows every submission answered 200 with `/health` p95 at 1.7 ms. 171 tests.
 

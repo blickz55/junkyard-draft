@@ -1,0 +1,11 @@
+# Junkyard Draft verifier: nightly backup and a weekly restore drill (production roadmap 0.8.3).
+# Install on the VPS host with `crontab -e` (adjust the paths: the checkout, the data directory the container mounts, the backup target).
+# The daily secret (DAILY_SECRET / data/daily-secret) is never in an archive: keep a copy offline (password manager) and
+# provision it out of band; losing it breaks the commitment chain once, leaking it lets anyone pre-play future days.
+#
+# 03:17 UTC every night: archive the data directory to the local backup directory (14 kept) …
+17 3 * * * cd /opt/junkyard-draft && /usr/bin/node --import tsx tools/backup.ts /opt/junkyard-draft/data --out /var/backups/junkyard --keep 14 >> /var/log/junkyard-backup.log 2>&1
+# … and to the off-box rclone remote (configure `rclone config` once as the same user; e.g. a Hetzner Storage Box over SFTP or Backblaze B2).
+47 3 * * * cd /opt/junkyard-draft && /usr/bin/node --import tsx tools/backup.ts /opt/junkyard-draft/data --out storagebox:junkyard-backups >> /var/log/junkyard-backup.log 2>&1
+# Sunday 04:17 UTC: restore the newest local archive into a scratch directory, start a verifier on it, compare with the live one; the line fails loudly in the log when the drill fails.
+17 4 * * 0 cd /opt/junkyard-draft && /usr/bin/node --import tsx tools/restore-drill.ts "$(ls -1t /var/backups/junkyard/jd-backup-*.tar.gz | head -1)" --live http://127.0.0.1:4400 >> /var/log/junkyard-restore-drill.log 2>&1 || echo "RESTORE DRILL FAILED $(date -u +%FT%TZ)" >> /var/log/junkyard-restore-drill.log
