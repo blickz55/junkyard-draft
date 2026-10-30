@@ -7,7 +7,9 @@
 - Tests: `tests/controller.test.ts` gains the step test (refused while building and running, one tick per call with `onTick`, phase 1, three steps three ticks, still paused, stepping to the limit ends the round with `roundEnd` and summary, refused in summary). The gameplay e2e pauses with Esc, clicks Step three times (tick +3, the veil shows it), presses `.` once (tick +4, still paused), then resumes.
 - Verified: typecheck clean; `npm test` **202 pass, 1 skipped (Firefox cannot start on this PC, see session 55), 0 fail of 203** (68 s). Exercised in the dev server through the browser pane: pick, run, pause at tick 4, three Step clicks → tick 7, the veil reads "PAUSED · Esc to resume · . steps one tick · tick 7 / 80", the mode stays paused.
 - GitHub on 7273f6a (0.8.11): `ci` green (run 41083921518: `test`, the new `engines` job — **Chromium 153, Firefox 155 and WebKit 26.6 all agree with Node on 9 replays / 54 rounds**, the determinism lint clean — and `image`), `perf` green (run 41083921471). 0.8.11's acceptance is met in CI; locally Firefox stays skipped.
-- Next: v0.9's routine items begin with 0.9.0 (the production roadmap's next milestone); the owner's v0.8 halves ⚑ are listed in the header.
+- GitHub on 5a13607: `ci` green (run 41085190095: test, engines, image), `perf` green (run 41085190009).
+- v0.8's routine items are complete. The owner's practice is an external code review before each new milestone (see the memory note from v0.7): the routine pauses here for that review, or starts 0.9.0 (the string table and the glossary; Appendix B is the draft glossary the owner reviews first) on the owner's word.
+- Next: 0.9.0 the string table and the glossary, after the milestone review; the owner's v0.8 halves ⚑ are listed in the header.
 
 
 ## Session 2026-10-30 (55) — production roadmap 0.8.11 determinism across engines (main, no rules change, protocol 2)
