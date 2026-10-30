@@ -235,7 +235,8 @@ export interface DailyRecord {
   rulesVersion: number;
   build: string;
   /** set once the window closed (= closesAt); the board is final from then on (PLAN-v3 0.6.2) */ frozenAt?: string;
-  /** computed once at freeze from the final board (PLAN-v3 0.6.4): thresholds, or null when fewer than MEDAL_MIN_N runs; absent while open */ medals?: Medals | null;
+  /** computed once at freeze from the final board (PLAN-v3 0.6.4): thresholds, or null when fewer than MEDAL_MIN_N runs; absent while open */
+  medals?: Medals | null;
   /** a weekly (PLAN-v4 0.7.5): keyed by its ISO week, `date` is the Friday it opened, `opensAt` Friday 18:00 UTC; dailies have no kind */ kind?: 'weekly';
   week?: string;
   opensAt?: string;
@@ -1096,9 +1097,7 @@ export class Verifier {
     return { ok: true, playerId, name: m.name };
   }
   /** What the moderator sees: every player with a hidden name or open reports, oldest first, with the reported and the current name. */
-  reports(
-    now = new Date(),
-  ): (ModerationRecord & {
+  reports(now = new Date()): (ModerationRecord & {
     playerId: string;
     tag: string;
     currentName: string | null;

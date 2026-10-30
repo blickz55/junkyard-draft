@@ -5,7 +5,7 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.9 Clear, production roadmap)
 
-### 0.9.5 test suite, lint, coverage — 2026-10-30 (no rules change, protocol 2; three commits: the suite, the formatting, the lint gate)
+### 0.9.5 test suite, lint, coverage — 2026-10-30 (no rules change, protocol 2; three commits: the suite, the formatting-only pass over 182 files, the lint gate in CI)
 - `tests/e2e/fixture.mjs` starts the dev server (and, when asked, the verifier) on free ports once per file and shares one Chromium; its page helpers wait for a condition (a scene, a mode, a tick, a text, settled tweens, the overlay synced to the canvas) instead of sleeping. The two monolithic browser files are scenario suites now (19 gameplay scenarios, 16 renderer scenarios, one `test()` each, a shared fixture, the full-run smoke kept); the foreman, pseudo-locale, offline and legal files follow; no `await wait(` remains in the browser tests, only `settle(ms, why)` for the two checks whose point is that time passes (a toast outliving two seconds, a rate bucket).
 - `npm test` runs the unit tests with `--experimental-test-coverage` over `game/src/sim` and `server` and floors (lines 95 %, branches 85 %, functions 88 %), then the browser tests without instrumentation (instrumenting the sim-heavy unit files slowed the whole run three times over and starved the verifier's par worker); both lists are globs; the spec reporter names every scenario in CI.
 - Dead code removed: the canvas `Button` and the unused text and slider helpers in `render/ui.ts`. `vendor/phaser` (15 MB) left the repository; `CLAUDE.md` and `docs/CONTINUE.md` say how the offline sandbox restores it.

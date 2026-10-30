@@ -9,7 +9,9 @@
 - Product fix found by the stricter tests: the privacy panel focuses Close after a deletion so Esc still closes it.
 - Verified: typecheck clean; `npm run lint` leaves only line-length findings (304, Prettier's job next); `npm test`: unit 210 pass with coverage 97.63 / 90.19 / 92.43 over the floors, browser 60 tests, 59 pass, 1 skipped (Firefox locally), 0 fail (about 2.5 min unit with coverage, 1 min browser).
 - GitHub on 8daaae8 (0.9.4): `ci` green (run 41101564895), `perf` green (run 41101564834); `deploy` skipped (no repository variables yet).
-- Next: the formatting-only commit (`npm run format`), then the lint gate (CI job, `npm run lint` and `format:check`), then 0.9.6.
+- Part two, formatting only (commit 9ec8e07): `npm run format` reflowed 182 files (19 506 insertions, 5 274 deletions); the only non-formatting change is the `// determinism:` marker moved onto the createdAt line so the determinism lint still finds it. Typecheck, strings lint, determinism lint and `prettier --check` clean; `npm test` green on the formatted code (unit 210, browser 59 + 1 skipped).
+- Part three, the lint gate (this commit): the two findings formatting left (the `no-control-regex` directive now sits above the `.replace` line it covers; a doc comment in `verify.ts` split from its property), `control-room/ui/*.js` joins the formatted set, `ci.yml`'s test job runs `npm run lint` and `npm run format:check` before the typecheck. `npm run lint` is clean.
+- Next: 0.9.6 dead rounds, a tuning pass (⚑ go/no-go for the owner): measure candidates with `tools/balance.ts` and `tools/autoplay.ts` on 40 seeds, the study under `docs/baselines/0.9/`.
 
 
 ## Session 2026-10-30 (61) — production roadmap 0.9.4 GameScene split (main, no rules change, protocol 2, nothing visible changes)

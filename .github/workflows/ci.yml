@@ -1,4 +1,4 @@
-# Correctness CI: typecheck, the full test suite (sim, verifier, Control Room, browser e2e in Chromium), the production bundle
+# Correctness CI: lint and format check (production roadmap 0.9.5), typecheck, the full test suite (sim, verifier, Control Room, browser e2e in Chromium), the production bundle
 # and the verifier bundle on every push and pull request; then the verifier's Docker image is really built, started,
 # health-checked, fed a legal replay, restarted on the same volume, checked for persistence and for a clean request log.
 # The engines job (production roadmap 0.8.11) installs Chromium, Firefox and WebKit and checks that the sim bundle hashes every
@@ -36,6 +36,10 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
+      - name: "Lint and format (0.9.5): ESLint flat config, Prettier --check"
+        run: |
+          npm run lint
+          npm run format:check
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
