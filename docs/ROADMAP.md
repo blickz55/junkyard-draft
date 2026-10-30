@@ -2,7 +2,7 @@
 
 **0.2.0 release candidate cut 2026-10-25; 0.4.0 released 2026-10-29** (`CHANGELOG.md`, numbers in `docs/STATUS.md`). Open items below that need a human are marked ⚑.
 
-**From v0.3 on, the plan of record is `docs/PLAN-v1.md`; v0.5 is re-cut in `docs/PLAN-v2.md` (shipped as 0.5.0), v0.6 in `docs/PLAN-v3.md` (shipped as 0.6.0) and v0.7 in `docs/PLAN-v4.md`** (eight milestones v0.3 → v1.0 with numbered, sized features and acceptance criteria). The checklists below remain the verified-history record; new work is picked from PLAN-v1 in milestone order.
+**From v0.3 on, the plan of record is `docs/PLAN-v1.md`; v0.5 is re-cut in `docs/PLAN-v2.md` (shipped as 0.5.0), v0.6 in `docs/PLAN-v3.md` (shipped as 0.6.0) and v0.7 in `docs/PLAN-v4.md` (shipped as 0.7.0)** (eight milestones v0.3 → v1.0 with numbered, sized features and acceptance criteria). The checklists below remain the verified-history record; new work is picked from PLAN-v1 in milestone order.
 
 Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `[~]` in progress, `[ ]` open.
 
@@ -84,6 +84,18 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] D: compatibility — golden replay corpus pinned in `npm test`; the 0.4.0 compatibility claim corrected; scenario namespaces versioned with `RULES_VERSION` (`docs/DESIGN.md`)
 - [ ] ⚑ Commit the CI perf baseline to `docs/baselines/ci/perf-ci.json` from the perf workflow's artifact to arm the strict gate
 - [ ] ⚑ First green run of `ci.yml` on GitHub (the image job needs the hosted runner's Docker; nothing can build the image on the dev PC)
+
+## M10 — v0.7 Play with people (PLAN-v4, released as 0.7.0, protocol 2, rules version 3 unchanged)
+- [x] 0.7.0 storage: hot/cold split and replay compaction (`server/cold.ts`, `HOT_DAYS` 30, top 10 replays per cold day, `docs/baselines/0.7/storage-split-*.json`); 0.7.0b SQLite scheduled only when a measured beta month crosses the 5 MB / 50 ms trigger
+- [x] 0.7.1 challenge link with per-round earnings (`roundsOf` derived at verification, `GET /entry`, the challenge overlay and outcome on the results and share text)
+- [x] 0.7.2 groups by code (`/groups`, `?group=` scope on boards, histogram, daily, weekly and archive; caps 5 per player, 50 members; names through the one filter)
+- [x] 0.7.3 fork from round N into practice (`game/src/sim/fork.ts`, labelled, never submitted, separate fork bests)
+- [x] 0.7.4 share card (`game/src/render/card.ts`, 1200×630, "verified" only from a re-simulated run)
+- [x] 0.7.5 weekly seed without modifiers (`game/src/sim/weekly.ts`, `/weekly`, Friday 18:00 UTC, commitment chain, archive kind)
+- [x] 0.7.6 Discord webhook from the verifier (`server/webhook.ts`, seed/lead/freeze, 429 honoured, fire-and-forget, dry run)
+- [x] 0.7.7 name moderation first cut (`POST /report`, hidden as "player", `/moderation/*` + `tools/moderate.ts`, `moderation.jsonl`, every user-written field enumerated in one test)
+- [x] 0.7.0 released: version bump, autoplay sweep and rollback rehearsal as evidence (`docs/baselines/0.7/autoplay-0.7.0.json`, `rollback-rehearsal-0.7.0.json`)
+- [ ] ⚑ 0.7.8 host the verifier and open the web beta (this is 0.6.8 with `MODERATION_TOKEN`, a real `APPEAL_CONTACT` and optionally `DISCORD_WEBHOOK_URL` added; the e2e daily submission against the hosted URL recorded in STATUS)
 
 ## M9 — v0.6 The daily, done right (PLAN-v3, released as 0.6.0, protocol 2, rules version 3 unchanged)
 - [x] 0.6.0 identity without passwords: device token, `player_id = SHA-256(token)`, `Name#TAG`, recovery code, `POST/GET /identity`, `DELETE /me`, keep-best per (seed, player), per-player bucket (`tests/identity.test.ts`, verifier +3, e2e claim/keep-best/recovery)
