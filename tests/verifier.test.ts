@@ -641,6 +641,11 @@ test('http identity: POST/GET /identity, bearer on /verify, DELETE /me, 401 on a
     assert.equal((await call('POST', '/verify', { replay: exportReplay(run) })).status, 422, 'bucket refilled after a minute');
     const board = (await call('GET', '/board?seed=http-id', undefined, {})).json as { entries: BoardEntry[] };
     assert.equal(board.entries.length, 1); assert.equal(board.entries[0].player, `Eve#${ok.json.tag}`);
+    // export (0.8.6): the player's own profile, entry and replay; no bearer is refused
+    assert.equal((await call('GET', '/me/export', undefined, {})).status, 401);
+    const exp = await call('GET', '/me/export'); assert.equal(exp.status, 200);
+    assert.equal((exp.json.profile as { name: string }).name, 'Eve'); assert.equal((exp.json.entries as BoardEntry[]).length, 1); assert.equal(Object.keys(exp.json.replays as object).length, 1);
+    assert.ok(!JSON.stringify(exp.json).includes(token), 'the token is not in the export');
     // deletion
     const del = await call('DELETE', '/me'); assert.equal(del.status, 200); assert.equal(del.json.anonymisedEntries, 1);
     assert.equal((await call('GET', '/identity')).status, 404);
@@ -839,7 +844,8 @@ test('cold storage: frozen days older than HOT_DAYS move to monthly files with e
   // renames and deletions follow the player onto cold boards without rewriting cold files
   const pid = after[0].playerId!; const renamed = again.claim(pid, 'Renamed One', now); assert.ok(renamed.ok);
   assert.equal(again.board(coldRec.seed, 1)[0].player, `Renamed One#${tagFor(pid)}`); assert.equal(fs.readFileSync(path.join(dir, 'cold', '2027-01.json'), 'utf8'), fs.readFileSync(path.join(dir, 'cold', '2027-01.json'), 'utf8'));
-  again.deletePlayer(pid); assert.equal(again.board(coldRec.seed, 1)[0].player, 'deleted'); assert.equal(again.board(coldRec.seed, 1)[0].playerId, undefined);
+  const exported = again.exportPlayer(pid, now); assert.ok(exported.entries.some((e) => e.seed === coldRec.seed), 'the export includes cold entries'); assert.ok(exported.entries.every((e) => e.playerId === pid)); assert.ok(Object.keys(exported.replays).length >= 1, 'and kept cold replays');
+  again.deletePlayer(pid); assert.equal(again.exportPlayer(pid, now).entries.length, 0, 'nothing left to export after deletion'); assert.equal(again.board(coldRec.seed, 1)[0].player, 'deleted'); assert.equal(again.board(coldRec.seed, 1)[0].playerId, undefined);
   // over HTTP: a compacted replay answers 404 with the reason when the seed is given, /health counts cold days
   const { base, close } = await listen(again, { rateLimit: null, now: () => now.getTime() });
   try {

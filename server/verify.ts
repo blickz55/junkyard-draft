@@ -543,6 +543,14 @@ export class Verifier {
     this.commit({ ...this.data, players, entries, ...(moderation !== this.data.moderation ? { moderation } : {}) });
     return { ok: true, player: { playerId, ...rec } };
   }
+  /** Everything stored about a player, hot and cold (GET /me/export, production roadmap 0.8.6): the profile, their entries and kept replays, their groups. Other players' ids (reporters, group members) are never included. */
+  exportPlayer(playerId: string, now = new Date()) {
+    const p = this.data.players?.[playerId];
+    const cold = this.cold.playerData(playerId);
+    const hot = this.data.entries.filter((e) => e.playerId === playerId);
+    const replays: Record<string, StoredReplay> = { ...cold.replays }; for (const e of hot) { const r = this.data.replays?.[e.replayHash]; if (r) replays[e.replayHash] = r; }
+    return { exportedAt: now.toISOString(), playerId, tag: tagFor(playerId), profile: p ? { name: p.name, createdAt: p.createdAt, renamedAt: p.renamedAt } : null, nameHidden: this.hidden(playerId, now), groups: this.groupsOf(playerId), entries: [...cold.entries, ...hot], replays };
+  }
   /** GDPR-minimal deletion: the name goes, the player's entries are anonymised and lose their replays, the id is forgotten. */
   deletePlayer(playerId: string): { entries: number; coldReplays: number } {
     const mine = this.data.entries.filter((e) => e.playerId === playerId);
@@ -1221,6 +1229,11 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           } catch (e) { if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable; try again' }, { 'Retry-After': '5' }); json(500, { ok: false, error: 'internal error' }); }
         }));
         return;
+      }
+      if (url.pathname === '/me/export' && req.method === 'GET') {
+        if (!bearerId) return json(401, { ok: false, error: 'token required' });
+        try { return json(200, { ok: true, ...verifier.exportPlayer(bearerId, new Date((opts.now ?? Date.now)())) }, { 'Content-Disposition': 'attachment; filename="junkyard-draft-my-data.json"' }); }
+        catch { return json(500, { ok: false, error: 'internal error' }); }
       }
       if (url.pathname === '/me' && req.method === 'DELETE') {
         if (!bearerId) return json(401, { ok: false, error: 'token required' });
