@@ -31,7 +31,7 @@ jobs:
       - name: Audit (dev dependencies are all there is; high and critical fail the run)
         run: npm audit --audit-level=high
       - name: Playwright browser cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -51,7 +51,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Playwright browser cache (three engines)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-engines-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -129,7 +129,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Playwright browser cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~\AppData\Local\ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
