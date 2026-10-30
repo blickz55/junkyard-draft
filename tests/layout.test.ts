@@ -10,10 +10,12 @@ test('fitBoard: a 390-wide phone slot gives 46–50 px cells; 412 too; the fit i
   assert.ok(CELL * phone390.s >= 46 && CELL * phone390.s <= 50, `390: ${CELL * phone390.s}`);
   const phone412 = fitBoard(412 - 10, Math.round((412 - 10) * (BOARD_H / BOARD_W)));
   assert.ok(CELL * phone412.s >= 46 && CELL * phone412.s <= 51, `412: ${CELL * phone412.s}`);
-  const tall = fitBoard(600, 2000); // width-bound
-  assert.ok(Math.abs(tall.w - 600) < 1e-9 && tall.dx === 0 && tall.dy === Math.round((2000 - tall.h) / 2));
-  const wide = fitBoard(2000, 400); // height-bound
+  const tall = fitBoard(500, 2000); // width-bound (under the cap)
+  assert.ok(Math.abs(tall.w - 500) < 1e-9 && tall.dx === 0 && tall.dy === Math.round((2000 - tall.h) / 2));
+  const wide = fitBoard(2000, 400); // height-bound (under the cap)
   assert.ok(Math.abs(wide.h - 400) < 1e-9 && wide.dy === 0 && wide.dx === Math.round((2000 - wide.w) / 2));
+  const laptop = fitBoard(840, 654); // a 1280×800 slot would allow 1.19: the cap holds the cell at CELL (perf preset B)
+  assert.equal(laptop.s, 1);
   const huge = fitBoard(4000, 4000);
   assert.equal(huge.s, MAX_BOARD_SCALE, 'the cap holds on a huge slot');
   assert.equal(huge.w, BOARD_W * MAX_BOARD_SCALE);

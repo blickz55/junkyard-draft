@@ -303,7 +303,9 @@ export class GameScene extends Phaser.Scene {
     const left = slot.x + f.dx,
       top = slot.y + f.dy;
     const c = boardCameraCenter(f, left, top, viewport.width, viewport.height);
-    this.cameras.main.setZoom(DPR * f.s).centerOn(c.x, c.y);
+    const cam = this.cameras.main.setZoom(DPR * f.s);
+    cam.centerOn(c.x, c.y);
+    cam.setScroll(Math.round(cam.scrollX), Math.round(cam.scrollY)); // whole pixels: a blit at a fractional offset is resampled on the Canvas renderer
     this.panel.setBoardVars(CELL * f.s, f.dx, f.dy);
     this.boardCss = { left, top, s: f.s };
   }

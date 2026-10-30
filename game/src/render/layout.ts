@@ -16,8 +16,8 @@ export const BIN_H = 100;
 /** the board the camera fits: the grid plus the shelf under it */
 export const BOARD_W = GRID_W;
 export const BOARD_H = BIN_Y + BIN_H - GRID_Y; // 548
-/** a cell never grows past CELL × this (1920×1080 gets margins, not a cartoon) */
-export const MAX_BOARD_SCALE = 1.25;
+/** a cell never grows past CELL (1920×1080 gets margins, not scaling; and a scaled sprite is a slower blit on the Canvas renderer: perf preset B) */
+export const MAX_BOARD_SCALE = 1;
 
 export interface BoardFit {
   /** CSS px per logical px */
