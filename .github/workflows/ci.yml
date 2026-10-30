@@ -1,7 +1,9 @@
-# Correctness CI (review, pre-v0.5): typecheck, the full test suite (sim, verifier, Control Room, browser e2e in Chromium),
-# the production bundle and the verifier bundle on every push and pull request; then the verifier's Docker image is really
-# built, started, health-checked, fed a legal replay, restarted on the same volume and checked for persistence. The desktop
-# job packages the Windows app and runs its smoke test on version tags and on demand (it is slow and needs a Windows runner).
+# Correctness CI: typecheck, the full test suite (sim, verifier, Control Room, browser e2e in Chromium), the production bundle
+# and the verifier bundle on every push and pull request; then the verifier's Docker image is really built, started,
+# health-checked, fed a legal replay, restarted on the same volume, checked for persistence and for a clean request log.
+# On a version tag (production roadmap 0.8.4) the image is pushed to GHCR, and the Windows job builds the NSIS installer
+# and the web bundle, runs the packaged-app smoke test and publishes a GitHub Release with SHA-256 checksums.
+# Concurrency: a newer push to the same branch cancels the older run; tag runs are never cancelled.
 name: ci
 on:
   push:
@@ -9,6 +11,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -20,6 +27,13 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Audit (dev dependencies are all there is; high and critical fail the run)
+        run: npm audit --audit-level=high
+      - name: Playwright browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
       - run: npm run typecheck
       - run: npm test
@@ -29,6 +43,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: test
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -53,10 +70,30 @@ jobs:
       - name: Container logs
         if: always()
         run: docker logs verifier || true
+      - name: Log in to GHCR (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push the smoke-tested image as ghcr.io/<owner>/junkyard-verifier:<tag> and :latest (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          IMAGE="ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/junkyard-verifier"
+          docker tag junkyard-verifier "$IMAGE:$GITHUB_REF_NAME"
+          docker tag junkyard-verifier "$IMAGE:latest"
+          docker push "$IMAGE:$GITHUB_REF_NAME"
+          docker push "$IMAGE:latest"
+          echo "pushed $IMAGE:$GITHUB_REF_NAME" >> "$GITHUB_STEP_SUMMARY"
   desktop:
+    # the Windows installer, the web bundle and the verifier bundle, published as a GitHub Release on tags (on demand: artifacts only)
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: [test, image]
     runs-on: windows-latest
     timeout-minutes: 40
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -64,11 +101,43 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Playwright browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install chromium
-      - run: npm run desktop:pack
-      - run: node --import tsx --test tests/desktop-smoke.test.mjs
+      - name: Web bundle, unpacked app and NSIS installer
+        run: npm run desktop:dist
+      - run: npm run verifier:build
+      - name: Packaged-app smoke test
+        run: node --import tsx --test tests/desktop-smoke.test.mjs
+      - name: Collect the release files and write SHA256SUMS.txt
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then VERSION="${GITHUB_REF_NAME#v}"; else VERSION="dev-${GITHUB_SHA::7}"; fi
+          mkdir -p out
+          tar -czf "out/junkyard-draft-web-$VERSION.tar.gz" -C dist .
+          cp release/*.exe out/
+          cp server/dist/verify.mjs "out/junkyard-verifier-$VERSION.mjs"
+          (cd out && sha256sum -- * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
-          name: win-unpacked
-          path: release/win-unpacked
-          retention-days: 7
+          name: release-${{ env.VERSION }}
+          path: out
+          retention-days: 14
+      - name: GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OWNER="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          NOTES="Junkyard Draft $GITHUB_REF_NAME. The players' and operators' summary is the matching block in CHANGELOG.md.
+
+          - Windows installer (unsigned until the desktop edition: SmartScreen will warn), the web bundle (dist/, bake VERIFIER_URL by rebuilding or serve as is for a loopback verifier), the single-file verifier bundle.
+          - Verifier image: ghcr.io/$OWNER/junkyard-verifier:$GITHUB_REF_NAME
+          - Checksums: SHA256SUMS.txt"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then gh release upload "$GITHUB_REF_NAME" out/* --clobber; else gh release create "$GITHUB_REF_NAME" out/* --verify-tag --title "Junkyard Draft $GITHUB_REF_NAME" --notes "$NOTES"; fi
+          echo "release $GITHUB_REF_NAME published with $(ls out | wc -l) files" >> "$GITHUB_STEP_SUMMARY"

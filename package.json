@@ -2,6 +2,14 @@
   "name": "junkyard-draft",
   "version": "0.7.0",
   "private": true,
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/blickz55/junkyard-draft.git"
+  },
+  "engines": {
+    "node": ">=24"
+  },
   "description": "Junkyard Draft — a 2D factory score-attack game (Phaser + TypeScript) with the Workshop Control Room development dashboard.",
   "type": "module",
   "scripts": {

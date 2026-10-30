@@ -1,0 +1,26 @@
+# Dependency updates (production roadmap 0.8.4): one grouped pull request a week for the dev dependencies and one for
+# the actions, so Electron (Chromium security fixes every major), Playwright and esbuild do not drift unnoticed.
+# Majors of Phaser (4 is a rewrite; the custom build in 0.10.2 is planned against 3.90) and TypeScript are left to a
+# deliberate session, never to a bot.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        patterns: ['*']
+    ignore:
+      - dependency-name: phaser
+        update-types: ['version-update:semver-major']
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5

@@ -1,14 +1,20 @@
-# Performance gate (DOSSIER-v1 0.3.8): runs tools/perf.ts on device preset B (4 GB Chromebook: 1366x768,
-# CPU x6) in headless Chromium against the dev server and compares it with the CI baseline committed under
-# the explicit CI baseline docs/baselines/ci/perf-ci.json using tools/perf-gate.ts --strict (an empty or unmatched report fails). GitHub runners render with software GL,
-# so CI numbers are only comparable with CI numbers: the gate fails on a >25 % script-time regression or on
-# more dropped frames than the CI baseline plus 5 % of frames. When no CI baseline exists yet, the report is
-# uploaded as an artifact and the job passes; commit that artifact as the baseline to arm the gate.
+# Performance gate (DOSSIER-v1 0.3.8): runs tools/perf.ts on device preset B (4 GB Chromebook: 1366x768, CPU x6) in
+# headless Chromium against the dev server and compares it with the CI baseline committed at
+# docs/baselines/ci/perf-ci.json using tools/perf-gate.ts --strict (an empty or unmatched report fails). GitHub runners
+# render with software GL, so CI numbers are only comparable with CI numbers: the gate fails on a >25 % script-time
+# regression or on more dropped frames than the CI baseline plus 5 % of frames. The baseline was committed from this
+# workflow's own artifact on 2026-10-30 (production roadmap 0.8.4), so the gate is armed; to re-baseline after a deliberate
+# rendering change, download the perf-ci artifact of a green run on main and commit it at that path.
 name: perf
 on:
   pull_request:
   push:
     branches: [main]
+concurrency:
+  group: perf-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
 jobs:
   perf-gate:
     runs-on: ubuntu-latest
@@ -20,6 +26,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Playwright browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
       - name: Start the dev server
         run: |

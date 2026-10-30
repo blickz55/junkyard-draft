@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.8, production roadmap)
 
+### 0.8.4 release pipeline — 2026-10-30 (no rules change, protocol 2)
+- On a version tag CI now publishes: the smoke-tested verifier image to `ghcr.io/<owner>/junkyard-verifier:<tag>` (and `:latest`), and a GitHub Release with the Windows installer (built with `desktop:dist`, still unsigned), the web bundle, the single-file verifier and `SHA256SUMS.txt`. Workflows gain concurrency groups, a Playwright browser cache, an `npm audit` step and least-privilege permissions; Dependabot opens weekly grouped updates; `package.json` carries `license` (placeholder), `repository` and `engines`. The perf gate is armed with the CI baseline committed at `docs/baselines/ci/perf-ci.json`; its dropped-frame rule compares rates instead of counts so the all-dropped WebGL sample on the software-GL runner does not make it flaky. 175 tests.
+
 ### 0.8.3 backups and the restore drill — 2026-10-30 (no rules change, protocol 2)
 - `tools/backup.ts` archives a verifier data directory (board, cold months, audit, events) into one tar.gz with a SHA-256 manifest, never the daily secret, to a local directory (pruned by count) or an rclone remote; `tools/restore-drill.ts` unpacks an archive, verifies every hash, starts a verifier on the copy and proves it answers the archive's counts and serves sampled entries at their archived scores; `deploy/backup.cron` schedules the nightly archive, the off-box copy and a weekly drill. Three tests run the whole thing against a fixture. 174 tests.
 

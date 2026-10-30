@@ -3,8 +3,10 @@
  *   node --import tsx tools/perf-gate.ts <report.json> <baseline.json> [--tolerance 0.25] [--dropped-slack 0.05] [--strict]
  * Exit 1 when any sample whose label exists in the baseline regresses:
  *   - scriptMsPerFrame above baseline × (1 + tolerance), or
- *   - dropped frames above baseline dropped + droppedSlack × frames (so a software-rendered CI runner that
- *     always drops some frames still gates on *more* drops than its own baseline).
+ *   - dropped frames above the baseline's drop RATE applied to this run's frame count, plus droppedSlack × frames (so a
+ *     software-rendered CI runner that always drops some frames still gates on a *higher share* of drops than its own
+ *     baseline, and a run that happened to render more frames than the baseline is not failed for dropping them at the
+ *     same rate; 0.8.4 armed the gate with a baseline whose WebGL sample dropped every one of its 34 frames).
  * Samples with no baseline label are reported, never failed. The comparison is a pure function (tested).
  */
 import fs from 'node:fs';
@@ -31,8 +33,9 @@ export function compare(report: GateReport, baseline: GateReport, opts: GateOpti
       if (sample.scriptMsPerFrame != null && base.scriptMsPerFrame != null && sample.scriptMsPerFrame > base.scriptMsPerFrame * (1 + tolerance)) {
         reasons.push(`scriptMsPerFrame ${sample.scriptMsPerFrame} > ${(base.scriptMsPerFrame * (1 + tolerance)).toFixed(2)} (baseline ${base.scriptMsPerFrame} + ${Math.round(tolerance * 100)} %)`);
       }
-      const allowedDropped = base.dropped + Math.ceil(slack * sample.frames);
-      if (sample.dropped > allowedDropped) reasons.push(`dropped ${sample.dropped} > ${allowedDropped} (baseline ${base.dropped} + ${Math.round(slack * 100)} % of ${sample.frames} frames)`);
+      const baseRate = base.frames > 0 ? base.dropped / base.frames : 0;
+      const allowedDropped = Math.ceil(baseRate * sample.frames) + Math.ceil(slack * sample.frames);
+      if (sample.dropped > allowedDropped) reasons.push(`dropped ${sample.dropped} > ${allowedDropped} (baseline rate ${base.dropped}/${base.frames} on ${sample.frames} frames + ${Math.round(slack * 100)} %)`);
     }
     return { label: sample.label, ok: reasons.length === 0, reasons, baseline: base, sample };
   });
