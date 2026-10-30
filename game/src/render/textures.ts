@@ -43,6 +43,9 @@ export function generateTextures(scene: Phaser.Scene) {
     g.fillTriangle(x - size * 0.5, y - size * 0.6, x - size * 0.5, y + size * 0.6, x + size * 0.6, y);
   };
   const bolt = (g: Phaser.GameObjects.Graphics, x: number, y: number) => { g.fillStyle(0x000000, 0.4); g.fillCircle(x, y, 2.5); g.fillStyle(0xffffff, 0.25); g.fillCircle(x - 0.7, y - 0.7, 1.2); };
+  // input notch on the back of a machine that takes items from behind only (production roadmap 0.9.3): a dark slot with a blue "in" arrow,
+  // the same blue the ghost's input arrows use, so the side that must face the line is visible at rest
+  const notch = (g: Phaser.GameObjects.Graphics) => { g.fillStyle(0x0b0b0b, 0.85); g.fillRoundedRect(2, H - 11, 12, 22, 3); g.fillStyle(0x6fb4ff, 0.95); g.fillTriangle(4, H - 7, 4, H + 7, 13, H); };
 
   // conveyor: belt with chevrons pointing east
   make('m-conveyor', C, C, (g) => {
@@ -75,7 +78,7 @@ export function generateTextures(scene: Phaser.Scene) {
     g.fillStyle(P.steel, 1);
     for (let i = 0; i < 4; i++) { g.fillTriangle(16 + i * 11, 18, 22 + i * 11, 18, 19 + i * 11, 30); g.fillTriangle(16 + i * 11, C - 18, 22 + i * 11, C - 18, 19 + i * 11, C - 30); }
     g.fillStyle(P.amber, 1); g.fillCircle(H, H, 7); g.fillStyle(0x000000, 0.5); g.fillCircle(H, H, 3);
-    arrow(g, C - 12, H, 9, P.amber);
+    arrow(g, C - 11, H, 14, P.amber); notch(g);
     bolt(g, 12, 12); bolt(g, C - 12, 12); bolt(g, 12, C - 12); bolt(g, C - 12, C - 12);
   });
   // crusher, jaws closed (state frame while an item is held): the teeth meet at the middle
@@ -85,7 +88,7 @@ export function generateTextures(scene: Phaser.Scene) {
     g.fillStyle(P.steel, 1);
     for (let i = 0; i < 4; i++) { g.fillTriangle(16 + i * 11, 18, 22 + i * 11, 18, 19 + i * 11, H - 1); g.fillTriangle(16 + i * 11, C - 18, 22 + i * 11, C - 18, 19 + i * 11, H + 1); }
     g.fillStyle(P.amber, 1); g.fillCircle(H, H, 5); g.fillStyle(0x000000, 0.5); g.fillCircle(H, H, 2);
-    arrow(g, C - 12, H, 9, P.amber);
+    arrow(g, C - 11, H, 14, P.amber); notch(g);
     bolt(g, 12, 12); bolt(g, C - 12, 12); bolt(g, 12, C - 12); bolt(g, C - 12, C - 12);
   });
   // furnace: dark box with glowing mouth facing east, chimney
@@ -95,7 +98,7 @@ export function generateTextures(scene: Phaser.Scene) {
     g.fillStyle(0xff7a2a, 1); g.fillRoundedRect(20, 24, C - 40, C - 48, 5);
     g.fillStyle(0xffd27a, 1); g.fillRoundedRect(26, 30, C - 52, C - 60, 4);
     g.fillStyle(0x3b2f28, 1); g.fillRect(10, 4, 12, 14); g.fillStyle(0x6b5a4a, 1); g.fillRect(8, 2, 16, 4);
-    arrow(g, C - 12, H, 9, P.amber);
+    arrow(g, C - 11, H, 14, P.amber); notch(g);
     bolt(g, 12, C - 12); bolt(g, C - 12, C - 12);
   });
   // press: steel frame, ram pressing a plate, output east
@@ -106,7 +109,7 @@ export function generateTextures(scene: Phaser.Scene) {
     g.fillStyle(P.steelDark, 1); g.fillRect(H - 5, 26, 10, 10); // piston rod
     g.fillStyle(P.plate, 1); g.fillRoundedRect(20, 38, C - 40, 8, 2); // plate being pressed
     g.fillStyle(0x3a4a5a, 1); g.fillRect(16, 48, C - 32, 8); // anvil
-    arrow(g, C - 12, H, 9, P.amber);
+    arrow(g, C - 11, H, 14, P.amber); notch(g);
     bolt(g, 12, 12); bolt(g, C - 12, 12); bolt(g, 12, C - 12); bolt(g, C - 12, C - 12);
   });
   // press ram descending (state frames while pressing): head lower, rod longer, plate flatter
@@ -117,7 +120,7 @@ export function generateTextures(scene: Phaser.Scene) {
     g.fillStyle(P.steelDark, 1); g.fillRect(H - 5, 12, 10, 14 + drop); // piston rod
     g.fillStyle(P.plate, 1); g.fillRoundedRect(20 - drop / 4, 40 + drop / 4, C - 40 + drop / 2, 8 - drop / 4, 2); // plate flattening
     g.fillStyle(0x3a4a5a, 1); g.fillRect(16, 48, C - 32, 8); // anvil
-    arrow(g, C - 12, H, 9, P.amber);
+    arrow(g, C - 11, H, 14, P.amber); notch(g);
     bolt(g, 12, 12); bolt(g, C - 12, 12); bolt(g, 12, C - 12); bolt(g, C - 12, C - 12);
   });
   // splitter: Y plate, input west, outputs north+south
@@ -127,7 +130,7 @@ export function generateTextures(scene: Phaser.Scene) {
     g.lineStyle(5, P.amber, 0.95);
     g.beginPath(); g.moveTo(16, H); g.lineTo(H, H); g.lineTo(H, 16); g.strokePath();
     g.beginPath(); g.moveTo(H, H); g.lineTo(H, C - 16); g.strokePath();
-    g.fillStyle(P.amber, 1); g.fillTriangle(H - 6, 18, H + 6, 18, H, 8); g.fillTriangle(H - 6, C - 18, H + 6, C - 18, H, C - 8);
+    g.fillStyle(P.amber, 1); g.fillTriangle(H - 9, 20, H + 9, 20, H, 5); g.fillTriangle(H - 9, C - 20, H + 9, C - 20, H, C - 5); notch(g);
     bolt(g, 12, 12); bolt(g, C - 12, 12); bolt(g, 12, C - 12); bolt(g, C - 12, C - 12);
   });
   // tuner (rules v3): a squat steel box with a gauge dial, an amber needle and a coil along the bottom; no arrow because nothing passes through

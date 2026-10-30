@@ -59,6 +59,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     const st0 = await api('state');
     assert.equal(st0.round, 1);
     assert.ok(st0.offers.includes('crusher'), 'round 1 offers a crusher');
+    assert.match(await api('hint'), /First pick: Crusher \(card [123]\) — it turns \$1 scrap into \$3 shards/, 'the first draft says which card to take and why (0.9.3)');
 
     // 1) pick crusher with keyboard number
     const idx = st0.offers.indexOf('crusher');
@@ -75,9 +76,13 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     await drag({ x: binX, y: binY }, cell(2, 2));
     st = await api('state');
     assert.equal(st.bin.length, 1, 'occupied cell rejected the drop');
-    assert.match(await api('hint'), /^Cell occupied/, 'a refused drop explains why in the hint strip');
+    { const toast = await api('toast'); assert.ok(toast && toast.kind === 'refusal' && /^Cell occupied/.test(toast.text) && toast.x === 2 && toast.y === 2, `a refused drop explains why in a toast at the cell (0.9.3): ${JSON.stringify(toast)}`); }
+    assert.doesNotMatch(await api('hint'), /^Cell occupied/, 'the hint strip keeps its own hint');
+    await wait(2500); assert.match((await api('toast'))?.text ?? '', /^Cell occupied/, 'the toast outlives two seconds: it goes with the next action');
+    { const flow = await api('flow'); assert.ok(flow.visible && flow.links >= 3, `the flow overlay shows the starter belt's links in the build phase: ${JSON.stringify(flow)}`); }
     // move the conveyor at (2,2) into the bin, then drop the crusher there
     await drag(cell(2, 2), { x: GX + 200, y: BIN_Y + 60 });
+    assert.equal(await api('toast'), null, 'the next action clears the toast');
     st = await api('state');
     assert.equal(st.bin.length, 2, 'conveyor returned to bin');
     const crusherSlot = st.bin.findIndex((m) => m.kind === 'crusher');
@@ -125,11 +130,12 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     await page.keyboard.press('ArrowUp'); await wait(150);
     await page.keyboard.press('Enter'); await wait(150);
     assert.equal((await cur()).held, kbConv.id, 'dropping onto the occupied crusher cell is refused and the part stays in hand');
-    assert.match(await api('hint'), /^Cell occupied/, 'keyboard refusal shows the reason');
-    await page.keyboard.press('ArrowDown'); await wait(150); await page.keyboard.press('ArrowRight'); await wait(2400);
-    assert.match(await api('hint'), /^Heads up: .*feeding/, 'a legal but unfed spot warns instead of refusing');
+    assert.match((await api('toast'))?.text ?? '', /^Cell occupied/, 'keyboard refusal shows the reason in a toast at the cursor');
+    await page.keyboard.press('ArrowDown'); await wait(150); await page.keyboard.press('ArrowRight'); await wait(300);
+    { const w = await api('toast'); assert.ok(w && w.kind === 'warning' && /feeding/.test(w.text), `a legal but unfed spot warns in a toast instead of refusing: ${JSON.stringify(w)}`); }
     await page.screenshot({ path: path.join(SHOTS, `e2e-ghost-arrows-${Date.now()}.png`) });
     await page.keyboard.press('Enter'); await wait(150);
+    assert.equal((await api('toast'))?.kind, 'warning', 'the placed machine keeps its warning at the cell until the next action');
     st = await api('state');
     kbConv = st.layout.machines.find((mm) => mm.id === kbConv.id);
     assert.deepEqual([kbConv.x, kbConv.y, (await cur()).held], [3, 3, null], 'moved by keyboard and dropped');
@@ -171,6 +177,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
       assert.equal((await api('stall')).tick, t0 + 4, 'the . key steps one tick too'); assert.equal(await api('mode'), 'paused');
     }
     await page.keyboard.press('Escape'); await wait(100); assert.equal(await api('mode'), 'running');
+    assert.equal((await api('flow')).visible, false, 'no flow overlay while the shift runs');
     await api('finishRun');
     await page.waitForFunction(() => window.__jd.mode() === 'summary');
     st = await api('state');

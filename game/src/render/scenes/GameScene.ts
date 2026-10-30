@@ -2,6 +2,7 @@ import { verifierUrl as resolveVerifierUrl } from '../config';
 import { t } from '../../content/strings';
 import { money } from '../../content/format';
 import { machineName } from '../../content/machines';
+import { recommendFirstPick } from '../../content/firstpick';
 import { forkLabel } from '../../content/fork';
 import { tipForMachine } from '../../content/tips';
 import { explainRunError, placementWarning } from '../../content/advice';
@@ -23,8 +24,8 @@ import { RoundController, type Mode } from '../RoundController';
 import { TipsPanel } from '../../ui/TipsPanel';
 import { GamePanel, type PanelState } from '../../ui/GamePanel';
 import { telemetry } from '../telemetry';
-import { DIR_DX, DIR_DY, RULES } from '../../sim/rules';
-import type { Machine, Material, SimEvent } from '../../sim/types';
+import { DIR_DX, DIR_DY, leftOf, rightOf, RULES } from '../../sim/rules';
+import type { Dir, Machine, Material, SimEvent } from '../../sim/types';
 import { BELT_FRAMES, CELL, itemTexture, machineTexture } from '../textures';
 import { baseScale, fit, setArt } from '../atlas';
 import { ui, dialog, alertText } from '../../ui/dom';
@@ -70,8 +71,12 @@ export class GameScene extends Phaser.Scene {
   private itemSprites = new Map<number, Phaser.GameObjects.Image>();
   private hover!: Phaser.GameObjects.Image;
   private ghostGfx!: Phaser.GameObjects.Graphics;
-  private rejectTimer: Phaser.Time.TimerEvent | null = null;
   private lastReject = '';
+  /** the toast at a cell (production roadmap 0.9.3): a refusal or a warning; it stays until the next action, never on a timer */
+  private toast: { text: string; kind: 'refusal' | 'warning'; x: number; y: number } | null = null;
+  /** the flow overlay (0.9.3): translucent links drawn from inputTravelDirs/outputDirs in the build phase; its counts for the dev API */
+  private flowGfx!: Phaser.GameObjects.Graphics;
+  private flowStats = { links: 0, loose: 0 };
   private selection!: Phaser.GameObjects.Image;
   private selectedId: number | null = null;
   /** HUD, side panel, hint strip, result banner and badges are DOM (ui/GamePanel.ts); the canvas keeps the factory */
@@ -135,7 +140,7 @@ export class GameScene extends Phaser.Scene {
       onNextRound: () => { this.heldId = null; this.syncMachines(); this.renderSide(); this.updateHint(); },
       onFinished: () => { telemetry.track('game_complete', { mode: this.replayLabel ? 'replay' : this.run.seed.startsWith('daily-') ? 'daily' : 'seed' }); this.scene.start('Results', { run: this.run, replayed: this.replayLabel != null, replayLabel: this.replayLabel ?? undefined, challenge: this.challenge ?? undefined, replayHash: this.replayOrigin?.hash ?? undefined, replayPlayer: this.replayOrigin?.player }); },
       onStateChange: (a) => this.onStateChange(a),
-      onReject: (a, message) => { if (a.t === 'place') { this.panel?.setForeman(foremanSays('refused')); this.showReject(explainRunError(message)); telemetry.track('first_place_attempt'); telemetry.track('first_place_rejected', { reason: /occupied/i.test(message) ? 'occupied' : /bounds/i.test(message) ? 'out_of_bounds' : 'other' }); } },
+      onReject: (a, message) => { if (a.t === 'place') { this.panel?.setForeman(foremanSays('refused')); this.showReject(explainRunError(message), { x: a.x, y: a.y }); telemetry.track('first_place_attempt'); telemetry.track('first_place_rejected', { reason: /occupied/i.test(message) ? 'occupied' : /bounds/i.test(message) ? 'out_of_bounds' : 'other' }); } },
       onPlaybackDone: () => { this.syncMachines(); this.renderSide(); },
       persist: (seed, actions) => { if (!this.run.forkedFrom) writeSave(seed, actions); }, // a fork is never the player's save: resuming it would lose the mark and make it submittable
       schedule: (ms, fn) => { this.time.delayedCall(ms, fn); },
@@ -159,12 +164,13 @@ export class GameScene extends Phaser.Scene {
     this.buildStatic();
     this.hover = fit(this.add.image(0, 0, 'tile-ok')).setOrigin(0).setVisible(false).setDepth(5);
     this.ghostGfx = this.add.graphics().setDepth(6);
+    this.flowGfx = this.add.graphics().setDepth(3);
     this.stallMark = fit(this.add.image(0, 0, 'tile-sel')).setOrigin(0).setDepth(7).setTint(P.red).setVisible(false).setName('stall-mark');
     this.selection = fit(this.add.image(0, 0, 'tile-sel')).setOrigin(0).setVisible(false).setDepth(6);
     this.cursorImg = fit(this.add.image(0, 0, 'tile-cursor')).setOrigin(0).setVisible(false).setDepth(6);
     this.panel = new GamePanel(this, {
       pick: (i) => this.pick(i), startRun: () => this.startRun(), setPaused: (p) => this.setPaused(p), finishRun: () => this.finishRun(), stopReplay: () => this.stopReplay(),
-      setSpeed: (s) => this.ctl.setSpeed(s), stepTick: () => this.stepTick(), undo: () => this.undo(), redo: () => this.redo(), openTips: () => this.openTips(this.suggestedTip ?? undefined), rotateSelected: () => this.rotateSelected(),
+      setSpeed: (s) => this.ctl.setSpeed(s), stepTick: () => this.stepTick(), undo: () => this.undo(), redo: () => this.redo(), openTips: (id) => this.openTips(id ?? this.suggestedTip ?? undefined), rotateSelected: () => this.rotateSelected(),
       toBin: (id) => { this.act({ t: 'unplace', id }); this.syncMachines(); },
       sell: (id) => { if (this.act({ t: 'sell', id })) { audio.ship(RULES.sellValue); this.selectedId = null; this.syncMachines(); this.renderSide(); } },
       nextRound: () => this.nextRound(), toTitle: () => this.scene.start('Title'), toggleMute: () => { audio.setMuted(!audio.muted); return audio.muted; },
@@ -236,6 +242,7 @@ export class GameScene extends Phaser.Scene {
     if (this.heldId != null && !alive.has(this.heldId)) this.heldId = null;
     this.updateSelection();
     this.updateCursor();
+    this.drawFlow();
   }
   private updateSelection() {
     const v = this.selectedId != null ? this.views.get(this.selectedId) : undefined;
@@ -252,7 +259,7 @@ export class GameScene extends Phaser.Scene {
     this.input.on('dragstart', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image) => {
       if (this.mode !== 'build' || this.replayQueue) return;
       const v = obj.getData('view') as MachineView; if (!v) return;
-      this.heldId = null; this.updateCursor();
+      this.heldId = null; this.updateCursor(); this.clearToast();
       this.dragging = v; this.dragFrom = { x: v.c.x, y: v.c.y }; v.c.setDepth(10); this.selectedId = v.m.id; this.updateSelection(); this.renderSide();
     });
     this.input.on('drag', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image, dx: number, dy: number) => {
@@ -265,7 +272,7 @@ export class GameScene extends Phaser.Scene {
         const { px, py } = this.cellXY(cell.x, cell.y);
         setArt(this.hover, occ ? 'tile-bad' : 'tile-ok').setPosition(px, py).setVisible(true);
         if (occ) { this.hideGhost(); } else this.showGhost(v.m, cell.x, cell.y);
-      } else { this.hover.setVisible(false); this.hideGhost(); }
+      } else { this.hover.setVisible(false); this.hideGhost(); this.clearToast('warning'); }
     });
     this.input.on('dragend', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image) => {
       const v = this.dragging; if (!v || obj !== v.img) return;
@@ -317,17 +324,49 @@ export class GameScene extends Phaser.Scene {
   /** Abandon an in-progress pointer drag without applying anything: the view snaps back to its logical cell or bin slot. */
   private cancelDrag() {
     const v = this.dragging; if (!v) return;
-    this.dragging = null; this.dragFrom = null; this.hover.setVisible(false); this.hideGhost(); v.c.setDepth(2);
+    this.dragging = null; this.dragFrom = null; this.hover.setVisible(false); this.hideGhost(); this.clearToast('warning'); v.c.setDepth(2);
     this.syncMachines();
   }
-  /** Refusal reason in the hint strip for ~2 s; it pre-empts every other hint (tips never interrupt it). */
-  private showReject(text: string) {
+  /** Refusal reason as a toast at the cell it was aimed at (production roadmap 0.9.3): it stays until the next action, never two seconds; the hint strip keeps its own hint. */
+  private showReject(text: string, cell: { x: number; y: number } | null) {
     this.lastReject = text;
-    this.setHint(text);
-    this.rejectTimer?.remove(false);
-    const t = this.time.delayedCall(2200, () => { if (this.rejectTimer === t) { this.rejectTimer = null; if (this.heldId != null || this.dragging) this.updateCursor(); else this.updateHint(); } });
-    this.rejectTimer = t;
+    this.showToast({ text, kind: 'refusal', x: cell?.x ?? this.cursor?.x ?? 0, y: cell?.y ?? this.cursor?.y ?? 0 });
   }
+  private showToast(toast: { text: string; kind: 'refusal' | 'warning'; x: number; y: number }) { this.toast = toast; this.panel?.setToast(toast); }
+  /** Hide the toast; with a kind, only a toast of that kind (a refusal outlives a ghost warning's coming and going). */
+  private clearToast(kind?: 'refusal' | 'warning') { if (!this.toast || (kind && this.toast.kind !== kind)) return; this.toast = null; this.panel?.setToast(null); }
+  /** The toast on screen (dev API / tests). */
+  toastInfo() { return this.toast; }
+  /**
+   * The flow overlay (0.9.3): for every placed machine and each of its output directions, a translucent amber chevron across the
+   * shared edge when the neighbour takes items from that direction (geometry from inputTravelDirs/outputDirs, the same answer
+   * the ghost gives), a red chevron with a bar when the output goes nowhere. Build phase only; cleared while the shift runs.
+   */
+  private drawFlow() {
+    const g = this.flowGfx; if (!g) return;
+    g.clear(); this.flowStats = { links: 0, loose: 0 };
+    if (this.mode !== 'build') return;
+    const L = this.run.layout;
+    const chevron = (x: number, y: number, d: number, s: number) => {
+      const dx = DIR_DX[d], dy = DIR_DY[d];
+      g.fillTriangle(x + dx * s * 0.6, y + dy * s * 0.6, x - dx * s * 0.5 - dy * s * 0.7, y - dy * s * 0.5 + dx * s * 0.7, x - dx * s * 0.5 + dy * s * 0.7, y - dy * s * 0.5 - dx * s * 0.7);
+    };
+    for (const m of L.machines) for (const o of outputDirs(m.kind, m.dir)) {
+      const nx = m.x + DIR_DX[o], ny = m.y + DIR_DY[o];
+      const target = L.machines.find((q) => q.x === nx && q.y === ny);
+      const ok = !!target && inputTravelDirs(target.kind, target.dir).includes(o);
+      const { px, py } = this.cellXY(m.x, m.y);
+      const ex = px + CELL / 2 + DIR_DX[o] * (CELL / 2), ey = py + CELL / 2 + DIR_DY[o] * (CELL / 2); // the shared edge's midpoint
+      if (ok) { this.flowStats.links++; g.fillStyle(P.amber, 0.5); chevron(ex, ey, o, 14); }
+      else {
+        this.flowStats.loose++;
+        g.fillStyle(P.red, 0.55); chevron(ex - DIR_DX[o] * 8, ey - DIR_DY[o] * 8, o, 10);
+        g.fillStyle(P.red, 0.6); g.fillRect(ex - 2 - Math.abs(DIR_DY[o]) * 9, ey - 2 - Math.abs(DIR_DX[o]) * 9, 4 + Math.abs(DIR_DY[o]) * 18, 4 + Math.abs(DIR_DX[o]) * 18); // a bar across the edge: the line stops here
+      }
+    }
+  }
+  /** The overlay's state (dev API / tests): drawn in the build phase, how many outputs connect and how many go nowhere. */
+  flowInfo() { return { visible: this.mode === 'build' && this.flowStats.links + this.flowStats.loose > 0, ...this.flowStats }; }
   /** Last refusal text shown (dev API / tests). */
   lastRejectText(): string { return this.lastReject; }
   /** Ghost of the machine in hand at a cell: input (blue) and output (amber) arrows on the cell edges, plus a warning if it would not be fed. */
@@ -344,9 +383,8 @@ export class GameScene extends Phaser.Scene {
     };
     for (const t of inputTravelDirs(m.kind, m.dir)) arrow(t, false, 0x6fb4ff);
     for (const o of outputDirs(m.kind, m.dir)) arrow(o, true, 0xffb347);
-    if (this.rejectTimer) return;
     const warn = cx >= 0 ? placementWarning(this.run.layout, m.kind, cx, cy, m.dir, m.id) : null;
-    if (warn) this.setHint(t('hint.headsUp', { warning: warn })); else this.updateHint();
+    if (warn) this.showToast({ text: warn, kind: 'warning', x: cx, y: cy }); else this.clearToast('warning');
   }
   private hideGhost() { this.ghostGfx.clear(); }
   private flashBad(x: number, y: number) {
@@ -397,7 +435,7 @@ export class GameScene extends Phaser.Scene {
     const held = this.machineById(this.heldId);
     if (held) {
       if (held.x === x && held.y === y) { this.heldId = null; }
-      else if (occupant) { audio.invalid(); this.flashBad(x, y); this.showReject(explainRunError('cell occupied')); return; }
+      else if (occupant) { audio.invalid(); this.flashBad(x, y); this.showReject(explainRunError('cell occupied'), { x, y }); return; }
       else if (this.act({ t: 'place', id: held.id, x, y, dir: held.dir })) { audio.place(); this.heldId = null; this.selectedId = held.id; }
       else { audio.invalid(); this.flashBad(x, y); return; }
     } else if (occupant) {
@@ -429,7 +467,7 @@ export class GameScene extends Phaser.Scene {
   }
   /** Esc (build): drop what is in hand, else clear the selection, else hide the cursor. */
   private keyEscape() {
-    if (this.heldId != null) { this.heldId = null; this.syncMachines(); this.renderSide(); return; }
+    if (this.heldId != null) { this.heldId = null; this.clearToast('warning'); this.syncMachines(); this.renderSide(); return; }
     if (this.selectedId != null) { this.selectedId = null; this.updateSelection(); this.renderSide(); return; }
     this.cursor = null; this.updateCursor();
   }
@@ -439,6 +477,7 @@ export class GameScene extends Phaser.Scene {
   /** Controller hook: the run changed (an accepted action, or null for undo/redo/speed): refresh HUD, hints and the panel. */
   private onStateChange(a: Action | null) {
     if (!this.panel) return; // init() runs before create(): nothing to draw yet
+    if (a) { this.clearToast(); if (a.t === 'place' && !this.replayQueue) { const m = this.run.layout.machines.find((q) => q.id === a.id); const warn = m ? placementWarning(this.run.layout, m.kind, m.x, m.y, m.dir, m.id) : null; if (warn) this.showToast({ text: warn, kind: 'warning', x: a.x, y: a.y }); } } // 0.9.3
     if (a && !this.replayLabel) { if (a.t === 'pick') telemetry.track('first_draft_pick'); else if (a.t === 'place') telemetry.track('first_place_attempt'); else if (a.t === 'rotate') telemetry.track('first_rotate'); }
     if (a && !prefs.reducedMotion && (a.t === 'place' || a.t === 'rotate')) { const v = this.views.get(a.id); if (v) { const b = baseScale(v.img.texture.key); this.tweens.killTweensOf(v.img); fit(v.img, a.t === 'place' ? 1.06 : 0.94); this.tweens.add({ targets: v.img, scaleX: b, scaleY: b, duration: a.t === 'place' ? 90 : 60, ease: 'Quad.out' }); } }
     if (a?.t === 'pick' && !this.replayLabel) { const kind = this.run.picks[this.run.picks.length - 1]; const tip = kind ? tipForMachine(kind, loadReadTips()) : null; if (tip) this.suggestedTip = tip.id; }
@@ -478,17 +517,18 @@ export class GameScene extends Phaser.Scene {
   tipsInfo() { return { open: this.tips.isOpen, current: this.tips.currentId, suggested: this.suggestedTip != null && !loadReadTips().includes(this.suggestedTip) ? this.suggestedTip : null, read: loadReadTips(), demo: this.tips.demoState() }; }
   // ---------- onboarding hints ----------
   updateHint() {
-    if (this.rejectTimer) return;
     const r = this.run;
-    let text = '';
+    let text = ''; let demo: string | undefined;
     if (this.tutorial) {
       const t = this.tutorialHint();
-      text = t.text;
+      text = t.text; demo = t.demo;
       // funnel: which tutorial step is on screen (1 pick crusher, 2 place it, 3 run it, 4 furnace, 5 splitter merge, 6 free draft)
       if (t.step !== this.tutorialStep) { if (this.tutorialStep) telemetry.track('tutorial_step_complete', { n: this.tutorialStep }); if (t.step) telemetry.track('tutorial_step_start', { n: t.step }); this.tutorialStep = t.step; }
       if (r.round >= 4) { this.tutorial = false; setOnboarded(); }
-    } else if (!isOnboarded() && r.round === 1 && r.phase === 'draft' && !this.replayLabel) {
-      text = t('hint.newHere');
+    } else if (r.round === 1 && r.phase === 'draft' && !this.replayLabel) { // 0.9.3: the first draft says which card to take and why (the newcomer's pointer to the lesson first)
+      const rec = recommendFirstPick(r.offers);
+      const pick = rec ? t('hint.firstPick', { n: rec.index + 1, name: machineName(rec.kind), why: rec.why }) : '';
+      text = isOnboarded() ? pick : `${t('hint.newHere')} ${pick}`.trim();
     }
     if (this.ctl.resumeNotice) { text = this.ctl.resumeNotice; this.ctl.resumeNotice = null; }
     if (!text && r.phase === 'draft' && r.rounds.length && !this.replayLabel) { // 0.8.8: the last round's bottleneck line is the draft's hint
@@ -499,20 +539,21 @@ export class GameScene extends Phaser.Scene {
       this.panel?.setForeman(foremanSays(sit)); // 0.9.1: Sal's opener for the case; the sentence itself is the hint
     } else if (r.phase === 'draft' && !r.rounds.length && !this.replayLabel) this.panel?.setForeman(this.tutorial ? foremanSays('lesson1') : foremanSays('firstDraft'));
     else if (this.tutorial && r.phase === 'draft') this.panel?.setForeman(foremanSays(`lesson${Math.min(6, Math.max(1, r.round))}` as Situation));
-    else if (!this.tutorial && r.phase === 'build' && this.panel && !this.rejectTimer) this.panel.setForeman(this.panel.foremanText); // keep the draft's line through the build
+    else if (!this.tutorial && r.phase === 'build' && this.panel) this.panel.setForeman(this.panel.foremanText); // keep the draft's line through the build
     if (!text) {
       const tips = [t('hint.tip1'), t('hint.tip2'), t('hint.tip3'), t('hint.tip4'), t('hint.tip5'), t('hint.tip6', { shards: money(RULES.value.shards), plate: money(RULES.value.plate) })];
       text = tips[(r.round + r.layout.machines.length) % tips.length];
     }
-    this.setHint(text);
+    this.setHint(text, demo);
   }
   /**
    * The tutorial seed's one guidance surface (PLAN-v1 0.3.4): one rule per round, the objective sufficient on its own, checked
    * against the real layout (fed-ness via placementWarning, flow via a short real simulation), never a modal.
    */
-  private tutorialHint(): { text: string; step: number } {
+  private tutorialHint(): { text: string; step: number; demo?: string } {
     const r = this.run; const L = r.layout;
     const find = (k: Machine['kind']) => L.machines.find((m) => m.kind === k);
+    const at = (x: number, y: number) => L.machines.find((m) => m.x === x && m.y === y);
     const fed = (m: Machine) => placementWarning(L, m.kind, m.x, m.y, m.dir, m.id) == null;
     const $ = (m: Material) => money(RULES.value[m]);
     if (r.round === 1) {
@@ -528,19 +569,23 @@ export class GameScene extends Phaser.Scene {
       if (crusher && furnace.y === crusher.y && furnace.x < crusher.x) return { step: 4, text: t('lesson.2order') };
       return fed(furnace) ? { step: 4, text: t('lesson.2fed', { ingot: $('ingot') }) } : { step: 4, text: t('lesson.2unfed') };
     }
-    if (r.round === 3) {
-      if (r.phase === 'draft') return { step: 5, text: t('lesson.3draft') };
+    if (r.round === 3) { // 0.9.3: three short steps (the splitter, the top branch, the bottom branch), each with a demo to show
+      if (r.phase === 'draft') return { step: 5, text: t('lesson.3draft'), demo: 'splitter' };
       const splitter = find('splitter');
-      if (!splitter) return { step: 5, text: t('lesson.3place') };
+      if (!splitter) return { step: 5, text: t('lesson.3place'), demo: 'splitter' };
+      // a branch is back on the belt when: a conveyor on the output cell, a conveyor where it points, and that one points into something that takes it
+      const joined = (out: Dir) => { const a = at(splitter.x + DIR_DX[out], splitter.y + DIR_DY[out]); if (!a || a.kind !== 'conveyor') return false; const b = at(a.x + DIR_DX[a.dir], a.y + DIR_DY[a.dir]); if (!b || b.kind !== 'conveyor') return false; const c = at(b.x + DIR_DX[b.dir], b.y + DIR_DY[b.dir]); return !!c && inputTravelDirs(c.kind, c.dir).includes(b.dir); };
+      if (!joined(leftOf(splitter.dir))) return { step: 5, text: t('lesson.3top'), demo: 'sideload' };
+      if (!joined(rightOf(splitter.dir))) return { step: 5, text: t('lesson.3bottom'), demo: 'sideload' };
       const flow = runLayout(L, 40);
-      if (flow.shipped.ingot > 0) return { step: 5, text: t('lesson.3flow', { sell: money(RULES.sellValue) }) };
-      return { step: 5, text: t('lesson.3noflow') };
+      if (flow.shipped.ingot > 0) return { step: 5, text: t('lesson.3flow', { sell: money(RULES.sellValue) }), demo: 'sideload' };
+      return { step: 5, text: t('lesson.3noflow'), demo: 'sideload' };
     }
     return { step: 6, text: t('lesson.done', { sell: money(RULES.sellValue) }) };
   }
   /** Current hint text (typed accessor for the dev API and tests instead of private-field access). */
   hintText(): string { return this.panel?.hintText ?? ''; }
-  private setHint(text: string) { this.panel?.setHint(text); }
+  private setHint(text: string, demo?: string) { this.panel?.setHint(text, demo); }
   private chainHasCrusher() {
     return this.run.layout.machines.some((m) => m.kind === 'crusher');
   }
@@ -552,6 +597,7 @@ export class GameScene extends Phaser.Scene {
     this.cancelDrag(); // a machine still under the pointer snaps back; nothing can change the layout from here on
     this.selectedId = null; this.heldId = null; this.cursor = null; this.updateSelection(); this.updateCursor(); this.hover.setVisible(false);
     this.lastShipTick = 0; this.hudDirty = false; this.lastHudAt = 0; this.clearStall();
+    this.clearToast(); this.drawFlow(); // 0.9.3: the layout is frozen; nothing to point at
     if (DPR > 1 && !this.dprProbe && loadSettings().renderQuality === 'auto') this.dprProbe = [];
     if (!this.replayLabel) telemetry.track('first_run_start');
     audio.run(); audio.humStart(this.run.round);
@@ -729,6 +775,7 @@ export class GameScene extends Phaser.Scene {
     const rec = this.run.rounds[this.run.rounds.length - 1];
     audio.roundEnd(rec.earned > 38);
     this.panel.showSummaryOverlay(this.run);
+    this.drawFlow();
     this.renderSide();
     this.setHint(this.run.round >= RULES.rounds ? t('hint.summaryFinal') : t('hint.summary'));
   }

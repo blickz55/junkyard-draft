@@ -334,10 +334,12 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       await api('pick', 0); assert.match(await hint(), /Replace the conveyor after the crusher/);
       await act({ t: 'unplace', id: (await at(3, 2)).id });
       await act({ t: 'place', id: (await binKind('splitter')).id, x: 3, y: 2, dir: 0 });
-      assert.match(await hint(), /Not flowing yet/);
+      assert.match(await hint(), /^Top branch:/, 'round 3 comes in three short steps (0.9.3): the splitter is in, now the top branch');
+      assert.equal(await page.evaluate(() => document.querySelector('[data-testid=show-me]')?.textContent), 'Show me', 'the step offers its demo');
       const convs = (await api('state')).bin.filter((m) => m.kind === 'conveyor');
       assert.equal(convs.length, 5, 'three spares plus the two replaced conveyors');
       await act({ t: 'place', id: convs[0].id, x: 3, y: 1, dir: 0 }); await act({ t: 'place', id: convs[1].id, x: 4, y: 1, dir: 1 });
+      assert.match(await hint(), /^Bottom branch/, 'the top branch is back on the belt: now the bottom one');
       await act({ t: 'place', id: convs[2].id, x: 3, y: 3, dir: 0 }); await act({ t: 'place', id: convs[3].id, x: 4, y: 3, dir: 3 });
       assert.match(await hint(), /ingots flow/, 'the real simulation confirms the merge');
       await act({ t: 'sell', id: convs[4].id });

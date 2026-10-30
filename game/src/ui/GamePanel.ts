@@ -39,7 +39,7 @@ export interface PanelState {
 /** What the panel asks the scene to do. */
 export interface PanelActions {
   pick(i: number): void; startRun(): void; setPaused(p: boolean): void; finishRun(): void; stopReplay(): void; setSpeed(s: number): void; /** one tick while paused (0.8.12) */ stepTick(): void;
-  undo(): void; redo(): void; openTips(): void; rotateSelected(): void; toBin(id: number): void; sell(id: number): void; nextRound(): void; toTitle(): void; toggleMute(): boolean;
+  undo(): void; redo(): void; /** the Tips panel, at one tip when the hint names a demo (0.9.3) */ openTips(id?: string): void; rotateSelected(): void; toBin(id: number): void; sell(id: number): void; nextRound(): void; toTitle(): void; toggleMute(): boolean;
   /** buy new offers (rules v3): the scene applies { t: 'reroll' } through the controller */
   reroll(): void;
   /** continue the watched recording from the round just finished as a practice try (PLAN-v4 0.7.3) */
@@ -59,6 +59,8 @@ export class GamePanel {
   private side: HTMLElement;
   private hintEl: HTMLElement;
   private gridLayer: HTMLElement;
+  /** a refusal or a warning anchored to a grid cell (production roadmap 0.9.3); it stays until the scene clears it */
+  private toastEl: HTMLElement;
   private key = '';
   /** whether the last rendered state was recording playback (the summary overlay offers a try then, PLAN-v4 0.7.3) */
   private replayMode = false;
@@ -92,7 +94,8 @@ export class GamePanel {
     this.side = h('div', { class: 'jd-side' });
     this.hintEl = h('div', { class: 'jd-hint', tid: 'hint' }, '');
     this.gridLayer = h('div', { class: 'jd-gridlayer' });
-    this.root = h('div', { class: 'jd-game' }, hudBar, this.side, this.gridLayer, this.hintEl);
+    this.toastEl = h('div', { class: 'jd-toast', tid: 'toast', role: 'status', style: 'display:none' });
+    this.root = h('div', { class: 'jd-game' }, hudBar, this.side, this.gridLayer, this.hintEl, this.toastEl);
     if (!document.getElementById('jd-game-style')) { const st = document.createElement('style'); st.id = 'jd-game-style'; st.textContent = GAME_STYLE; document.head.append(st); }
     ui.mount(scene, this.root);
   }
@@ -111,7 +114,18 @@ export class GamePanel {
     this.hud.best.textContent = b ? t('game.bestForYard', { score: money(b.score) }) : t('game.noBestForYard');
   }
   setStall(text: string) { this.stallText = text; this.hud.stall.textContent = text; }
-  setHint(text: string) { this.hintText = text; this.hintEl.textContent = text; }
+  setHint(text: string, demo?: string) { this.hintText = text; this.hintEl.replaceChildren(text, ...(demo ? [btn(t('hint.showMe'), 'show-me', () => this.actions.openTips(demo), { small: true })] : [])); }
+  /** A refusal or a warning at a cell (0.9.3): above the cell, below it on the top row; null hides it. Never on a timer: the scene clears it on the next action. */
+  setToast(toast: { text: string; kind: 'refusal' | 'warning'; x: number; y: number } | null) {
+    const el = this.toastEl;
+    if (!toast) { el.style.display = 'none'; el.textContent = ''; return; }
+    const cx = Math.min(GRID_X + GRID_W - 150, Math.max(GRID_X + 150, GRID_X + toast.x * CELL + CELL / 2));
+    const below = toast.y === 0;
+    el.className = `jd-toast jd-toast-${toast.kind}${below ? ' jd-toast-below' : ''}`;
+    el.dataset.kind = toast.kind;
+    el.style.cssText = `display:block; left:${em(cx)}; top:${em(below ? GRID_Y + CELL + 10 : GRID_Y + toast.y * CELL - 10)}; transform:translate(-50%, ${below ? '0' : '-100%'})`;
+    el.textContent = toast.text;
+  }
   /** The foreman speaks in the side panel (0.9.1); the panel re-renders so the box sits at the top. */
   setForeman(text: string) { if (text === this.foremanText) return; this.foremanText = text; this.key = ''; if (this.lastState) this.render(this.lastState); }
   private lastState: PanelState | null = null;
@@ -302,6 +316,12 @@ export const GAME_STYLE = `
 @keyframes jd-pulse { from { transform: scale(1.08); } to { transform: scale(1); } }
 #ui .jd-side { position: absolute; left: ${em(SIDE_X)}; top: ${em(GRID_Y)}; width: ${em(SIDE_W)}; height: ${em(H - GRID_Y - 24)}; background: rgba(36, 32, 26, 0.95); border: 1px solid #3f382d; padding: ${em(14)} ${em(16)}; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
 #ui .jd-hint { position: absolute; left: ${em(GRID_X)}; width: ${em(GRID_W)}; bottom: ${em(12)}; background: rgba(36, 32, 26, 0.95); border: 1px solid #3f382d; padding: ${em(7)} ${em(12)}; font-size: 0.8125em; min-height: ${em(50)}; }
+#ui .jd-hint { display: flex; align-items: center; justify-content: space-between; gap: 0.6em; }
+#ui .jd-hint .jd-btn { flex: 0 0 auto; }
+#ui .jd-toast { position: absolute; max-width: ${em(300)}; background: rgba(36, 32, 26, 0.97); border: 1px solid #3f382d; border-left: 3px solid #eb6757; padding: ${em(6)} ${em(10)}; font-size: 0.8125em; line-height: 1.3; border-radius: ${em(4)}; box-shadow: 0 ${em(2)} ${em(8)} rgba(0,0,0,0.45); pointer-events: none; z-index: 3; }
+#ui .jd-toast-warning { border-left-color: #f0a830; }
+#ui .jd-toast::after { content: ''; position: absolute; left: 50%; bottom: -${em(7)}; margin-left: -${em(6)}; border: ${em(6)} solid transparent; border-top-color: #3f382d; border-bottom: 0; }
+#ui .jd-toast-below::after { bottom: auto; top: -${em(7)}; border-top: 0; border-bottom: ${em(6)} solid #3f382d; }
 #ui .jd-gridlayer { position: absolute; left: ${em(GRID_X)}; top: ${em(GRID_Y)}; width: ${em(GRID_W)}; height: ${em(GRID_H)}; pointer-events: none; }
 #ui .jd-gridlayer > * { pointer-events: none; }
 #ui .jd-gridlayer .jd-banner, #ui .jd-gridlayer .jd-banner * { pointer-events: auto; }
