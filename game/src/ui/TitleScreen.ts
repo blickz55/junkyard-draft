@@ -32,6 +32,7 @@ import { loadIdentity, fetchClaimed, bearerAllowed } from '../render/identity';
 import { HIDDEN_LABEL } from '../identity/identity';
 import { acceptDaily, cachedDaily, fetchDaily, practiceSeed, todaySeed, revealGate, fetchWeekly } from '../render/daily';
 import { openArchive } from './ArchivePanel';
+import { openRecord } from './RecordPanel';
 import { openPolicy } from './PolicyPanel';
 import { openPrivacy } from './PrivacyPanel';
 import { flushPending, describeOutcomes } from '../render/pending';
@@ -313,7 +314,12 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const bestsPanel = h(
     'div',
     { class: 'jd-panel' },
-    h('div', { class: 'jd-head' }, t('title.bestsHead')),
+    h(
+      'div',
+      { class: 'jd-row jd-between' },
+      h('div', { class: 'jd-head' }, t('title.bestsHead')),
+      btn(t('title.record'), 'record', () => openRecord(scene), { small: true, title: t('title.recordTitle') }),
+    ),
     h(
       'div',
       { style: 'margin-top:0.35em; font-size:0.9375em' },

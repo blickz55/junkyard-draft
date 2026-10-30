@@ -215,19 +215,23 @@ test(
       });
     assert.deepEqual(await undoBtn(), { undo: 1, redo: 0.4 }, 'Undo enabled after an edit, Redo disabled');
     await page.keyboard.press('Control+z');
-    await frames();
+    await when((id) => window.__jd.state().layout.machines.find((mm) => mm.id === id)?.dir === 0, kbConv.id, 5000);
+    await frames(3); // the next shortcut must land more than 30 ms after this one: the controller drops a repeated modifier chord
     assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id).dir, 0, 'Ctrl+Z restores the previous facing');
     assert.deepEqual(await undoBtn(), { undo: 1, redo: 1 }, 'Redo enabled after an undo');
     await page.keyboard.press('Control+z');
-    await frames();
+    await when((id) => window.__jd.state().bin.some((mm) => mm.id === id), kbConv.id, 5000);
+    await frames(3);
     assert.ok(
       (await api('state')).bin.some((mm) => mm.id === kbConv.id),
       'a second Ctrl+Z undoes the placement: the conveyor is back in the bin',
     );
     await page.keyboard.press('Control+y');
-    await frames();
+    await when((id) => window.__jd.state().layout.machines.some((mm) => mm.id === id), kbConv.id, 5000);
+    await frames(3);
     await page.keyboard.press('Control+y');
-    await frames();
+    await when((id) => window.__jd.state().layout.machines.find((mm) => mm.id === id)?.dir === 1, kbConv.id, 5000);
+    await frames(3);
     assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id)?.dir, 1, 'two Ctrl+Y re-place and re-rotate it');
     assert.deepEqual(await undoBtn(), { undo: 1, redo: 0.4 });
     await page.keyboard.press('Enter');
@@ -1166,6 +1170,40 @@ test(
     const eventsText = fs.readFileSync(path.join(f.verifier.dataDir, 'events.jsonl'), 'utf8');
     assert.ok(!eventsText.includes('e2e-seed') && !eventsText.includes('other-seed'), 'no seed string reached the verifier');
     assert.ok(!eventsText.includes('127.0.0.1'), 'no client address was stored');
+    assert.deepEqual(page.errors, [], 'no page errors across the session');
+  },
+);
+
+test(
+  'your record (0.9.7): days, the daily chain, medals, bests, the standing of each checked game and machines drafted, read from this device, asking our server nothing',
+  { timeout: 60000 },
+  async () => {
+    await page.evaluate(() => localStorage.removeItem('jd.settings.v1'));
+    await page.goto(f.gameUrl());
+    await title();
+    let verifierHits = 0;
+    const onReq = (r) => {
+      if (r.url().startsWith(VURL)) verifierHits++;
+    };
+    await textMatches('daily-board', /\S/);
+    page.on('request', onReq);
+    await page.getByTestId('record').click();
+    await page.waitForSelector('[data-testid=record-dialog]', { timeout: 5000 });
+    const days = await page.getByTestId('record-days').textContent();
+    assert.match(days, /1 day played/, days);
+    assert.match(days, /1 checked daily · 1 in a row now · longest chain 1/, "the challenge run on today's daily was checked from the results screen");
+    const bars = await page.locator('[data-testid=record-bar]').count();
+    assert.ok(bars >= 1, `the standing of each checked game on this device is a bar (${bars})`);
+    assert.match(await page.getByTestId('record-trend').textContent(), /checked games? · the latest/);
+    assert.match(await page.getByTestId('record-medals').textContent(), /No medal yet/);
+    assert.match(await page.getByTestId('record-bests').textContent(), /Best \$\d+ on yard /);
+    assert.equal(await page.locator('[data-testid=record-kind-crusher]').count(), 1, 'the crusher drafted in round 1 is counted');
+    assert.match(await page.getByTestId('record-note').textContent(), /read from this device/);
+    await shot('record');
+    await page.keyboard.press('Escape');
+    await page.jd.noDialog('record-dialog');
+    page.off('request', onReq);
+    assert.equal(verifierHits, 0, 'the record page asked our server nothing');
     assert.deepEqual(page.errors, [], 'no page errors across the session');
   },
 );

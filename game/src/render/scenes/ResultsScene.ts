@@ -3,7 +3,7 @@ import { applyDpr } from '../dpr';
 import type { RunState } from '../../sim/run';
 import { P } from '../palette';
 import { audio } from '../audio';
-import { clearSave, recordBest, recordDayPlayed, recordForkBest, recordRun } from '../storage';
+import { clearSave, recordBest, recordDayPlayed, recordForkBest, recordKinds, recordRun } from '../storage';
 import type { Challenge } from '../challenge';
 import { makeCard, saveCard, type CardInput } from '../card';
 import type { Rank } from '../share';
@@ -170,6 +170,7 @@ export class ResultsScene extends Phaser.Scene {
     if (!data.replayed && !fork) {
       recordDayPlayed();
       recordRun(run.seed, run.score);
+      recordKinds(run.picks); // 0.9.7: machines drafted, for the record page
     } // 0.8.7: the device's own history per seed, shown on the results board when the verifier is away
     audio.roundEnd(true);
     this.lastRank = null;

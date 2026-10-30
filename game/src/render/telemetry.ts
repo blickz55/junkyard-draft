@@ -3,7 +3,8 @@
  * the player turns "Share anonymous play statistics" on. When on: a random 128-bit install id is created,
  * events from the fixed vocabulary (game/src/telemetry/events.ts) are batched and POSTed to the verifier's
  * /events every few seconds; the unsent queue is persisted with the install state so a page navigation never
- * loses a batch (the next boot sends it; no beacons, so nothing is ever double-counted); once-per-install
+ * loses a batch (the next boot sends it; every event carries a random id and the server counts an id once per install, so a batch
+ * delivered twice is not double-counted, 0.9.7); once-per-install
  * events are deduplicated locally; a 'seed' property is never sent. Turning it off deletes everything.
  */
 import { EVENTS, ONCE_EVENTS, MAX_BATCH, validateEvent, type EventName, type Props, type TelemetryEvent } from '../telemetry/events';
@@ -102,7 +103,7 @@ class Telemetry {
       if (st.firsts.includes(name)) return false;
       saveTelemetryState({ ...st, firsts: [...st.firsts, name] });
     }
-    const v = validateEvent({ name, props, at: new Date().toISOString() });
+    const v = validateEvent({ name, props, at: new Date().toISOString(), id: randomId().slice(0, 16) }); // the id travels with the event through retries, so a batch the server took but the client never heard about counts once
     if (typeof v === 'string') {
       this.dropped++;
       return false;

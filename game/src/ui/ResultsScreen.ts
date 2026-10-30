@@ -19,6 +19,8 @@ import {
   loadHistory,
   savePending,
   firstTime,
+  recordStanding,
+  recordMedal,
 } from '../render/storage';
 import { isMintedDailySeed, dailyDateOf } from '../sim/daily';
 import { telemetry } from '../render/telemetry';
@@ -333,6 +335,8 @@ export function mountResults(
       if (hg.mine) {
         scene.lastPercentile = hg.mine.percentile;
         scene.lastN = hg.n;
+        if (!o.replayed)
+          recordStanding({ seed: run.seed, at: new Date().toISOString(), score: hg.mine.score, percentile: hg.mine.percentile, n: hg.n, rank: hg.mine.rank }); // 0.9.7: the record page
         if (!foremanSettled) {
           setForeman(foreman, foremanSays(resultsBand(hg.mine.percentile, hg.n)));
           foremanSettled = true;
@@ -391,6 +395,7 @@ export function mountResults(
         // a closed daily: the server sent thresholds (PLAN-v3 0.6.4); the medal is named only for this game's checked entry
         const medal = hg.mine ? medalFor(hg.mine.score, hg.medals) : null;
         scene.lastMedal = medal;
+        if (medal && hg.mine && !o.replayed) recordMedal(run.seed, medal, hg.mine.score); // 0.9.7: the record page
         renderDeltas();
         histBox.append(
           h(

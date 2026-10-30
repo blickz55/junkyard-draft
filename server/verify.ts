@@ -1941,9 +1941,23 @@ export class EventStore {
       .digest('hex')
       .slice(0, 16);
   }
-  /** Append a validated batch; throws StorageError when the file cannot be written (nothing is kept in memory). */
+  /** ids seen lately (`installId:id`), so a batch delivered twice counts once (0.9.7); bounded, in memory: a repeat after a restart is the rare case we accept */
+  private readonly seenIds: string[] = [];
+  private readonly seenSet = new Set<string>();
+  static readonly SEEN_MAX = 5000;
+  /** Append a validated batch (events whose id this install already sent are skipped); throws StorageError when the file cannot be written (nothing else is kept in memory). */
   append(batch: EventBatch, ip: string, now = new Date()): number {
-    const rows: StoredEvent[] = batch.events.map((e) => ({
+    const fresh = batch.events.filter((e) => {
+      if (!e.id) return true;
+      const key = `${batch.installId}:${e.id}`;
+      if (this.seenSet.has(key)) return false;
+      this.seenSet.add(key);
+      this.seenIds.push(key);
+      if (this.seenIds.length > EventStore.SEEN_MAX) this.seenSet.delete(this.seenIds.shift()!);
+      return true;
+    });
+    if (!fresh.length) return 0;
+    const rows: StoredEvent[] = fresh.map((e) => ({
       at: e.at,
       receivedAt: now.toISOString(),
       installId: batch.installId,

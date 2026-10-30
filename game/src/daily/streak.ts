@@ -28,6 +28,18 @@ export function normaliseDates(dates: Iterable<string>): string[] {
   return [...set].sort();
 }
 
+/** The longest chain of consecutive dates ever, alive or not (the record page, production roadmap 0.9.7). */
+export function longestStreak(dailyDates: Iterable<string>): number {
+  const dates = normaliseDates(dailyDates);
+  let best = 0,
+    run = 0;
+  for (let i = 0; i < dates.length; i++) {
+    run = i > 0 && dates[i] === shiftUtcDate(dates[i - 1], 1) ? run + 1 : 1;
+    if (run > best) best = run;
+  }
+  return best;
+}
+
 export function streakOf(dailyDates: Iterable<string>, now: Date): Streak {
   const dates = normaliseDates(dailyDates);
   if (!dates.length) return { dailies: 0, streak: 0, lastDate: null };

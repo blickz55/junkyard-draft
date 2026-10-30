@@ -7,7 +7,7 @@ import type Phaser from 'phaser';
 import { h, btn, ui } from './dom';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { audio } from '../render/audio';
-import { clearSave, loadSubmissions } from '../render/storage';
+import { clearSave, loadSubmissions, recordMedal } from '../render/storage';
 import { medalFor, medalsLine, type Medals } from '../daily/medals';
 import { t } from '../content/strings';
 import { money, utcDate, utcDateTime } from '../content/format';
@@ -92,6 +92,10 @@ export function openArchive(scene: Phaser.Scene, verifierUrl: string): void {
         });
         // medals only when the server sent thresholds (PLAN-v3 0.6.4); this device's own checked game on that day gets its medal named
         const mine = loadSubmissions()[d.seed];
+        if (mine && d.medals) {
+          const m = medalFor(mine.score, d.medals);
+          if (m) recordMedal(d.seed, m, mine.score); // 0.9.7: the record page remembers medals this device's checked games earned
+        }
         const medalText = d.medals
           ? t('archive.medals', {
               line: medalsLine(d.medals),

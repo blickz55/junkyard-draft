@@ -113,8 +113,10 @@ export async function fixture({ verifier = false, verifierEnv = {}, browser: eng
       const page = await context.newPage();
       const errors = [];
       page.on('pageerror', (e) => errors.push(String(e)));
+      // console errors count as page errors, except the offline fallback's refused connections and the host's own socket exhaustion under a parallel suite (Windows reports ERR_NO_BUFFER_SPACE when a dozen browsers and servers run at once; the product is not involved)
       page.on('console', (m) => {
-        if (m.type() === 'error' && !/ERR_CONNECTION_REFUSED|ERR_UNSAFE_PORT/.test(m.text())) errors.push(m.text());
+        if (m.type() === 'error' && !/ERR_CONNECTION_REFUSED|ERR_UNSAFE_PORT|ERR_NO_BUFFER_SPACE|ERR_INSUFFICIENT_RESOURCES/.test(m.text()))
+          errors.push(m.text());
       });
       pages.push(context);
       return Object.assign(page, { errors, ctx: context, jd: helpers(page) }); // never shadow a Playwright method (page.context(), page.title())

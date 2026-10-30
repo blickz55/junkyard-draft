@@ -828,6 +828,19 @@ test('events: POST /events accepts only consented batches from the fixed vocabul
     assert.equal(store.prune(), 1);
     assert.equal(store.rows().length, 6);
     assert.equal(store.prune(), 0);
+    // idempotent delivery (0.9.7): an event id is counted once per install; events without an id (older clients) count per delivery; a malformed id is dropped, not refused
+    const withId = { installId: id2, consent: true, events: [{ name: 'round_complete', props: { n: 1 }, at, id: 'c'.repeat(16) }] };
+    assert.equal((await post(withId)).json.stored, 1);
+    assert.equal((await post(withId)).json.stored, 0, 'the same id from the same install is not stored twice');
+    assert.equal((await post({ ...withId, installId: id })).json.stored, 1, 'the same id from another install is a different event');
+    assert.equal(store.rows().length, 8);
+    const noId = { installId: id2, consent: true, events: [{ name: 'round_complete', props: { n: 2 }, at }] };
+    await post(noId);
+    await post(noId);
+    assert.equal(store.rows().length, 10, 'without ids there is nothing to match: counted per delivery');
+    const r2 = await post({ installId: id2, consent: true, events: [{ name: 'round_complete', props: { n: 3 }, at, id: 'ZZ' }] });
+    assert.equal(r2.status, 200);
+    assert.equal(r2.json.stored, 1);
   } finally {
     server.close();
   }

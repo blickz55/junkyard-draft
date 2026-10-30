@@ -39,7 +39,10 @@ export interface TelemetryEvent {
   name: EventName;
   props?: Props;
   at: string;
+  /** a random id the client gives each event once (8 to 32 hex); the server counts an id once per install, so a batch delivered twice counts once (0.9.7) */
+  id?: string;
 }
+export const EVENT_ID = /^[0-9a-f]{8,32}$/;
 export interface EventBatch {
   installId: string;
   consent: true;
@@ -68,7 +71,7 @@ export const isEventName = (n: unknown): n is EventName => typeof n === 'string'
 /** Validate one event against the vocabulary; returns the clean event or a reason string. */
 export function validateEvent(raw: unknown): TelemetryEvent | string {
   if (!raw || typeof raw !== 'object') return 'event is not an object';
-  const e = raw as { name?: unknown; props?: unknown; at?: unknown };
+  const e = raw as { name?: unknown; props?: unknown; at?: unknown; id?: unknown };
   if (!isEventName(e.name)) return `unknown event ${String(JSON.stringify(e.name) ?? typeof e.name).slice(0, 40)}`; // stringify(undefined) is undefined: never .slice() on it
   const allowed = EVENTS[e.name] as readonly string[];
   const props: Props = {};
@@ -93,7 +96,8 @@ export function validateEvent(raw: unknown): TelemetryEvent | string {
   }
   const at = typeof e.at === 'string' && !Number.isNaN(Date.parse(e.at)) ? e.at : null;
   if (!at) return `${e.name}: missing timestamp`;
-  return { name: e.name, props, at };
+  const id = typeof e.id === 'string' && EVENT_ID.test(e.id) ? e.id : undefined; // an id of the wrong shape is dropped, not refused: the event still counts (once per delivery)
+  return id ? { name: e.name, props, at, id } : { name: e.name, props, at };
 }
 
 /** Validate a POST /events body: consent must be explicit, the install id opaque, the batch bounded. */

@@ -72,6 +72,11 @@ test('telemetry: off by default — nothing is queued, stored or sent; on — in
   assert.equal(sent.length, 1);
   assert.equal(sent[0].url, 'http://verifier.test/events');
   assert.equal(sent[0].body.consent, true);
+  assert.match(
+    (sent[0].body.events[0] as { id?: string }).id ?? '',
+    /^[0-9a-f]{16}$/,
+    'every event carries a random id (0.9.7: the server counts an id once per install)',
+  );
   assert.deepEqual(
     sent[0].body.events.map((e) => e.name),
     ['consent_set'],
@@ -95,8 +100,15 @@ test('telemetry: off by default — nothing is queued, stored or sent; on — in
   assert.equal(await telemetry.flush(), false);
   assert.equal(telemetry.stats().queued, 1);
   assert.match(store.get('jd.telemetry.v1') ?? '', /"pending":\[\{"name":"tip_opened"/, 'the unsent queue is persisted so a navigation cannot lose it');
+  const queuedId = /"name":"tip_opened"[^\]]*?"id":"([0-9a-f]{16})"/.exec(store.get('jd.telemetry.v1') ?? '')?.[1];
+  assert.ok(queuedId, 'the persisted event keeps its id');
   accept = true;
   assert.equal(await telemetry.flush(), true);
+  assert.equal(
+    (sent[sent.length - 1].body.events[0] as { id?: string }).id,
+    queuedId,
+    'the retry sends the same id, so a server that already took the batch counts it once',
+  );
   assert.equal(telemetry.stats().queued, 0);
   assert.match(store.get('jd.telemetry.v1') ?? '', /"pending":\[\]/, 'sent events leave the persisted queue');
   // games: the second fresh start and dailies are counted

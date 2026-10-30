@@ -1,3 +1,6 @@
+import type { MachineKind } from '../sim/types';
+import type { MedalName } from '../daily/medals';
+import { MACHINE_KINDS } from '../sim/rules';
 import { isValidSeed, validateAction, type Action } from '../sim/run';
 import type { ReplayFile } from '../sim/replay';
 import { RULES_VERSION } from '../sim/types';
@@ -26,6 +29,9 @@ const K = {
   history: 'jd.history.v1',
   pending: 'jd.pending.v1',
   firsts: 'jd.firsts.v1',
+  standings: 'jd.standings.v1',
+  medals: 'jd.medals.v1',
+  kinds: 'jd.kinds.v1',
 };
 /**
  * Score records are partitioned by rules version (PLAN-v2 0.5.0): `jd.bests.v2` / `jd.submissions.v2` hold
@@ -564,4 +570,75 @@ export const setOnboarded = () => {
 export function randomSeed(): string {
   const words = ['rust', 'bolt', 'gear', 'weld', 'spark', 'scrap', 'ingot', 'belt', 'crate', 'forge', 'piston', 'rivet'];
   return `${words[Math.floor(Math.random() * words.length)]}-${words[Math.floor(Math.random() * words.length)]}-${Math.floor(Math.random() * 900 + 100)}`;
+}
+
+// ---- production roadmap 0.9.7: the record page's memory, local only and by rules version: the standing of each checked game, the medals
+// seen on closed days, the machines drafted. Written where the game learns the fact; read by render/record.ts. ----
+const isSeedStr = (v: unknown): v is string => isStr(v) && v.length > 0 && v.length <= 64;
+function byVersionList<T>(key: string, version: number, guard: (v: unknown) => v is T, cap: number): T[] {
+  const raw = readRaw(key);
+  const list = isObj(raw) && isObj(raw.byVersion) ? (raw.byVersion as Record<string, unknown>)[String(version)] : null;
+  return Array.isArray(list) ? list.filter(guard).slice(-cap) : [];
+}
+function writeByVersion(key: string, version: number, value: unknown) {
+  const raw = readRaw(key);
+  const all: Record<string, unknown> = isObj(raw) && isObj(raw.byVersion) ? { ...(raw.byVersion as Record<string, unknown>) } : {};
+  all[String(version)] = value;
+  write(key, { byVersion: all });
+}
+/** Where one of this device's checked games stood when the results screen learnt it. */
+export interface Standing {
+  seed: string;
+  at: string;
+  score: number;
+  percentile: number;
+  n: number;
+  rank: number;
+}
+export const STANDINGS_MAX = 100;
+const isStanding = (v: unknown): v is Standing =>
+  isObj(v) && isSeedStr(v.seed) && isStr(v.at) && isFiniteNum(v.score) && isFiniteNum(v.percentile) && isFiniteNum(v.n) && isFiniteNum(v.rank);
+/** Chronological (by the time the standing was learnt). */
+export const loadStandings = (version: number = RULES_VERSION): Standing[] =>
+  byVersionList(K.standings, version, isStanding, STANDINGS_MAX).sort((a, b) => a.at.localeCompare(b.at));
+/** One standing per yard (a later checked game on the same yard replaces it); the oldest beyond the cap falls off. */
+export function recordStanding(s: Standing, version: number = RULES_VERSION): Standing[] {
+  const list = loadStandings(version).filter((x) => x.seed !== s.seed);
+  list.push(s);
+  list.sort((a, b) => a.at.localeCompare(b.at));
+  const kept = list.slice(-STANDINGS_MAX);
+  writeByVersion(K.standings, version, kept);
+  return kept;
+}
+export interface MedalRecord {
+  seed: string;
+  medal: MedalName;
+  score: number;
+  at: string;
+}
+const isMedalRecord = (v: unknown): v is MedalRecord =>
+  isObj(v) && isSeedStr(v.seed) && (v.medal === 'gold' || v.medal === 'silver' || v.medal === 'bronze') && isFiniteNum(v.score) && isStr(v.at);
+export const loadMedals = (version: number = RULES_VERSION): MedalRecord[] => byVersionList(K.medals, version, isMedalRecord, 400);
+/** A medal this device's own checked game earned on a closed day; one per yard. */
+export function recordMedal(seed: string, medal: MedalName, score: number, version: number = RULES_VERSION, now = new Date()): MedalRecord[] {
+  const list = loadMedals(version).filter((m) => m.seed !== seed);
+  list.push({ seed, medal, score, at: now.toISOString() });
+  const kept = list.slice(-400);
+  writeByVersion(K.medals, version, kept);
+  return kept;
+}
+export type KindCounts = Partial<Record<MachineKind, number>>;
+export const loadKinds = (version: number = RULES_VERSION): KindCounts => {
+  const raw = readRaw(K.kinds);
+  const v = isObj(raw) && isObj(raw.byVersion) ? (raw.byVersion as Record<string, unknown>)[String(version)] : null;
+  const out: KindCounts = {};
+  if (isObj(v)) for (const k of MACHINE_KINDS) if (isFiniteNum(v[k]) && (v[k] as number) >= 0) out[k] = Math.floor(v[k] as number);
+  return out;
+};
+/** The machines a finished own run drafted, added to the device's totals. */
+export function recordKinds(picks: readonly MachineKind[], version: number = RULES_VERSION): KindCounts {
+  const counts = loadKinds(version);
+  for (const p of picks) if (MACHINE_KINDS.includes(p)) counts[p] = (counts[p] ?? 0) + 1;
+  writeByVersion(K.kinds, version, counts);
+  return counts;
 }
