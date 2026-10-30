@@ -72,7 +72,7 @@ jobs:
           node --import tsx tools/bundle-size.ts --max 300 --json bundle-size.json
       - name: "First interactive on slow 4G (0.10.2): the title tappable within 4 s on a mid-range phone"
         run: node --import tsx tools/first-interactive.ts --budget 4000 --json first-interactive.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: perf-ci
