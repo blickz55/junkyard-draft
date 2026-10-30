@@ -47,6 +47,15 @@ export const STRINGS = {
 
   // ---- title screen ----
   'title.build': s('build {build}', 'top-left build stamp'),
+  'title.updateReady': s('A new version is ready.', 'the title strip when a new build waits (0.10.3)'),
+  'title.updateRestart': s('Restart with it', 'the update strip button'),
+  'title.installOffer': s(
+    'Add Junkyard Draft to your home screen: the yard a tap away, practice even without a signal.',
+    'the install strip after the second finished run (0.10.3)',
+  ),
+  'title.installBtn': s('Install', 'the install strip button'),
+  'title.installLater': s('Not now', 'the install strip: quiet for two weeks'),
+  'title.installIOS': s('On iPhone or iPad: tap Share, then Add to Home Screen.', 'the install strip where the browser offers no prompt'),
   'title.reportedNote': s(
     'Your name was reported and shows as "{label}" on the boards until a moderator reviews it. Scores are not affected; appeals: see the fairness policy.',
     'under the player button',

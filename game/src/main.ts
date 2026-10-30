@@ -12,6 +12,7 @@ import { verifierUrl as resolveVerifierUrl } from './render/config';
 import { installErrorLog } from './render/errlog';
 import { onStorageFailure } from './render/storage';
 import { showBanner } from './ui/banner';
+import { pwa } from './render/pwa';
 
 // production roadmap 0.8.0: keep the last ten uncaught errors on the device for the title's "Copy diagnostics" button,
 // and say so the moment storage refuses a write instead of losing saves, bests and the name silently
@@ -56,6 +57,7 @@ const game = new Phaser.Game({
   input: { mouse: { preventDefaultWheel: false } },
 });
 viewport.attach(game, container);
+pwa.register(import.meta.env.DEV); // 0.10.3: the service worker in production (the dev server serves none), the install prompt's capture
 
 // opt-in funnel events go to the same verifier the boards use; nothing is sent unless the player turned it on
 telemetry.configure({ url: () => resolveVerifierUrl() });

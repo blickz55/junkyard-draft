@@ -1,0 +1,175 @@
+// Production roadmap 0.10.3: the installable web app against a real production build on a real loopback server (a service
+// worker needs a secure context and fetches of its own, which Playwright's request routing does not see). The worker
+// installs and takes the page; the manifest and its icons are served; offline, the title loads from the cache, says it is
+// offline, and a practice game plays to its results; a second "deploy" is noticed as a waiting worker that the game scene
+// never shows and the title announces, and restarting with it rolls the cache over; the install offer appears after the
+// second finished run when the browser offers a prompt, and "Not now" keeps it quiet.
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { chromium, ROOT, SHOTS, until } from './e2e/fixture.mjs';
+
+const { buildDist } = await import('../scripts/build-lib.mjs');
+const { serveDir } = await import('../tools/static-lib.mjs');
+
+const distA = fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-dist-'));
+const distB = fs.mkdtempSync(path.join(ROOT, 'tools', 'scratch-dist-'));
+const built = await buildDist({ root: ROOT, dist: distA, verifierUrl: 'http://127.0.0.1:9', reports: false });
+// the second deploy: the same build with another worker version (a new commit changes the version string the same way)
+fs.cpSync(distA, distB, { recursive: true });
+fs.writeFileSync(
+  path.join(distB, 'sw.js'),
+  fs.readFileSync(path.join(distA, 'sw.js'), 'utf8').replace(/const VERSION = '[^']*';/, "const VERSION = 'second-deploy';"),
+);
+const srv = await serveDir(distA);
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+const page = await ctx.newPage();
+const errors = [];
+page.on('pageerror', (e) => errors.push(String(e)));
+after(async () => {
+  await browser.close().catch(() => {});
+  await srv.close();
+  for (const d of [distA, distB]) fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+});
+const api = (fn, ...args) => page.evaluate(({ fn, args }) => window.__jd[fn](...args), { fn, args });
+const when = (fn, arg = null, timeout = 20000) => page.waitForFunction(fn, arg, { timeout });
+const title = () => when(() => window.__jdGame && window.__jdGame.scene.isActive('Title') && !!document.querySelector('[data-testid=daily]'));
+/** six rounds through the dev API on the current game scene */
+const playOut = async () => {
+  for (let r = 0; r < 6; r++) {
+    await when(() => !!window.__jd && window.__jd.phase() === 'draft');
+    await page.evaluate(() => {
+      const j = window.__jd;
+      j.pick(j.state().offers.length - 1);
+      j.run();
+    });
+    await when(() => window.__jd.mode() === 'running');
+    await api('finishRun');
+    await when(() => window.__jd.mode() === 'summary');
+    await api('next');
+  }
+  await when(() => window.__jdGame.scene.isActive('Results') && !!document.querySelector('[data-testid=headline]'));
+};
+
+test('the worker installs and takes the page; the manifest and the icons are served; the shell is cached', { timeout: 120000 }, async () => {
+  await page.goto(`${srv.url}/?dev=1`);
+  await title();
+  await when(() => !!navigator.serviceWorker && !!navigator.serviceWorker.controller, null, 30000);
+  const info = await page.evaluate(async () => {
+    const reg = await navigator.serviceWorker.ready;
+    const keys = await caches.keys();
+    const cache = await caches.open(keys[0]);
+    const m = await (await fetch('manifest.webmanifest')).json();
+    const icons = await Promise.all(m.icons.map(async (i) => (await fetch(i.src)).ok));
+    return {
+      active: !!reg.active,
+      scope: reg.scope,
+      keys,
+      cached: (await cache.keys()).length,
+      manifestLink: document.querySelector('link[rel=manifest]')?.getAttribute('href'),
+      name: m.name,
+      icons,
+    };
+  });
+  assert.ok(info.active, 'the worker is active');
+  assert.equal(info.keys.length, 1, 'one shell cache');
+  assert.match(info.keys[0], /^jd-shell-/);
+  assert.ok(info.cached >= built.precache.length, `the shell is cached: ${info.cached} entries for ${built.precache.length} files`);
+  assert.equal(info.manifestLink, './manifest.webmanifest');
+  assert.equal(info.name, 'Junkyard Draft');
+  assert.deepEqual(info.icons, [true, true, true], 'every icon the manifest names is served');
+});
+
+test('offline: the title loads from the cache and says so; a practice game plays from cache to its results', { timeout: 180000 }, async () => {
+  await ctx.setOffline(true);
+  await page.goto(`${srv.url}/?dev=1`);
+  await title();
+  await when(() => /practice/i.test(document.querySelector('[data-testid=daily-mode]')?.textContent || ''));
+  await page.screenshot({ path: path.join(SHOTS, `pwa-offline-title-${Date.now()}.png`) });
+  await page.goto(`${srv.url}/?dev=1&scene=game&seed=pwa-offline`);
+  await playOut();
+  assert.match(await page.textContent('[data-testid=headline]'), /offline/i, 'the results say the game was offline (no board)');
+  await page.screenshot({ path: path.join(SHOTS, `pwa-offline-results-${Date.now()}.png`) });
+  assert.deepEqual(errors, [], 'no page errors offline');
+});
+
+test(
+  'an update: the waiting worker is never announced in the game scene, the title announces it, restarting rolls the cache over',
+  { timeout: 180000 },
+  async () => {
+    await ctx.setOffline(false);
+    // mid-run: a new deploy appears while a game is on; the game scene shows nothing
+    await page.goto(`${srv.url}/?dev=1&scene=game&seed=pwa-update`);
+    await when(() => !!window.__jd && window.__jd.phase() === 'draft');
+    srv.setRoot(distB);
+    await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
+    await when(async () => !!(await navigator.serviceWorker.getRegistration())?.waiting, null, 30000);
+    assert.equal(await page.locator('[data-testid=update-ready]').count(), 0, 'nothing about the update in the game scene');
+    await api('pick', 0);
+    assert.equal(await page.locator('[data-testid=update-ready]').count(), 0, 'still nothing while building');
+    // back on the title: the strip, then the restart
+    await page.evaluate(() => document.querySelector('[data-testid=title]').click());
+    await title();
+    await when(() => !!document.querySelector('[data-testid=update-ready]'));
+    await page.screenshot({ path: path.join(SHOTS, `pwa-update-ready-${Date.now()}.png`) });
+    await page.evaluate(() => {
+      window.__beforeRestart = true;
+    });
+    await page.getByTestId('update-restart').click();
+    await when(() => !window.__beforeRestart, null, 30000); // the page reloaded under the new worker
+    await when(() => !!window.__jd && window.__jd.phase() === 'draft', null, 30000); // the page carried the game URL, so it boots into a fresh game
+    await until(async () => (await page.evaluate(() => caches.keys())).join() === 'jd-shell-second-deploy', {
+      timeout: 20000,
+      what: 'the old shell cache gone',
+    });
+    assert.deepEqual(errors, []);
+  },
+);
+
+test('the install offer: not before the second finished run; then the prompt, Install calls it; Not now keeps it quiet', { timeout: 180000 }, async () => {
+  const fakePrompt = () =>
+    page.evaluate(() => {
+      window.__prompted = 0;
+      const e = new Event('beforeinstallprompt');
+      e.prompt = () => {
+        window.__prompted++;
+        return Promise.resolve();
+      };
+      e.userChoice = Promise.resolve({ outcome: 'accepted' });
+      window.dispatchEvent(e);
+    });
+  await page.evaluate(() => localStorage.removeItem('jd.install.v1'));
+  // one finished run so far (the offline game); a prompt arrives: no offer yet
+  await page.goto(`${srv.url}/?dev=1`);
+  await title();
+  await fakePrompt();
+  await page.waitForTimeout(0);
+  assert.equal(await page.locator('[data-testid=install-offer]').count(), 0, 'one run is too early');
+  // the second finished run, then the title: the offer
+  await page.goto(`${srv.url}/?dev=1&scene=game&seed=pwa-second`);
+  await playOut();
+  await page.evaluate(() => document.querySelector('[data-testid=title]').click());
+  await title();
+  await fakePrompt();
+  await when(() => !!document.querySelector('[data-testid=install-offer]'));
+  await page.screenshot({ path: path.join(SHOTS, `pwa-install-offer-${Date.now()}.png`) });
+  await page.getByTestId('install-later').click();
+  await when(() => !document.querySelector('[data-testid=install-offer]'));
+  await page.goto(`${srv.url}/?dev=1`);
+  await title();
+  await fakePrompt();
+  await page.waitForTimeout(0);
+  assert.equal(await page.locator('[data-testid=install-offer]').count(), 0, '"Not now" keeps the offer quiet');
+  // the snooze over: Install calls the browser's prompt and records the installation
+  await page.evaluate(() => localStorage.setItem('jd.install.v1', JSON.stringify({ dismissedAt: '2020-01-01T00:00:00Z' })));
+  await page.goto(`${srv.url}/?dev=1`);
+  await title();
+  await fakePrompt();
+  await when(() => !!document.querySelector('[data-testid=install-offer]'));
+  await page.getByTestId('install').click();
+  await when(() => window.__prompted === 1 && !document.querySelector('[data-testid=install-offer]'));
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('jd.install.v1')).installed), true);
+  assert.deepEqual(errors, []);
+});

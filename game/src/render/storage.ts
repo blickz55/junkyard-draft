@@ -208,6 +208,22 @@ function write(key: string, value: unknown) {
   }
 }
 
+/** A small JSON record by key (the web-app state, 0.10.3); undefined when absent or unreadable. */
+export function readJson<T>(key: string): T | undefined {
+  return readRaw(key) as T | undefined;
+}
+export function writeJson<T>(key: string, value: T): void {
+  write(key, value);
+}
+/** How many own runs this device has finished under the current rules, over every yard (the install offer waits for the second). */
+export function countRuns(version: number = RULES_VERSION): number {
+  const cur = validateHistory(readRaw(K.history)).byVersion[String(version)];
+  if (!cur) return 0;
+  let n = 0;
+  for (const seed of Object.keys(cur)) if (own(cur, seed)) n += cur[seed].length;
+  return n;
+}
+
 export const loadSettings = (): Settings =>
   validateSettings(readRaw(K.settings), {
     volume: 0.7,

@@ -53,4 +53,8 @@ export default tseslint.config(
     files: ['**/*.{js,mjs,cjs}'],
     rules: { '@typescript-eslint/no-require-imports': 'off' }, // scratch and tooling scripts may use require
   },
+  {
+    files: ['game/sw.js'],
+    languageOptions: { globals: { ...globals.serviceworker } }, // the service worker (0.10.3)
+  },
 );

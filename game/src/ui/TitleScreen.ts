@@ -40,6 +40,7 @@ import { loadPending } from '../render/storage';
 import { openGroups } from './GroupsPanel';
 import { groupHeaders, groupParam, loadGroup, saveGroup } from '../render/groups';
 import { t } from '../content/strings';
+import { pwa } from '../render/pwa';
 import { money, int } from '../content/format';
 
 export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
@@ -132,6 +133,60 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     h('span', { class: 'jd-mono jd-dim', style: 'font-size:0.7em' }, t('title.build', { build: import.meta.env.BUILD })),
     h('div', { class: 'jd-row', style: 'gap:0.5em' }, playerBtn, qualityBtn, statsBtn),
   );
+  // the web app's notices (0.10.3): a new version waiting (never shown mid-run: only the title asks), and the install offer after the second finished run
+  const notices = h('div', { tid: 'notices', style: 'display:flex; flex-direction:column; gap:0.35em' });
+  const updateStrip = () =>
+    h(
+      'div',
+      { class: 'jd-row jd-between jd-panel', tid: 'update-ready', style: 'padding:0.4em 0.8em; border-color:#f0a830' },
+      h('span', { class: 'jd-amber' }, t('title.updateReady')),
+      btn(t('title.updateRestart'), 'update-restart', () => pwa.applyUpdate(), { variant: 'primary', small: true }),
+    );
+  const installStrip = (kind: 'prompt' | 'ios') => {
+    const strip: HTMLElement = h(
+      'div',
+      { class: 'jd-row jd-between jd-panel', tid: 'install-offer', style: 'padding:0.4em 0.8em' },
+      h('span', { style: 'flex:1 1 16em; min-width:0' }, kind === 'ios' ? `${t('title.installOffer')} ${t('title.installIOS')}` : t('title.installOffer')),
+      h(
+        'span',
+        { class: 'jd-row', style: 'gap:0.4em; flex:0 0 auto' },
+        kind === 'prompt'
+          ? btn(
+              t('title.installBtn'),
+              'install',
+              () => {
+                void pwa.promptInstall().then(() => strip.remove());
+              },
+              { variant: 'primary', small: true },
+            )
+          : null,
+        btn(
+          t('title.installLater'),
+          'install-later',
+          () => {
+            pwa.snoozeInstall();
+            strip.remove();
+          },
+          { small: true },
+        ),
+      ),
+    );
+    return strip;
+  };
+  const refreshNotices = () => {
+    if (!notices.isConnected && notices.childElementCount) return;
+    notices.replaceChildren();
+    if (pwa.updateReady) notices.append(updateStrip());
+    const offer = pwa.installOffer();
+    if (offer) notices.append(installStrip(offer));
+  };
+  refreshNotices();
+  const offUpdate = pwa.onUpdateReady(refreshNotices);
+  const offInstall = pwa.onInstallPrompt(refreshNotices);
+  scene.events.once('shutdown', () => {
+    offUpdate();
+    offInstall();
+  });
   // the consent toggle's note carries the link to the privacy notice and the data buttons (production roadmap 0.8.6)
   const privacyLink = h(
     'button',
@@ -624,6 +679,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     'div',
     { class: 'jd-title' },
     top,
+    notices,
     playerNote,
     pendingNote,
     statsNote,

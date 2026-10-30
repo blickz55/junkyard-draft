@@ -8,11 +8,9 @@
  * Exit 1 when the median run is over the budget (ms). Run `npm run build` first.
  */
 import fs from 'node:fs';
-import http from 'node:http';
 import path from 'node:path';
-import zlib from 'node:zlib';
-import type { AddressInfo } from 'node:net';
 import { chromium } from 'playwright';
+import { serveDir } from './static-lib.mjs';
 
 const args = process.argv.slice(2);
 const opt = (k: string, d: string) => {
@@ -24,37 +22,8 @@ const budget = Number(opt('budget', '4000'));
 const runs = Number(opt('runs', '1'));
 const jsonOut = opt('json', '');
 
-const MIME: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.json': 'application/json',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.wav': 'audio/wav',
-  '.txt': 'text/plain; charset=utf-8',
-  '.css': 'text/css',
-};
 /** Lighthouse's "slow 4G" mobile profile */
 export const SLOW_4G = { latency: 150, downloadThroughput: (1.6 * 1024 * 1024) / 8, uploadThroughput: (750 * 1024) / 8 };
-
-function serve(root: string): Promise<http.Server> {
-  const server = http.createServer((req, res) => {
-    let p = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname);
-    if (p === '/') p = '/index.html';
-    const file = path.join(root, p);
-    if (!file.startsWith(root) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
-      res.writeHead(404);
-      res.end();
-      return;
-    }
-    const buf = fs.readFileSync(file);
-    const ext = path.extname(file);
-    const gz = /^\.(js|json|html|svg|css|txt)$/.test(ext) && /gzip/.test(String(req.headers['accept-encoding'] ?? ''));
-    res.writeHead(200, { 'content-type': MIME[ext] ?? 'application/octet-stream', ...(gz ? { 'content-encoding': 'gzip' } : {}) });
-    res.end(gz ? zlib.gzipSync(buf, { level: 9 }) : buf);
-  });
-  return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server)));
-}
 
 export interface FirstInteractive {
   firstInteractiveMs: number;
@@ -99,11 +68,11 @@ if (isMain) {
     console.error(`no build at ${dist}; run npm run build first`);
     process.exit(2);
   }
-  const server = await serve(dist);
-  const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const server = await serveDir(dist);
+  const url = server.url;
   const samples: FirstInteractive[] = [];
   for (let i = 0; i < runs; i++) samples.push(await measureOnce(url));
-  server.close();
+  await server.close();
   const sorted = samples.map((s) => s.firstInteractiveMs).sort((a, b) => a - b);
   const median = sorted[Math.floor(sorted.length / 2)];
   const ok = median <= budget;

@@ -43,7 +43,7 @@ test('hardened production build: ?verifier= ignored off loopback, CSP holds thro
   const errors = [];
   /** A context whose game.example origin serves the scratch dist, with the attacker and the verifier stubbed. */
   async function context(initScript) {
-    const ctx = await browser.newContext({ viewport: { width: 1120, height: 700 } });
+    const ctx = await browser.newContext({ viewport: { width: 1120, height: 700 }, serviceWorkers: 'block' }); // 0.10.3: the routed origin is not a real server; the worker has its own e2e
     await ctx.route(`${ORIGIN}/**`, (route) => {
       const u = new URL(route.request().url());
       const rel = u.pathname === '/' ? 'index.html' : decodeURIComponent(u.pathname.slice(1));

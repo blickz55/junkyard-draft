@@ -38,6 +38,9 @@ test('deploy: _headers template renders the CSP header (with frame-ancestors) an
   assert.equal(headersFor(rules, '/main-OTHERHSH.js')['Cache-Control'], undefined, "only this build's bundle name is immutable");
   assert.equal(headersFor(rules, '/sfx/hit.wav')['Cache-Control'], 'public, max-age=86400');
   assert.equal(headersFor(rules, '/art/x/y.png')['Cache-Control'], 'public, max-age=86400', '* spans path segments');
+  assert.equal(headersFor(rules, '/sw.js')['Cache-Control'], 'no-cache', 'the service worker is revalidated on every check (0.10.3)');
+  assert.equal(headersFor(rules, '/manifest.webmanifest')['Cache-Control'], 'no-cache');
+  assert.equal(headersFor(rules, '/icons/icon-192.png')['Cache-Control'], 'public, max-age=86400');
   // the matcher: literal dots, * and :segment
   assert.equal(patternToRegExp('/build.json').test('/buildxjson'), false);
   assert.equal(patternToRegExp('/sfx/*').test('/sfx/a/b.wav'), true);
@@ -46,7 +49,18 @@ test('deploy: _headers template renders the CSP header (with frame-ancestors) an
   assert.throws(() => renderHeaders(template, { verifierUrl: 'https://v', bundle: '' }), /bundle file name required/);
   // Cache-Control rules never overlap, so no rule's value depends on Cloudflare's merge order
   const cacheRules = rules.filter((r) => 'Cache-Control' in r.headers).map((r) => r.path);
-  for (const p of ['/', '/index.html', '/build.json', '/policy.json', '/main-ABCDEFGH.js', '/sfx/hit.wav', '/art/a.png'])
+  for (const p of [
+    '/',
+    '/index.html',
+    '/build.json',
+    '/policy.json',
+    '/main-ABCDEFGH.js',
+    '/sfx/hit.wav',
+    '/art/a.png',
+    '/sw.js',
+    '/manifest.webmanifest',
+    '/icons/icon-512.png',
+  ])
     assert.equal(cacheRules.filter((cp) => patternToRegExp(cp).test(p)).length, 1, `exactly one Cache-Control rule for ${p}`);
 });
 

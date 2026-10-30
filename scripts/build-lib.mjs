@@ -48,6 +48,35 @@ export async function buildDist({ root, dist, verifierUrl = process.env.VERIFIER
     path.join(dist, 'build.json'),
     JSON.stringify({ version: pkg.version, commit, builtAt: new Date().toISOString(), dev: false, verifierUrl, bundle }, null, 2),
   );
+  // 0.10.3: the service worker with this build's shell list (everything in dist but the worker itself and the Pages header file)
+  const precache = listFiles(dist).filter((p) => p !== 'sw.js' && p !== '_headers');
+  fs.writeFileSync(
+    path.join(dist, 'sw.js'),
+    renderServiceWorker(fs.readFileSync(path.join(root, 'game', 'sw.js'), 'utf8'), { version: `${pkg.version}+${commit}`, precache }),
+  );
   const size = fs.statSync(path.join(dist, bundle)).size;
-  return { size, commit, version: pkg.version, bundle };
+  return { size, commit, version: pkg.version, bundle, precache };
+}
+
+/** Every file under a directory as a posix path relative to it, sorted. */
+export function listFiles(dir, base = dir) {
+  const out = [];
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...listFiles(p, base));
+    else out.push(path.relative(base, p).split(path.sep).join('/'));
+  }
+  return out.sort();
+}
+/** Fill the service worker template: __VERSION__ (the cache's name) and __PRECACHE__ (the shell's relative paths). */
+export function renderServiceWorker(template, { version, precache }) {
+  if (!template.includes('__VERSION__') || !template.includes('__PRECACHE__')) throw new Error('sw.js template: placeholders missing');
+  if (!precache.includes('index.html')) throw new Error('sw.js: the shell list must carry index.html');
+  const v = version.replace(/[^A-Za-z0-9.+-]/g, '');
+  const out = template
+    .replace("const VERSION = '__VERSION__';", `const VERSION = '${v}';`)
+    .replace('const PRECACHE = __PRECACHE__;', `const PRECACHE = ${JSON.stringify(precache)};`);
+  if (!out.includes(`const VERSION = '${v}';`) || out.includes('const PRECACHE = __PRECACHE__;'))
+    throw new Error('sw.js template: the version or the shell list did not render');
+  return out;
 }
