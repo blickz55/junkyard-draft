@@ -1,12 +1,9 @@
-import { verifierUrl as resolveVerifierUrl } from '../config';
 import { t } from '../../content/strings';
 import { money } from '../../content/format';
-import { machineName } from '../../content/machines';
-import { recommendFirstPick } from '../../content/firstpick';
 import { forkLabel } from '../../content/fork';
 import { tipForMachine } from '../../content/tips';
 import { explainRunError, placementWarning } from '../../content/advice';
-import { foremanSays, type Situation } from '../../content/foreman';
+import { foremanSays } from '../../content/foreman';
 import Phaser from 'phaser';
 import { applyDpr, DPR } from '../dpr';
 import type { Challenge } from '../challenge';
@@ -14,32 +11,31 @@ import { forkFrom } from '../../sim/fork';
 import type { ForkOrigin } from '../../sim/run';
 import { RULES_VERSION } from '../../sim/types';
 import { decideQuality, QUALITY_PROBE_FRAMES } from '../quality';
-import { inputTravelDirs, outputDirs } from '../../sim/advice';
-import { analyseRound } from '../../sim/bottleneck';
-import { bottleneckLine } from '../../content/bottleneck';
+import { InputController, type InputHost } from '../InputController';
+import { SimView } from '../SimView';
+import { forkPayload, reportPlayer, type ReplayOrigin } from '../replayActions';
+import { hintFor } from '../guide';
+import { StallMonitor, stallText } from '../StallMonitor';
+import { PopPool } from '../PopPool';
+import { GameTelemetry } from '../GameTelemetry';
+import { flowLinks, drawFlowLinks, type FlowLink } from '../FlowOverlay';
 import { isTutorialSeed, type Action, type RoundRecord, type RunState } from '../../sim/run';
-import { runLayout } from '../../sim/sim';
-import { cellIndex, type SimState } from '../../sim/sim';
+import type { SimState } from '../../sim/sim';
 import { RoundController, type Mode } from '../RoundController';
 import { TipsPanel } from '../../ui/TipsPanel';
 import { GamePanel, type PanelState } from '../../ui/GamePanel';
 import { telemetry } from '../telemetry';
-import { DIR_DX, DIR_DY, leftOf, rightOf, RULES } from '../../sim/rules';
-import type { Dir, Machine, Material, SimEvent } from '../../sim/types';
-import { BELT_FRAMES, CELL, itemTexture, machineTexture } from '../textures';
-import { baseScale, fit, setArt } from '../atlas';
-import { ui, dialog, alertText } from '../../ui/dom';
-import { reportName } from '../verified';
-import { REPORT_REASONS } from '../../identity/identity';
+import { RULES } from '../../sim/rules';
+import type { SimEvent } from '../../sim/types';
+import { CELL } from '../textures';
+import { fit } from '../atlas';
 import { label, panel } from '../ui';
 import { CSS, FONT, P } from '../palette';
 import { audio } from '../audio';
 import { clearSave, isOnboarded, loadBests, loadReadTips, loadSettings, setOnboarded, updateSettings, writeSave } from '../storage';
 import { BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y } from '../layout';
 import { installDevApi } from '../devapi';
-import { prefs, px as fpx } from '../prefs';
-
-interface MachineView { c: Phaser.GameObjects.Container; img: Phaser.GameObjects.Image; belt?: Phaser.GameObjects.Image; m: Machine; inBin: boolean }
+import { prefs } from '../prefs';
 
 export class GameScene extends Phaser.Scene {
   /** authoritative run state, mode machine, sim pacing, undo/redo and playback live in the controller; the scene renders and routes input */
@@ -50,70 +46,31 @@ export class GameScene extends Phaser.Scene {
   private get speed() { return this.ctl.speed; }
   private get replayQueue() { return this.ctl.replayQueue; }
   private get replayLabel() { return this.ctl.replayLabel; }
-  /** Continue the watched replay from the round just finished as a practice fork (PLAN-v4 0.7.3). */
-  private forkHere() {
-    const o = this.replayOrigin; const n = this.run.rounds.length;
-    if (!o || n < 1 || n >= RULES.rounds) return;
-    audio.unlock();
-    this.scene.start('Game', { seed: this.run.seed, fresh: false, fork: { origin: { hash: o.hash, player: o.player }, actions: o.actions, round: n } });
-  }
-  /** Report the watched replay's player name (PLAN-v4 0.7.7): one reason from the fixed list, no free text. */
-  private reportName() {
-    const hash = this.replayOrigin?.hash; if (!hash) return;
-    const verifierUrl = resolveVerifierUrl();
-    void dialog(this, { title: t('report.title', { player: this.replayOrigin!.player }), label: t('report.label'), value: '', readonly: true, ok: t('common.closeShort'), cancel: null,
-      extra: REPORT_REASONS.map((reason) => ({ label: reason, tid: `report-${reason}`, onClick: () => { void reportName(verifierUrl, hash, reason).then((line) => alertText(this, t('report.result'), line)); } })) });
-  }
+  /** Continue the watched replay from the round just finished as a practice fork (PLAN-v4 0.7.3; render/replayActions.ts). */
+  private forkHere() { const p = forkPayload(this.run, this.replayOrigin); if (!p) return; audio.unlock(); this.scene.start('Game', p); }
   private get replayRounds() { return this.ctl.replayRounds; }
-  private lastFrame = 0;
-  private beltFrame = 0;
-  private views = new Map<number, MachineView>();
-  private itemSprites = new Map<number, Phaser.GameObjects.Image>();
-  private hover!: Phaser.GameObjects.Image;
-  private ghostGfx!: Phaser.GameObjects.Graphics;
-  private lastReject = '';
-  /** the toast at a cell (production roadmap 0.9.3): a refusal or a warning; it stays until the next action, never on a timer */
-  private toast: { text: string; kind: 'refusal' | 'warning'; x: number; y: number } | null = null;
-  /** the flow overlay (0.9.3): translucent links drawn from inputTravelDirs/outputDirs in the build phase; its counts for the dev API */
+  /** the flow overlay (0.9.3): translucent links drawn from inputTravelDirs/outputDirs in the build phase (render/FlowOverlay.ts) */
   private flowGfx!: Phaser.GameObjects.Graphics;
-  private flowStats = { links: 0, loose: 0 };
-  private selection!: Phaser.GameObjects.Image;
-  private selectedId: number | null = null;
+  private flow: FlowLink[] = [];
+  /** the yard's sprites: machines, items, jam and stall marks, per-tick effects (render/SimView.ts) */
+  private view!: SimView;
   /** HUD, side panel, hint strip, result banner and badges are DOM (ui/GamePanel.ts); the canvas keeps the factory */
   private panel!: GamePanel;
-  private jamMarks = new Map<number, Phaser.GameObjects.Image>();
-  private tutorial = false;
-  private tutorialStep = 0;
-  private dragging: MachineView | null = null;
-  private dragFrom: { x: number; y: number } | null = null;
-  /** keyboard placement: grid cursor (null = hidden) and the machine currently held "in hand" */
-  private cursor: { x: number; y: number } | null = null;
-  private cursorImg!: Phaser.GameObjects.Image;
-  private heldId: number | null = null;
-  /** reused per frame / per tick to avoid allocating sets in the hot path */
-  private readonly aliveIds = new Set<number>();
-  private readonly jammedNow = new Set<number>();
-  /** +$ pops are pooled: a busy round ships dozens of items and a fresh Text per ship rasterised a canvas each time (0.3.9) */
-  static readonly POP_POOL = 16;
-  private popPool: Phaser.GameObjects.Text[] = [];
-  private popsAlive = 0;
-  private popsPeak = 0;
-  private popsSkipped = 0;
-  private readonly shipsThisTick = new Map<number, number>();
-  private lastShortcutAt = -1000;
+  /** pointer, keyboard, cursor, selection and their feedback (render/InputController.ts) */
+  private inputCtl!: InputController;
+  private tutorial = false; private tutorialStep = 0;
+  /** +$ pops are pooled (0.3.9; render/PopPool.ts) */
+  private pops!: PopPool;
+  /** the funnel's observer on the controller hooks (render/GameTelemetry.ts) */
+  private tele!: GameTelemetry;
   /** tips (PLAN-v1 0.3.6): the panel and the tip suggested by the most recent first-time draft (badge on the Tips button) */
   private tips!: TipsPanel;
   private suggestedTip: string | null = null;
-  /** stall indicator (PLAN-v1 0.3.5): tick of the last ship this round, the cell currently flagged, its frame */
-  static readonly STALL_TICKS = 8;
-  private lastShipTick = 0;
-  private stallTick = -1; // sim tick at which the current stall began; read by the dev API so a test's answer never depends on how late it polls
-  private stallCell: number | null = null;
-  private stallMark!: Phaser.GameObjects.Image;
+  /** stall indicator (PLAN-v1 0.3.5): the state machine is render/StallMonitor.ts; the scene draws its mark */
+  private readonly stall = new StallMonitor();
   /** money heartbeat: the HUD total is re-rasterised at most every HUD_MS (a Text update is a canvas draw + texture upload; at 4x it would be one per frame) */
   static readonly HUD_MS = 100;
-  private hudDirty = false;
-  private lastHudAt = 0;
+  private hudDirty = false; private lastHudAt = 0; private lastFrame = 0;
   /** adaptive resolution: frame deltas of the first 120 running frames at DPR > 1 while renderQuality is still 'auto' */
   private dprProbe: number[] | null = null;
 
@@ -122,7 +79,7 @@ export class GameScene extends Phaser.Scene {
   /** A challenge being played (PLAN-v4 0.7.1); only when it names this very seed, so an overlay never appears on another seed. */
   private challenge: Challenge | null = null;
   /** the watched replay's identity, so a fork can name its origin (PLAN-v4 0.7.3) */
-  private replayOrigin: { hash: string | null; player: string; actions: Action[] } | null = null;
+  private replayOrigin: ReplayOrigin | null = null;
   init(data: { seed: string; fresh: boolean; replay?: Action[]; actions?: Action[]; replayLabel?: string; challenge?: Challenge; replayHash?: string; replayPlayer?: string; fork?: { origin: Omit<ForkOrigin, 'round'>; actions: Action[]; round: number } }) {
     this.challenge = data.challenge && data.challenge.seed === data.seed && !data.replay && !data.fork ? data.challenge : null;
     this.replayOrigin = data.replay ? { hash: data.replayHash ?? null, player: data.replayPlayer ?? 'replay', actions: data.replay } : null;
@@ -132,66 +89,60 @@ export class GameScene extends Phaser.Scene {
       data = { seed: data.seed, fresh: false, actions: f.actions.slice() };
       forked = f.forkedFrom!;
     }
-    this.ctl = new RoundController(data, {
+    this.tele = new GameTelemetry(telemetry, { watching: () => this.replayLabel != null, seed: () => this.run.seed, round: () => this.run.round });
+    this.ctl = new RoundController(data, this.tele.observe({
       onTick: (evs) => this.onTickEvents(evs),
       onRunStart: () => this.onRunStart(),
       onPause: (p) => this.onPause(p),
       onRoundEnd: (rec, visual) => this.onRoundEnd(rec, visual),
-      onNextRound: () => { this.heldId = null; this.syncMachines(); this.renderSide(); this.updateHint(); },
-      onFinished: () => { telemetry.track('game_complete', { mode: this.replayLabel ? 'replay' : this.run.seed.startsWith('daily-') ? 'daily' : 'seed' }); this.scene.start('Results', { run: this.run, replayed: this.replayLabel != null, replayLabel: this.replayLabel ?? undefined, challenge: this.challenge ?? undefined, replayHash: this.replayOrigin?.hash ?? undefined, replayPlayer: this.replayOrigin?.player }); },
+      onNextRound: () => { this.inputCtl.heldId = null; this.syncMachines(); this.renderSide(); this.updateHint(); },
+      onFinished: () => { this.scene.start('Results', { run: this.run, replayed: this.replayLabel != null, replayLabel: this.replayLabel ?? undefined, challenge: this.challenge ?? undefined, replayHash: this.replayOrigin?.hash ?? undefined, replayPlayer: this.replayOrigin?.player }); },
       onStateChange: (a) => this.onStateChange(a),
-      onReject: (a, message) => { if (a.t === 'place') { this.panel?.setForeman(foremanSays('refused')); this.showReject(explainRunError(message), { x: a.x, y: a.y }); telemetry.track('first_place_attempt'); telemetry.track('first_place_rejected', { reason: /occupied/i.test(message) ? 'occupied' : /bounds/i.test(message) ? 'out_of_bounds' : 'other' }); } },
+      onReject: (a, message) => { if (a.t === 'place') { this.panel?.setForeman(foremanSays('refused')); this.inputCtl.showReject(explainRunError(message), { x: a.x, y: a.y }); } },
       onPlaybackDone: () => { this.syncMachines(); this.renderSide(); },
       persist: (seed, actions) => { if (!this.run.forkedFrom) writeSave(seed, actions); }, // a fork is never the player's save: resuming it would lose the mark and make it submittable
       schedule: (ms, fn) => { this.time.delayedCall(ms, fn); },
-    });
+    }));
     if (forked) this.run.forkedFrom = forked; // PLAN-v4 0.7.3: the resumed state is now a labelled practice fork
     if (data.fresh && !data.replay) telemetry.gameStart(data.seed);
     if (this.ctl.resumeNotice) clearSave(); // a damaged save is dropped so the title stops offering it; the notice is shown once
     this.tutorial = isTutorialSeed(data.seed) && !this.replayQueue; // the tutorial seed carries the lesson; other seeds get one pointer to it
     this.tutorialStep = 0;
-    this.views.clear(); this.itemSprites.clear(); this.jamMarks.clear();
-    this.selectedId = null; this.dragging = null;
-    this.cursor = null; this.heldId = null;
+    this.view?.clear();
   }
 
   create() {
     // the scene instance is reused across scene.start(): anything cached on it from the previous life was destroyed at shutdown
-    this.popPool = []; this.popsAlive = 0; this.popsPeak = 0; this.popsSkipped = 0;
+    this.pops = new PopPool({ make: () => this.add.text(0, 0, '', { fontFamily: FONT, fontStyle: 'bold' }).setOrigin(0.5).setDepth(8).setVisible(false), tween: (cfg) => { this.tweens.add(cfg); } });
     this.cameras.main.setBackgroundColor(P.bg);
     applyDpr(this);
     this.input.mouse?.disableContextMenu();
     this.buildStatic();
-    this.hover = fit(this.add.image(0, 0, 'tile-ok')).setOrigin(0).setVisible(false).setDepth(5);
-    this.ghostGfx = this.add.graphics().setDepth(6);
     this.flowGfx = this.add.graphics().setDepth(3);
-    this.stallMark = fit(this.add.image(0, 0, 'tile-sel')).setOrigin(0).setDepth(7).setTint(P.red).setVisible(false).setName('stall-mark');
-    this.selection = fit(this.add.image(0, 0, 'tile-sel')).setOrigin(0).setVisible(false).setDepth(6);
-    this.cursorImg = fit(this.add.image(0, 0, 'tile-cursor')).setOrigin(0).setVisible(false).setDepth(6);
+    this.view = new SimView(this, (x, y) => this.cellXY(x, y), (i) => this.binSlot(i)).attach();
+    this.inputCtl = new InputController(this, this.inputHost()).attach();
     this.panel = new GamePanel(this, {
       pick: (i) => this.pick(i), startRun: () => this.startRun(), setPaused: (p) => this.setPaused(p), finishRun: () => this.finishRun(), stopReplay: () => this.stopReplay(),
       setSpeed: (s) => this.ctl.setSpeed(s), stepTick: () => this.stepTick(), undo: () => this.undo(), redo: () => this.redo(), openTips: (id) => this.openTips(id ?? this.suggestedTip ?? undefined), rotateSelected: () => this.rotateSelected(),
       toBin: (id) => { this.act({ t: 'unplace', id }); this.syncMachines(); },
-      sell: (id) => { if (this.act({ t: 'sell', id })) { audio.ship(RULES.sellValue); this.selectedId = null; this.syncMachines(); this.renderSide(); } },
+      sell: (id) => { if (this.act({ t: 'sell', id })) { audio.ship(RULES.sellValue); this.inputCtl.selectedId = null; this.syncMachines(); this.renderSide(); } },
       nextRound: () => this.nextRound(), toTitle: () => this.scene.start('Title'), toggleMute: () => { audio.setMuted(!audio.muted); return audio.muted; },
-      reroll: () => { if (this.replayQueue) return; if (this.act({ t: 'reroll' })) { audio.lockIn(); if (!this.replayLabel) telemetry.track('reroll_used', { n: this.run.round }); this.renderSide(); } },
+      reroll: () => { if (this.replayQueue) return; if (this.act({ t: 'reroll' })) { audio.lockIn(); this.renderSide(); } },
       forkHere: () => this.forkHere(),
-      ...(this.replayOrigin?.hash ? { reportName: () => this.reportName() } : {}),
+      ...(this.replayOrigin?.hash ? { reportName: () => reportPlayer(this, this.replayOrigin!) } : {}),
     }, this.run.seed, this.replayLabel, audio.muted, this.run.forkedFrom ? forkLabel(this.run.forkedFrom) : null);
     this.tips = new TipsPanel(this, () => this.renderSide());
     this.suggestedTip = null;
     this.updateHud();
     this.syncMachines();
     this.renderSide();
-    this.setupInput();
     this.updateHint();
     installDevApi(this);
-    this.events.on('shutdown', () => { audio.humStop(false); this.views.clear(); this.itemSprites.clear(); this.tips.close(); this.panel.destroy(); });
+    this.events.on('shutdown', () => { audio.humStop(false); this.view.clear(); this.tips.close(); this.panel.destroy(); });
     if (this.replayQueue) this.time.delayedCall(600, () => this.ctl.advanceReplay());
     if (this.mode === 'summary') this.showSummary();
   }
 
-  // ---------- static scenery ----------
   private buildStatic() {
     for (let y = 0; y < RULES.gridHeight; y++) for (let x = 0; x < RULES.gridWidth; x++) fit(this.add.image(GRID_X + x * CELL, GRID_Y + y * CELL, 'tile')).setOrigin(0);
     this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H).setOrigin(0).setStrokeStyle(2, P.panelLine);
@@ -206,280 +157,51 @@ export class GameScene extends Phaser.Scene {
   }
   private updateHud() { this.panel.setHud(this.run, this.run.score, false); }
 
-  // ---------- machine views ----------
   private cellXY(x: number, y: number) { return { px: GRID_X + x * CELL, py: GRID_Y + y * CELL }; }
   private binSlot(i: number) { return { px: GRID_X + 12 + i * (CELL + 8), py: BIN_Y + 28 }; }
 
-  private makeView(m: Machine): MachineView {
-    const c = this.add.container(0, 0).setDepth(2);
-    const img = fit(this.add.image(CELL / 2, CELL / 2, machineTexture(m.kind)));
-    c.add(img);
-    let belt: Phaser.GameObjects.Image | undefined;
-    if (m.kind === 'conveyor') { belt = fit(this.add.image(CELL / 2, CELL / 2, 'belt-0')); c.add(belt); }
-    c.setSize(CELL, CELL);
-    img.setInteractive({ useHandCursor: true, draggable: true });
-    this.input.setDraggable(img);
-    const v: MachineView = { c, img, belt, m, inBin: false };
-    img.setData('view', v);
-    return v;
-  }
+  /** Machines follow the run (render/SimView.ts); a held machine that vanished is let go; the cursor, the selection and the overlay follow. */
   syncMachines() {
-    const alive = new Set<number>();
-    const place = (m: Machine, inBin: boolean, px: number, py: number) => {
-      let v = this.views.get(m.id);
-      if (!v) { v = this.makeView(m); this.views.set(m.id, v); v.c.setPosition(px, py); }
-      v.m = m; v.inBin = inBin; alive.add(m.id);
-      const held = this.heldId === m.id && this.cursor ? this.cellXY(this.cursor.x, this.cursor.y) : null;
-      if (held) { px = held.px; py = held.py; }
-      if (!this.dragging || this.dragging.m.id !== m.id) { if (prefs.reducedMotion) v.c.setPosition(px, py); else this.tweens.add({ targets: v.c, x: px, y: py, duration: 120, ease: 'Quad.out' }); }
-      v.img.setAngle(m.dir * 90); v.belt?.setAngle(m.dir * 90);
-      v.c.setDepth(held ? 10 : 2);
-      v.c.setAlpha(held ? 0.85 : inBin ? 0.95 : 1);
-    };
-    this.run.layout.machines.forEach((m) => { const { px, py } = this.cellXY(m.x, m.y); place(m, false, px, py); });
-    this.run.bin.forEach((m, i) => { const { px, py } = this.binSlot(i); place(m, true, px, py); });
-    for (const [id, v] of this.views) if (!alive.has(id)) { v.c.destroy(); this.views.delete(id); }
-    if (this.heldId != null && !alive.has(this.heldId)) this.heldId = null;
-    this.updateSelection();
-    this.updateCursor();
+    const alive = this.view.sync(this.run, this.inputCtl);
+    if (this.inputCtl.heldId != null && !alive.has(this.inputCtl.heldId)) this.inputCtl.heldId = null;
+    this.inputCtl.refresh();
     this.drawFlow();
   }
-  private updateSelection() {
-    const v = this.selectedId != null ? this.views.get(this.selectedId) : undefined;
-    if (!v || v.inBin) { this.selection.setVisible(false); return; }
-    const { px, py } = this.cellXY(v.m.x, v.m.y); this.selection.setPosition(px, py).setVisible(true);
-  }
-
-  // ---------- input ----------
-  private setupInput() {
-    const toCell = (p: Phaser.Input.Pointer) => {
-      const x = Math.floor((p.worldX - GRID_X) / CELL), y = Math.floor((p.worldY - GRID_Y) / CELL); // world coordinates: the camera is zoomed on HiDPI
-      return x >= 0 && y >= 0 && x < RULES.gridWidth && y < RULES.gridHeight ? { x, y } : null;
+  // ---------- input (render/InputController.ts) ----------
+  private inputHost(): InputHost {
+    const scene = this;
+    return {
+      get mode() { return scene.mode; }, get run() { return scene.run; },
+      get playback() { return scene.replayQueue != null; }, get watching() { return scene.replayLabel != null; },
+      get tipsOpen() { return scene.tips?.isOpen ?? false; },
+      act: (a) => this.act(a), syncMachines: () => this.syncMachines(), renderSide: () => this.renderSide(),
+      startRun: () => this.startRun(), nextRound: () => this.nextRound(), setPaused: (p) => this.setPaused(p), stepTick: () => this.stepTick(), stopReplay: () => this.stopReplay(), closeTips: () => this.closeTips(), pick: (i) => this.pick(i), undo: () => { this.undo(); }, redo: () => { this.redo(); },
+      setToast: (toast) => this.panel?.setToast(toast), cellXY: (x, y) => this.cellXY(x, y),
     };
-    this.input.on('dragstart', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image) => {
-      if (this.mode !== 'build' || this.replayQueue) return;
-      const v = obj.getData('view') as MachineView; if (!v) return;
-      this.heldId = null; this.updateCursor(); this.clearToast();
-      this.dragging = v; this.dragFrom = { x: v.c.x, y: v.c.y }; v.c.setDepth(10); this.selectedId = v.m.id; this.updateSelection(); this.renderSide();
-    });
-    this.input.on('drag', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image, dx: number, dy: number) => {
-      const v = this.dragging; if (!v || obj !== v.img) return;
-      if (this.mode !== 'build') { this.cancelDrag(); return; } // the round started under the pointer: the layout is frozen
-      v.c.setPosition(dx - CELL / 2, dy - CELL / 2);
-      const cell = toCell(p);
-      if (cell) {
-        const occ = this.run.layout.machines.find((m) => m.x === cell.x && m.y === cell.y && m.id !== v.m.id);
-        const { px, py } = this.cellXY(cell.x, cell.y);
-        setArt(this.hover, occ ? 'tile-bad' : 'tile-ok').setPosition(px, py).setVisible(true);
-        if (occ) { this.hideGhost(); } else this.showGhost(v.m, cell.x, cell.y);
-      } else { this.hover.setVisible(false); this.hideGhost(); this.clearToast('warning'); }
-    });
-    this.input.on('dragend', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image) => {
-      const v = this.dragging; if (!v || obj !== v.img) return;
-      if (this.mode !== 'build') { this.cancelDrag(); return; } // drop after the round started: no edit, snap back
-      this.dragging = null; this.hover.setVisible(false); this.hideGhost(); v.c.setDepth(2);
-      const cell = toCell(p);
-      const inBinArea = p.worldY >= BIN_Y && p.worldY <= BIN_Y + 110 && p.worldX >= GRID_X && p.worldX <= GRID_X + GRID_W;
-      if (cell) {
-        const ok = this.act({ t: 'place', id: v.m.id, x: cell.x, y: cell.y, dir: v.m.dir });
-        if (ok) audio.place(); else { audio.invalid(); this.flashBad(cell.x, cell.y); }
-      } else if (inBinArea && !v.inBin) { this.act({ t: 'unplace', id: v.m.id }); audio.place(); }
-      this.syncMachines();
-    });
-    this.input.on('gameobjectdown', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
-      const v = (obj as Phaser.GameObjects.Image).getData?.('view') as MachineView | undefined;
-      if (!v || this.mode !== 'build') return;
-      this.selectedId = v.m.id; this.updateSelection(); this.renderSide();
-      if (p.rightButtonDown()) this.rotateSelected();
-    });
-    const kb = this.input.keyboard;
-    // Gameplay shortcuts belong to the grid (review F05): they stand down while a DOM control has focus (Enter/Space/Tab
-    // then keep their native meaning on buttons and inputs) and while the tips panel or a dialog is open. No global
-    // capture: the handled keys call preventDefault themselves, so arrows never scroll and Tab never leaves the grid.
-    const domFocus = () => { const a = document.activeElement; return !!a && a !== document.body && a.tagName !== 'CANVAS' && !a.classList.contains('jd-screen'); };
-    const gridKeys = (e?: KeyboardEvent) => { if (this.tips.isOpen || ui.dialogOpen || domFocus()) return false; e?.preventDefault(); return true; };
-    kb?.on('keydown-R', (e: KeyboardEvent) => { if (gridKeys(e)) this.rotateSelected(); });
-    // Phaser queues a modifier+key keydown twice in Chromium (two listeners, differing timeStamps slip past its own bailout); one shortcut per 30 ms
-    const once = (e: KeyboardEvent) => { if (e.timeStamp - this.lastShortcutAt < 30) return false; this.lastShortcutAt = e.timeStamp; return true; };
-    kb?.on('keydown-Z', (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && once(e) && gridKeys()) { e.preventDefault(); if (e.shiftKey) this.redo(); else this.undo(); } });
-    kb?.on('keydown-Y', (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && once(e) && gridKeys()) { e.preventDefault(); this.redo(); } });
-    kb?.on('keydown-SPACE', (e: KeyboardEvent) => { if (!gridKeys(e)) return; if (this.mode === 'build' && this.run.phase === 'build') this.startRun(); else if (this.mode === 'summary') this.nextRound(); });
-    kb?.on('keydown-ESC', () => { if (ui.dialogOpen) return; if (this.tips.isOpen) this.closeTips(); else if (domFocus()) (document.activeElement as HTMLElement).blur(); else if (this.replayLabel) this.stopReplay(); else if (this.mode === 'running') this.setPaused(true); else if (this.mode === 'paused') this.setPaused(false); else this.keyEscape(); });
-    kb?.on('keydown-M', () => { if (gridKeys()) audio.setMuted(!audio.muted); });
-    kb?.on('keydown-PERIOD', (e: KeyboardEvent) => { if (gridKeys(e) && this.mode === 'paused') this.stepTick(); }); // 0.8.12: one tick while paused
-    kb?.on('keydown-DELETE', (e: KeyboardEvent) => { if (gridKeys(e)) this.keyDelete(); });
-    kb?.on('keydown-BACKSPACE', (e: KeyboardEvent) => { if (gridKeys(e)) this.keyDelete(); });
-    // keyboard-only placement: arrows move the cursor, Enter places / picks up, Tab cycles bin parts
-    kb?.on('keydown-UP', (e: KeyboardEvent) => { if (gridKeys(e)) this.moveCursor(0, -1); });
-    kb?.on('keydown-DOWN', (e: KeyboardEvent) => { if (gridKeys(e)) this.moveCursor(0, 1); });
-    kb?.on('keydown-LEFT', (e: KeyboardEvent) => { if (gridKeys(e)) this.moveCursor(-1, 0); });
-    kb?.on('keydown-RIGHT', (e: KeyboardEvent) => { if (gridKeys(e)) this.moveCursor(1, 0); });
-    kb?.on('keydown-ENTER', (e: KeyboardEvent) => { if (gridKeys(e)) this.keyEnter(); });
-    kb?.on('keydown-TAB', (e: KeyboardEvent) => { if (gridKeys(e)) this.keyTab(); });
-    for (const n of [1, 2, 3]) kb?.on(`keydown-${['ONE', 'TWO', 'THREE'][n - 1]}`, () => { if (gridKeys() && this.run.phase === 'draft' && !this.replayQueue) this.pick(n - 1); });
-    const onBlur = () => { if (this.mode === 'running') this.setPaused(true); };
-    this.game.events.on(Phaser.Core.Events.BLUR, onBlur);
-    this.events.once('shutdown', () => this.game.events.off(Phaser.Core.Events.BLUR, onBlur)); // one handler per scene life, not one per create()
   }
-  /** Abandon an in-progress pointer drag without applying anything: the view snaps back to its logical cell or bin slot. */
-  private cancelDrag() {
-    const v = this.dragging; if (!v) return;
-    this.dragging = null; this.dragFrom = null; this.hover.setVisible(false); this.hideGhost(); this.clearToast('warning'); v.c.setDepth(2);
-    this.syncMachines();
-  }
-  /** Refusal reason as a toast at the cell it was aimed at (production roadmap 0.9.3): it stays until the next action, never two seconds; the hint strip keeps its own hint. */
-  private showReject(text: string, cell: { x: number; y: number } | null) {
-    this.lastReject = text;
-    this.showToast({ text, kind: 'refusal', x: cell?.x ?? this.cursor?.x ?? 0, y: cell?.y ?? this.cursor?.y ?? 0 });
-  }
-  private showToast(toast: { text: string; kind: 'refusal' | 'warning'; x: number; y: number }) { this.toast = toast; this.panel?.setToast(toast); }
-  /** Hide the toast; with a kind, only a toast of that kind (a refusal outlives a ghost warning's coming and going). */
-  private clearToast(kind?: 'refusal' | 'warning') { if (!this.toast || (kind && this.toast.kind !== kind)) return; this.toast = null; this.panel?.setToast(null); }
+  rotateSelected() { this.inputCtl.rotateSelected(); }
+  /** keyboard cursor and the machine in hand (dev API / tests) */
+  cursorInfo() { return this.inputCtl.cursorInfo(); }
   /** The toast on screen (dev API / tests). */
-  toastInfo() { return this.toast; }
-  /**
-   * The flow overlay (0.9.3): for every placed machine and each of its output directions, a translucent amber chevron across the
-   * shared edge when the neighbour takes items from that direction (geometry from inputTravelDirs/outputDirs, the same answer
-   * the ghost gives), a red chevron with a bar when the output goes nowhere. Build phase only; cleared while the shift runs.
-   */
+  toastInfo() { return this.inputCtl.toast; }
+  /** Last refusal text shown (dev API / tests). */
+  lastRejectText(): string { return this.inputCtl.lastReject; }
+  /** The flow overlay (0.9.3; render/FlowOverlay.ts): build phase only, cleared while the shift runs. */
   private drawFlow() {
-    const g = this.flowGfx; if (!g) return;
-    g.clear(); this.flowStats = { links: 0, loose: 0 };
-    if (this.mode !== 'build') return;
-    const L = this.run.layout;
-    const chevron = (x: number, y: number, d: number, s: number) => {
-      const dx = DIR_DX[d], dy = DIR_DY[d];
-      g.fillTriangle(x + dx * s * 0.6, y + dy * s * 0.6, x - dx * s * 0.5 - dy * s * 0.7, y - dy * s * 0.5 + dx * s * 0.7, x - dx * s * 0.5 + dy * s * 0.7, y - dy * s * 0.5 - dx * s * 0.7);
-    };
-    for (const m of L.machines) for (const o of outputDirs(m.kind, m.dir)) {
-      const nx = m.x + DIR_DX[o], ny = m.y + DIR_DY[o];
-      const target = L.machines.find((q) => q.x === nx && q.y === ny);
-      const ok = !!target && inputTravelDirs(target.kind, target.dir).includes(o);
-      const { px, py } = this.cellXY(m.x, m.y);
-      const ex = px + CELL / 2 + DIR_DX[o] * (CELL / 2), ey = py + CELL / 2 + DIR_DY[o] * (CELL / 2); // the shared edge's midpoint
-      if (ok) { this.flowStats.links++; g.fillStyle(P.amber, 0.5); chevron(ex, ey, o, 14); }
-      else {
-        this.flowStats.loose++;
-        g.fillStyle(P.red, 0.55); chevron(ex - DIR_DX[o] * 8, ey - DIR_DY[o] * 8, o, 10);
-        g.fillStyle(P.red, 0.6); g.fillRect(ex - 2 - Math.abs(DIR_DY[o]) * 9, ey - 2 - Math.abs(DIR_DX[o]) * 9, 4 + Math.abs(DIR_DY[o]) * 18, 4 + Math.abs(DIR_DX[o]) * 18); // a bar across the edge: the line stops here
-      }
-    }
+    if (!this.flowGfx) return;
+    this.flow = this.mode === 'build' ? flowLinks(this.run.layout) : [];
+    drawFlowLinks(this.flowGfx, this.flow, (x, y) => this.cellXY(x, y));
   }
   /** The overlay's state (dev API / tests): drawn in the build phase, how many outputs connect and how many go nowhere. */
-  flowInfo() { return { visible: this.mode === 'build' && this.flowStats.links + this.flowStats.loose > 0, ...this.flowStats }; }
-  /** Last refusal text shown (dev API / tests). */
-  lastRejectText(): string { return this.lastReject; }
-  /** Ghost of the machine in hand at a cell: input (blue) and output (amber) arrows on the cell edges, plus a warning if it would not be fed. */
-  private showGhost(m: Machine, cx: number, cy: number) {
-    const g = this.ghostGfx; g.clear();
-    const { px, py } = this.cellXY(cx, cy);
-    const mx = px + CELL / 2, my = py + CELL / 2, r = 9;
-    const arrow = (d: number, outward: boolean, color: number) => {
-      const dx = DIR_DX[d], dy = DIR_DY[d];
-      const ex = mx + (outward ? dx : -dx) * (CELL / 2 - 4), ey = my + (outward ? dy : -dy) * (CELL / 2 - 4);
-      const tipX = ex + dx * r, tipY = ey + dy * r, bx = ex - dx * r * 0.2, by = ey - dy * r * 0.2;
-      g.fillStyle(color, 0.95).lineStyle(1, 0x0b0b0b, 0.9);
-      g.fillTriangle(tipX, tipY, bx - dy * r * 0.8, by + dx * r * 0.8, bx + dy * r * 0.8, by - dx * r * 0.8);
-    };
-    for (const t of inputTravelDirs(m.kind, m.dir)) arrow(t, false, 0x6fb4ff);
-    for (const o of outputDirs(m.kind, m.dir)) arrow(o, true, 0xffb347);
-    const warn = cx >= 0 ? placementWarning(this.run.layout, m.kind, cx, cy, m.dir, m.id) : null;
-    if (warn) this.showToast({ text: warn, kind: 'warning', x: cx, y: cy }); else this.clearToast('warning');
-  }
-  private hideGhost() { this.ghostGfx.clear(); }
-  private flashBad(x: number, y: number) {
-    const { px, py } = this.cellXY(x, y);
-    const f = fit(this.add.image(px, py, 'tile-bad')).setOrigin(0).setDepth(7);
-    this.tweens.add({ targets: f, alpha: 0, duration: 350, onComplete: () => f.destroy() });
-  }
-  rotateSelected() {
-    if (this.mode !== 'build' || this.selectedId == null || this.replayQueue) return;
-    if (this.act({ t: 'rotate', id: this.selectedId })) { audio.rotate(); this.syncMachines(); }
-  }
-
-  // ---------- keyboard placement ----------
-  cursorInfo() { return { visible: this.cursor != null && this.mode === 'build', x: this.cursor?.x ?? -1, y: this.cursor?.y ?? -1, held: this.heldId }; }
-  private machineById(id: number | null): Machine | undefined {
-    if (id == null) return undefined;
-    return this.run.layout.machines.find((m) => m.id === id) ?? this.run.bin.find((m) => m.id === id);
-  }
-  private occupantAt(x: number, y: number) { return this.run.layout.machines.find((m) => m.x === x && m.y === y); }
-  /** First arrow press reveals the cursor (on the selected machine, else top-left) without moving it. */
-  private moveCursor(dx: number, dy: number) {
-    if (this.mode !== 'build' || this.replayQueue) return;
-    if (!this.cursor) {
-      const sel = this.machineById(this.selectedId);
-      this.cursor = sel && sel.x >= 0 ? { x: sel.x, y: sel.y } : { x: 0, y: 0 };
-    } else {
-      this.cursor = { x: Phaser.Math.Clamp(this.cursor.x + dx, 0, RULES.gridWidth - 1), y: Phaser.Math.Clamp(this.cursor.y + dy, 0, RULES.gridHeight - 1) };
-    }
-    if (this.heldId != null) this.syncMachines(); else this.updateCursor();
-  }
-  private updateCursor() {
-    if (!this.cursor || this.mode !== 'build') { this.cursorImg.setVisible(false); if (!this.dragging) { this.hover.setVisible(false); this.hideGhost(); } return; }
-    const { px, py } = this.cellXY(this.cursor.x, this.cursor.y);
-    this.cursorImg.setPosition(px, py).setVisible(true);
-    if (this.heldId != null) {
-      const occ = this.occupantAt(this.cursor.x, this.cursor.y);
-      setArt(this.hover, occ && occ.id !== this.heldId ? 'tile-bad' : 'tile-ok').setPosition(px, py).setVisible(true);
-      const held = this.machineById(this.heldId);
-      if (held && !(occ && occ.id !== held.id)) this.showGhost(held, this.cursor.x, this.cursor.y); else this.hideGhost();
-    } else if (!this.dragging) { this.hover.setVisible(false); this.hideGhost(); }
-  }
-  /** Enter: drop the held machine here; else pick up the machine here; else place the first bin part here. */
-  private keyEnter() {
-    if (this.mode !== 'build' || this.replayQueue) return;
-    if (!this.cursor) { this.moveCursor(0, 0); return; }
-    const { x, y } = this.cursor;
-    const occupant = this.occupantAt(x, y);
-    const held = this.machineById(this.heldId);
-    if (held) {
-      if (held.x === x && held.y === y) { this.heldId = null; }
-      else if (occupant) { audio.invalid(); this.flashBad(x, y); this.showReject(explainRunError('cell occupied'), { x, y }); return; }
-      else if (this.act({ t: 'place', id: held.id, x, y, dir: held.dir })) { audio.place(); this.heldId = null; this.selectedId = held.id; }
-      else { audio.invalid(); this.flashBad(x, y); return; }
-    } else if (occupant) {
-      this.heldId = occupant.id; this.selectedId = occupant.id; audio.click();
-    } else if (this.run.bin.length) {
-      const part = this.run.bin[0];
-      if (this.act({ t: 'place', id: part.id, x, y, dir: part.dir })) { audio.place(); this.selectedId = part.id; }
-      else { audio.invalid(); this.flashBad(x, y); return; }
-    } else { audio.invalid(); return; }
-    this.syncMachines(); this.renderSide();
-  }
-  /** Tab: take the next bin part in hand (cycling); Enter then places it at the cursor. */
-  private keyTab() {
-    if (this.mode !== 'build' || this.replayQueue || !this.run.bin.length) return;
-    const i = this.run.bin.findIndex((m) => m.id === this.heldId);
-    const next = this.run.bin[(i + 1) % this.run.bin.length];
-    this.heldId = next.id; this.selectedId = next.id;
-    if (!this.cursor) this.cursor = { x: 0, y: 0 };
-    audio.click(); this.syncMachines(); this.renderSide();
-  }
-  /** Delete: send the held machine, else the machine under the cursor, else the selected machine back to the bin. */
-  private keyDelete() {
-    if (this.mode !== 'build' || this.replayQueue) return;
-    const target = this.machineById(this.heldId) ?? (this.cursor ? this.occupantAt(this.cursor.x, this.cursor.y) : undefined) ?? this.machineById(this.selectedId);
-    if (!target) return;
-    this.heldId = null;
-    if (target.x >= 0 && this.act({ t: 'unplace', id: target.id })) audio.place();
-    this.syncMachines(); this.renderSide();
-  }
-  /** Esc (build): drop what is in hand, else clear the selection, else hide the cursor. */
-  private keyEscape() {
-    if (this.heldId != null) { this.heldId = null; this.clearToast('warning'); this.syncMachines(); this.renderSide(); return; }
-    if (this.selectedId != null) { this.selectedId = null; this.updateSelection(); this.renderSide(); return; }
-    this.cursor = null; this.updateCursor();
-  }
+  flowInfo() { const links = this.flow.filter((l) => l.ok).length; return { visible: this.mode === 'build' && this.flow.length > 0, links, loose: this.flow.length - links }; }
 
   /** Apply an action to the run through the controller; false (state unchanged) if the rules reject it or the layout is frozen. */
   act(a: Action): boolean { return this.ctl.act(a); }
   /** Controller hook: the run changed (an accepted action, or null for undo/redo/speed): refresh HUD, hints and the panel. */
   private onStateChange(a: Action | null) {
     if (!this.panel) return; // init() runs before create(): nothing to draw yet
-    if (a) { this.clearToast(); if (a.t === 'place' && !this.replayQueue) { const m = this.run.layout.machines.find((q) => q.id === a.id); const warn = m ? placementWarning(this.run.layout, m.kind, m.x, m.y, m.dir, m.id) : null; if (warn) this.showToast({ text: warn, kind: 'warning', x: a.x, y: a.y }); } } // 0.9.3
-    if (a && !this.replayLabel) { if (a.t === 'pick') telemetry.track('first_draft_pick'); else if (a.t === 'place') telemetry.track('first_place_attempt'); else if (a.t === 'rotate') telemetry.track('first_rotate'); }
-    if (a && !prefs.reducedMotion && (a.t === 'place' || a.t === 'rotate')) { const v = this.views.get(a.id); if (v) { const b = baseScale(v.img.texture.key); this.tweens.killTweensOf(v.img); fit(v.img, a.t === 'place' ? 1.06 : 0.94); this.tweens.add({ targets: v.img, scaleX: b, scaleY: b, duration: a.t === 'place' ? 90 : 60, ease: 'Quad.out' }); } }
+    if (a) { this.inputCtl.clearToast(); if (a.t === 'place' && !this.replayQueue) { const m = this.run.layout.machines.find((q) => q.id === a.id); const warn = m ? placementWarning(this.run.layout, m.kind, m.x, m.y, m.dir, m.id) : null; if (warn) this.inputCtl.showToast({ text: warn, kind: 'warning', x: a.x, y: a.y }); } } // 0.9.3
+    if (a && (a.t === 'place' || a.t === 'rotate')) this.view.pulse(a.id, a.t);
     if (a?.t === 'pick' && !this.replayLabel) { const kind = this.run.picks[this.run.picks.length - 1]; const tip = kind ? tipForMachine(kind, loadReadTips()) : null; if (tip) this.suggestedTip = tip.id; }
     this.updateHud();
     if (!a || a.t === 'place' || a.t === 'pick' || a.t === 'rotate') this.updateHint();
@@ -487,20 +209,17 @@ export class GameScene extends Phaser.Scene {
   }
   pick(i: number) {
     if (this.run.phase !== 'draft') return;
-    if (this.act({ t: 'pick', i })) { audio.lockIn(); this.selectedId = this.run.bin[this.run.bin.length - 1]?.id ?? null; this.syncMachines(); this.renderSide(); }
+    if (this.act({ t: 'pick', i })) { audio.lockIn(); this.inputCtl.selectedId = this.run.bin[this.run.bin.length - 1]?.id ?? null; this.syncMachines(); this.renderSide(); }
   }
 
   // ---------- undo / redo (build phase only; the replay stays a flat list of final actions) ----------
   /** Ctrl+Z: remove the last layout edit of this build phase (never across a run). Returns false when there is nothing to undo. */
-  undo(): boolean { if (!this.ctl.undo()) { audio.invalid(); return false; } telemetry.track('undo_used'); this.afterHistoryChange(); return true; }
+  undo(): boolean { if (!this.ctl.undo()) { audio.invalid(); return false; } this.tele.undoUsed(); this.afterHistoryChange(); return true; }
   /** Ctrl+Y / Ctrl+Shift+Z: re-apply the last undone edit if the rules still accept it. */
   redo(): boolean { if (!this.ctl.redo()) { audio.invalid(); return false; } this.afterHistoryChange(); return true; }
-  canRedo(): boolean { return this.ctl.canRedo(); }
   private afterHistoryChange() {
     audio.click();
-    const exists = (id: number | null) => id != null && (this.run.layout.machines.some((m) => m.id === id) || this.run.bin.some((m) => m.id === id));
-    if (!exists(this.heldId)) this.heldId = null;
-    if (!exists(this.selectedId)) this.selectedId = null;
+    this.inputCtl.dropMissing();
     this.syncMachines(); this.renderSide();
   }
 
@@ -508,7 +227,7 @@ export class GameScene extends Phaser.Scene {
   /** The DOM side panel renders from this snapshot and rebuilds only when it changes. */
   private panelState(): PanelState {
     const r = this.run;
-    const selected = this.selectedId != null ? r.layout.machines.find((m) => m.id === this.selectedId) ?? r.bin.find((m) => m.id === this.selectedId) : undefined;
+    const sel = this.inputCtl?.selectedId ?? null; const selected = sel != null ? r.layout.machines.find((m) => m.id === sel) ?? r.bin.find((m) => m.id === sel) : undefined;
     return { run: r, mode: this.mode, speed: this.speed, replayLabel: this.replayLabel, replayRounds: this.replayRounds, playbackPending: !!this.replayQueue, challenge: this.challenge, canUndo: this.ctl.canUndo(), canRedo: this.ctl.canRedo(), selected, tipsBadge: !this.replayLabel && this.suggestedTip != null && !loadReadTips().includes(this.suggestedTip), tipsOpen: this.tips?.isOpen ?? false };
   }
   renderSide() { if (this.panel) this.panel.render(this.panelState()); }
@@ -516,94 +235,35 @@ export class GameScene extends Phaser.Scene {
   closeTips() { this.tips.close(); }
   tipsInfo() { return { open: this.tips.isOpen, current: this.tips.currentId, suggested: this.suggestedTip != null && !loadReadTips().includes(this.suggestedTip) ? this.suggestedTip : null, read: loadReadTips(), demo: this.tips.demoState() }; }
   // ---------- onboarding hints ----------
+  /** The guide (render/guide.ts) reads the run; the scene shows the text, moves the lesson's funnel step and gives the foreman his situation. */
   updateHint() {
     const r = this.run;
-    let text = ''; let demo: string | undefined;
+    const g = hintFor(r, { tutorial: this.tutorial, onboarded: isOnboarded(), watching: !!this.replayLabel, resumeNotice: this.ctl.resumeNotice });
+    if (this.ctl.resumeNotice) this.ctl.resumeNotice = null; // the notice is shown once
     if (this.tutorial) {
-      const t = this.tutorialHint();
-      text = t.text; demo = t.demo;
-      // funnel: which tutorial step is on screen (1 pick crusher, 2 place it, 3 run it, 4 furnace, 5 splitter merge, 6 free draft)
-      if (t.step !== this.tutorialStep) { if (this.tutorialStep) telemetry.track('tutorial_step_complete', { n: this.tutorialStep }); if (t.step) telemetry.track('tutorial_step_start', { n: t.step }); this.tutorialStep = t.step; }
+      if (g.step !== this.tutorialStep) { this.tele.tutorialStep(this.tutorialStep, g.step); this.tutorialStep = g.step; } // funnel: which lesson step is on screen
       if (r.round >= 4) { this.tutorial = false; setOnboarded(); }
-    } else if (r.round === 1 && r.phase === 'draft' && !this.replayLabel) { // 0.9.3: the first draft says which card to take and why (the newcomer's pointer to the lesson first)
-      const rec = recommendFirstPick(r.offers);
-      const pick = rec ? t('hint.firstPick', { n: rec.index + 1, name: machineName(rec.kind), why: rec.why }) : '';
-      text = isOnboarded() ? pick : `${t('hint.newHere')} ${pick}`.trim();
     }
-    if (this.ctl.resumeNotice) { text = this.ctl.resumeNotice; this.ctl.resumeNotice = null; }
-    if (!text && r.phase === 'draft' && r.rounds.length && !this.replayLabel) { // 0.8.8: the last round's bottleneck line is the draft's hint
-      const last = r.rounds[r.rounds.length - 1];
-      const b = analyseRound(last.layout, last.result, r.round);
-      text = t('hint.lastRound', { line: bottleneckLine(b) });
-      const sit: Situation = b.kind === 'disconnected' ? 'bottleneckDisconnected' : b.kind === 'dead-end' ? 'bottleneckDeadEnd' : b.kind === 'slag' ? 'bottleneckSlag' : b.kind === 'saturated' ? (b.machine?.kind === 'conveyor' ? 'bottleneckMerge' : 'bottleneckSaturated') : b.kind === 'starved' ? 'bottleneckStarved' : 'bottleneckBalanced';
-      this.panel?.setForeman(foremanSays(sit)); // 0.9.1: Sal's opener for the case; the sentence itself is the hint
-    } else if (r.phase === 'draft' && !r.rounds.length && !this.replayLabel) this.panel?.setForeman(this.tutorial ? foremanSays('lesson1') : foremanSays('firstDraft'));
-    else if (this.tutorial && r.phase === 'draft') this.panel?.setForeman(foremanSays(`lesson${Math.min(6, Math.max(1, r.round))}` as Situation));
+    if (g.foreman) this.panel?.setForeman(foremanSays(g.foreman));
     else if (!this.tutorial && r.phase === 'build' && this.panel) this.panel.setForeman(this.panel.foremanText); // keep the draft's line through the build
-    if (!text) {
-      const tips = [t('hint.tip1'), t('hint.tip2'), t('hint.tip3'), t('hint.tip4'), t('hint.tip5'), t('hint.tip6', { shards: money(RULES.value.shards), plate: money(RULES.value.plate) })];
-      text = tips[(r.round + r.layout.machines.length) % tips.length];
-    }
-    this.setHint(text, demo);
-  }
-  /**
-   * The tutorial seed's one guidance surface (PLAN-v1 0.3.4): one rule per round, the objective sufficient on its own, checked
-   * against the real layout (fed-ness via placementWarning, flow via a short real simulation), never a modal.
-   */
-  private tutorialHint(): { text: string; step: number; demo?: string } {
-    const r = this.run; const L = r.layout;
-    const find = (k: Machine['kind']) => L.machines.find((m) => m.kind === k);
-    const at = (x: number, y: number) => L.machines.find((m) => m.x === x && m.y === y);
-    const fed = (m: Machine) => placementWarning(L, m.kind, m.x, m.y, m.dir, m.id) == null;
-    const $ = (m: Material) => money(RULES.value[m]);
-    if (r.round === 1) {
-      if (r.phase === 'draft') return { step: 1, text: t('lesson.1draft', { scrap: $('scrap'), shards: $('shards') }) };
-      const crusher = find('crusher');
-      if (!crusher) return { step: 2, text: t('lesson.1place') };
-      return fed(crusher) ? { step: 3, text: t('lesson.1fed', { shards: $('shards') }) } : { step: 3, text: t('lesson.1unfed') };
-    }
-    if (r.round === 2) {
-      if (r.phase === 'draft') return { step: 4, text: t('lesson.2draft', { ingot: $('ingot'), slag: $('slag') }) };
-      const furnace = find('furnace'); const crusher = find('crusher');
-      if (!furnace) return { step: 4, text: t('lesson.2place') };
-      if (crusher && furnace.y === crusher.y && furnace.x < crusher.x) return { step: 4, text: t('lesson.2order') };
-      return fed(furnace) ? { step: 4, text: t('lesson.2fed', { ingot: $('ingot') }) } : { step: 4, text: t('lesson.2unfed') };
-    }
-    if (r.round === 3) { // 0.9.3: three short steps (the splitter, the top branch, the bottom branch), each with a demo to show
-      if (r.phase === 'draft') return { step: 5, text: t('lesson.3draft'), demo: 'splitter' };
-      const splitter = find('splitter');
-      if (!splitter) return { step: 5, text: t('lesson.3place'), demo: 'splitter' };
-      // a branch is back on the belt when: a conveyor on the output cell, a conveyor where it points, and that one points into something that takes it
-      const joined = (out: Dir) => { const a = at(splitter.x + DIR_DX[out], splitter.y + DIR_DY[out]); if (!a || a.kind !== 'conveyor') return false; const b = at(a.x + DIR_DX[a.dir], a.y + DIR_DY[a.dir]); if (!b || b.kind !== 'conveyor') return false; const c = at(b.x + DIR_DX[b.dir], b.y + DIR_DY[b.dir]); return !!c && inputTravelDirs(c.kind, c.dir).includes(b.dir); };
-      if (!joined(leftOf(splitter.dir))) return { step: 5, text: t('lesson.3top'), demo: 'sideload' };
-      if (!joined(rightOf(splitter.dir))) return { step: 5, text: t('lesson.3bottom'), demo: 'sideload' };
-      const flow = runLayout(L, 40);
-      if (flow.shipped.ingot > 0) return { step: 5, text: t('lesson.3flow', { sell: money(RULES.sellValue) }), demo: 'sideload' };
-      return { step: 5, text: t('lesson.3noflow'), demo: 'sideload' };
-    }
-    return { step: 6, text: t('lesson.done', { sell: money(RULES.sellValue) }) };
+    this.setHint(g.text, g.demo);
   }
   /** Current hint text (typed accessor for the dev API and tests instead of private-field access). */
   hintText(): string { return this.panel?.hintText ?? ''; }
   private setHint(text: string, demo?: string) { this.panel?.setHint(text, demo); }
-  private chainHasCrusher() {
-    return this.run.layout.machines.some((m) => m.kind === 'crusher');
-  }
 
   // ---------- simulation playback ----------
-  startRun() { this.ctl.startRun(); }
   /** Controller hook: the layout is frozen and the live sim exists; reset the per-round visuals. */
   private onRunStart() {
-    this.cancelDrag(); // a machine still under the pointer snaps back; nothing can change the layout from here on
-    this.selectedId = null; this.heldId = null; this.cursor = null; this.updateSelection(); this.updateCursor(); this.hover.setVisible(false);
-    this.lastShipTick = 0; this.hudDirty = false; this.lastHudAt = 0; this.clearStall();
-    this.clearToast(); this.drawFlow(); // 0.9.3: the layout is frozen; nothing to point at
+    this.inputCtl.freeze(); // a machine still under the pointer snaps back; nothing in hand, nothing selected: nothing can change the layout from here on
+    this.stall.reset(); this.clearStallMark(); this.hudDirty = false; this.lastHudAt = 0;
+    this.drawFlow(); // 0.9.3: the layout is frozen; nothing to point at
     if (DPR > 1 && !this.dprProbe && loadSettings().renderQuality === 'auto') this.dprProbe = [];
-    if (!this.replayLabel) telemetry.track('first_run_start');
     audio.run(); audio.humStart(this.run.round);
     this.renderSide();
     this.setHint(this.replayLabel ? t('hint.watching') : t('hint.running'));
   }
+  startRun() { this.ctl.startRun(); }
   setPaused(p: boolean) { this.ctl.setPaused(p); }
   /** One tick while paused (0.8.12): the Step button or the . key; the veil shows the new tick. */
   stepTick() { if (this.ctl.stepTick()) { audio.resume(); return; } if (this.mode === 'paused') this.panel.showPauseVeil(true, this.sim?.tick ?? 0); }
@@ -616,15 +276,9 @@ export class GameScene extends Phaser.Scene {
   /** Controller hook: the round is recorded; tear down the live visuals and show the summary. */
   private onRoundEnd(rec: RoundRecord, visual: number) {
     { const prev = this.run.rounds.length >= 2 ? this.run.rounds[this.run.rounds.length - 2].earned : -1; this.panel.bannerForeman = this.replayLabel ? '' : foremanSays(rec.earned > prev ? 'roundGood' : 'roundFlat'); } // 0.9.1
-    if (!this.replayLabel) { telemetry.track('round_complete', { n: rec.round }); telemetry.track('first_run_complete', { money: rec.earned }); }
     if (import.meta.env.DEV && rec.earned !== visual) console.error(`DETERMINISM MISMATCH: visual ${visual} vs authoritative ${rec.earned}`);
-    for (const s of this.itemSprites.values()) s.destroy();
-    this.itemSprites.clear();
-    for (const j of this.jamMarks.values()) j.destroy();
-    this.jamMarks.clear();
-    this.clearStall();
-    for (const v of this.views.values()) { fit(v.img).setTint(0xffffff).setAngle(v.m.dir * 90); if (v.img.texture.key !== machineTexture(v.m.kind)) setArt(v.img, machineTexture(v.m.kind)); }
-    if (!prefs.reducedMotion) for (const v of this.views.values()) if (!v.inBin) { const b = baseScale(v.img.texture.key); this.tweens.add({ targets: v.img, scaleX: 0.97 * b, scaleY: 0.97 * b, duration: 120, yoyo: true, delay: v.m.x * 25, ease: 'Quad.out' }); }
+    this.view.teardownRound();
+    this.stall.reset(); this.clearStallMark();
     audio.humStop(true); // the drone resolves to the fanfare's root under the settle
     audio.settle();
     this.showSummary();
@@ -650,125 +304,33 @@ export class GameScene extends Phaser.Scene {
       this.hudDirty = false; this.lastHudAt = now;
       this.panel.setHud(this.run, this.run.score + sim.earned, true);
     }
-    const phase = this.ctl.tickPhase;
-    this.beltFrame = (this.beltFrame + delta * this.speed * 0.012 * (BELT_FRAMES / 3)) % BELT_FRAMES; // same cycle time as the old 3 frames, finer steps
-    const bf = `belt-${Math.floor(this.beltFrame)}`;
-    for (const v of this.views.values()) {
-      if (v.inBin) continue;
-      if (prefs.reducedMotion) continue; // belts stay on frame 0, machines do not wobble
-      if (v.belt) setArt(v.belt, bf);
-      const cell = cellIndex(v.m.x, v.m.y, RULES.gridWidth);
-      const held = sim.itemAt[cell];
-      // state frames (0.4.4): a machine that holds an item shows it; idle machines are still so a jam stays visible
-      if (v.m.kind === 'crusher') { const key = held && held.hold > 0 && sim.tick % 2 === 1 ? 'm-crusher-1' : 'm-crusher'; if (v.img.texture.key !== key) setArt(v.img, key); }
-      else if (v.m.kind === 'furnace') { v.img.setTint(held && held.hold > 0 ? 0xffd9a0 : 0xffffff); }
-      else if (v.m.kind === 'press') { const busy = held && held.hold > 0; const key = busy ? (held.hold >= 2 ? 'm-press-1' : 'm-press-2') : 'm-press'; if (v.img.texture.key !== key) setArt(v.img, key); v.img.setTint(!busy && (sim.pressStore[cell] ?? 0) > 0 ? 0xcfe3ff : 0xffffff); }
-      else if (v.m.kind === 'hopper') { fit(v.img, sim.tick % RULES.hopperPeriod === 0 && phase < 0.3 ? 1.05 : 1); }
-      else if (v.m.kind === 'splitter') { v.img.setAngle(v.m.dir * 90 + ((sim.splitterToggle[cell] ?? 0) === 0 ? -4 : 4)); }
-    }
-    // item positions
-    const alive = this.aliveIds; alive.clear();
-    for (const it of sim.items) {
-      alive.add(it.id);
-      let s = this.itemSprites.get(it.id);
-      if (!s) { s = fit(this.add.image(0, 0, itemTexture(it.mat))).setDepth(4); this.itemSprites.set(it.id, s); }
-      if (s.texture.key !== itemTexture(it.mat)) setArt(s, itemTexture(it.mat));
-      const to = this.centerOfCell(it.cell);
-      if (!prefs.reducedMotion && it.movedAt === sim.tick && it.from >= 0) {
-        const from = this.centerOfCell(it.from);
-        const e = Phaser.Math.Easing.Quadratic.InOut(phase);
-        s.setPosition(from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e);
-      } else s.setPosition(to.x, to.y);
-      if (it.hold > 0) { fit(s, prefs.reducedMotion ? 0.85 : 0.8 + 0.1 * Math.sin(_time / 60)); } else fit(s);
-    }
-    for (const [id, s] of this.itemSprites) if (!alive.has(id)) { this.itemSprites.delete(id); if (prefs.reducedMotion) s.destroy(); else this.tweens.add({ targets: s, scale: 1.6, alpha: 0, duration: 200, onComplete: () => s.destroy() }); }
+    this.view.animate(sim, this.ctl.tickPhase, delta, this.speed, _time);
     this.panel.setProgress(sim.tick, sim.earned);
   }
-  private centerOfCell(cell: number) { const x = cell % RULES.gridWidth, y = Math.floor(cell / RULES.gridWidth); return { x: GRID_X + x * CELL + CELL / 2, y: GRID_Y + y * CELL + CELL / 2 }; }
+  /** Controller hook: a tick's events become effects (render/SimView.ts), pops, sounds, the money heartbeat and the stall monitor's input. */
   private onTickEvents(evs: SimEvent[]) {
-    const jammedNow = this.jammedNow; jammedNow.clear();
-    const ships = this.shipsThisTick; ships.clear();
-    const sounds = { ships: [] as number[], transforms: [] as number[], jams: 0 };
-    for (const e of evs) {
-      if (e.kind === 'ship' && e.value != null) {
-        ships.set(e.cell, (ships.get(e.cell) ?? 0) + e.value);
-        sounds.ships.push(e.value);
-      } else if (e.kind === 'transform') {
-        sounds.transforms.push(e.to === 'ingot' ? 3 : e.to === 'plate' ? 2 : e.to === 'shards' ? 1 : 0);
-        if (prefs.reducedMotion) continue; // the item sprite itself changes texture; no flash
-        const c = this.centerOfCell(e.cell);
-        const flash = this.add.circle(c.x, c.y, 16, e.to === 'ingot' ? P.gold : e.to === 'slag' ? P.red : e.to === 'plate' ? P.plate : P.shards, 0.6).setDepth(3);
-        this.tweens.add({ targets: flash, scale: 2, alpha: 0, duration: 300, onComplete: () => flash.destroy() });
-      } else if (e.kind === 'absorb') {
-        if (prefs.reducedMotion) continue;
-        // a press swallowed a shard: shrink a shard marker into the machine
-        const c = this.centerOfCell(e.cell);
-        const spark = fit(this.add.image(c.x, c.y, itemTexture('shards'))).setDepth(4).setAlpha(0.9);
-        this.tweens.add({ targets: spark, scale: 0.2 * baseScale(spark.texture.key), alpha: 0, duration: 220, onComplete: () => spark.destroy() });
-      } else if (e.kind === 'jam') {
-        jammedNow.add(e.cell);
-        if (!this.jamMarks.has(e.cell)) {
-          const { x, y } = this.centerOfCell(e.cell);
-          const mk = fit(this.add.image(x - CELL / 2, y - CELL / 2, 'tile-bad')).setOrigin(0).setDepth(3).setAlpha(0.7);
-          this.jamMarks.set(e.cell, mk); sounds.jams++;
-        }
-      }
-    }
-    for (const [cell, mk] of this.jamMarks) if (!jammedNow.has(cell)) { mk.destroy(); this.jamMarks.delete(cell); }
-    // one pop per dock per tick (same-tick ships coalesce into their sum), drawn from the pool
-    for (const [cell, value] of ships) {
-      const c = this.centerOfCell(cell);
-      this.popAt(c.x, c.y, value);
-      const dockView = [...this.views.values()].find((v) => !v.inBin && cellIndex(v.m.x, v.m.y, RULES.gridWidth) === cell);
-      if (dockView && !prefs.reducedMotion) this.tweens.add({ targets: dockView.img, scale: 1.08 * baseScale(dockView.img.texture.key), duration: 60, yoyo: true }); // the pulse is relative to the HiDPI base scale (review F15)
-    }
-    if (ships.size && this.sim) {
-      // money heartbeat: the running total ticks up as items ship (reduced motion: the text changes, nothing pulses)
-      this.lastShipTick = this.sim.tick;
-      this.hudDirty = true;
-    }
-    ships.clear();
-    audio.tickSounds(sounds); // one call per tick: chord, capped transforms, throttled jam; reduced audio keeps one sound
-    const live = this.sim; if (live) audio.humUpdate({ inFlight: live.items.length, jammed: jammedNow.size > 0, tick: live.tick, ticksPerRound: RULES.ticksPerRound });
-    this.updateStall(jammedNow);
+    const d = this.view.applyTick(evs);
+    for (const [cell, value] of d.ships) { const c = this.view.centerOfCell(cell); this.pops.pop(c.x, c.y, value, prefs.reducedMotion); } // one pop per dock per tick
+    if (d.ships.size && this.sim) { this.stall.shipped(this.sim.tick); this.hudDirty = true; } // money heartbeat: the running total ticks up as items ship
+    audio.tickSounds(d.sounds); // one call per tick: chord, capped transforms, throttled jam; reduced audio keeps one sound
+    const live = this.sim; if (live) audio.humUpdate({ inFlight: live.items.length, jammed: d.jammed.size > 0, tick: live.tick, ticksPerRound: RULES.ticksPerRound });
+    this.applyStall(d.jammed);
   }
-  /** No item shipped for STALL_TICKS while something is jammed or a hopper is blocked: flag the first blocking cell. */
-  private updateStall(jammedNow: Set<number>) {
-    const sim = this.sim;
-    if (!sim || jammedNow.size === 0 || sim.tick - this.lastShipTick < GameScene.STALL_TICKS) { if (this.stallCell != null) this.clearStall(); return; }
-    let cell = Infinity; for (const c of jammedNow) if (c < cell) cell = c;
-    if (cell === this.stallCell) return;
-    if (this.stallCell == null) this.stallTick = sim.tick; // when the stall began; the marker may move to a lower blocked cell later (the hopper once it is blocked too) without restarting the clock
-    this.stallCell = cell;
-    const m = sim.grid[cell];
-    const x = cell % RULES.gridWidth, y = Math.floor(cell / RULES.gridWidth);
-    const what = m ? machineName(m.kind) : 'Item';
-    this.panel.setStall(t('hint.stall', { what, pos: `${x + 1},${y + 1}`, state: m?.kind === 'hopper' ? t('hint.stallBlocked') : t('hint.stallWaiting'), n: GameScene.STALL_TICKS }));
-    const { px, py } = this.cellXY(x, y);
-    this.stallMark.setPosition(px, py).setAlpha(1).setVisible(true);
+  /** The stall monitor decided (PLAN-v1 0.3.5; render/StallMonitor.ts): draw or hide the mark and the HUD line. */
+  private applyStall(jammedNow: Set<number>) {
+    const sim = this.sim; if (!sim) { this.stall.reset(); this.clearStallMark(); return; }
+    const ch = this.stall.update(jammedNow, sim.tick);
+    if (!ch) return;
+    if (ch.kind === 'clear') { this.clearStallMark(); return; }
+    this.panel.setStall(stallText(sim.grid[ch.cell]?.kind ?? null, ch.x, ch.y));
+    this.view.showStall(ch.x, ch.y);
     audio.stall();
-    this.tweens.killTweensOf(this.stallMark);
-    if (!prefs.reducedMotion) this.tweens.add({ targets: this.stallMark, alpha: 0.35, duration: 450, yoyo: true, repeat: -1 });
   }
-  private clearStall() { this.stallCell = null; this.stallTick = -1; this.panel?.setStall(''); if (this.stallMark) { this.tweens.killTweensOf(this.stallMark); this.stallMark.setVisible(false); } }
+  private clearStallMark() { this.panel?.setStall(''); this.view?.hideStall(); }
   /** Stall indicator state (dev API / tests): the HUD text, the flagged cell (null when none), the current sim tick and the tick the stall was flagged at (-1 when none). */
-  stallInfo() { return { text: this.panel?.stallText ?? '', cell: this.stallCell, tick: this.sim?.tick ?? -1, flaggedAt: this.stallTick }; }
-  /** Show "+$value" at a cell using a pooled Text; when all POP_POOL pops are busy the visual is skipped (the counter still ticks). */
-  private popAt(x: number, y: number, value: number) {
-    let txt = this.popPool.find((t) => !t.visible);
-    if (!txt) {
-      if (this.popPool.length >= GameScene.POP_POOL) { this.popsSkipped++; return; }
-      txt = this.add.text(0, 0, '', { fontFamily: FONT, fontStyle: 'bold' }).setOrigin(0.5).setDepth(8).setVisible(false);
-      this.popPool.push(txt);
-    }
-    txt.setText(`+$${value}`).setStyle({ fontSize: fpx(value >= 12 ? 20 : 15), color: value >= 12 ? CSS.gold : value >= 3 ? CSS.green : CSS.text }).setPosition(x, y - 10).setAlpha(1).setVisible(true);
-    this.popsAlive++; this.popsPeak = Math.max(this.popsPeak, this.popsAlive);
-    const done = () => { txt!.setVisible(false); this.popsAlive--; };
-    if (prefs.reducedMotion) this.tweens.add({ targets: txt, alpha: 0, duration: 900, delay: 300, onComplete: done }); // fade in place, no travel
-    else this.tweens.add({ targets: txt, y: y - 48, alpha: 0, duration: 700, onComplete: done });
-  }
+  stallInfo() { return { text: this.panel?.stallText ?? '', cell: this.stall.cell, tick: this.sim?.tick ?? -1, flaggedAt: this.stall.flaggedAt }; }
   /** Pop-pool counters (dev API / tests / perf): alive now, the peak so far, and ships whose pop was skipped because the pool was full. */
-  popCounters() { return { popsAlive: this.popsAlive, popsPeak: this.popsPeak, popsSkipped: this.popsSkipped, poolSize: this.popPool.length, poolMax: GameScene.POP_POOL }; }
+  popCounters() { return this.pops.counters(); }
 
   // ---------- round summary / results ----------
   private showSummary() {

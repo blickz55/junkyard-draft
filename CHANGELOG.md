@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.9 Clear, production roadmap)
 
+### 0.9.4 GameScene split — 2026-10-30 (no rules change, protocol 2, no player-visible change)
+- `game/src/render/scenes/GameScene.ts` is 349 lines (was 787): it owns the controller, the panel and the hooks, and maps the run and the sim onto the modules. Extracted, each with unit tests: `render/InputController.ts` (pointer drag, the grid cursor and the machine in hand, selection, shortcuts, the ghost, the red flash and the toast at a cell), `render/guide.ts` (the hint strip as a pure function of the run: the lesson's steps, the first-draft pick, the bottleneck line, the idle tips, and which of the foreman's situations fits), `render/StallMonitor.ts` (the stall indicator's state machine), `render/PopPool.ts` (the pooled "+$" pops), `render/GameTelemetry.ts` (the funnel's observer on the controller hooks), `render/FlowOverlay.ts` (the build-phase overlay's geometry and drawing), `render/simframes.ts` (machine state frames, item poses, a tick's event digest) with `render/SimView.ts` applying them to sprites, and `render/replayActions.ts` (a watched recording's try payload and the report dialog). Every existing browser test passes unchanged.
+
 ### 0.9.3 onboarding delivery — 2026-10-30 (no rules change, protocol 2)
 - Refusals and warnings are toasts anchored to the cell they concern (above it, below it on the top row), and they stay until the next action instead of fading after two seconds; the hint strip keeps its own hint. A legal placement that will not work as drawn (nothing feeds it, its output goes nowhere) keeps its warning at the cell, as the ghost did while hovering.
 - A translucent flow overlay in the build phase: an amber chevron across every edge where a machine's output enters a neighbour that takes items from that side, a red chevron with a bar where an output goes nowhere; drawn from the same geometry the ghost uses, gone while the shift runs.
