@@ -156,8 +156,8 @@ export class TipsPanel {
     const canvas = h('canvas', { class: 'jd-tips-demo', tid: 'tips-demo', ariaLabel: t('tips.demoAria', { title: tip.title }) });
     canvas.width = gw * BACKING;
     canvas.height = gh * BACKING;
-    canvas.style.width = `calc(${gw} * var(--px))`;
-    canvas.style.height = `calc(${gh} * var(--px))`;
+    canvas.style.width = `${gw}px`;
+    canvas.style.aspectRatio = `${gw} / ${gh}`; // the stylesheet caps the width at the dialog's and keeps the height in step
     this.watch = h('div', { class: 'jd-tips-watch', tid: 'tips-watch' }, tip.watch);
     this.body.append(canvas, this.watch);
     this.canvas = canvas;

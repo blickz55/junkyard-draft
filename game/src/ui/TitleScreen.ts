@@ -431,7 +431,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const compact = 'padding:0 0.5em; font-size:0.75em; line-height:1.4; min-height:0';
   const archiveBtn = btn(t('title.archive'), 'archive', () => openArchive(scene, verifierUrl), { small: true, title: t('title.archiveTitle') });
   archiveBtn.style.cssText += compact;
-  const rightGroup = h('span', { class: 'jd-row', style: 'gap:0.4em; flex-wrap:nowrap; flex:0 0 auto' });
+  const rightGroup = h('span', { class: 'jd-row jd-strip-right', style: 'gap:0.4em' });
   const policyBtn = btn(t('title.policy'), 'policy', () => openPolicy(scene), { small: true, title: t('title.policyTitle') });
   policyBtn.style.cssText += compact;
   const groupsBtn = btn(t('title.crews'), 'groups', () => openGroups(scene, verifierUrl, () => scene.scene.restart()), {
@@ -449,12 +449,13 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   );
   weeklyBtn.style.cssText += compact;
   rightGroup.append(weeklyBtn, groupsBtn, policyBtn, archiveBtn); // text-height like Archive: the top row at 130 % has no room for a fourth button
+  // one line at every text scale on a wide screen (the 130 % layout test measures the strip); the head and its groups wrap on a phone or a tablet (0.10.0)
   const stripHead = h(
     'div',
-    { class: 'jd-row jd-between', style: 'flex-wrap:nowrap' },
+    { class: 'jd-row jd-between jd-strip-head' },
     h(
       'div',
-      { class: 'jd-row', style: 'flex-wrap:nowrap; min-width:0; overflow:hidden' },
+      { class: 'jd-row jd-strip-left', style: 'min-width:0' },
       h('div', { class: 'jd-head', style: 'white-space:nowrap' }, t('title.boardHead')),
       seedSpan,
       modeSpan,

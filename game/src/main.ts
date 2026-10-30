@@ -3,7 +3,7 @@ import { BootScene } from './render/scenes/BootScene';
 import { TitleScene } from './render/scenes/TitleScene';
 import { GameScene } from './render/scenes/GameScene';
 import { ResultsScene } from './render/scenes/ResultsScene';
-import { W, H } from './render/layout';
+import { viewport, containerSize } from './render/viewport';
 import { P } from './render/palette';
 import { devEnabled } from './render/devapi';
 import { DPR } from './render/dpr';
@@ -39,18 +39,23 @@ if (DPR !== 1) {
     return orig.call(this, s, updateText, setDefaults);
   };
 }
+// production roadmap 0.10.0: the canvas sizes to its container. Scale.NONE with zoom 1 / DPR keeps the backing store at
+// DPR × the CSS size; render/viewport.ts resizes the game when the container changes and the scenes fit their cameras.
+const container = document.getElementById('game') ?? document.body;
+const initial = containerSize(container);
 const game = new Phaser.Game({
   type: rendererParam === 'canvas' ? Phaser.CANVAS : Phaser.AUTO,
   parent: 'game',
-  width: W * DPR,
-  height: H * DPR,
+  width: Math.round(initial.w * DPR),
+  height: Math.round(initial.h * DPR),
   backgroundColor: P.bg,
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+  scale: { mode: Phaser.Scale.NONE, zoom: 1 / DPR, autoCenter: Phaser.Scale.NO_CENTER },
   render: { antialias: true, pixelArt: false, roundPixels: false },
   fps: { target: 60, forceSetTimeOut: false },
   scene: [BootScene, TitleScene, GameScene, ResultsScene],
   input: { mouse: { preventDefaultWheel: false } },
 });
+viewport.attach(game, container);
 
 // opt-in funnel events go to the same verifier the boards use; nothing is sent unless the player turned it on
 telemetry.configure({ url: () => resolveVerifierUrl() });

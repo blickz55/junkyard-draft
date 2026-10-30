@@ -5,6 +5,13 @@
  * only when its inputs change (the same change key the Phaser version hashed); per-frame values (progress,
  * earned, total) update elements in place. Every control carries data-testid, matching the old Phaser names.
  * Every string comes from the table (0.9.0).
+ *
+ * Layout (production roadmap 0.10.0): the shell is a CSS grid of HUD, board slot, hint and side panel. Wide screens
+ * put the board and the panel side by side (the shell stops growing at 1400 px: margins, not scaling); portrait phones
+ * and tablets stack HUD, board, hint and the panel as a bottom sheet (the values legend collapsed to a strip); short
+ * landscape screens keep two columns with the hint under the panel. The slot's rectangle goes to the scene, which fits
+ * the camera to it (render/layout.ts); the fitted cell size comes back as `--cell` so the grid layer, the badges and
+ * the toast sit on the drawn cells. Touch targets are 44 px where the pointer is coarse.
  */
 import type Phaser from 'phaser';
 import { h, btn, ui, textureImg, foremanBox } from './dom';
@@ -16,7 +23,7 @@ import type { Machine, Material } from '../sim/types';
 import { RULES } from '../sim/rules';
 import { cellIndex } from '../sim/sim';
 import { CELL, machineTexture } from '../render/textures';
-import { GRID_X, GRID_Y, GRID_W, GRID_H, SIDE_X, SIDE_W, W, H } from '../render/layout';
+import { GRID_W, GRID_H, BOARD_W, BOARD_H } from '../render/layout';
 import { prefs } from '../render/prefs';
 import { loadBests } from '../render/storage';
 import { isDailySeed, isMintedDailySeed, dailyDateOf } from '../sim/daily';
@@ -70,8 +77,18 @@ export interface PanelActions {
   reportName?: () => void;
 }
 
-/** Canvas-logical pixels → CSS length that follows the canvas scale and ignores local font-size (em would shrink inside small-text elements). */
+/** Board-logical pixels → CSS length that follows the fitted board (`--px`, set on the board slot) and ignores local font-size. */
 const em = (px: number) => `calc(${px} * var(--px))`;
+/** The compact layout: phones, and portrait tablets (the same list the stylesheet uses). */
+const mq = (feature: string, value: string) => `(${feature}: ${value})`;
+export const COMPACT_MQ = `${mq('max-width', '700px')}, (${[mq('orientation', 'portrait'), mq('max-width', '1000px')].join(' and ')})`;
+/** a short landscape screen (a phone on its side): two columns, the hint under the panel */
+const LANDSCAPE_MQ = [mq('max-height', '520px'), mq('orientation', 'landscape')].join(' and ');
+/** a portrait tablet: the board takes less of the height so the sheet shows three offers */
+const TABLET_MQ = [mq('orientation', 'portrait'), mq('min-width', '600px'), mq('max-width', '1000px')].join(' and ');
+/** grid-template-areas from rows of area names */
+const areas = (rows: string[][]) => rows.map((r) => `"${r.join(' ')}"`).join(' ');
+const compactLayout = () => typeof matchMedia === 'function' && matchMedia(COMPACT_MQ).matches;
 const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
 const pos = (m: Machine) => `${m.x + 1},${m.y + 1}`;
 
@@ -80,6 +97,10 @@ export class GamePanel {
   private hud: { seed: HTMLElement; round: HTMLElement; score: HTMLElement; best: HTMLElement; stall: HTMLElement; mute: HTMLButtonElement };
   private side: HTMLElement;
   private hintEl: HTMLElement;
+  /** the board slot: the canvas shows through it; the scene fits the camera to its rectangle (0.10.0) */
+  private boardEl: HTMLElement;
+  private boardCb: ((slot: { x: number; y: number; w: number; h: number }) => void) | null = null;
+  private ro: ResizeObserver | null = null;
   private gridLayer: HTMLElement;
   /** a refusal or a warning anchored to a grid cell (production roadmap 0.9.3); it stays until the scene clears it */
   private toastEl: HTMLElement;
@@ -158,7 +179,8 @@ export class GamePanel {
     this.hintEl = h('div', { class: 'jd-hint', tid: 'hint' }, '');
     this.gridLayer = h('div', { class: 'jd-gridlayer' });
     this.toastEl = h('div', { class: 'jd-toast', tid: 'toast', role: 'status', style: 'display:none' });
-    this.root = h('div', { class: 'jd-game' }, hudBar, this.side, this.gridLayer, this.hintEl, this.toastEl);
+    this.boardEl = h('div', { class: 'jd-board', tid: 'board-slot' }, this.gridLayer, this.toastEl);
+    this.root = h('div', { class: 'jd-game' }, hudBar, this.boardEl, this.hintEl, this.side);
     if (!document.getElementById('jd-game-style')) {
       const st = document.createElement('style');
       st.id = 'jd-game-style';
@@ -169,7 +191,35 @@ export class GamePanel {
   }
 
   destroy() {
+    this.ro?.disconnect();
+    this.ro = null;
+    this.boardCb = null;
     ui.unmount();
+  }
+
+  // ---------- the board slot (0.10.0) ----------
+  /** The slot's rectangle (CSS px, relative to the overlay) now and whenever the shell re-lays out; the scene fits its camera to it. */
+  onBoard(cb: (slot: { x: number; y: number; w: number; h: number }) => void) {
+    this.boardCb = cb;
+    if (typeof ResizeObserver !== 'undefined') {
+      this.ro = new ResizeObserver(() => this.relayout());
+      this.ro.observe(this.boardEl);
+    }
+    this.relayout();
+  }
+  /** Re-measure the slot and report it (also when the container moved the slot without resizing it). */
+  relayout() {
+    const u = ui.element?.getBoundingClientRect();
+    const r = this.boardEl.getBoundingClientRect();
+    if (!u || !this.boardCb || r.width < 1 || r.height < 1) return;
+    this.boardCb({ x: r.left - u.left, y: r.top - u.top, w: r.width, h: r.height });
+  }
+  /** The fitted board: its cell size in CSS px and its offset inside the slot, for the grid layer, the badges and the toast. */
+  setBoardVars(cell: number, dx: number, dy: number) {
+    const s = this.boardEl.style;
+    s.setProperty('--cell', `${cell}px`);
+    s.setProperty('--bx', `${dx}px`);
+    s.setProperty('--by', `${dy}px`);
   }
 
   // ---------- HUD ----------
@@ -203,11 +253,13 @@ export class GamePanel {
       el.textContent = '';
       return;
     }
-    const cx = Math.min(GRID_X + GRID_W - 150, Math.max(GRID_X + 150, GRID_X + toast.x * CELL + CELL / 2));
+    // relative to the grid's top-left (the slot's --bx/--by), in board-logical px
+    const cx = Math.min(GRID_W - 150, Math.max(150, toast.x * CELL + CELL / 2));
     const below = toast.y === 0;
+    const cy = below ? CELL + 10 : toast.y * CELL - 10;
     el.className = `jd-toast jd-toast-${toast.kind}${below ? ' jd-toast-below' : ''}`;
     el.dataset.kind = toast.kind;
-    el.style.cssText = `display:block; left:${em(cx)}; top:${em(below ? GRID_Y + CELL + 10 : GRID_Y + toast.y * CELL - 10)}; transform:translate(-50%, ${below ? '0' : '-100%'})`;
+    el.style.cssText = `display:block; left:calc(var(--bx, 0px) + ${em(cx)}); top:calc(var(--by, 0px) + ${em(cy)}); transform:translate(-50%, ${below ? '0' : '-100%'})`;
     el.textContent = toast.text;
   }
   /** The foreman speaks in the side panel (0.9.1); the panel re-renders so the box sits at the top. */
@@ -476,7 +528,7 @@ export class GamePanel {
       this.side.append(
         h(
           'div',
-          { style: 'margin-top:0.6em' },
+          { class: 'jd-run-row' }, // sticky at the panel's bottom on a phone: the primary action stays in reach while the panel scrolls (0.10.0)
           h(
             'button',
             { class: 'jd-btn jd-btn-primary jd-run', tid: 'run', type: 'button', onClick: () => this.actions.startRun() },
@@ -492,7 +544,7 @@ export class GamePanel {
     if (r.phase === 'result') this.renderSummary(r);
   }
 
-  /** The VALUES legend: built once and re-appended (it never changes). */
+  /** The VALUES legend: built once and re-appended (it never changes); a disclosure, open on wide screens, a strip on phones (0.10.0). */
   private legend(): HTMLElement {
     if (this.legendEl) return this.legendEl;
     const mats: Material[] = ['scrap', 'shards', 'plate', 'ingot', 'slag'];
@@ -503,10 +555,10 @@ export class GamePanel {
       ingot: t('game.valueIngot'),
       slag: t('game.valueSlag'),
     };
-    this.legendEl = h(
-      'div',
+    const details = h(
+      'details',
       { class: 'jd-legend' },
-      h('div', { class: 'jd-head', style: 'font-size:0.75em' }, t('game.values')),
+      h('summary', { class: 'jd-head jd-legend-head' }, t('game.values')),
       ...mats.map((m) =>
         h(
           'div',
@@ -528,7 +580,9 @@ export class GamePanel {
         }),
       ),
     );
-    return this.legendEl;
+    details.open = !compactLayout();
+    this.legendEl = details;
+    return details;
   }
 
   // ---------- round summary (side) + banner and badges over the grid ----------
@@ -658,7 +712,7 @@ export class GamePanel {
       layer.append(
         h(
           'div',
-          { class: 'jd-badge', style: `left:${em(m.x * CELL + CELL / 2)}; top:${em((m.y + 1) * CELL - 2)}` },
+          { class: 'jd-badge', style: `left:${em(m.x * CELL + CELL / 2)}; top:${em((m.y + 1) * CELL - 2)}` }, // inside the grid layer, which sits on the drawn grid
           line1 ? h('div', { class: cls }, line1) : null,
           line2 ? h('div', { class: warn ? 'jd-red' : 'jd-dim' }, line2) : null,
         ),
@@ -681,10 +735,10 @@ export class GamePanel {
               ? h(
                   'span',
                   {
-                    class: 'jd-foreman-text jd-dim',
+                    class: 'jd-foreman-text jd-dim jd-banner-foreman',
                     tid: 'foreman-banner',
                     title: this.bannerForeman,
-                    style: 'font-size:0.8125em; margin-left:0.6em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap',
+                    style: 'font-size:0.8125em; margin-left:0.6em',
                   },
                   `${t('foreman.name')} · ${this.bannerForeman}`,
                 )
@@ -728,9 +782,14 @@ export class GamePanel {
 
 /** Stylesheet for the game chrome (appended to the shared one by dom.ts consumers). */
 export const GAME_STYLE = `
-#ui .jd-screen.jd-game { position: absolute; inset: 0; pointer-events: none; overflow: hidden; display: block; padding: 0; gap: 0; }
-#ui .jd-game > * { pointer-events: auto; }
-#ui .jd-hud { position: absolute; left: 0; top: 0; width: 100%; height: ${em(56)}; background: #24201a; border-bottom: 1px solid #3f382d; display: flex; align-items: center; gap: ${em(18)}; padding: 0 ${em(16)}; }
+#ui .jd-screen.jd-game { position: absolute; inset: 0; pointer-events: none; overflow: hidden; display: grid; padding: 0.5em; gap: 0.5em; max-width: 1400px; margin: 0 auto;
+  grid-template-columns: minmax(0, 1fr) clamp(17em, 32%, 26em); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: ${areas([
+    ['hud', 'hud'],
+    ['board', 'side'],
+    ['hint', 'side'],
+  ])}; }
+#ui .jd-game > * { pointer-events: auto; min-width: 0; }
+#ui .jd-hud { grid-area: hud; min-height: 3.5em; background: #24201a; border: 1px solid #3f382d; display: flex; align-items: center; gap: 1.1em; padding: 0.3em 1em; }
 #ui .jd-hud-title { font-weight: 700; letter-spacing: 0.15em; font-size: 1.25em; white-space: nowrap; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 #ui .jd-hud-seed { font-size: 0.75em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
 #ui .jd-hud-round { font-weight: 700; white-space: nowrap; }
@@ -740,35 +799,68 @@ export const GAME_STYLE = `
 #ui .jd-hud-best, #ui .jd-hud-stall { font-size: 0.6875em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #ui .jd-pulse { animation: jd-pulse 0.14s ease-out; }
 @keyframes jd-pulse { from { transform: scale(1.08); } to { transform: scale(1); } }
-#ui .jd-side { position: absolute; left: ${em(SIDE_X)}; top: ${em(GRID_Y)}; width: ${em(SIDE_W)}; height: ${em(H - GRID_Y - 24)}; background: rgba(36, 32, 26, 0.95); border: 1px solid #3f382d; padding: ${em(14)} ${em(16)}; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
-#ui .jd-hint { position: absolute; left: ${em(GRID_X)}; width: ${em(GRID_W)}; bottom: ${em(12)}; background: rgba(36, 32, 26, 0.95); border: 1px solid #3f382d; padding: ${em(7)} ${em(12)}; font-size: 0.8125em; min-height: ${em(50)}; }
-#ui .jd-hint { display: flex; align-items: center; justify-content: space-between; gap: 0.6em; }
+#ui .jd-board { grid-area: board; position: relative; min-height: 0; min-width: 0; pointer-events: none; --px: calc(var(--cell, 72px) / 72); }
+#ui .jd-board > * { pointer-events: none; }
+#ui .jd-side { grid-area: side; min-height: 0; background: rgba(36, 32, 26, 0.95); border: 1px solid #3f382d; padding: 0.875em 1em; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+#ui .jd-side > * { flex-shrink: 0; } /* the 44 px touch minimum replaces the content-based minimum, so without this the column would squeeze the cards */
+#ui .jd-hint { grid-area: hint; background: rgba(36, 32, 26, 0.95); border: 1px solid #3f382d; padding: 0.45em 0.75em; font-size: 0.8125em; min-height: 3.1em; display: flex; align-items: center; justify-content: space-between; gap: 0.6em; }
 #ui .jd-hint .jd-btn { flex: 0 0 auto; }
 #ui .jd-toast { position: absolute; max-width: ${em(300)}; background: rgba(36, 32, 26, 0.97); border: 1px solid #3f382d; border-left: 3px solid #eb6757; padding: ${em(6)} ${em(10)}; font-size: 0.8125em; line-height: 1.3; border-radius: ${em(4)}; box-shadow: 0 ${em(2)} ${em(8)} rgba(0,0,0,0.45); pointer-events: none; z-index: 3; }
 #ui .jd-toast-warning { border-left-color: #f0a830; }
 #ui .jd-toast::after { content: ''; position: absolute; left: 50%; bottom: -${em(7)}; margin-left: -${em(6)}; border: ${em(6)} solid transparent; border-top-color: #3f382d; border-bottom: 0; }
 #ui .jd-toast-below::after { bottom: auto; top: -${em(7)}; border-top: 0; border-bottom: ${em(6)} solid #3f382d; }
-#ui .jd-gridlayer { position: absolute; left: ${em(GRID_X)}; top: ${em(GRID_Y)}; width: ${em(GRID_W)}; height: ${em(GRID_H)}; pointer-events: none; }
+#ui .jd-gridlayer { position: absolute; left: var(--bx, 0px); top: var(--by, 0px); width: ${em(GRID_W)}; height: ${em(GRID_H)}; pointer-events: none; }
 #ui .jd-gridlayer > * { pointer-events: none; }
 #ui .jd-gridlayer .jd-banner, #ui .jd-gridlayer .jd-banner * { pointer-events: auto; }
 #ui .jd-grid-dim { position: absolute; inset: 0; background: rgba(0,0,0,0.25); }
 #ui .jd-grid-dim-strong { background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; }
 #ui .jd-paused { font-size: 1.75em; font-weight: 700; text-align: center; }
-#ui .jd-badge { position: absolute; transform: translate(-50%, -100%); background: rgba(0,0,0,0.8); border-radius: 0.15em; padding: 0.1em 0.3em; font-size: 0.625em; font-weight: 700; line-height: 1.2; white-space: nowrap; text-align: center; }
-#ui .jd-banner { position: absolute; left: 0; top: 0; width: 100%; height: ${em(64)}; background: rgba(36, 32, 26, 0.97); border: 2px solid #f0a830; display: flex; align-items: center; justify-content: space-between; gap: 0.75em; padding: 0 ${em(16)}; }
-#ui .jd-progress { height: ${em(10)}; background: #3f382d; margin-top: 0.75em; }
+#ui .jd-badge { position: absolute; transform: translate(-50%, -100%); background: rgba(0,0,0,0.8); border-radius: 0.15em; padding: 0.1em 0.3em; font-size: max(0.625em, 9px); font-weight: 700; line-height: 1.2; white-space: nowrap; text-align: center; }
+#ui .jd-banner { position: absolute; left: 0; top: 0; width: 100%; min-height: ${em(64)}; background: rgba(36, 32, 26, 0.97); border: 2px solid #f0a830; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5em 0.75em; padding: 0.3em ${em(16)}; }
+#ui .jd-banner-foreman { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#ui .jd-progress { height: 0.6em; background: #3f382d; margin-top: 0.75em; }
 #ui .jd-progress-fill { height: 100%; width: 0; background: #f0a830; }
 #ui .jd-offer { display: flex; align-items: center; gap: 0.75em; width: 100%; text-align: left; font: inherit; color: inherit; background: #2a241d; border: 2px solid #3f382d; border-radius: 0.2em; padding: 0.5em 0.75em; margin-top: 0.5em; cursor: pointer; }
 #ui .jd-offer:hover { border-color: #f0a830; }
-#ui .jd-offer img { width: ${em(72)}; height: ${em(72)}; flex: 0 0 auto; }
+#ui .jd-offer img { width: 3.6em; height: 3.6em; flex: 0 0 auto; }
 #ui .jd-offer-text { flex: 1; min-width: 0; }
 #ui .jd-offer-key { font-size: 0.75em; align-self: flex-end; }
 #ui .jd-sel { display: flex; gap: 0.75em; align-items: flex-start; background: #2a241d; border: 1px solid #3f382d; border-radius: 0.2em; padding: 0.5em 0.75em; }
-#ui .jd-sel img { width: ${em(64)}; height: ${em(64)}; flex: 0 0 auto; }
+#ui .jd-sel img { width: 3.2em; height: 3.2em; flex: 0 0 auto; }
+#ui .jd-run-row { margin-top: 0.6em; }
 #ui .jd-run { width: 100%; font-size: 1.125em; padding: 0.7em 0; }
 #ui .jd-legend { margin-top: auto; padding-top: 0.75em; }
+#ui .jd-legend-head { font-size: 0.75em; cursor: pointer; list-style-position: inside; }
 #ui .jd-legend img { width: 1.1em; height: 1.1em; }
 #ui .jd-history { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.2em 0.5em; font-size: 0.875em; }
 #ui .jd-replay-banner { font-size: 0.6875em; font-weight: 700; letter-spacing: 0.08em; border: 1px solid #5aa9e6; background: rgba(90,169,230,0.18); padding: 0.2em 0.5em; border-radius: 0.15em; white-space: nowrap; }
+@media ${COMPACT_MQ} {
+  #ui .jd-screen.jd-game { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); grid-template-areas: ${areas([['hud'], ['board'], ['hint'], ['side']])}; padding: 0.35em; gap: 0.35em; }
+  #ui .jd-board { height: min(calc((100vw - 0.7em) * ${BOARD_H / BOARD_W}), 52dvh); }
+  #ui .jd-hud { min-height: 2.75em; padding: 0.25em 0.6em; gap: 0.6em; }
+  #ui .jd-hud-title, #ui .jd-hud-best { display: none; }
+  #ui .jd-hud-seed { flex: 1 1 0; min-width: 2em; }
+  #ui .jd-hud-scoreblock { flex: 0 0 auto; } /* the score stays whole; the yard's name gives way */
+  #ui .jd-banner-foreman { white-space: normal; }
+  #ui .jd-side { padding: 0.6em 0.75em; border-radius: 0.6em 0.6em 0 0; }
+  #ui .jd-hint { min-height: 2.6em; padding: 0.35em 0.6em; }
+  #ui .jd-banner { padding: 0.3em 0.6em; gap: 0.3em 0.5em; }
+  #ui .jd-run-row { position: sticky; bottom: -0.6em; padding: 0.4em 0; background: rgba(36, 32, 26, 0.97); z-index: 1; }
+}
+@media ${TABLET_MQ} {
+  #ui .jd-board { height: min(calc((100vw - 0.7em) * ${BOARD_H / BOARD_W}), 46dvh); } /* a portrait tablet: the sheet keeps room for three offers at 130 % */
+}
+@media ${LANDSCAPE_MQ} {
+  #ui .jd-screen.jd-game { grid-template-columns: minmax(0, 1fr) clamp(15em, 36%, 22em); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: ${areas(
+    [
+      ['hud', 'side'],
+      ['board', 'side'],
+      ['board', 'hint'],
+    ],
+  )}; padding: 0.35em; gap: 0.35em; }
+  #ui .jd-hud { min-height: 2.5em; padding: 0.2em 0.6em; gap: 0.6em; }
+  #ui .jd-hud-title { display: none; }
+  #ui .jd-side { padding: 0.5em 0.6em; }
+  #ui .jd-run-row { position: sticky; bottom: -0.5em; padding: 0.4em 0; background: rgba(36, 32, 26, 0.97); z-index: 1; }
+}
 `;
-export const PANEL_W = W;

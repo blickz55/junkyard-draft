@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs';
-import { fixture, settle, until, SHOTS, GX, BIN_Y, cellCenter, binSlotCenter } from './e2e/fixture.mjs';
+import { fixture, settle, until, SHOTS, cellCenter, binSlotCenter, shelfPoint } from './e2e/fixture.mjs';
 
 const { RULES_VERSION } = await import('../game/src/sim/types.ts');
 const { newRun, apply } = await import('../game/src/sim/run.ts');
@@ -32,7 +32,7 @@ const f = await fixture({
 });
 after(() => f.close());
 const page = await f.page(); // string predicates below are polled with eval; the CSP itself is tested by tests/hardening-e2e.test.mjs
-const { api, frames, when, title, draft, results, mode, draftRound, tick, textMatches, overlaySynced, drag, dismissCopyDialog, settled } = page.jd;
+const { api, frames, when, title, draft, results, mode, draftRound, tick, textMatches, overlaySynced, drag, dismissCopyDialog, settled, at } = page.jd;
 const VURL = f.vurl;
 const vjson = (p, init) => f.verifier.json(p, init);
 const shot = (name) => page.screenshot({ path: path.join(SHOTS, `${name}-${Date.now()}.png`) });
@@ -155,7 +155,7 @@ test(
       assert.ok(flow.visible && flow.links >= 3, `the flow overlay shows the starter belt's links in the build phase: ${JSON.stringify(flow)}`);
     }
     // move the conveyor at (2,2) into the bin, then drop the crusher there
-    await drag(cellCenter(2, 2), { x: GX + 200, y: BIN_Y + 60 });
+    await drag(cellCenter(2, 2), shelfPoint);
     assert.equal(await api('toast'), null, 'the next action clears the toast');
     st = await api('state');
     assert.equal(st.bin.length, 2, 'conveyor returned to bin');
@@ -170,7 +170,7 @@ test(
     await rotatedFrom(0);
     assert.equal(await crusherDir(), 1, 'R rotates');
     await settled(); // the sprite glides into its cell for 120 ms after a drop or a turn; a right-click on a gliding sprite misses it
-    const c = cellCenter(2, 2);
+    const c = await at(cellCenter(2, 2));
     await page.mouse.move(c.x, c.y);
     await page.mouse.down({ button: 'right' });
     await frames();
@@ -277,14 +277,15 @@ test(
   { timeout: 90000 },
   async () => {
     // starting_round_cancels_active_drag: a machine under the pointer when the round starts snaps back; the drop edits nothing
-    const hopperCell = cellCenter(1, 2);
+    const hopperCell = await at(cellCenter(1, 2));
     const before = JSON.stringify((await api('state')).layout.machines);
     await page.mouse.move(hopperCell.x, hopperCell.y);
     await page.mouse.down();
     await page.mouse.move(hopperCell.x + 24, hopperCell.y + 24, { steps: 4 });
     await page.keyboard.press('Space');
     await mode('running');
-    await page.mouse.move(GX + 200, BIN_Y + 60, { steps: 8 });
+    const shelf = await at(shelfPoint);
+    await page.mouse.move(shelf.x, shelf.y, { steps: 8 });
     await page.mouse.up();
     await frames();
     let st = await api('state');

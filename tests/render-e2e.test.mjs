@@ -5,7 +5,7 @@
 // button, the impact samples, the throughput hum, the art atlas.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { fixture, CELL, GX, BIN_Y, cellCenter, binSlotCenter } from './e2e/fixture.mjs';
+import { fixture, cellCenter, binSlotCenter } from './e2e/fixture.mjs';
 
 const { draftOffers, TUTORIAL_SEED } = await import('../game/src/sim/run.ts');
 const { RULES_VERSION } = await import('../game/src/sim/types.ts');
@@ -39,7 +39,7 @@ const settings130 = {
 };
 
 test(
-  'hidpi_canvas_keeps_logical_coordinates: at deviceScaleFactor 2 the backing store is 2240x1400, text renders at resolution 2, a drag lands on the logical cell',
+  'hidpi_canvas_keeps_logical_coordinates: at deviceScaleFactor 2 the backing store is twice the 1120x700 container, the camera zooms by 2 times the board fit, text renders at resolution 2, a drag lands on the logical cell',
   { timeout: 60000 },
   async () => {
     const page = await open('seed=render-dpr', { deviceScaleFactor: 2 });
@@ -52,13 +52,14 @@ test(
         h: c.height,
         dpr: window.devicePixelRatio,
         zoom: g.scene.getScene('Game').cameras.main.zoom,
+        fit: window.__jd.geometry().scale,
         textRes: g.scene.getScene('Game').children.list.find((o) => o.type === 'Text')?.style.resolution,
       };
     });
-    assert.deepEqual(
-      { w: dims.w, h: dims.h, zoom: dims.zoom, textRes: dims.textRes },
-      { w: 2240, h: 1400, zoom: 2, textRes: 2 },
-      `hidpi: ${JSON.stringify(dims)}`,
+    assert.deepEqual({ w: dims.w, h: dims.h, textRes: dims.textRes }, { w: 2240, h: 1400, textRes: 2 }, `hidpi: ${JSON.stringify(dims)}`);
+    assert.ok(
+      Math.abs(dims.zoom - 2 * dims.fit) < 1e-6 && dims.fit > 0.5 && dims.fit <= 1.25,
+      `the camera zooms by DPR times the board fit (0.10.0): ${JSON.stringify(dims)}`,
     );
     await api('pick', 0);
     const part = (await api('state')).bin[0];
@@ -585,7 +586,7 @@ test(
 );
 
 test(
-  'dom_overlay_tracks_the_canvas (DOSSIER-v1 0.4.0): at 1280x800 and 1920x1080 the DOM title covers exactly the FIT-scaled canvas and no control leaves it',
+  'dom_overlay_tracks_the_canvas (DOSSIER-v1 0.4.0, 0.10.0): at 1280x800 and 1920x1080 the DOM title and the canvas both cover the container and no control leaves it',
   { timeout: 60000 },
   async () => {
     for (const vp of [
@@ -608,13 +609,11 @@ test(
         return {
           dx: Math.abs(c.left - u.left) + Math.abs(c.top - u.top),
           dw: Math.abs(c.width - u.width) + Math.abs(c.height - u.height),
-          k: getComputedStyle(document.getElementById('ui')).getPropertyValue('--k').trim(),
           outside,
           scroll: s.scrollHeight - s.clientHeight,
         };
       });
       assert.ok(geo.dx < 1.5 && geo.dw < 1.5, `overlay matches the canvas at ${vp.width}x${vp.height}: ${JSON.stringify(geo)}`);
-      assert.ok(Math.abs(Number(geo.k) - Math.min(vp.width / 1120, vp.height / 700)) < 0.01, `--k follows the FIT scale (${geo.k})`);
       assert.deepEqual(geo.outside, [], 'no title control leaves the overlay');
       assert.ok(geo.scroll <= 1, 'the title does not scroll');
       await page.ctx.close();
@@ -948,8 +947,5 @@ test(
     );
     assert.ok(hi.machine && hi.machine[0].startsWith('m-'), 'a machine sprite is on screen');
     await p3.ctx.close();
-    void CELL;
-    void GX;
-    void BIN_Y;
   },
 );

@@ -4,7 +4,8 @@ import { tipForMachine } from '../../content/tips';
 import { explainRunError, placementWarning } from '../../content/advice';
 import { foremanSays } from '../../content/foreman';
 import Phaser from 'phaser';
-import { applyDpr, DPR } from '../dpr';
+import { DPR } from '../dpr';
+import { viewport } from '../viewport';
 import type { Challenge } from '../challenge';
 import { forkFrom } from '../../sim/fork';
 import type { ForkOrigin } from '../../sim/run';
@@ -32,9 +33,17 @@ import { label, panel } from '../ui';
 import { CSS, FONT, P } from '../palette';
 import { audio } from '../audio';
 import { clearSave, isOnboarded, loadReadTips, loadSettings, setOnboarded, updateSettings, writeSave } from '../storage';
-import { BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y } from '../layout';
+import { BIN_H, BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y, binSlotXY, boardCameraCenter, fitBoard } from '../layout';
 import { installDevApi } from '../devapi';
 import { prefs } from '../prefs';
+
+export interface BoardGeometry {
+  cell: number;
+  scale: number;
+  grid: { x: number; y: number; w: number; h: number };
+  shelf: { x: number; y: number; w: number; h: number };
+  slots: { x: number; y: number }[];
+}
 
 export class GameScene extends Phaser.Scene {
   /** authoritative run state, mode machine, sim pacing, undo/redo and playback live in the controller; the scene renders and routes input */
@@ -182,8 +191,7 @@ export class GameScene extends Phaser.Scene {
         this.tweens.add(cfg);
       },
     });
-    this.cameras.main.setBackgroundColor(P.bg);
-    applyDpr(this);
+    this.cameras.main.setBackgroundColor(P.bg); // the camera is fitted to the board slot once the panel has laid out (layoutBoard)
     this.input.mouse?.disableContextMenu();
     this.buildStatic();
     this.flowGfx = this.add.graphics().setDepth(3);
@@ -240,6 +248,8 @@ export class GameScene extends Phaser.Scene {
       audio.muted,
       this.run.forkedFrom ? forkLabel(this.run.forkedFrom) : null,
     );
+    this.panel.onBoard((slot) => this.layoutBoard(slot));
+    const offViewport = viewport.on(() => this.panel.relayout());
     this.tips = new TipsPanel(this, () => this.renderSide());
     this.suggestedTip = null;
     this.updateHud();
@@ -247,7 +257,8 @@ export class GameScene extends Phaser.Scene {
     this.renderSide();
     this.updateHint();
     installDevApi(this);
-    this.events.on('shutdown', () => {
+    this.events.once('shutdown', () => {
+      offViewport();
       audio.humStop(false);
       this.view.clear();
       this.tips.close();
@@ -261,7 +272,7 @@ export class GameScene extends Phaser.Scene {
     for (let y = 0; y < RULES.gridHeight; y++)
       for (let x = 0; x < RULES.gridWidth; x++) fit(this.add.image(GRID_X + x * CELL, GRID_Y + y * CELL, 'tile')).setOrigin(0);
     this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H).setOrigin(0).setStrokeStyle(2, P.panelLine);
-    panel(this, GRID_X, BIN_Y, GRID_W, 100, 0.9);
+    panel(this, GRID_X, BIN_Y, GRID_W, BIN_H, 0.9);
     label(this, GRID_X + 10, BIN_Y + 6, t('game.shelfLabel'), 12, CSS.amber, { fontStyle: 'bold', letterSpacing: 1 });
   }
   /** Leave a watched replay at any point: nothing was recorded, nothing to save. */
@@ -279,7 +290,39 @@ export class GameScene extends Phaser.Scene {
     return { px: GRID_X + x * CELL, py: GRID_Y + y * CELL };
   }
   private binSlot(i: number) {
-    return { px: GRID_X + 12 + i * (CELL + 8), py: BIN_Y + 28 };
+    return binSlotXY(i);
+  }
+
+  // ---------- the board in its slot (production roadmap 0.10.0; render/layout.ts) ----------
+  /** the fitted board's top-left in CSS px relative to the canvas, and CSS px per logical px */
+  private boardCss = { left: 0, top: 0, s: 1 };
+  /** Fit the camera so the board (grid plus shelf) fills the slot the shell laid out, centred, and tell the panel the cell size. */
+  layoutBoard(slot: { x: number; y: number; w: number; h: number }) {
+    viewport.measure();
+    const f = fitBoard(slot.w, slot.h);
+    const left = slot.x + f.dx,
+      top = slot.y + f.dy;
+    const c = boardCameraCenter(f, left, top, viewport.width, viewport.height);
+    this.cameras.main.setZoom(DPR * f.s).centerOn(c.x, c.y);
+    this.panel.setBoardVars(CELL * f.s, f.dx, f.dy);
+    this.boardCss = { left, top, s: f.s };
+  }
+  /** Where the board is on the page (CSS px): the cell size, the grid and shelf rectangles and the shelf slots' centres; the tests aim their pointer with it. */
+  geometryInfo(): BoardGeometry {
+    const g = document.getElementById('game')?.getBoundingClientRect() ?? { left: 0, top: 0 };
+    const { left, top, s } = this.boardCss;
+    const L = g.left + left,
+      T = g.top + top;
+    return {
+      cell: CELL * s,
+      scale: s,
+      grid: { x: L, y: T, w: GRID_W * s, h: GRID_H * s },
+      shelf: { x: L, y: T + (BIN_Y - GRID_Y) * s, w: GRID_W * s, h: BIN_H * s },
+      slots: Array.from({ length: 7 }, (_, i) => {
+        const { px, py } = binSlotXY(i);
+        return { x: L + (px - GRID_X + CELL / 2) * s, y: T + (py - GRID_Y + CELL / 2) * s };
+      }),
+    };
   }
 
   /** Machines follow the run (render/SimView.ts); a held machine that vanished is let go; the cursor, the selection and the overlay follow. */

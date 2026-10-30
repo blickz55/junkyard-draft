@@ -85,7 +85,10 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] Commit the CI perf baseline to `docs/baselines/ci/perf-ci.json` from the perf workflow's artifact to arm the strict gate (0.8.4, session 50)
 - [x] ⚑ First green run of `ci.yml` on GitHub: 091a60d (run 40986558629, 2026-10-30); the image job builds, smokes and (0.8.4) pushes on tags
 
-## M12 — production roadmap v0.9 Clear (`docs/PRODUCTION-ROADMAP.md` §5; in progress)
+## M13 — production roadmap v0.10 Phone (`docs/PRODUCTION-ROADMAP.md` §5; in progress)
+- [x] 0.10.0 responsive layout: `render/viewport.ts` (the canvas sizes to its container), `render/layout.ts` (`fitBoard`, `boardCameraCenter`), the CSS-grid shell in `ui/GamePanel.ts` (laptop, portrait phone with the bottom sheet, portrait tablet, short landscape), device-class text sizes and 44 px touch targets in `ui/dom.ts`; `tests/layout-e2e.test.mjs` (the matrix at 130 %, six viewports) and `tests/layout.test.ts` · [ ] ⚑ the owner reviews the screenshots per viewport (`.control-room/screenshots/layout-*.png`)
+
+## M12 — production roadmap v0.9 Clear (`docs/PRODUCTION-ROADMAP.md` §5; done)
 - [x] 0.9.0 the string table and the glossary: `game/src/content/strings.ts` + `glossary.ts` + `format.ts` + `locale.ts`; sim text moved to `content/` (machines, tips, advice, badges, fork); `tools/strings-lint.ts`; the pseudo-locale and `tests/pseudo-e2e.test.mjs` at 130 % (`tests/strings.test.ts`) · ⚑ the owner reviews Appendix B's choices (crews, yard, a try, our server)
 - [x] 0.9.1 the foreman, text only: `content/foreman.ts` + `foreman.*` lines in the table (31 situations × 3–5 variants, chosen per UTC day), the box on title / draft / round-end banner / results, `chatter` setting, `docs/FOREMAN.md` (`tests/foreman.test.ts` snapshot, `tests/foreman-e2e.test.mjs`) · ⚑ the owner reviews Sal's voice
 - [x] 0.9.2 the results card: the standing sentence leads, then money, the deltas (foreman's mark, best on the yard, medal), "Since yesterday" on the daily; rank and the top five below the fold; the "Beat this" link in the share text by default (opt-out); the order asserted in `tests/game-e2e.test.mjs` · ⚑ the owner reviews the 390-wide and 1920-wide screenshots (the 390 one shows the fixed 1120×700 scaled down; reflow is 0.10.0)

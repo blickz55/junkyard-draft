@@ -1,18 +1,18 @@
 /**
  * DOM UI layer (DOSSIER-v1 0.4.0). Screens that are mostly text and buttons (title, results) are real HTML laid over
  * the canvas instead of hand-positioned Phaser Text: text reflows at every text size, buttons are focusable and
- * readable by assistive tech, and layout is CSS. The overlay tracks the canvas rectangle (Phaser FIT scaling) and
- * exposes it as `--k` (overlay width ÷ logical width) so sizes in `em` follow the canvas scale; `--text-scale`
- * carries the player's text-size preference, and `--fit` (1 unless the title would need to scroll) shrinks the title just
- * enough to keep its bottom strip on the canvas when the platform's fallback font runs wider than the one it was laid out
- * with (DejaVu Sans on the Linux CI runner wraps the how-to lines at 130 %). One screen is mounted at a time; a Phaser
- * panel (tips) can hide it.
+ * readable by assistive tech, and layout is CSS. The overlay covers the canvas's container (production roadmap 0.10.0:
+ * the canvas sizes to the container, render/viewport.ts); the base font size comes from the device class (16 px on a
+ * desktop, 15 on a tablet, 14 on a phone), `--text-scale` carries the player's text-size preference, and `--fit` (1
+ * unless the title would need to scroll on a wide screen) shrinks the title just enough to keep its bottom strip in view
+ * when the platform's fallback font runs wider than the one it was laid out with (DejaVu Sans on the Linux CI runner
+ * wraps the how-to lines at 130 %). On a phone the title scrolls instead. One screen is mounted at a time; a Phaser
+ * panel (tips) can hide it. Board-anchored sizes (ui/GamePanel.ts) use `--px`, one logical board pixel in CSS px.
  * Every interactive element carries `data-testid`, which the e2e uses instead of Phaser object names.
  */
 import type Phaser from 'phaser';
 import { CSS, FONT, MONO } from '../render/palette';
 import { prefs } from '../render/prefs';
-import { W } from '../render/layout';
 import { audio } from '../render/audio';
 import { t } from '../content/strings';
 
@@ -108,11 +108,15 @@ export function btn(
 
 const STYLE = `
 #game { position: relative; }
-#ui { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 5; font-family: ${FONT}; color: ${CSS.text}; --px: calc(1px * var(--k, 1));
-  font-size: calc(16px * var(--k, 1) * var(--text-scale, 1) * var(--fit, 1)); line-height: 1.3; }
+#ui { position: absolute; inset: 0; pointer-events: none; z-index: 5; font-family: ${FONT}; color: ${CSS.text}; --px: 1px; --base: 16px;
+  font-size: calc(var(--base) * var(--text-scale, 1) * var(--fit, 1)); line-height: 1.3; }
+@media (max-width: 1024px) { #ui { --base: 15px; } }
+@media (max-width: 600px) { #ui { --base: 14px; } }
 #ui.jd-hidden { display: none; }
 #ui * { box-sizing: border-box; }
-#ui .jd-screen { position: absolute; inset: 0; pointer-events: auto; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; padding: 0.5em 1.25em; gap: 0.35em; }
+#ui .jd-screen { position: absolute; inset: 0; pointer-events: auto; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; padding: 0.5em max(1.25em, calc((100% - 72em) / 2)); gap: 0.35em; }
+@media (max-width: 600px) { #ui .jd-screen { padding: 0.4em 0.75em; } }
+@media (pointer: coarse) { #ui .jd-btn, #ui .jd-offer, #ui .jd-entry, #ui .jd-link, #ui input[type=range] { min-height: 44px; } #ui .jd-btn { min-width: 44px; } }
 #ui .jd-mono { font-family: ${MONO}; }
 #ui .jd-dim { color: ${CSS.dim}; }
 #ui .jd-amber { color: ${CSS.amber}; }
@@ -127,6 +131,10 @@ const STYLE = `
 #ui .jd-between { justify-content: space-between; }
 #ui .jd-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75em; }
 #ui .jd-actions { gap: 0.5em; margin-top: 0.3em; }
+#ui .jd-strip-head, #ui .jd-strip-left, #ui .jd-strip-right { flex-wrap: nowrap; }
+#ui .jd-strip-left { overflow: hidden; }
+#ui .jd-strip-right { flex: 0 0 auto; }
+@media (max-width: 900px) { #ui .jd-strip-head, #ui .jd-strip-left, #ui .jd-strip-right { flex-wrap: wrap; } #ui .jd-strip-left { overflow: visible; } #ui .jd-strip-right { flex: 1 1 100%; } }
 #ui .jd-actions-label { width: 3.6em; flex: 0 0 auto; text-align: right; font-size: 0.7em; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: ${CSS.dim}; }
 @media (max-width: 900px) { #ui .jd-grid2 { grid-template-columns: 1fr; } }
 #ui .jd-btn { font: inherit; font-weight: 700; font-size: 0.875em; padding: 0.5em 1.1em; border-radius: 0.2em; border: 2px solid rgba(0,0,0,0.35); cursor: pointer; color: #1a1612; background: ${CSS.amber}; box-shadow: 0 2px 0 rgba(0,0,0,0.35); white-space: nowrap; }
@@ -149,14 +157,15 @@ const STYLE = `
 #ui .jd-dialog textarea { min-height: 8em; resize: vertical; font-family: ${MONO}; font-size: 0.75em; }
 #ui .jd-tips { position: absolute; inset: 0; pointer-events: auto; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10; }
 #ui .jd-tips-box { width: min(92%, 50em); max-height: 94%; overflow: auto; display: flex; flex-direction: column; gap: 0.5em; }
-#ui .jd-tips-cols { display: flex; gap: 1em; align-items: flex-start; }
+#ui .jd-tips-cols { display: flex; gap: 1em; align-items: flex-start; flex-wrap: wrap; }
 #ui .jd-tips-nav { display: flex; flex-direction: column; gap: 0.35em; flex: 0 0 14em; }
+@media (max-width: 600px) { #ui .jd-tips-nav { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; } #ui .jd-tips-nav .jd-btn { flex: 1 1 40%; } }
 #ui .jd-tips-nav .jd-btn { text-align: left; white-space: normal; }
 #ui .jd-tips-nav .jd-btn.jd-active { background: ${CSS.amber}; color: #1a1612; }
 #ui .jd-tips-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 0.4em; }
 #ui .jd-tips-title { font-weight: 700; font-size: 1.05em; }
 #ui .jd-tips-text { margin: 0; font-size: 0.8125em; }
-#ui .jd-tips-demo { display: block; border: 1px solid #3f382d; align-self: center; }
+#ui .jd-tips-demo { display: block; border: 1px solid #3f382d; align-self: center; max-width: 100%; height: auto; }
 #ui .jd-tips-watch { color: ${CSS.amber}; font-size: 0.75em; }
 #ui .jd-btn:focus-visible, #ui input:focus-visible, #ui .jd-entry:focus-visible { outline: 3px solid #d6f0ff; outline-offset: 2px; }
 #ui input[type=range] { accent-color: ${CSS.amber}; width: 12em; }
@@ -185,14 +194,12 @@ const STYLE = `
 
 class UiLayer {
   private root: HTMLDivElement | null = null;
-  private game: Phaser.Game | null = null;
   private screen: HTMLElement | null = null;
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
 
   /** Create the overlay once and keep it aligned with the canvas. */
   attach(game: Phaser.Game) {
     if (this.root) return;
-    this.game = game;
     if (!document.getElementById('jd-ui-style')) {
       const st = document.createElement('style');
       st.id = 'jd-ui-style';
@@ -209,33 +216,26 @@ class UiLayer {
     requestAnimationFrame(sync);
     this.sync();
   }
-  /** Position the overlay over the canvas and publish the scale factors as CSS variables. */
+  /** Publish the player's preferences as CSS state and refit the title (the overlay itself covers the container by CSS). */
   sync() {
-    const root = this.root,
-      game = this.game;
-    if (!root || !game) return;
-    const r = game.canvas.getBoundingClientRect();
-    const parent = root.parentElement?.getBoundingClientRect() ?? { left: 0, top: 0 };
-    root.style.left = `${r.left - parent.left}px`;
-    root.style.top = `${r.top - parent.top}px`;
-    root.style.width = `${r.width}px`;
-    root.style.height = `${r.height}px`;
-    root.style.setProperty('--k', String(r.width / W || 1));
+    const root = this.root;
+    if (!root) return;
     root.style.setProperty('--text-scale', String(prefs.textScale));
     root.classList.toggle('jd-reduced-motion', prefs.reducedMotion);
     this.fit();
   }
   /**
-   * Title only: when the mounted title needs to scroll (a wider fallback font wrapped lines the layout assumed were one
-   * line), lower `--fit` in 2 % steps until it fits, down to 0.8; if even that does not fit, keep the chosen text size and
-   * let the screen scroll. Synchronous (each step reads layout once), idempotent, run on mount and on every resize.
+   * Title on a wide screen only: when the mounted title needs to scroll (a wider fallback font wrapped lines the layout
+   * assumed were one line), lower `--fit` in 2 % steps until it fits, down to 0.8; if even that does not fit, keep the
+   * chosen text size and let the screen scroll. Phones (under 700 px wide) scroll by design and keep their text size.
+   * Synchronous (each step reads layout once), idempotent, run on mount and on every resize.
    */
   private fit() {
     const root = this.root,
       screen = this.screen;
     if (!root) return;
     root.style.setProperty('--fit', '1');
-    if (!screen || !screen.classList.contains('jd-title') || screen.clientHeight < 50) return;
+    if (!screen || !screen.classList.contains('jd-title') || screen.clientHeight < 50 || root.clientWidth < 700) return;
     const fits = () => screen.scrollHeight <= screen.clientHeight + 1;
     if (fits()) return;
     for (let f = 0.98; f >= 0.8 - 1e-9; f = Math.round((f - 0.02) * 100) / 100) {

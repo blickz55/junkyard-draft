@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="__CSP__" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Junkyard Draft</title>
   <meta name="build" content="__BUILD__" />
   <style>
-    html, body { margin: 0; height: 100%; background: #1a1612; overflow: hidden; }
-    #game { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
-    canvas { image-rendering: auto; }
+    html, body { margin: 0; height: 100%; background: #1a1612; overflow: hidden; overscroll-behavior: none; }
+    #game { position: relative; width: 100%; height: 100%; height: 100dvh; overflow: hidden; }
+    #game canvas { display: block; position: absolute; left: 0; top: 0; image-rendering: auto; touch-action: none; }
   </style>
 </head>
 <body>

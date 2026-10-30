@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { applyDpr } from '../dpr';
+import { fitScreen } from '../viewport';
 import type { RunState } from '../../sim/run';
 import { P } from '../palette';
 import { audio } from '../audio';
@@ -162,7 +162,7 @@ export class ResultsScene extends Phaser.Scene {
     this.verifiedHash = null;
     this.hashPromise = null;
     this.cameras.main.setBackgroundColor(P.bg);
-    applyDpr(this);
+    fitScreen(this);
     const fork = !!run.forkedFrom; // PLAN-v4 0.7.3: a fork is practice: it never touches the save, the bests or the days played
     if (!data.replayed && !fork) clearSave(); // a watched replay is someone else's run: the player's own unfinished save stays untouched
     const rec = data.replayed || fork ? { newOverall: false, newSeed: false, prevSeedBest: null } : recordBest(run.seed, run.score);

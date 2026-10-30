@@ -4,7 +4,7 @@
  * rule-checked actions a player would; it has no authority over scoring.
  */
 import type { Action } from '../sim/run';
-import type { GameScene } from './scenes/GameScene';
+import type { BoardGeometry, GameScene } from './scenes/GameScene';
 import { prefs } from './prefs';
 import { telemetry } from './telemetry';
 import { audio } from './audio';
@@ -26,6 +26,8 @@ export interface DevApi {
   flow: () => { visible: boolean; links: number; loose: number };
   /** keyboard cursor: grid cell, visibility, and the id of the machine held in hand (null when empty) */
   cursor: () => { visible: boolean; x: number; y: number; held: number | null };
+  /** where the board is on the page in CSS px (0.10.0): the cell size, the grid and shelf rectangles, the shelf slots' centres */
+  geometry: () => BoardGeometry;
   prefs: () => { reducedMotion: boolean; textScale: number };
   /** +$ pop pool counters: alive now, peak, skipped (pool full), pool size and cap */
   counters: () => { popsAlive: number; popsPeak: number; popsSkipped: number; poolSize: number; poolMax: number };
@@ -88,6 +90,7 @@ export function installDevApi(scene: GameScene) {
     toast: () => scene.toastInfo(),
     flow: () => scene.flowInfo(),
     cursor: () => scene.cursorInfo(),
+    geometry: () => scene.geometryInfo(),
     prefs: () => ({ reducedMotion: prefs.reducedMotion, textScale: prefs.textScale }),
     counters: () => scene.popCounters(),
     undo: () => scene.undo(),

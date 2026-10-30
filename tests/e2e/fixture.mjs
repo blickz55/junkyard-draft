@@ -13,12 +13,14 @@ if (!process.env.PLAYWRIGHT_BROWSERS_PATH && fs.existsSync('/opt/pw-browsers')) 
 export const { chromium, firefox, webkit } = await import('playwright');
 
 /** The logical canvas: cell size and the grid's and shelf's origins (render/layout.ts), for pointer coordinates. */
-export const CELL = 72,
-  GX = 32,
-  GY = 72,
-  BIN_Y = 520;
-export const cellCenter = (x, y) => ({ x: GX + x * CELL + CELL / 2, y: GY + y * CELL + CELL / 2 });
-export const binSlotCenter = (i) => ({ x: GX + 12 + i * (CELL + 8) + CELL / 2, y: BIN_Y + 28 + CELL / 2 });
+/**
+ * Pointer targets on the board (production roadmap 0.10.0: the board's place and scale depend on the viewport, so a target
+ * is a marker that `page.jd.at()` resolves against the live geometry the dev API reports): a cell's centre, a shelf slot's
+ * centre, a point inside the shelf. `drag` takes markers or CSS points.
+ */
+export const cellCenter = (x, y) => ({ cell: [x, y] });
+export const binSlotCenter = (i) => ({ slot: i });
+export const shelfPoint = { shelf: true };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -178,28 +180,34 @@ export function helpers(page) {
         { timeout },
       ),
     text: (tid) => page.evaluate((t) => document.querySelector(`[data-testid=${t}]`)?.textContent ?? null, tid),
-    /** the DOM overlay covers the FIT-scaled canvas and its scale variable matches (after a resize or a scene restart) */
+    /** the DOM overlay and the canvas both cover the container (after a resize or a scene restart) */
     overlaySynced: (timeout = 8000) =>
       page.waitForFunction(
         () => {
           const ui = document.getElementById('ui'),
-            c = document.querySelector('canvas');
-          if (!ui || !c) return false;
+            c = document.querySelector('canvas'),
+            g = document.getElementById('game');
+          if (!ui || !c || !g) return false;
           const u = ui.getBoundingClientRect(),
-            r = c.getBoundingClientRect();
+            r = c.getBoundingClientRect(),
+            p = g.getBoundingClientRect();
           if (!r.width) return false;
-          const k = parseFloat(getComputedStyle(ui).getPropertyValue('--k'));
-          return (
-            Math.abs(u.left - r.left) < 1 &&
-            Math.abs(u.top - r.top) < 1 &&
-            Math.abs(u.width - r.width) < 1 &&
-            Math.abs(u.height - r.height) < 1 &&
-            Math.abs(k - r.width / 1120) < 0.01
-          );
+          const same = (a, b) =>
+            Math.abs(a.left - b.left) < 1 && Math.abs(a.top - b.top) < 1 && Math.abs(a.width - b.width) < 1 && Math.abs(a.height - b.height) < 1;
+          return same(u, p) && same(r, p);
         },
         null,
         { timeout },
       ),
+    /** a CSS point for a board marker (a cell, a shelf slot, the shelf) from the live geometry; a point passes through */
+    at: async (p) => {
+      if (p && typeof p.x === 'number') return p;
+      const g = await page.evaluate(() => window.__jd.geometry());
+      if (p.cell) return { x: g.grid.x + (p.cell[0] + 0.5) * g.cell, y: g.grid.y + (p.cell[1] + 0.5) * g.cell };
+      if (p.slot != null) return g.slots[p.slot];
+      if (p.shelf) return { x: g.shelf.x + g.shelf.w * 0.35, y: g.shelf.y + g.shelf.h * 0.6 };
+      throw new Error(`unknown board point ${JSON.stringify(p)}`);
+    },
     /** no tween is playing in the Game scene: a dropped or rotated machine has settled into its cell (Phaser's hit test misses a sprite that is still gliding) */
     settled: (timeout = 3000) =>
       page.waitForFunction(
@@ -211,8 +219,10 @@ export function helpers(page) {
         null,
         { timeout },
       ),
-    /** a real pointer drag from one canvas point to another; the drop's effect is visible once the view has settled */
+    /** a real pointer drag from one board point (a marker or CSS px) to another; the drop's effect is visible once the view has settled */
     drag: async (from, to) => {
+      from = await h.at(from);
+      to = await h.at(to);
       await page.mouse.move(from.x, from.y);
       await page.mouse.down();
       await page.mouse.move(from.x + 10, from.y + 10, { steps: 3 });
