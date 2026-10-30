@@ -15,17 +15,17 @@ test('share grid (PLAN-v1 0.4.3): glyph thresholds at their boundaries, six glyp
 
 test('share text: spoiler-free by default — label, score, glyph line, standing, no URL, no per-round dollars, no layout data', () => {
   const local = shareText(base);
-  assert.equal(local, 'Junkyard Draft · Daily 2026-10-25 · $1234\n░▒▓▓▒▒\nlocal score, not yet verified');
+  assert.equal(local, 'Junkyard Draft · Daily 2026-10-25 · $1234\n░▒▓▓▒▒\nscore on this device, not yet checked');
   assert.doesNotMatch(local, /https?:|rounds \$|verified board/);
   assert.doesNotMatch(local, /hopper|conveyor|crusher|furnace|splitter|press|dock|\bdir\b|\d,\d/i, 'no layout data of any kind');
   const verifiedRank = shareText({ ...base, player: 'jon', rank: { n: 3, of: 17 } });
-  assert.match(verifiedRank, /\n#3 of 17 on the verified board as jon$/, 'under five runs the rank is the standing');
+  assert.match(verifiedRank, /\n#3 of 17 on the board as jon$/, 'under five games the rank is the standing');
   const verifiedPct = shareText({ ...base, player: 'jon', rank: { n: 3, of: 17 }, percentile: 61, n: 38 });
-  assert.match(verifiedPct, /\nbetter than 61 % of 38 verified runs as jon$/, 'five or more runs: percentile beats rank');
-  assert.equal(standingText({ rank: { n: 1, of: 1 }, percentile: 0, n: 1 }), '#1 of 1 on the verified board', 'a population of one never says "better than 0 %"');
+  assert.match(verifiedPct, /\nbetter than 61 % of 38 checked games as jon$/, 'five or more games: better-than beats rank');
+  assert.equal(standingText({ rank: { n: 1, of: 1 }, percentile: 0, n: 1 }), '#1 of 1 on the board', 'a population of one never says "better than 0 %"');
   assert.equal(standingText({ rank: null }), '');
-  assert.equal(rankText({ n: null, of: 100 }), 'not in the top 100 of the verified board');
-  assert.equal(seedLabel('tutorial-1'), 'Tutorial'); assert.equal(seedLabel('rust-bolt-123'), 'seed rust-bolt-123');
+  assert.equal(rankText({ n: null, of: 100 }), 'not in the top 100 of the board');
+  assert.equal(seedLabel('tutorial-1'), 'Lesson'); assert.equal(seedLabel('rust-bolt-123'), 'yard rust-bolt-123');
 });
 
 test('share text: days played and the opt-in permalink append lines; the detailed variant adds per-round dollars and the rules version', () => {
@@ -50,8 +50,8 @@ test('share text: days played and the opt-in permalink append lines; the detaile
   assert.match(withLink, /\nhttps:\/\/example\.test\/\?scene=game&seed=daily-2026-10-25$/);
   const detailed = shareText({ ...base, variant: 'detailed', player: 'jon', rank: { n: 3, of: 17 } });
   assert.match(detailed, /\nrounds \$38 · \$120 · \$300 · \$300 · \$238 · \$238\n/);
-  assert.match(detailed, /replay re-simulated by the verifier, rules v2/);
-  assert.match(shareText({ ...base, variant: 'detailed' }), /\nrules v2$/);
+  assert.match(detailed, /\nchecked by the Junkyard Draft server(\n|$)/);
+  assert.doesNotMatch(shareText({ ...base, variant: 'detailed' }), /rules v|checked by/, 'an unchecked game claims nothing and names no rules version (the glossary: never shown)');
 });
 
 test('player names are trimmed, whitespace-collapsed and capped at 32 characters', () => {
@@ -64,6 +64,6 @@ test('badges in share text (PLAN-v1 0.4.6): only the detailed variant of a verif
   const base = { seed: 'x', score: 500, rulesVersion: 2, rounds: [50, 50, 100, 100, 100, 100], badges: ['Clean', 'All Hands'], rerolls: 2 };
   assert.doesNotMatch(shareText(base), /badges/, 'unverified: never');
   assert.doesNotMatch(shareText({ ...base, rank: { n: 1, of: 1 } }), /badges/, 'verified grid variant: no');
-  assert.match(shareText({ ...base, rank: { n: 1, of: 1 }, variant: 'detailed' }), /\nrerolls: 2 \(−\$80\)\n[\s\S]*badges: Clean · All Hands$/, 'verified detailed: yes');
+  assert.match(shareText({ ...base, rank: { n: 1, of: 1 }, variant: 'detailed' }), /\nnew offers: 2 \(−\$80\)\n[\s\S]*badges: Clean · All Hands$/, 'checked detailed: yes');
   assert.doesNotMatch(shareText({ ...base, badges: [], rank: { n: 1, of: 1 }, variant: 'detailed' }), /badges/);
 });

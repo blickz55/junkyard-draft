@@ -3,6 +3,11 @@
 All notable changes to Junkyard Draft. Dates are UTC. Rules changes bump `RULES_VERSION`, which invalidates
 older replays and saves on purpose.
 
+## Unreleased (v0.9 Clear, production roadmap)
+
+### 0.9.0 the string table and the glossary — 2026-10-30 (no rules change, protocol 2)
+- Every sentence a player reads now lives in `game/src/content/strings.ts` (about 330 entries, each with a note; `{name}` placeholders and ICU plurals), and the words follow the plain-language glossary (`game/src/content/glossary.ts`, Appendix B): yard instead of seed, seconds instead of ticks, the shift, checked and "our server" instead of verified and the verifier, the recording, the shelf, crews, the "beat this" link, a try, your key, the foreman's mark, new offers. `tests/strings.test.ts` fails on a banned word in the table (the policy page excepted) and on a prose literal in `game/src/ui` or `game/src/content` that is not from the table (`tools/strings-lint.ts`). Presentation text left the simulation: machine names and blurbs, the tips, the placement advice, the badge texts and the try label are content modules; the sim keeps the data. Numbers and dates go through `Intl` in `game/src/content/format.ts` (money without grouping, UTC dates). A pseudo-locale (`?locale=pseudo`: every letter accented, every string about 30 % longer) exists to prove the layout, and `tests/pseudo-e2e.test.mjs` runs title, pick, build, summary and results through it at 130 % text. The share text, the card, the clip and every test that pinned the old copy follow.
+
 ## Unreleased (v0.8, production roadmap)
 
 ### 0.8.12 single-step while paused — 2026-10-30 (no rules change, protocol 2)

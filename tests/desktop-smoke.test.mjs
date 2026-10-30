@@ -36,7 +36,7 @@ test('packaged desktop app: launches, plays a round, no page errors', { skip: !f
     await page.click('[data-testid=import]');
     await page.fill('[data-testid=dialog-input]', 'not json');
     await page.click('[data-testid=dialog-ok]');
-    await page.waitForFunction(() => /Could not read replay/.test(document.querySelector('[data-testid=dialog]')?.textContent || ''), null, { timeout: 5000 });
+    await page.waitForFunction(() => /Could not read the recording/.test(document.querySelector('[data-testid=dialog]')?.textContent || ''), null, { timeout: 5000 });
     await page.click('[data-testid=dialog-ok]');
     await page.click('[data-testid=custom]');
     await page.fill('[data-testid=dialog-input]', 'desk-seed');

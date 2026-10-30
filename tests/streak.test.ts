@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { streakOf, streakLine, normaliseDates, shiftUtcDate } from '../game/src/daily/streak';
+import { streakOf, normaliseDates, shiftUtcDate } from '../game/src/daily/streak';
+import { streakLine } from '../game/src/content/streak';
 
 const at = (iso: string) => new Date(iso);
 

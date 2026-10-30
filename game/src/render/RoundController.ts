@@ -7,6 +7,7 @@
  * starts, nothing edits the layout until the next build phase.
  */
 import { apply, newRun, replay as replayRun, RunError, type Action, type RoundRecord, type RunState } from '../sim/run';
+import { t } from '../content/strings';
 import { createSim, step, type SimState } from '../sim/sim';
 import { RULES } from '../sim/rules';
 import { RULES_VERSION, type SimEvent } from '../sim/types';
@@ -72,7 +73,7 @@ export class RoundController {
       catch (e) {
         // a damaged save must not silently start over: say so (the scene drops the save so the title stops offering it)
         this.run = newRun(data.seed);
-        this.resumeNotice = `Saved run could not be resumed (${(e as Error).message}); starting this seed fresh.`;
+        this.resumeNotice = t('hint.resumeFailed', { error: (e as Error).message });
       }
     }
     this.replayQueue = data.replay ? data.replay.slice() : null;

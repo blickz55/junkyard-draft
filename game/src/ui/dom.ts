@@ -14,6 +14,7 @@ import { CSS, FONT, MONO } from '../render/palette';
 import { prefs } from '../render/prefs';
 import { W } from '../render/layout';
 import { audio } from '../render/audio';
+import { t } from '../content/strings';
 
 export type Child = string | number | Node | null | undefined | false;
 export interface Attrs {
@@ -224,8 +225,8 @@ export function dialog(scene: Phaser.Scene, o: DialogOptions): Promise<string | 
     if (o.readonly && !o.multiline && !o.value) field.style.display = 'none'; // a plain message needs no field
     let done = false;
     const finish = (v: string | null) => { if (done) return; done = true; layer.remove(); prev?.focus?.(); resolve(v); };
-    const okBtn = btn(o.ok ?? 'OK', 'dialog-ok', () => finish(field.value), { variant: 'primary', small: true });
-    const cancelBtn = o.cancel === null ? null : btn(o.cancel ?? 'Cancel', 'dialog-cancel', () => finish(null), { small: true });
+    const okBtn = btn(o.ok ?? t('common.ok'), 'dialog-ok', () => finish(field.value), { variant: 'primary', small: true });
+    const cancelBtn = o.cancel === null ? null : btn(o.cancel ?? t('common.cancel'), 'dialog-cancel', () => finish(null), { small: true });
     const extras = (o.extra ?? []).map((x) => btn(x.label, x.tid, () => { finish(null); x.onClick(); }, { small: true }));
     const box = h('div', { class: 'jd-dialog jd-panel', role: 'dialog', ariaLabel: o.title, tid: 'dialog' },
       h('div', { class: 'jd-head' }, o.title),
@@ -250,9 +251,9 @@ export function dialog(scene: Phaser.Scene, o: DialogOptions): Promise<string | 
 /** One-line text entry with a default; null when cancelled. */
 export const promptText = (scene: Phaser.Scene, title: string, label: string, value = '', maxLength?: number) => dialog(scene, { title, label, value, maxLength });
 /** A message the player acknowledges. */
-export const alertText = (scene: Phaser.Scene, title: string, text: string) => dialog(scene, { title, label: text, value: '', readonly: true, cancel: null, ok: 'OK', multiline: false }).then(() => undefined);
+export const alertText = (scene: Phaser.Scene, title: string, text: string) => dialog(scene, { title, label: text, value: '', readonly: true, cancel: null, ok: t('common.ok'), multiline: false }).then(() => undefined);
 /** Show text for manual copying when the clipboard API is unavailable (selected, read-only). */
-export const showText = (scene: Phaser.Scene, title: string, text: string) => dialog(scene, { title, label: 'Select and copy:', value: text, readonly: true, multiline: true, cancel: null, ok: 'Close' }).then(() => undefined);
+export const showText = (scene: Phaser.Scene, title: string, text: string) => dialog(scene, { title, label: t('common.selectAndCopy'), value: text, readonly: true, multiline: true, cancel: null, ok: t('common.closeShort') }).then(() => undefined);
 
 /** A material icon from the generated textures as an <img>, so the DOM shows exactly what the canvas draws. */
 export function textureImg(game: Phaser.Game, key: string, alt: string): HTMLImageElement {

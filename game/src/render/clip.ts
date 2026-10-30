@@ -8,6 +8,8 @@
  * dependency-free GIF89a writer in gif.ts (one global palette quantised from every frame); GIFs loop natively.
  */
 import type Phaser from 'phaser';
+import { t } from '../content/strings';
+import { shareYardLabel } from '../content/yard';
 import { createSim, step, cellIndex, type SimState } from '../sim/sim';
 import { RULES } from '../sim/rules';
 import type { Layout, Material, SimEvent } from '../sim/types';
@@ -32,7 +34,7 @@ export interface ClipOptions {
 }
 export interface ClipResult { blob: Blob; mime: string; ms: number; frames: number; round: number; width: number; height: number; filename: string; footer: string }
 /** The wordmark line on every frame: a verification claim only for a verified replay (CLAUDE.md: never label local results verified). */
-export const clipFooter = (verified: boolean) => (verified ? 'junkyard draft · verified replay' : 'junkyard draft · local run · not verified');
+export const clipFooter = (verified: boolean) => (verified ? t('clip.footerChecked') : t('clip.footerLocal'));
 export interface GifOptions { round?: number; speed?: number; holdMs?: number; fps?: number; player?: string; verified?: boolean; onProgress?: (fraction: number) => void }
 export interface GifResult extends ClipResult { colours: number; magic: string }
 
@@ -132,12 +134,12 @@ export class ClipPainter {
 export function recordClip(game: Phaser.Game, run: { seed: string; score: number; rounds: { round: number; earned: number; layout: Layout }[] }, o: ClipOptions = {}): Promise<ClipResult> {
   return new Promise((resolve, reject) => {
     const mime = pickClipMime();
-    if (!mime) return reject(new Error('This browser cannot record video (MediaRecorder unavailable).'));
+    if (!mime) return reject(new Error(t('clip.noMedia')));
     const best = run.rounds.reduce((b, r) => (r.earned > b.earned ? r : b), run.rounds[0]);
     const rec = o.round ? run.rounds.find((r) => r.round === o.round) ?? best : best;
-    if (!rec) return reject(new Error('No finished round to export.'));
+    if (!rec) return reject(new Error(t('clip.noRound')));
     const totalBefore = run.rounds.filter((r) => r.round < rec.round).reduce((a, r) => a + r.earned, 0);
-    const seedLabel = /^daily-(\d{4}-\d{2}-\d{2})$/.test(run.seed) ? `Daily ${run.seed.slice(6)}` : `seed ${run.seed}`;
+    const seedLabel = shareYardLabel(run.seed);
     const footer = clipFooter(o.verified === true);
     const painter = new ClipPainter(game, rec.layout, { title: 'JUNKYARD DRAFT', seed: seedLabel, player: o.player || 'anonymous', round: rec.round, totalBefore, footer }, o.maxHeight ?? 720);
     const speed = o.speed ?? 4, passes = o.passes ?? 2, holdMs = o.holdMs ?? 300, fps = o.fps ?? 30;
@@ -151,7 +153,7 @@ export function recordClip(game: Phaser.Game, run: { seed: string; score: number
     const cleanup = () => { painter.canvas.remove(); stream.getTracks().forEach((t) => t.stop()); };
     const t0 = performance.now();
     let frames = 0;
-    recorder.onerror = () => { cleanup(); reject(new Error('Recording failed.')); };
+    recorder.onerror = () => { cleanup(); reject(new Error(t('clip.failed'))); };
     recorder.onstop = () => {
       cleanup();
       const blob = new Blob(chunks, { type: mime });
@@ -189,7 +191,7 @@ function pickRound(run: { seed: string; rounds: { round: number; earned: number;
   const rec = round ? run.rounds.find((r) => r.round === round) ?? best : best;
   if (!rec) return null;
   const totalBefore = run.rounds.filter((r) => r.round < rec.round).reduce((a, r) => a + r.earned, 0);
-  const seedLabel = /^daily-(\d{4}-\d{2}-\d{2})$/.test(run.seed) ? `Daily ${run.seed.slice(6)}` : `seed ${run.seed}`;
+  const seedLabel = shareYardLabel(run.seed);
   return { rec, totalBefore, seedLabel };
 }
 
@@ -200,7 +202,7 @@ function pickRound(run: { seed: string; rounds: { round: number; earned: number;
  */
 export async function renderGif(game: Phaser.Game, run: { seed: string; score: number; rounds: { round: number; earned: number; layout: Layout }[] }, o: GifOptions = {}): Promise<GifResult> {
   const picked = pickRound(run, o.round);
-  if (!picked) throw new Error('No finished round to export.');
+  if (!picked) throw new Error(t('clip.noRound'));
   const { rec, totalBefore, seedLabel } = picked;
   const footer = clipFooter(o.verified === true);
   const painter = new ClipPainter(game, rec.layout, { title: 'JUNKYARD DRAFT', seed: seedLabel, player: o.player || 'anonymous', round: rec.round, totalBefore, footer }, Infinity, 1);

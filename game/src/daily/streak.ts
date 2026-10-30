@@ -31,5 +31,3 @@ export function streakOf(dailyDates: Iterable<string>, now: Date): Streak {
   return { dailies: dates.length, streak, lastDate: last };
 }
 
-/** "17 days played · 5 in a row": the streak part only from two. */
-export const streakLine = (daysPlayed: number, streak: number): string => `${daysPlayed} day${daysPlayed === 1 ? '' : 's'} played${streak >= 2 ? ` · ${streak} in a row` : ''}`;

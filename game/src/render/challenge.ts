@@ -5,6 +5,7 @@
  * open daily. A challenge played inside a daily's window counts on the daily board through the normal verified path.
  */
 import { overrideAllowed } from './config';
+import { outcomeText } from './share';
 
 export interface Challenge { hash: string; seed: string; player: string; score: number; rounds: number[] }
 
@@ -40,6 +41,5 @@ export const challengerTotal = (c: Challenge, round: number): number => c.rounds
 /** The outcome line once a run is finished: "beat Jon#7Q2M's $1200 by $50", "short of … by $50", or "tied …". */
 export function challengeOutcome(score: number, c: Challenge): { diff: number; text: string } {
   const diff = score - c.score;
-  const text = diff > 0 ? `beat ${c.player}'s $${c.score} by $${diff}` : diff < 0 ? `short of ${c.player}'s $${c.score} by $${-diff}` : `tied ${c.player}'s $${c.score}`;
-  return { diff, text };
+  return { diff, text: outcomeText(score, c) };
 }

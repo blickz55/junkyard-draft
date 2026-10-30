@@ -1,12 +1,18 @@
 import { verifierUrl as resolveVerifierUrl } from '../config';
+import { t } from '../../content/strings';
+import { money } from '../../content/format';
+import { machineName } from '../../content/machines';
+import { forkLabel } from '../../content/fork';
+import { tipForMachine } from '../../content/tips';
+import { explainRunError, placementWarning } from '../../content/advice';
 import Phaser from 'phaser';
 import { applyDpr, DPR } from '../dpr';
 import type { Challenge } from '../challenge';
-import { forkFrom, forkLabelOf } from '../../sim/fork';
+import { forkFrom } from '../../sim/fork';
 import type { ForkOrigin } from '../../sim/run';
 import { RULES_VERSION } from '../../sim/types';
 import { decideQuality, QUALITY_PROBE_FRAMES } from '../quality';
-import { explainRunError, inputTravelDirs, outputDirs, placementWarning } from '../../sim/advice';
+import { inputTravelDirs, outputDirs } from '../../sim/advice';
 import { analyseRound } from '../../sim/bottleneck';
 import { bottleneckLine } from '../../content/bottleneck';
 import { isTutorialSeed, type Action, type RoundRecord, type RunState } from '../../sim/run';
@@ -15,9 +21,8 @@ import { cellIndex, type SimState } from '../../sim/sim';
 import { RoundController, type Mode } from '../RoundController';
 import { TipsPanel } from '../../ui/TipsPanel';
 import { GamePanel, type PanelState } from '../../ui/GamePanel';
-import { tipForMachine } from '../../sim/tips';
 import { telemetry } from '../telemetry';
-import { DIR_DX, DIR_DY, MACHINE_INFO, RULES } from '../../sim/rules';
+import { DIR_DX, DIR_DY, RULES } from '../../sim/rules';
 import type { Machine, Material, SimEvent } from '../../sim/types';
 import { BELT_FRAMES, CELL, itemTexture, machineTexture } from '../textures';
 import { baseScale, fit, setArt } from '../atlas';
@@ -54,8 +59,8 @@ export class GameScene extends Phaser.Scene {
   private reportName() {
     const hash = this.replayOrigin?.hash; if (!hash) return;
     const verifierUrl = resolveVerifierUrl();
-    void dialog(this, { title: `Report ${this.replayOrigin!.player}`, label: 'Why? The name is hidden as "player" on every board until a moderator reviews it. Scores are never affected. Pick one:', value: '', readonly: true, ok: 'Close', cancel: null,
-      extra: REPORT_REASONS.map((reason) => ({ label: reason, tid: `report-${reason}`, onClick: () => { void reportName(verifierUrl, hash, reason).then((line) => alertText(this, 'Report', line)); } })) });
+    void dialog(this, { title: t('report.title', { player: this.replayOrigin!.player }), label: t('report.label'), value: '', readonly: true, ok: t('common.closeShort'), cancel: null,
+      extra: REPORT_REASONS.map((reason) => ({ label: reason, tid: `report-${reason}`, onClick: () => { void reportName(verifierUrl, hash, reason).then((line) => alertText(this, t('report.result'), line)); } })) });
   }
   private get replayRounds() { return this.ctl.replayRounds; }
   private lastFrame = 0;
@@ -165,7 +170,7 @@ export class GameScene extends Phaser.Scene {
       reroll: () => { if (this.replayQueue) return; if (this.act({ t: 'reroll' })) { audio.lockIn(); if (!this.replayLabel) telemetry.track('reroll_used', { n: this.run.round }); this.renderSide(); } },
       forkHere: () => this.forkHere(),
       ...(this.replayOrigin?.hash ? { reportName: () => this.reportName() } : {}),
-    }, this.run.seed, this.replayLabel, audio.muted, this.run.forkedFrom ? forkLabelOf(this.run.forkedFrom) : null);
+    }, this.run.seed, this.replayLabel, audio.muted, this.run.forkedFrom ? forkLabel(this.run.forkedFrom) : null);
     this.tips = new TipsPanel(this, () => this.renderSide());
     this.suggestedTip = null;
     this.updateHud();
@@ -184,7 +189,7 @@ export class GameScene extends Phaser.Scene {
     for (let y = 0; y < RULES.gridHeight; y++) for (let x = 0; x < RULES.gridWidth; x++) fit(this.add.image(GRID_X + x * CELL, GRID_Y + y * CELL, 'tile')).setOrigin(0);
     this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H).setOrigin(0).setStrokeStyle(2, P.panelLine);
     panel(this, GRID_X, BIN_Y, GRID_W, 100, 0.9);
-    label(this, GRID_X + 10, BIN_Y + 6, 'PARTS BIN  — drag parts onto the grid, or arrow keys + Enter', 12, CSS.amber, { fontStyle: 'bold', letterSpacing: 1 });
+    label(this, GRID_X + 10, BIN_Y + 6, t('game.shelfLabel'), 12, CSS.amber, { fontStyle: 'bold', letterSpacing: 1 });
   }
   /** Leave a watched replay at any point: nothing was recorded, nothing to save. */
   stopReplay() {
@@ -340,7 +345,7 @@ export class GameScene extends Phaser.Scene {
     for (const o of outputDirs(m.kind, m.dir)) arrow(o, true, 0xffb347);
     if (this.rejectTimer) return;
     const warn = cx >= 0 ? placementWarning(this.run.layout, m.kind, cx, cy, m.dir, m.id) : null;
-    if (warn) this.setHint(`Heads up: ${warn}`); else this.updateHint();
+    if (warn) this.setHint(t('hint.headsUp', { warning: warn })); else this.updateHint();
   }
   private hideGhost() { this.ghostGfx.clear(); }
   private flashBad(x: number, y: number) {
@@ -482,15 +487,15 @@ export class GameScene extends Phaser.Scene {
       if (t.step !== this.tutorialStep) { if (this.tutorialStep) telemetry.track('tutorial_step_complete', { n: this.tutorialStep }); if (t.step) telemetry.track('tutorial_step_start', { n: t.step }); this.tutorialStep = t.step; }
       if (r.round >= 4) { this.tutorial = false; setOnboarded(); }
     } else if (!isOnboarded() && r.round === 1 && r.phase === 'draft' && !this.replayLabel) {
-      text = "New here? 'Learn (3 min)' on the title screen walks through every rule in three short rounds. Or dive in: pick a machine.";
+      text = t('hint.newHere');
     }
     if (this.ctl.resumeNotice) { text = this.ctl.resumeNotice; this.ctl.resumeNotice = null; }
     if (!text && r.phase === 'draft' && r.rounds.length && !this.replayLabel) { // 0.8.8: the last round's bottleneck line is the draft's hint
       const last = r.rounds[r.rounds.length - 1];
-      text = `Last round: ${bottleneckLine(analyseRound(last.layout, last.result, r.round))}`;
+      text = t('hint.lastRound', { line: bottleneckLine(analyseRound(last.layout, last.result, r.round)) });
     }
     if (!text) {
-      const tips = ['Scrap $1 → crusher → shards $3 → furnace → ingot $12.', 'Conveyors accept from behind or the side; crushers, furnaces and splitters only from behind.', 'A splitter alternates left and right. Two furnaces beat one.', 'Docks take items from any side. A second hopper doubles raw supply.', 'Right-click or R rotates. Drop a machine on the bin to remove it.', `A press squeezes ${RULES.pressShards} shards into one $${RULES.value.plate} plate: less than a furnace, but it never backs a line up.`, 'Keyboard: arrows move the cursor, Enter places or picks up, Tab cycles bin parts.'];
+      const tips = [t('hint.tip1'), t('hint.tip2'), t('hint.tip3'), t('hint.tip4'), t('hint.tip5'), t('hint.tip6', { shards: money(RULES.value.shards), plate: money(RULES.value.plate) })];
       text = tips[(r.round + r.layout.machines.length) % tips.length];
     }
     this.setHint(text);
@@ -503,29 +508,29 @@ export class GameScene extends Phaser.Scene {
     const r = this.run; const L = r.layout;
     const find = (k: Machine['kind']) => L.machines.find((m) => m.kind === k);
     const fed = (m: Machine) => placementWarning(L, m.kind, m.x, m.y, m.dir, m.id) == null;
-    const $ = (m: Material) => `$${RULES.value[m]}`;
+    const $ = (m: Material) => money(RULES.value[m]);
     if (r.round === 1) {
-      if (r.phase === 'draft') return { step: 1, text: `Welcome! The hopper drops ${$('scrap')} scrap onto a belt that ends at the dock. Pick the CRUSHER (click it or press 1): it turns scrap into ${$('shards')} shards. Three spare conveyors wait in the bin for round 3.` };
+      if (r.phase === 'draft') return { step: 1, text: t('lesson.1draft', { scrap: $('scrap'), shards: $('shards') }) };
       const crusher = find('crusher');
-      if (!crusher) return { step: 2, text: 'Make room: drag the conveyor right after the hopper down to the bin (or select it and press Delete), then drop the crusher there with its arrow pointing right. Then press RUN.' };
-      return fed(crusher) ? { step: 3, text: `Good: the hopper feeds the crusher from behind. Press RUN and watch every shard sell for ${$('shards')}.` } : { step: 3, text: 'The crusher only takes items from behind: put it in the belt so the hopper\'s line enters its back, arrow pointing on toward the dock (R rotates).' };
+      if (!crusher) return { step: 2, text: t('lesson.1place') };
+      return fed(crusher) ? { step: 3, text: t('lesson.1fed', { shards: $('shards') }) } : { step: 3, text: t('lesson.1unfed') };
     }
     if (r.round === 2) {
-      if (r.phase === 'draft') return { step: 4, text: `A FURNACE turns shards into ${$('ingot')} ingots, but raw scrap melts into ${$('slag')} slag, so it belongs after the crusher. Pick it.` };
+      if (r.phase === 'draft') return { step: 4, text: t('lesson.2draft', { ingot: $('ingot'), slag: $('slag') }) };
       const furnace = find('furnace'); const crusher = find('crusher');
-      if (!furnace) return { step: 4, text: 'Move the dock one cell to the right to make room, then put the furnace just before it: crusher → belt → furnace → dock, every arrow pointing right.' };
-      if (crusher && furnace.y === crusher.y && furnace.x < crusher.x) return { step: 4, text: 'Raw scrap would reach the furnace first and melt into slag: move the furnace after the crusher.' };
-      return fed(furnace) ? { step: 4, text: `Shards reach the furnace from behind. Press RUN: each ingot sells for ${$('ingot')}.` } : { step: 4, text: 'Nothing feeds the furnace from behind yet: put it in the line with its arrow pointing right.' };
+      if (!furnace) return { step: 4, text: t('lesson.2place') };
+      if (crusher && furnace.y === crusher.y && furnace.x < crusher.x) return { step: 4, text: t('lesson.2order') };
+      return fed(furnace) ? { step: 4, text: t('lesson.2fed', { ingot: $('ingot') }) } : { step: 4, text: t('lesson.2unfed') };
     }
     if (r.round === 3) {
-      if (r.phase === 'draft') return { step: 5, text: 'A SPLITTER sends items up and down in turn, so one line can feed two. Pick it; the spare conveyors will bring both branches back onto the belt.' };
+      if (r.phase === 'draft') return { step: 5, text: t('lesson.3draft') };
       const splitter = find('splitter');
-      if (!splitter) return { step: 5, text: 'Replace the conveyor after the crusher with the splitter. Its two outputs go up and down; from each, one conveyor along and one turning back onto the belt. Conveyors accept items from the side.' };
+      if (!splitter) return { step: 5, text: t('lesson.3place') };
       const flow = runLayout(L, 40);
-      if (flow.shipped.ingot > 0) return { step: 5, text: `Both branches rejoin the belt and ingots flow. Select the spare conveyor in the bin and sell it for ${$('scrap').replace('$1', `$${RULES.sellValue}`)}, then press RUN.` };
-      return { step: 5, text: 'Not flowing yet: from each splitter output, one conveyor along, then one turning back into the belt (R rotates). Items may enter a conveyor from behind or either side.' };
+      if (flow.shipped.ingot > 0) return { step: 5, text: t('lesson.3flow', { sell: money(RULES.sellValue) }) };
+      return { step: 5, text: t('lesson.3noflow') };
     }
-    return { step: 6, text: 'You know every rule. Rounds 4 to 6 are an ordinary draft: pick what helps your line most, arrange, run. Parts you cannot use sell for $10. The daily challenge is waiting on the title screen.' };
+    return { step: 6, text: t('lesson.done', { sell: money(RULES.sellValue) }) };
   }
   /** Current hint text (typed accessor for the dev API and tests instead of private-field access). */
   hintText(): string { return this.panel?.hintText ?? ''; }
@@ -545,7 +550,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.replayLabel) telemetry.track('first_run_start');
     audio.run(); audio.humStart(this.run.round);
     this.renderSide();
-    this.setHint(this.replayLabel ? 'Watching a verified replay: 1/2/4× change the speed, Skip jumps to the round result, Esc stops and returns to the title.' : 'Running… Jams glow red: an item waits for a free cell or a slow machine.');
+    this.setHint(this.replayLabel ? t('hint.watching') : t('hint.running'));
   }
   setPaused(p: boolean) { this.ctl.setPaused(p); }
   /** One tick while paused (0.8.12): the Step button or the . key; the veil shows the new tick. */
@@ -583,7 +588,7 @@ export class GameScene extends Phaser.Scene {
       if (this.dprProbe.length >= QUALITY_PROBE_FRAMES) {
         const quality = decideQuality(this.dprProbe);
         updateSettings({ renderQuality: quality }); this.dprProbe = null;
-        if (quality === 'low') this.setHint('This device struggles at high resolution: from the next start the game runs at standard resolution (change it on the title screen).');
+        if (quality === 'low') this.setHint(t('hint.lowQuality'));
       }
     }
     if (this.ctl.advance(delta)) return; // the round ended: onRoundEnd tore the live visuals down
@@ -684,8 +689,8 @@ export class GameScene extends Phaser.Scene {
     this.stallCell = cell;
     const m = sim.grid[cell];
     const x = cell % RULES.gridWidth, y = Math.floor(cell / RULES.gridWidth);
-    const what = m ? MACHINE_INFO[m.kind].name : 'Item';
-    this.panel.setStall(`Stalled: ${what} at ${x + 1},${y + 1} ${m?.kind === 'hopper' ? 'is blocked' : 'is waiting'} — nothing shipped for ${GameScene.STALL_TICKS} ticks`);
+    const what = m ? machineName(m.kind) : 'Item';
+    this.panel.setStall(t('hint.stall', { what, pos: `${x + 1},${y + 1}`, state: m?.kind === 'hopper' ? t('hint.stallBlocked') : t('hint.stallWaiting'), n: GameScene.STALL_TICKS }));
     const { px, py } = this.cellXY(x, y);
     this.stallMark.setPosition(px, py).setAlpha(1).setVisible(true);
     audio.stall();
@@ -718,7 +723,7 @@ export class GameScene extends Phaser.Scene {
     audio.roundEnd(rec.earned > 38);
     this.panel.showSummaryOverlay(this.run);
     this.renderSide();
-    this.setHint(this.run.round >= RULES.rounds ? 'Final round complete. Badges show what each machine did.' : 'Badges show what each machine did. Study the waits, then draft and rearrange.');
+    this.setHint(this.run.round >= RULES.rounds ? t('hint.summaryFinal') : t('hint.summary'));
   }
   nextRound() {
     if (this.mode !== 'summary') return;

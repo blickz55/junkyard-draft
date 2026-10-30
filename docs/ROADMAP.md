@@ -85,6 +85,10 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] Commit the CI perf baseline to `docs/baselines/ci/perf-ci.json` from the perf workflow's artifact to arm the strict gate (0.8.4, session 50)
 - [x] ⚑ First green run of `ci.yml` on GitHub: 091a60d (run 40986558629, 2026-10-30); the image job builds, smokes and (0.8.4) pushes on tags
 
+## M12 — production roadmap v0.9 Clear (`docs/PRODUCTION-ROADMAP.md` §5; in progress)
+- [x] 0.9.0 the string table and the glossary: `game/src/content/strings.ts` + `glossary.ts` + `format.ts` + `locale.ts`; sim text moved to `content/` (machines, tips, advice, badges, fork); `tools/strings-lint.ts`; the pseudo-locale and `tests/pseudo-e2e.test.mjs` at 130 % (`tests/strings.test.ts`) · ⚑ the owner reviews Appendix B's choices (crews, yard, a try, our server)
+- [ ] 0.9.1 the foreman, text only · [ ] 0.9.2 the results card · [ ] 0.9.3 onboarding delivery · [ ] 0.9.4 GameScene split · [ ] 0.9.5 test suite, lint, coverage · [ ] 0.9.6 dead rounds: a tuning pass (⚑ go/no-go) · [ ] 0.9.7 stats page · [ ] ⚑ 0.9.8 playtest round two
+
 ## M11 — production roadmap v0.8 Real (`docs/PRODUCTION-ROADMAP.md` §5; in progress)
 - [x] 0.8.0 client hardening: `?verifier=` only in dev builds and on loopback pages, CSP in page and Electron, storage-failure banner, error log + Copy diagnostics (`tests/config.test.ts`, `tests/hardening-e2e.test.mjs`)
 - [x] 0.8.1 verifier hardening, first cut: rightmost proxy hop, per-address read/write limits, 400-day history bound, identity cap, JSON log with hashed addresses and request ids, 500s logged, timeouts, SIGTERM drain, `/health` trigger inputs, two-reporter hide rule with 72 h lapse and moderator confirm, cold deletion, 7-day event hashes (`tests/verifier-hardening.test.ts`, `tools/log-check.ts` in CI)

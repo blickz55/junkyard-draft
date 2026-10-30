@@ -57,10 +57,10 @@ test('0.8.7 offline scenario: run, see the saved-and-waiting state, bring the ve
     // 2. a first run offline: the board panel holds the device's history, with this run marked
     await playToResults('offline-e2e-seed');
     const status = () => page.evaluate(() => document.querySelector('[data-testid=status]')?.textContent || '');
-    await page.waitForFunction(() => /^Offline: your run is saved on this device/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
-    assert.equal(await page.getByTestId('board-head').textContent(), 'Your runs on this seed · this device');
-    assert.match(await page.getByTestId('history-0').textContent(), /^1\. \$\d+  this run$/);
-    assert.match(await page.getByTestId('history-note').textContent(), /^1 of your run on this seed, this device only\./);
+    await page.waitForFunction(() => /^Offline: your game is saved on this device/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
+    assert.equal(await page.getByTestId('board-head').textContent(), 'Your games on this yard · this device');
+    assert.match(await page.getByTestId('history-0').textContent(), /^1\. \$\d+  this game$/);
+    assert.match(await page.getByTestId('history-note').textContent(), /^1 game of yours on this yard, this device only\./);
     const score1 = Number((await page.getByTestId('score').textContent()).replace('$', ''));
     // the grouped actions: three labelled rows and exactly one primary button
     const groups = await page.evaluate(() => ['actions-play', 'actions-share', 'actions-watch'].map((id) => { const g = document.querySelector(`[data-testid=${id}]`); return g ? { label: g.querySelector('.jd-actions-label')?.textContent, buttons: [...g.querySelectorAll('button')].map((b) => b.dataset.testid) } : null; }));
@@ -71,27 +71,27 @@ test('0.8.7 offline scenario: run, see the saved-and-waiting state, bring the ve
     await noDevCopy('results offline');
     // 3. submit while offline: saved and waiting
     await page.getByTestId('submit').click();
-    await page.waitForFunction(() => /^Offline: your run is saved on this device and waits for a connection/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
+    await page.waitForFunction(() => /^Offline: your game is saved on this device and waits for a connection/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
     assert.equal(await page.getByTestId('submit').textContent(), 'Saved · waiting for a connection'); assert.equal(await page.getByTestId('submit').isDisabled(), true);
     const pending = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.pending.v1') || '[]'));
     assert.equal(pending.length, 1); assert.equal(pending[0].seed, 'offline-e2e-seed'); assert.equal(pending[0].player, 'Offline Pat'); assert.equal(pending[0].replay.claimedScore, score1);
     await page.screenshot({ path: path.join(SHOTS, `offline-results-${Date.now()}.png`) });
     // 4. a second run on the same seed while still offline: the history lists both, the older one by date
     await playToResults('offline-e2e-seed');
-    await page.waitForFunction(() => /^Offline: your run is saved/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
-    assert.match(await page.getByTestId('history-note').textContent(), /^2 of your runs on this seed/);
+    await page.waitForFunction(() => /^Offline: your game is saved/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
+    assert.match(await page.getByTestId('history-note').textContent(), /^2 games of yours on this yard/);
     const rows = await page.evaluate(() => [0, 1].map((i) => document.querySelector(`[data-testid=history-${i}]`)?.textContent));
-    assert.ok(rows.some((r) => /this run$/.test(r)) && rows.some((r) => /\d{4}-\d{2}-\d{2}$/.test(r)), `one row is this run, the other dated: ${rows.join(' | ')}`);
+    assert.ok(rows.some((r) => /this game$/.test(r)) && rows.some((r) => /\d{4}-\d{2}-\d{2}$/.test(r)), `one row is this game, the other dated: ${rows.join(' | ')}`);
     // 5. the title while offline says a run is waiting
     await page.getByTestId('title').click();
     await page.waitForSelector('[data-testid=pending-note]');
-    await page.waitForFunction(() => /^Still offline; your saved run on offline-e2e-seed is kept/.test(document.querySelector('[data-testid=pending-note]')?.textContent || ''), null, { timeout: 15000 });
+    await page.waitForFunction(() => /^Still offline; your saved game on offline-e2e-seed is kept/.test(document.querySelector('[data-testid=pending-note]')?.textContent || ''), null, { timeout: 15000 });
     // 6. the verifier comes up; a reload of the title submits the saved run and says so
     verifier = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server/verify.ts')], { env: { ...process.env, PORT: String(VPORT), BOARD_FILE: boardFile, DAILY_SECRET: 'offline-e2e-secret', VERIFIER_LOG: '0', BOT_PAR: '0' }, stdio: 'ignore' });
     await waitVerifier();
     await page.goto(`${URL}/?dev=1&verifier=${VURL}`);
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
-    await page.waitForFunction(() => /^Your saved run on offline-e2e-seed is verified: \$\d+ · #1 of 1 as Offline Pat\.$/.test(document.querySelector('[data-testid=pending-note]')?.textContent || ''), null, { timeout: 20000 });
+    await page.waitForFunction(() => /^Your saved game on offline-e2e-seed is checked: \$\d+ · #1 of 1 as Offline Pat\.$/.test(document.querySelector('[data-testid=pending-note]')?.textContent || ''), null, { timeout: 20000 });
     assert.match(await page.getByTestId('pending-note').textContent(), new RegExp(`\\$${score1} · #1 of 1`), 'the saved first run (the one submitted) is the verified one');
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.pending.v1')), null, 'nothing waits any more');
     const subs = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.submissions.v2')));
@@ -104,9 +104,9 @@ test('0.8.7 offline scenario: run, see the saved-and-waiting state, bring the ve
     // 7. online results: the board is back with the verified entry, the status says so in plain words
     await playToResults('offline-e2e-seed');
     await page.waitForFunction(() => /^Online\./.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
-    assert.equal(await page.getByTestId('board-head').textContent(), 'Verified board · this seed');
+    assert.equal(await page.getByTestId('board-head').textContent(), 'Checked board · this yard');
     assert.match(await page.getByTestId('board-entry-0').textContent(), /^1\. \$\d+  Offline Pat/);
-    assert.equal(await page.getByTestId('submit').textContent(), 'Submit for verification');
+    assert.equal(await page.getByTestId('submit').textContent(), 'Submit to be checked');
     await noDevCopy('results online');
     assert.deepEqual(errors, [], 'no page errors');
   } finally {

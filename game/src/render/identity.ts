@@ -5,6 +5,7 @@
  */
 import { tagFor, recoveryCodeFor, tokenFromRecoveryCode, TOKEN_HEX } from '../identity/identity';
 import { markStorageFailure } from './storage';
+import { t } from '../content/strings';
 
 export interface Identity { token: string; playerId: string | null; name: string | null; tag: string | null }
 const KEY = 'jd.identity.v1';
@@ -57,14 +58,14 @@ export function restoreIdentity(code: string): boolean {
 }
 /** GET /me/export (production roadmap 0.8.6): everything the verifier stores under this device's player id, or an error line. */
 export async function exportMyData(verifierUrl: string): Promise<{ ok: true; data: Record<string, unknown>; entries: number; replays: number } | { ok: false; error: string }> {
-  if (!bearerAllowed(verifierUrl)) return { ok: false, error: 'the verifier is not https, so the key cannot be sent' };
+  if (!bearerAllowed(verifierUrl)) return { ok: false, error: t('identity.errInsecure') };
   try {
     const res = await fetch(`${verifierUrl}/me/export`, { headers: authHeaders(verifierUrl) });
     const body = await res.json() as { ok: boolean; error?: string; entries?: { replay: unknown }[] };
-    if (!res.ok || !body.ok) return { ok: false, error: body.error ?? `export refused (${res.status})` };
+    if (!res.ok || !body.ok) return { ok: false, error: body.error ?? t('identity.errExportRefused', { status: res.status }) };
     const entries = Array.isArray(body.entries) ? body.entries : [];
     return { ok: true, data: body as Record<string, unknown>, entries: entries.length, replays: entries.filter((e) => e.replay).length };
-  } catch { return { ok: false, error: 'the verifier did not answer' }; }
+  } catch { return { ok: false, error: t('identity.errNoAnswer') }; }
 }
 /** Replace the device key with a fresh one (after a deletion: nothing may link the anonymised entries to this device again). */
 export function resetIdentity(): void { write({ token: randomToken(), playerId: null, name: null, tag: null }); }
@@ -73,19 +74,19 @@ export function resetIdentity(): void { write({ token: randomToken(), playerId: 
  * half runs only after the server confirmed (a key rotated before the server answered would orphan the server's copy).
  */
 export async function deleteMyData(verifierUrl: string): Promise<{ ok: true; anonymisedEntries: number; coldReplaysDropped: number } | { ok: false; error: string }> {
-  if (!bearerAllowed(verifierUrl)) return { ok: false, error: 'the verifier is not https, so the key cannot be sent' };
+  if (!bearerAllowed(verifierUrl)) return { ok: false, error: t('identity.errInsecure') };
   try {
     const res = await fetch(`${verifierUrl}/me`, { method: 'DELETE', headers: authHeaders(verifierUrl) });
     const body = await res.json() as { ok: boolean; error?: string; anonymisedEntries?: number; coldReplaysDropped?: number };
-    if (!res.ok || !body.ok) return { ok: false, error: body.error ?? `deletion refused (${res.status})` };
+    if (!res.ok || !body.ok) return { ok: false, error: body.error ?? t('identity.errDeleteRefused', { status: res.status }) };
     resetIdentity();
     return { ok: true, anonymisedEntries: body.anonymisedEntries ?? 0, coldReplaysDropped: body.coldReplaysDropped ?? 0 };
-  } catch { return { ok: false, error: 'the verifier did not answer; nothing was deleted' }; }
+  } catch { return { ok: false, error: t('identity.errNoAnswerDelete') }; }
 }
 /** Claim or confirm the display name with the verifier; resolves with the label or null when the server is unreachable or refused. */
 export async function claimName(verifierUrl: string, name: string): Promise<{ name: string; tag: string } | { error: string } | null> {
   try {
-    if (!bearerAllowed(verifierUrl)) return { error: 'the verifier is not https' };
+    if (!bearerAllowed(verifierUrl)) return { error: t('identity.errInsecure') };
     const res = await fetch(`${verifierUrl}/identity`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders(verifierUrl) }, body: JSON.stringify({ name }) });
     const body = await res.json() as { ok: boolean; name?: string; tag?: string; playerId?: string; error?: string };
     if (!res.ok || !body.ok || !body.name || !body.tag) return { error: body.error ?? `identity refused (${res.status})` };

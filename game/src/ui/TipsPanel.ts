@@ -3,9 +3,10 @@
  * simulation and drawn from the real textures onto a small 2D canvas, so it can never contradict the rules. Opened
  * from the title and from the build phase as a layer over the current DOM screen; opening a tip marks it read
  * (storage) so its badge never returns. Tips never write to the hint strip: rejections (0.3.2) own that channel.
+ * The texts come from the string table through game/src/content/tips.ts (0.9.0).
  */
 import type Phaser from 'phaser';
-import { TIPS, type Tip } from '../sim/tips';
+import { tips as allTips, type Tip } from '../content/tips';
 import { createSim, step, cellIndex, type SimState } from '../sim/sim';
 import type { Material } from '../sim/types';
 import { CELL, itemTexture, machineTexture } from '../render/textures';
@@ -15,13 +16,15 @@ import { loadReadTips, markTipRead } from '../render/storage';
 import { prefs } from '../render/prefs';
 import { telemetry } from '../render/telemetry';
 import { btn, h, ui } from './dom';
+import { t } from '../content/strings';
+import { materialName } from '../content/machines';
 
 const DEMO_CELL = 54;
 const DEMO_ITEM = 18;
 const DEMO_TICK_MS = 240;
 const BACKING = 2; // canvas pixels per logical pixel; crisp at the overlay's usual scale
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
-const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+const easeInOut = (x: number) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
 
 export class TipsPanel {
   private root: HTMLElement | null = null;
@@ -37,6 +40,7 @@ export class TipsPanel {
   private lastTickAt = 0;
   private current: string | null = null;
   private prevFocus: HTMLElement | null = null;
+  private list: Tip[] = [];
 
   constructor(private readonly scene: Phaser.Scene, private readonly onClose?: () => void) {}
 
@@ -47,13 +51,14 @@ export class TipsPanel {
 
   open(tipId?: string) {
     if (this.root) { if (tipId) this.show(tipId); return; }
+    this.list = allTips();
     const read = loadReadTips();
     this.nav.clear();
-    const list = h('div', { class: 'jd-tips-nav', role: 'tablist' }, ...TIPS.map((t) => { const b = btn((read.includes(t.id) ? '' : '● ') + t.title, `tip-${t.id}`, () => this.show(t.id), { small: true }); b.setAttribute('role', 'tab'); this.nav.set(t.id, b); return b; }));
+    const nav = h('div', { class: 'jd-tips-nav', role: 'tablist' }, ...this.list.map((tip) => { const b = btn((read.includes(tip.id) ? '' : t('tips.unread')) + tip.title, `tip-${tip.id}`, () => this.show(tip.id), { small: true }); b.setAttribute('role', 'tab'); this.nav.set(tip.id, b); return b; }));
     this.body = h('div', { class: 'jd-tips-body' });
-    const box = h('div', { class: 'jd-tips-box jd-panel', role: 'dialog', ariaLabel: 'Tips', tid: 'tips-panel' },
-      h('div', { class: 'jd-row jd-between' }, h('div', { class: 'jd-head' }, 'Tips — each demo is the real simulation'), btn('Close (Esc)', 'tips-close', () => this.close(), { small: true })),
-      h('div', { class: 'jd-tips-cols' }, list, this.body));
+    const box = h('div', { class: 'jd-tips-box jd-panel', role: 'dialog', ariaLabel: t('tips.aria'), tid: 'tips-panel' },
+      h('div', { class: 'jd-row jd-between' }, h('div', { class: 'jd-head' }, t('tips.head')), btn(t('common.close'), 'tips-close', () => this.close(), { small: true })),
+      h('div', { class: 'jd-tips-cols' }, nav, this.body));
     this.root = h('div', { class: 'jd-tips', onClick: (e) => { if (e.target === this.root) this.close(); } }, box);
     // modal focus: keys typed here never reach the scenes, Tab cycles inside the dialog, focus returns on close
     this.prevFocus = document.activeElement as HTMLElement | null;
@@ -63,7 +68,7 @@ export class TipsPanel {
       e.stopPropagation();
     });
     ui.layer(this.scene, this.root);
-    this.show(tipId ?? TIPS[0].id);
+    this.show(tipId ?? this.list[0].id);
     (box.querySelector('[data-testid=tips-close]') as HTMLElement | null)?.focus();
   }
 
@@ -77,7 +82,7 @@ export class TipsPanel {
 
   /** Show one tip: its text, its demo loop, and mark it read. */
   private show(tipId: string) {
-    const tip = TIPS.find((t) => t.id === tipId); if (!tip || !this.body) return;
+    const tip = this.list.find((x) => x.id === tipId); if (!tip || !this.body) return;
     this.current = tipId;
     markTipRead(tipId);
     telemetry.track('tip_opened', { id: tipId });
@@ -87,7 +92,7 @@ export class TipsPanel {
     this.canvas = null; this.watch = null;
     if (!tip.layout) return;
     const gw = tip.layout.width * DEMO_CELL, gh = tip.layout.height * DEMO_CELL;
-    const canvas = h('canvas', { class: 'jd-tips-demo', tid: 'tips-demo', ariaLabel: `${tip.title}: live demo` });
+    const canvas = h('canvas', { class: 'jd-tips-demo', tid: 'tips-demo', ariaLabel: t('tips.demoAria', { title: tip.title }) });
     canvas.width = gw * BACKING; canvas.height = gh * BACKING;
     canvas.style.width = `calc(${gw} * var(--px))`; canvas.style.height = `calc(${gh} * var(--px))`;
     this.watch = h('div', { class: 'jd-tips-watch', tid: 'tips-watch' }, tip.watch);
@@ -118,8 +123,8 @@ export class TipsPanel {
     for (const it of sim.items) {
       const to = at(it.cell); let x = to.x, y = to.y;
       if (it.movedAt === sim.tick && it.from >= 0 && phase < 1) { const from = at(it.from); const e = easeInOut(phase); x = from.x + (to.x - from.x) * e; y = from.y + (to.y - from.y) * e; }
-      const s = it.hold > 0 ? 0.85 : 1;
-      this.blit(ctx, itemTexture(it.mat as Material), x - (DEMO_ITEM / 2) * s, y - (DEMO_ITEM / 2) * s, DEMO_ITEM * s, DEMO_ITEM * s);
+      const sc = it.hold > 0 ? 0.85 : 1;
+      this.blit(ctx, itemTexture(it.mat as Material), x - (DEMO_ITEM / 2) * sc, y - (DEMO_ITEM / 2) * sc, DEMO_ITEM * sc, DEMO_ITEM * sc);
     }
     ctx.restore();
   }
@@ -135,8 +140,8 @@ export class TipsPanel {
       else step(sim);
       this.lastTickAt = performance.now();
       const now = this.demoSim!;
-      const shipped = Object.entries(now.shipped).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${k}`).join(', ');
-      if (this.watch) this.watch.textContent = `${tip.watch}  ·  tick ${now.tick}/${tip.ticks}  ·  shipped: ${shipped || 'nothing yet'}`;
+      const shipped = (Object.entries(now.shipped) as [Material, number][]).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${materialName(k)}`).join(', ');
+      if (this.watch) this.watch.textContent = t('tips.watchLine', { watch: tip.watch, tick: now.tick, total: tip.ticks, shipped: shipped || t('tips.nothingYet') });
     };
     this.timer = this.scene.time.addEvent({ delay: DEMO_TICK_MS, loop: true, callback: tickOnce });
     const frame = () => {

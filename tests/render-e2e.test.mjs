@@ -107,7 +107,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       await page.getByTestId('speed-4').click();
       const seen = await page.waitForFunction(() => { const s = window.__jd.stall(); return s.text ? s : false; }, null, { timeout: 15000 });
       const stall = await seen.jsonValue();
-      assert.match(stall.text, /^Stalled: [A-Za-z ]+ at \d,\d is (waiting|blocked) — nothing shipped for 8 ticks$/, stall.text);
+      assert.match(stall.text, /^Stalled: [A-Za-z ]+ at \d,\d is (waiting|blocked) — nothing shipped for 8 s$/, stall.text);
       assert.ok(stall.flaggedAt > 0 && stall.flaggedAt <= 10, `flagged by tick ${stall.flaggedAt} (read at tick ${stall.tick})`); // the flag tick, not the poll's: at 4x on a loaded CI runner the sim advances several ticks per frame
       assert.ok([2 * 8 + 1, 2 * 8 + 2].includes(stall.cell), `first blocking cell is the hopper (1,2) or the conveyor in front of the head-on belt (2,2): got ${stall.cell}`);
       const hud = await page.evaluate(() => ({ score: document.querySelector('[data-testid=hud-score]')?.textContent, mark: !!window.__jdGame.scene.getScene('Game').children.getByName('stall-mark')?.visible }));
@@ -194,7 +194,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:9`); // nothing listens on port 9: the daily must fall back to practice (PLAN-v3 0.6.1)
       await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
       await page.waitForFunction(() => /^practice \(unranked\): offline$/.test(document.querySelector('[data-testid=daily-mode]')?.textContent || ''), null, { timeout: 10000 });
-      assert.match(await page.getByTestId('daily-seed').textContent(), /^seed daily-\d{4}-\d{2}-\d{2}$/, 'the practice seed is the plain date');
+      assert.match(await page.getByTestId('daily-seed').textContent(), /^yard daily-\d{4}-\d{2}-\d{2}$/, 'the practice yard is the plain date');
       await page.getByTestId('player').click();
       await page.getByTestId('dialog-input').fill('Kbd Tester');
       await page.keyboard.press('Enter'); await wait(100);
@@ -231,13 +231,13 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
         await p2.keyboard.press('Enter'); await wait(300);
         const restored = JSON.parse(await p2.evaluate(() => localStorage.getItem('jd.identity.v1')));
         assert.equal(restored.token, identityBefore.token, 'the restored device token equals the original (case, spaces and dashes ignored)');
-        assert.match(await p2.getByTestId('player-note').textContent(), /^Restored the player key/, 'no verifier here, so the name is fetched later');
+        assert.match(await p2.getByTestId('player-note').textContent(), /^Restored your key/, 'no server here, so the name is fetched later');
         await fresh.close();
       }
       await page.getByTestId('import').click();
       await page.getByTestId('dialog-input').fill('{"not":"a replay"}');
       await page.getByTestId('dialog-ok').click(); await wait(150);
-      assert.match(await page.evaluate(() => document.querySelector('[data-testid=dialog]')?.textContent ?? ''), /Could not read replay/, 'a bad paste is explained in a dialog');
+      assert.match(await page.evaluate(() => document.querySelector('[data-testid=dialog]')?.textContent ?? ''), /Could not read the recording/, 'a bad paste is explained in a dialog');
       await page.getByTestId('dialog-ok').click(); await wait(100);
       await page.getByTestId('custom').click();
       await page.getByTestId('dialog-input').fill('dialog-seed');
@@ -259,7 +259,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       assert.equal(migrated.legacy, null, 'legacy key removed');
       assert.equal(migrated.v2?.byVersion?.['2']?.overall?.score, 912, 'migrated into the rules-2 slot whatever version runs');
       if (RULES_VERSION === 2) { assert.match(migrated.text, /Best score: \$912/); assert.equal(await page.locator('[data-testid^=archived-bests-]').count(), 0, 'nothing archived while rules 2 are current'); }
-      else { assert.match(migrated.text, /No finished runs yet/); assert.match(migrated.text, /Under rules v2/); assert.match(migrated.text, /\$912/, 'the migrated v2 best is archived, not the headline, under newer rules'); }
+      else { assert.match(migrated.text, /No finished games yet/); assert.match(migrated.text, /Under older rules \(v2\)/); assert.match(migrated.text, /\$912/, 'the migrated v2 best is archived, not the headline, under newer rules'); }
       await context.close();
       const c2 = await browser.newContext({ viewport: { width: 1120, height: 700 } });
       const p2 = await c2.newPage();
@@ -270,7 +270,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       await p2.goto(`${URL}/?dev=1`);
       await p2.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
       const arch = await p2.evaluate(() => { const d = document.querySelector('[data-testid=archived-bests-1]'); const sc = document.querySelector('#ui .jd-screen'); return { present: !!d, open: d?.open, text: d?.textContent, scrollH: sc?.scrollHeight, clientH: sc?.clientHeight, headline: document.querySelector('#ui')?.textContent?.includes('Best score: $1500') }; });
-      assert.equal(arch.present, true); assert.equal(arch.open, false, 'collapsed by default'); assert.match(arch.text ?? '', /Under rules v1/); assert.match(arch.text ?? '', /\$300/); assert.equal(arch.headline, true, 'the current version is the headline');
+      assert.equal(arch.present, true); assert.equal(arch.open, false, 'collapsed by default'); assert.match(arch.text ?? '', /Under older rules \(v1\)/); assert.match(arch.text ?? '', /\$300/); assert.equal(arch.headline, true, 'the current version is the headline');
       assert.ok(arch.scrollH <= arch.clientH + 1, `the title still fits at 130 % with the archived block (${arch.scrollH} vs ${arch.clientH})`);
       await c2.close();
     }
@@ -346,7 +346,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       st = await api('state');
       assert.equal(st.round, 4); assert.equal(st.offers.length, 3, 'round 4 is an ordinary draft');
       assert.ok(st.actions <= 40, `reached round 4 in ${st.actions} actions`);
-      assert.match(await hint(), /ordinary draft/);
+      assert.match(await hint(), /ordinary pick/);
       assert.equal(await page.evaluate(() => localStorage.getItem('jd.onboarded.v1')), '1', 'finishing the lesson marks the profile onboarded');
       assert.equal((await api('tips')).open, false, 'no modal or panel interrupted the lesson');
       await page.goto(`${URL}/?dev=1`);
@@ -404,7 +404,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
     {
       const { context, page, api, errors } = await open('seed=reroll-e2e');
       assert.equal(await page.evaluate(() => document.querySelector('[data-testid=reroll]')?.disabled), true, 'round 1: nothing earned yet, so no reroll');
-      assert.match(await page.evaluate(() => document.querySelector('[data-testid=reroll-note]')?.textContent ?? ''), /costs/);
+      assert.match(await page.evaluate(() => document.querySelector('[data-testid=reroll-note]')?.textContent ?? ''), /cost/);
       const st0 = await api('state'); await api('pick', Math.max(0, st0.offers.indexOf('crusher')));
       const st1 = await api('state'); const old = st1.layout.machines.find((m) => m.x === 2 && m.y === 2); const pick = st1.bin[st1.bin.length - 1];
       await api('act', { t: 'unplace', id: old.id }); await api('act', { t: 'place', id: pick.id, x: 2, y: 2, dir: 0 });
@@ -419,7 +419,7 @@ test('renderer, run HUD, tips and tutorial: HiDPI canvas, Canvas renderer, WebGL
       assert.equal(after.score, before.score - 40, 'the cost left the score'); assert.equal(after.rerolls, 1); assert.notDeepEqual(after.offers, before.offers, 'new offers on the cards');
       assert.equal(await page.evaluate(() => document.querySelector('[data-testid=hud-score]')?.textContent), `$${after.score}`, 'the HUD shows the deducted score');
       assert.equal(await page.evaluate(() => document.querySelector('[data-testid=reroll]')?.disabled), true, 'once per round');
-      assert.match(await page.evaluate(() => document.querySelector('[data-testid=reroll-note]')?.textContent ?? ''), /One reroll per round/);
+      assert.match(await page.evaluate(() => document.querySelector('[data-testid=reroll-note]')?.textContent ?? ''), /once per round/);
       assert.deepEqual(errors, [], 'no page errors');
       await context.close();
     }

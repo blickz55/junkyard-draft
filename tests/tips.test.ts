@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TIPS, runTip, tipForMachine } from '../game/src/sim/tips';
+import { runTip } from '../game/src/sim/tips';
+import { tips, tipForMachine } from '../game/src/content/tips';
+const TIPS = tips();
 import { validateLayout } from '../game/src/sim/sim';
 
 test('tips: every demo layout is legal and its one loop shows what the tip claims', () => {
@@ -11,8 +13,9 @@ test('tips: every demo layout is legal and its one loop shows what the tip claim
     const res = runTip(tip)!;
     assert.ok(tip.check(res), `${tip.id}: ${tip.title} — shipped ${JSON.stringify(res.shipped)}, absorbed ${res.absorbed}, cells ${JSON.stringify(res.cellStats)}`);
   }
-  assert.equal(new Set(TIPS.map((t) => t.id)).size, TIPS.length, 'ids are unique');
-  assert.equal(runTip(TIPS.find((t) => t.id === 'sell')!), null, 'text-only tips have no demo');
+  assert.equal(new Set(TIPS.map((x) => x.id)).size, TIPS.length, 'ids are unique');
+  assert.equal(runTip(TIPS.find((x) => x.id === 'sell')!), null, 'text-only tips have no demo');
+  for (const tip of TIPS) { assert.ok(tip.title.length > 5 && tip.text.length > 40, `${tip.id}: has its text`); if (tip.layout) assert.ok(tip.watch.length > 5, `${tip.id}: says what to watch`); }
 });
 
 test('tips: the first draft of a machine suggests its tip once; read tips are never suggested again', () => {

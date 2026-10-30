@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { explainRunError, placementWarning, inputTravelDirs, outputDirs } from '../game/src/sim/advice';
+import { inputTravelDirs, outputDirs } from '../game/src/sim/advice';
+import { explainRunError, placementWarning } from '../game/src/content/advice';
 import { apply, newRun, RunError, type Action } from '../game/src/sim/run';
 import type { Layout, Machine, MachineKind, Dir } from '../game/src/sim/types';
 

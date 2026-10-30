@@ -5,8 +5,10 @@
  * outcome only when one was played, and "unverified" or "practice fork" otherwise. The text is composed by a pure
  * function so a test can pin every wording; the canvas just draws it.
  */
-import { roundGlyph, seedLabel, standingText, type Rank } from './share';
+import { roundGlyph, seedLabel, standingText, outcomeText, type Rank } from './share';
 import { RULES } from '../sim/rules';
+import { t } from '../content/strings';
+import { money, int } from '../content/format';
 
 export const CARD_W = 1200, CARD_H = 630;
 export interface CardInput {
@@ -20,15 +22,15 @@ export interface CardText { title: string; seedLine: string; score: string; glyp
 export function cardText(i: CardInput): CardText {
   const extras: string[] = [];
   let standing: string;
-  if (i.fork) standing = `practice fork of ${i.fork.player}'s run from round ${i.fork.round + 1}`;
-  else if (i.verified) standing = standingText({ rank: i.rank, percentile: i.percentile, n: i.n, player: i.player }) || 'verified by re-simulation';
-  else standing = 'unverified score';
-  if (i.verified && i.group) extras.push(`group ${i.group.name}${i.rank ? `: #${i.rank.n ?? '?'} of ${i.rank.of}` : ''}`);
-  if (i.verified && i.medal) extras.push(`medal: ${i.medal} (final board)`);
-  if (i.challenge) { const d = i.score - i.challenge.score; extras.push(d > 0 ? `beat ${i.challenge.player}'s $${i.challenge.score} by $${d}` : d < 0 ? `short of ${i.challenge.player}'s $${i.challenge.score} by $${-d}` : `tied ${i.challenge.player}'s $${i.challenge.score}`); }
+  if (i.fork) standing = t('card.try', { player: i.fork.player, round: i.fork.round + 1 });
+  else if (i.verified) standing = standingText({ rank: i.rank, percentile: i.percentile, n: i.n, player: i.player }) || t('card.checked');
+  else standing = t('card.local');
+  if (i.verified && i.group) extras.push(t('card.crew', { name: i.group.name, rank: i.rank ? t('card.crewRank', { n: i.rank.n != null ? int(i.rank.n) : '?', of: int(i.rank.of) }) : '' }));
+  if (i.verified && i.medal) extras.push(t('share.medal', { medal: i.medal }));
+  if (i.challenge) extras.push(outcomeText(i.score, i.challenge));
   if (i.permalink) extras.push(i.permalink);
-  const footer = i.fork ? `junkyard draft · practice fork · not a ranked score` : i.verified ? `junkyard draft · verified by re-simulation · rules v${i.rulesVersion}${i.build ? ` · build ${i.build}` : ''}` : `junkyard draft · local run · unverified score · rules v${i.rulesVersion}`;
-  return { title: 'JUNKYARD DRAFT', seedLine: `${seedLabel(i.seed)} · ${RULES.rounds} rounds`, score: `$${i.score}`, glyphs: i.rounds.map(roundGlyph).join(''), standing, extras, footer };
+  const footer = i.fork ? t('card.footerTry') : i.verified ? t('card.footerChecked', { build: i.build ? t('card.footerBuild', { build: i.build }) : '' }) : t('card.footerLocal');
+  return { title: t('card.title'), seedLine: t('card.yardLine', { label: seedLabel(i.seed), rounds: RULES.rounds }), score: money(i.score), glyphs: i.rounds.map(roundGlyph).join(''), standing, extras, footer };
 }
 
 const COL = { bg: '#1a1612', panel: '#241f19', amber: '#e0a84a', text: '#e8e0d0', dim: '#9a9080', gold: '#f2c94c', green: '#7bd389', bar: ['#4a4036', '#8e7a4a', '#c9a24a', '#f2c94c'] } as const;

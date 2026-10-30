@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { forkFrom, forkLabelOf } from '../game/src/sim/fork';
+import { forkFrom } from '../game/src/sim/fork';
+import { forkLabel } from '../game/src/content/fork';
 import { apply, replay as replayRun, type Action } from '../game/src/sim/run';
 import { exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
@@ -36,5 +37,5 @@ test('fork (PLAN-v4 0.7.3): for every golden replay and every round, the fork eq
     assert.throws(() => forkFrom(g.seed, g.actions.slice(0, 3), g.rulesVersion, 2, origin), /only \d+ finished round/);
     assert.throws(() => forkFrom(g.seed, g.actions, g.rulesVersion + 1, 1, origin), /rules version/);
   }
-  assert.equal(forkLabelOf({ ...origin, round: 3 }), 'forked from Jon#7Q2M after round 3 · practice');
+  assert.equal(forkLabel({ ...origin, round: 3 }), 'a try from Jon#7Q2M after round 3 · practice');
 });

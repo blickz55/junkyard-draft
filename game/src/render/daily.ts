@@ -4,6 +4,7 @@
  * `daily-YYYY-MM-DD`, labelled unranked. The client never derives a minted seed itself.
  */
 import { dailySeedFor, isMintedDailySeed, dailyDateOf } from '../sim/daily';
+import { t } from '../content/strings';
 import { shiftUtcDate } from '../daily/streak';
 import { isWeeklySeed, weeklyClosed } from '../sim/weekly';
 import { loadSubmissions } from './storage';
@@ -49,12 +50,12 @@ export const dailyClosed = (seed: string, now = new Date()): boolean => { const 
 export function revealGate(seed: string, now = new Date()): string | null {
   if (isWeeklySeed(seed)) { // PLAN-v4 0.7.5: the weekly is gated the same way until its Friday 18:00 UTC close
     if (weeklyClosed(seed, now) || loadSubmissions()[seed]) return null;
-    return 'replays on this weekly are revealed after you submit a verified run for it, or when the week closes (Friday 18:00 UTC)';
+    return t('gate.weekly');
   }
   if (!isMintedDailySeed(seed) || dailyClosed(seed, now)) return null;
   if (loadSubmissions()[seed]) return null;
   const d = dailyDateOf(seed)!;
-  return `replays on this daily are revealed after you submit a verified run for it, or when the day closes (${shiftUtcDate(d, 2)} 00:00 UTC)`;
+  return t('gate.daily', { date: shiftUtcDate(d, 2) });
 }
 export interface WeeklyInfo { week: string; seed: string; closesAt: string; final: boolean; now: string }
 /** This week's minted seed from the verifier; null when unreachable or malformed. */

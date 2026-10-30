@@ -43,17 +43,8 @@ export const RULES = {
   ] as { kind: MachineKind; x: number; y: number; dir: Dir }[],
 } as const;
 
-export const MACHINE_INFO: Record<MachineKind, { name: string; blurb: string }> = {
-  hopper: { name: 'Scrap Hopper', blurb: 'Drops a lump of scrap forward every 2 ticks. Has no input.' },
-  conveyor: { name: 'Conveyor', blurb: 'Carries items forward. Accepts from behind or either side.' },
-  splitter: { name: 'Splitter', blurb: 'Takes from behind, alternates output left and right. Doubles a line.' },
-  crusher: { name: 'Crusher', blurb: 'Scrap → Shards ($3). Takes 2 ticks. Other materials pass through.' },
-  furnace: { name: 'Furnace', blurb: 'Shards → Ingot ($12). Raw scrap melts to Slag ($1). Takes 3 ticks.' },
-  press: { name: 'Plate Press', blurb: 'Two Shards → one Plate ($8). Takes 2 ticks and halves the traffic behind it. Other materials pass through.' },
-  dock: { name: 'Shipping Dock', blurb: 'Accepts items from any side and sells them for their value.' },
-  tuner: { name: 'Tuner', blurb: 'No input, no output. Every crusher, furnace or press touching it works one tick faster (never under one tick). Two tuners do not stack.' },
-  sieve: { name: 'Sieve', blurb: 'Takes from behind. Raw scrap passes forward; shards, plates, ingots and slag turn right. A blocked exit waits.' },
-};
+/** Every machine kind the simulation knows (the names and blurbs a player reads live in game/src/content/machines.ts, 0.9.0). */
+export const MACHINE_KINDS: readonly MachineKind[] = ['hopper', 'conveyor', 'splitter', 'crusher', 'furnace', 'press', 'dock', 'tuner', 'sieve'];
 
 /** Processing machines hold an item for RULES.process[kind] ticks. */
 export const isProcessor = (kind: MachineKind): kind is ProcessorKind => kind === 'crusher' || kind === 'furnace' || kind === 'press';

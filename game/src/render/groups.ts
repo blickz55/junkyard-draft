@@ -4,6 +4,7 @@
  * recomputes ranks and percentiles over the members only. No chat, no invitations beyond sharing the code.
  */
 import { authHeaders, bearerAllowed } from './identity';
+import { t } from '../content/strings';
 
 export interface GroupInfo { code: string; name: string; members: number; creator: boolean }
 export interface GroupSelection { code: string; name: string }
@@ -21,7 +22,7 @@ export const groupHeaders = (verifierUrl: string): Record<string, string> => (lo
 
 type Outcome<T> = ({ ok: true } & T) | { ok: false; error: string } | null;
 async function post<T>(verifierUrl: string, path: string, body: unknown): Promise<Outcome<T>> {
-  if (!bearerAllowed(verifierUrl)) return { ok: false, error: 'groups need an https or local verifier' };
+  if (!bearerAllowed(verifierUrl)) return { ok: false, error: t('crews.insecure') };
   try {
     const res = await fetch(`${verifierUrl}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders(verifierUrl) }, body: JSON.stringify(body) });
     const j = await res.json() as { ok: boolean; error?: string } & T;

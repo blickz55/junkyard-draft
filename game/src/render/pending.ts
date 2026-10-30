@@ -12,6 +12,8 @@ import { isMintedDailySeed, dailyDateOf } from '../sim/daily';
 import { groupHeaders, groupParam } from './groups';
 import type { Rank } from './share';
 import { telemetry } from './telemetry';
+import { t } from '../content/strings';
+import { money, int } from '../content/format';
 
 export type FlushStatus = 'verified' | 'late' | 'keep-best' | 'rejected' | 'offline' | 'busy';
 export interface FlushOutcome { seed: string; savedAt: string; status: FlushStatus; score?: number; rank?: Rank | null; player?: string; error?: string; closesAt?: string }
@@ -50,18 +52,18 @@ async function flushOne(verifierUrl: string, p: PendingSubmission, fetchFn: type
   return { ...base, status: 'verified', score: body.score, rank, player };
 }
 
-/** One line for the title screen about what happened to the saved runs; '' when there is nothing to say. */
+/** One line for the title screen about what happened to the saved games; '' when there is nothing to say. */
 export function describeOutcomes(outcomes: FlushOutcome[]): string {
   if (!outcomes.length) return '';
   const short = (seed: string) => (seed.length > 26 ? `${seed.slice(0, 24)}…` : seed);
   const parts = outcomes.map((o) => {
     switch (o.status) {
-      case 'verified': return `your saved run on ${short(o.seed)} is verified: $${o.score}${o.rank ? ` · ${o.rank.n != null ? `#${o.rank.n} of ${o.rank.of}` : `beyond the top ${o.rank.of}`}` : ''}${o.player ? ` as ${o.player}` : ''}`;
-      case 'keep-best': return `your saved run on ${short(o.seed)} is verified ($${o.score}) but an earlier run of yours on that seed ranks at least as well`;
-      case 'late': return `your saved run on ${short(o.seed)} is verified ($${o.score}) but that day's board had already closed, so it is not ranked`;
-      case 'rejected': return `your saved run on ${short(o.seed)} was refused (${o.error}) and is no longer kept`;
-      case 'busy': return `the verifier is busy; your saved run on ${short(o.seed)} is still waiting`;
-      default: return `still offline; your saved run on ${short(o.seed)} is kept until the game opens with a connection`;
+      case 'verified': return t('pending.checked', { seed: short(o.seed), score: money(o.score ?? 0), rank: o.rank ? t('pending.rankSuffix', { rank: o.rank.n != null ? t('common.rankOf', { n: int(o.rank.n), of: int(o.rank.of) }) : t('common.beyondTop', { of: int(o.rank.of) }) }) : '', player: o.player ? t('pending.asSuffix', { player: o.player }) : '' });
+      case 'keep-best': return t('pending.keepBest', { seed: short(o.seed), score: money(o.score ?? 0) });
+      case 'late': return t('pending.late', { seed: short(o.seed), score: money(o.score ?? 0) });
+      case 'rejected': return t('pending.rejected', { seed: short(o.seed), error: o.error ?? '' });
+      case 'busy': return t('pending.busy', { seed: short(o.seed) });
+      default: return t('pending.offline', { seed: short(o.seed) });
     }
   });
   return `${parts.map((p, i) => (i === 0 ? p.charAt(0).toUpperCase() + p.slice(1) : p)).join('. ')}.`;

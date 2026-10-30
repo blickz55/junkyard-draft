@@ -166,7 +166,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
       const t0 = (await api('stall')).tick;
       for (let i = 0; i < 3; i++) await page.getByTestId('step').click();
       assert.equal((await api('stall')).tick, t0 + 3, 'three steps advance exactly three ticks');
-      assert.match(await page.getByTestId('paused-veil').textContent(), new RegExp(`tick ${t0 + 3} / 80`), 'the veil shows the tick');
+      assert.match(await page.getByTestId('paused-veil').textContent(), new RegExp(`second ${t0 + 3} / 80`), 'the veil shows the tick as a second of the yard\'s clock');
       await page.keyboard.press('Period'); await wait(50);
       assert.equal((await api('stall')).tick, t0 + 4, 'the . key steps one tick too'); assert.equal(await api('mode'), 'paused');
     }
@@ -185,7 +185,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     const hasSave = await page.evaluate(() => !!localStorage.getItem('jd.save.v1'));
     assert.ok(hasSave, 'run saved to localStorage');
     // today's verified board on the title screen (verifier spawned by this test; no entries for today yet)
-    await page.waitForFunction(() => /No verified scores yet today/.test(document.querySelector('[data-testid=daily-board]')?.textContent || ''), null, { timeout: 15000 });
+    await page.waitForFunction(() => /No checked scores yet today/.test(document.querySelector('[data-testid=daily-board]')?.textContent || ''), null, { timeout: 15000 });
     // accessibility settings: reduced motion and text size persist, re-render the title, and apply in-game
     const titleBtn = (name) => page.getByTestId(name).click();
     const tidText = (name) => `document.querySelector('[data-testid=${name}]')?.textContent`;
@@ -273,9 +273,9 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     // 6) submit the replay to the spawned verifier via the Results button (Phaser button: click its canvas position)
     for (let i = 0; i < 20; i++) { try { if ((await fetch(`http://127.0.0.1:${VPORT}/health`)).ok) break; } catch {} await wait(300); }
     await page.getByTestId('submit').click();
-    await page.waitForFunction(() => /Verified by re-simulation: \$\d+ — #1 of 1 on the verified board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\./.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
+    await page.waitForFunction(() => /^Checked: \$\d+ — #1 of 1 on the board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\./.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
     // histogram_first (PLAN-v1 0.4.1): the only verified run is highlighted and the text says so without inventing a population
-    await page.waitForFunction(() => /^1 verified run so far · you are #1$/.test(document.querySelector('[data-testid=percentile]')?.textContent || ''), null, { timeout: 10000 });
+    await page.waitForFunction(() => /^1 checked game so far · you are #1$/.test(document.querySelector('[data-testid=percentile]')?.textContent || ''), null, { timeout: 10000 });
     const hist = await page.evaluate(() => ({ bins: document.querySelectorAll('[data-testid=histogram] .jd-hist-bin').length, mine: document.querySelectorAll('[data-testid=histogram] .jd-hist-mine').length, mineCount: document.querySelector('[data-testid=histogram] .jd-hist-mine .jd-hist-count')?.textContent }));
     assert.ok(hist.bins >= 1 && hist.mine === 1 && hist.mineCount === '1', `histogram shows the player's bin: ${JSON.stringify(hist)}`);
     // bot_par_is_a_target_not_an_entry (PLAN-v1 0.4.5): the test verifier computed the autoplayer's par for this seed in a worker; it shows as a bot line and the board still has one entry
@@ -283,7 +283,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     const parT0 = Date.now(); let board;
     for (;;) { board = await (await fetch(`http://127.0.0.1:${VPORT}/board?seed=e2e-seed`)).json(); if (typeof board.botPar === 'number') break; if (Date.now() - parT0 > 120000) break; await wait(1000); }
     console.log(`bot par for e2e-seed ${typeof board.botPar === 'number' ? `arrived after ${((Date.now() - parT0) / 1000).toFixed(1)} s` : 'did not arrive within 120 s'}`);
-    await page.waitForFunction(() => /^Bot par \$\d+ · the shipped autoplayer/.test(document.querySelector('[data-testid=bot-par]')?.textContent || ''), null, { timeout: 30000 });
+    await page.waitForFunction(() => /^The foreman's mark: \$\d+ · what our own player reaches/.test(document.querySelector('[data-testid=bot-par]')?.textContent || ''), null, { timeout: 30000 });
     assert.ok(typeof board.botPar === 'number' && board.botPar > 0, 'the board carries a numeric bot par');
     assert.equal(board.entries.length, 1, 'one verified entry');
     assert.match(board.entries[0].player, /^e2e player#[2-9A-HJKMNP-TV-Z]{4}$/, 'the local name was claimed on first submission and the entry carries name#tag (PLAN-v3 0.6.0)');
@@ -299,14 +299,14 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     await page.waitForFunction(() => !!window.__jdGame.scene.getScene('Results').lastShareText, null, { timeout: 5000 }); // clipboard availability varies in headless runs; the text itself is what matters
     const shared = await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText); // headless clipboard contents are not reliably readable
     // spoiler_free_share (PLAN-v1 0.4.3): label · score, six glyphs, the standing, days played; no URL, no per-round dollars, no layout
-    assert.match(shared, /^Junkyard Draft · seed e2e-seed · \$\d+\n[░▒▓█]{6}\n#1 of 1 on the verified board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\n1 day played$/, `default share text: ${JSON.stringify(shared)}`);
+    assert.match(shared, /^Junkyard Draft · yard e2e-seed · \$\d+\n[░▒▓█]{6}\n#1 of 1 on the board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\n1 day played$/, `default share text: ${JSON.stringify(shared)}`);
     assert.doesNotMatch(shared, /https?:|rounds \$|hopper|conveyor|crusher/);
     await dismissCopyDialog();
     await page.getByTestId('share-link').check();
     await page.getByTestId('share-detailed').click();
     await page.waitForFunction(() => /rounds \$/.test(window.__jdGame.scene.getScene('Results').lastShareText), null, { timeout: 5000 });
     const detailed = await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText);
-    assert.match(detailed, new RegExp(`\\nrounds \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+\\nreplay re-simulated by the verifier, rules v${V}(\\nbadges: [^\\n]+)?\\n1 day played\\nhttp:\\/\\/127\\.0\\.0\\.1:\\d+\\/\\?scene=game&seed=e2e-seed$`), `detailed share text with link: ${JSON.stringify(detailed)}`);
+    assert.match(detailed, new RegExp(`\\nrounds \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+\\nchecked by the Junkyard Draft server(\\nbadges: [^\\n]+)?\\n1 day played\\nhttp:\\/\\/127\\.0\\.0\\.1:\\d+\\/\\?scene=game&seed=e2e-seed$`), `detailed share text with link: ${JSON.stringify(detailed)}`);
     await dismissCopyDialog();
     await page.getByTestId('share-link').uncheck();
     // non_ranked_badges (PLAN-v1 0.4.6): pills are known badges and the detailed verified text lists exactly them
@@ -320,7 +320,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     // share card (PLAN-v4 0.7.4): a 1200×630 PNG whose footer says verified only for this verified run
     const card = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportCard().then((c) => ({ ...c })));
     assert.deepEqual([card.width, card.height], [1200, 630]); assert.ok(card.size > 10_000, `card has bytes (${card.size})`); assert.match(card.filename, /^junkyard-e2e-seed-\$\d+-card\.png$/);
-    assert.match(card.footer, new RegExp(`^junkyard draft · verified by re-simulation · rules v${V} · build `)); assert.match(card.standing, /^(#1 of 1 on the verified board|1 verified run)/);
+    assert.match(card.footer, /^junkyard draft · checked · build /); assert.match(card.standing, /^(#1 of 1 on the board|1 checked game)/);
     assert.deepEqual(card.extras, [], 'no group, no medal, no challenge, no link: nothing invented');
     // loop_clip_exports (PLAN-v1 0.4.2): the best round is re-simulated and recorded live in Chromium; the clip is non-empty, at least 3 s, and takes under 10 s to make
     const clip = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportClip().then((c) => ({ ...c })));
@@ -330,7 +330,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     assert.match(clip.mime, /^video\/(webm|mp4)/); assert.match(clip.filename, /^junkyard-e2e-seed-\$\d+-r\d\.(webm|mp4)$/);
     assert.ok(clip.frames >= 60 && clip.width >= 624 && clip.height >= 536, `frames ${clip.frames}, ${clip.width}x${clip.height}`);
     assert.equal(await page.evaluate(() => document.querySelector('[data-testid=export-clip]')?.disabled), false, 'the export button is usable again');
-    assert.equal(clip.footer, 'junkyard draft · verified replay', 'this run was accepted by the verifier above, so its clip may say so (review F10)');
+    assert.equal(clip.footer, 'junkyard draft · checked recording', 'this run was accepted by the verifier above, so its clip may say so (review F10)');
     // gif_clip_exports (PLAN-v1 0.4.11): the same round as a GIF89a drawn offline at 1x and 10 fps: real header, logical size,
     // a one-pass loop with a hold, ≤ 256 colours, under the 2 MB budget, in a few seconds
     const gif = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportGif().then((g) => ({ ...g })));
@@ -342,7 +342,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     assert.ok(gif.elapsedMs <= 15000, `GIF drawn and encoded in under 15 s (${gif.elapsedMs} ms)`);
     assert.match(gif.filename, /^junkyard-e2e-seed-\$\d+-r\d\.gif$/);
     assert.equal(await page.evaluate(() => document.querySelector('[data-testid=export-gif]')?.disabled), false, 'the GIF button is usable again');
-    assert.equal(gif.footer, 'junkyard draft · verified replay');
+    assert.equal(gif.footer, 'junkyard draft · checked recording');
     // results_provenance (review F11): a different, unsubmitted attempt on the same seed shows no rank for itself, names the earlier
     // verified attempt as a different one, and its exports say local
     await page.evaluate(() => window.__jdGame.scene.start('Game', { seed: 'e2e-seed', fresh: true }));
@@ -358,13 +358,13 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     await page.waitForFunction(() => window.__jdGame.scene.isActive('Results'), null, { timeout: 10000 });
     await page.waitForFunction(() => !!document.querySelector('[data-testid=prior-best]'), null, { timeout: 10000 });
     const prov = await page.evaluate(() => ({ prior: document.querySelector('[data-testid=prior-best]')?.textContent, pct: document.querySelector('[data-testid=percentile]')?.textContent, mine: document.querySelectorAll('[data-testid=histogram] .jd-hist-mine').length, verifiedHash: window.__jdGame.scene.getScene('Results').verifiedHash }));
-    assert.match(prov.prior ?? '', /^This device's verified run on this seed: \$\d+ \(a different attempt/, JSON.stringify(prov));
+    assert.match(prov.prior ?? '', /^This device's checked game on this yard: \$\d+ \(a different attempt/, JSON.stringify(prov));
     assert.doesNotMatch(prov.pct ?? '', /you are #|Better than/, 'no standing is claimed for an unverified attempt');
     assert.equal(prov.mine, 0, 'no bin is highlighted as this run'); assert.equal(prov.verifiedHash, null);
     const localCard = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportCard().then((c) => ({ footer: c.footer, standing: c.standing, extras: c.extras })));
-    assert.equal(localCard.footer, `junkyard draft · local run · unverified score · rules v${V}`); assert.equal(localCard.standing, 'unverified score'); assert.doesNotMatch([localCard.footer, localCard.standing, ...localCard.extras].join('\n'), /\bverified\b/, 'a local card never claims verification (PLAN-v4 0.7.4)');
+    assert.equal(localCard.footer, 'junkyard draft · this device · not yet checked'); assert.equal(localCard.standing, 'score on this device, not yet checked'); assert.doesNotMatch([localCard.footer, localCard.standing, ...localCard.extras].join('\n'), /\bverified\b/, 'a local card never claims verification (PLAN-v4 0.7.4)');
     const localGif = await page.evaluate(() => window.__jdGame.scene.getScene('Results').exportGif().then((g) => ({ footer: g.footer })));
-    assert.equal(localGif.footer, 'junkyard draft · local run · not verified', 'a local export never claims verification');
+    assert.equal(localGif.footer, 'junkyard draft · this device · not yet checked', 'a local export never claims a check');
     // 7) watch the verified replay from the board: fetched by hash, re-verified locally, played back labelled, never recorded as a best
     const bestsBefore = await page.evaluate(() => localStorage.getItem('jd.bests.v2'));
     // watched_replay_preserves_existing_save: plant an unrelated unfinished run; it must survive playback byte for byte
@@ -372,19 +372,19 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     await page.evaluate((s) => localStorage.setItem('jd.save.v1', s), plantedSave);
     await page.waitForSelector('[data-testid=board-entry-0]:not([disabled])', { timeout: 10000 });
     await page.getByTestId('board-entry-0').click();
-    await page.waitForFunction(() => window.__jdGame.scene.isActive('Game') && !!window.__jd && /verified replay by e2e player/.test(document.querySelector('[data-testid=hud-seed]')?.textContent || ''), null, { timeout: 15000 });
+    await page.waitForFunction(() => window.__jdGame.scene.isActive('Game') && !!window.__jd && /recording by e2e player/.test(document.querySelector('[data-testid=hud-seed]')?.textContent || ''), null, { timeout: 15000 });
     // playback controls: REPLAY marker, the original run's earnings next to the live total, a Stop button
     assert.ok(await page.evaluate(() => !!document.querySelector('[data-testid=replay-banner]')), 'REPLAY marker shown while watching');
     await page.waitForFunction(() => window.__jd.mode() === 'running', null, { timeout: 15000 });
     const sideTexts = await page.evaluate(() => ({ orig: document.querySelector('[data-testid=replay-original]')?.textContent, stop: document.querySelector('[data-testid=stop]')?.textContent }));
-    assert.match(sideTexts.orig || '', /^Original run: \$\d+ this round · \$\d+ after round 1 · \$\d+ final$/);
+    assert.match(sideTexts.orig || '', /^Original game: \$\d+ this round · \$\d+ after round 1 · \$\d+ final$/);
     assert.equal(sideTexts.stop, 'Stop watching (Esc)');
     for (let r = 1; r <= 6; r++) {
       await page.waitForFunction(() => window.__jd.mode() === 'running', null, { timeout: 15000 });
       await api('finishRun'); // playback uses the real run loop; skip the animation of each round
       await page.waitForFunction(() => window.__jd.mode() === 'summary', null, { timeout: 15000 });
     }
-    await page.waitForFunction(() => window.__jdGame.scene.isActive('Results') && /verified replay by e2e player/.test(document.querySelector('[data-testid=results-subtitle]')?.textContent || ''), null, { timeout: 15000 });
+    await page.waitForFunction(() => window.__jdGame.scene.isActive('Results') && /recording by e2e player/.test(document.querySelector('[data-testid=results-subtitle]')?.textContent || ''), null, { timeout: 15000 });
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.bests.v2')), bestsBefore, 'watching a replay does not change local bests');
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), plantedSave, 'finishing a watched replay leaves the unrelated save untouched');
     assert.equal(await page.evaluate(() => Number(document.querySelector('[data-testid=score]').textContent.slice(1))), board.entries[0].score, 'playback reproduces the verified score');
@@ -394,7 +394,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     assert.equal(await page.locator('[data-testid=fork-row] button').count(), 5, 'one fork button per non-final round');
     await page.getByTestId('fork-2').click();
     await page.waitForFunction(() => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.phase() === 'draft' && window.__jd.state().round === 3 && window.__jd.state().rounds.length === 2, null, { timeout: 15000 });
-    assert.match(await page.getByTestId('hud-seed').textContent(), /^seed e2e-seed · forked from e2e player(#[A-Z2-9]{4})? after round 2 · practice$/);
+    assert.match(await page.getByTestId('hud-seed').textContent(), /^yard e2e-seed · a try from e2e player(#[A-Z2-9]{4})? after round 2 · practice$/);
     assert.equal(await page.locator('[data-testid=replay-banner]').count(), 0, 'a fork is live play, not playback');
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), plantedSave, 'a fork never becomes the player\'s save');
     for (let r = 0; r < 4; r++) {
@@ -406,14 +406,14 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
       await wait(150);
     }
     await page.waitForFunction(() => window.__jdGame.scene.isActive('Results'), null, { timeout: 10000 });
-    assert.match(await page.getByTestId('results-subtitle').textContent(), /forked from e2e player(#[A-Z2-9]{4})? after round 2 · practice \(never submitted, not your own best\)/);
+    assert.match(await page.getByTestId('results-subtitle').textContent(), /a try from e2e player(#[A-Z2-9]{4})? after round 2 · practice \(never submitted, not your own best\)/);
     assert.equal(await page.locator('[data-testid=submit]').count(), 0, 'no submit control on a fork'); assert.equal(await page.locator('[data-testid=export]').count(), 0); assert.equal(await page.locator('[data-testid=download]').count(), 0);
-    assert.match(await page.getByTestId('fork-best').textContent(), /^New fork best for this seed: \$\d+$/);
+    assert.match(await page.getByTestId('fork-best').textContent(), /^New best for this try: \$\d+$/);
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.bests.v2')), bestsBefore, 'a fork never touches the local bests');
     assert.ok(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.forkbests.v1')))['e2e-seed'], 'fork bests live in their own bucket');
     await page.getByTestId('share').click();
     await page.waitForFunction(() => !!window.__jdGame.scene.getScene('Results').lastShareText, null, { timeout: 5000 });
-    assert.match(await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText), /\npractice fork of e2e player(#[A-Z2-9]{4})?'s run from round 3 · not a ranked score\n/);
+    assert.match(await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText), /\na try from e2e player(#[A-Z2-9]{4})?'s game, from round 3 · not a ranked score\n/);
     await dismissCopyDialog();
     // Esc stops a watched replay mid-run and returns to the title (instead of pausing)
     await page.waitForSelector('[data-testid=board-entry-0]:not([disabled])', { timeout: 10000 });
@@ -447,13 +447,13 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForSelector('[data-testid=daily-watch][disabled]', { timeout: 15000 });
     assert.equal(await page.getByTestId('daily-watch').textContent(), 'Watch #1 (after you submit)');
-    assert.match(await page.getByTestId('daily-watch').getAttribute('title'), /revealed after you submit a verified run/);
+    assert.match(await page.getByTestId('daily-watch').getAttribute('title'), /open after you submit a checked game/);
     const gated = await fetch(`http://127.0.0.1:${VPORT}/replay?hash=${sub.entry.replayHash}`);
     assert.equal(gated.status, 403); assert.match((await gated.json()).error, /revealed after you submit/);
     await page.evaluate(({ seed, s, v }) => localStorage.setItem('jd.submissions.v2', JSON.stringify({ byVersion: { [v]: { [seed]: s } } })), { v: V, seed: dinfo.seed, s: { score: sub.score, replayHash: sub.entry.replayHash, verifiedAt: sub.entry.verifiedAt, player: 'e2e player' } });
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => { const t = document.querySelector('[data-testid=daily-board]')?.textContent || ''; return /^You: #1 of 1 \(\$\d+\)/.test(t) && /1\. \$\d+ e2e player/.test(t); }, null, { timeout: 15000 });
-    assert.match(await page.getByTestId('daily-mode').textContent(), /^minted · ranked · provisional · closes in \d+ (h|min)$/); assert.equal(await page.getByTestId('daily-seed').textContent(), `seed ${dinfo.seed}`);
+    assert.match(await page.getByTestId('daily-mode').textContent(), /^ranked · provisional · closes in \d+ (h|min)$/); assert.equal(await page.getByTestId('daily-seed').textContent(), `yard ${dinfo.seed}`);
     await page.waitForSelector('[data-testid=daily-watch]:not([disabled])', { timeout: 10000 });
     assert.equal(await page.getByTestId('daily-watch').textContent(), 'Watch #1', 'with a verified entry for the day on this device the replay opens up');
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.daily.v1'))).seed, dinfo.seed, 'the minted seed is cached for the day');
@@ -478,12 +478,12 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     assert.deepEqual(arch.days[0], { ...arch.days[0], date: twoBack, n: 0 }, 'the archive lists the closed day without the late run'); assert.ok(arch.days.every((x) => x.frozenAt && x.n === 0), JSON.stringify(arch.days));
     await page.getByTestId('archive').click();
     await page.waitForFunction((d) => [...document.querySelectorAll('[data-testid=archive-row]')].some((r) => r.dataset.date === d && /final/.test(r.textContent)), twoBack, { timeout: 10000 });
-    assert.match(await page.getByTestId('archive-row').first().textContent(), new RegExp(`^${twoBack} · final · 0 verified runs`));
+    assert.match(await page.getByTestId('archive-row').first().textContent(), /^\d{1,2} [A-Z][a-z]{2} \d{4} · final · 0 checked games/);
     assert.equal(arch.days[0].medals, null, 'fewer than five runs: no medals on the day');
     assert.equal(await page.locator('[data-testid=archive-medals]').count(), 0, 'the client draws medals only when the server sent thresholds (PLAN-v3 0.6.4)');
     await page.getByTestId('archive-play').first().click();
     await page.waitForFunction((seed) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, old.seed, { timeout: 15000 });
-    assert.equal(await page.getByTestId('hud-seed').textContent(), `seed ${old.seed} · archived daily (practice)`);
+    assert.equal(await page.getByTestId('hud-seed').textContent(), `yard ${old.seed} · archived daily (practice)`);
     // weekly seed (PLAN-v4 0.7.5): the strip's Weekly button names the open week from the spawned verifier; clicking it plays the minted weekly seed; a run on it lands on /weekly and never on /daily
     const winfo = await (await fetch(`http://127.0.0.1:${VPORT}/weekly`)).json();
     assert.equal(winfo.ok, true); assert.match(winfo.seed, /^weekly-\d{4}-W\d{2}-[a-z2-7]{8}$/); assert.equal(winfo.final, false); assert.ok(winfo.previous && winfo.previous.week, 'the previous week is minted alongside for the commitment chain');
@@ -493,7 +493,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     assert.match(await page.getByTestId('weekly').getAttribute('title'), new RegExp(winfo.seed));
     await page.getByTestId('weekly').click();
     await page.waitForFunction((seed) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, winfo.seed, { timeout: 15000 });
-    assert.equal(await page.getByTestId('hud-seed').textContent(), `seed ${winfo.seed} · this week's seed`);
+    assert.equal(await page.getByTestId('hud-seed').textContent(), `yard ${winfo.seed} · this week's yard`);
     const weeklyRun = newRun(winfo.seed);
     for (let r = 1; r <= RULES.rounds; r++) { const ci = weeklyRun.offers.indexOf('crusher'); apply(weeklyRun, { t: 'pick', i: ci >= 0 ? ci : 0 }); if (r === 1) { const cv = weeklyRun.layout.machines.find((m) => m.x === 2 && m.y === 2); apply(weeklyRun, { t: 'unplace', id: cv.id }); apply(weeklyRun, { t: 'place', id: weeklyRun.bin[0].id, x: 2, y: 2, dir: 0 }); } apply(weeklyRun, { t: 'run' }); apply(weeklyRun, { t: 'next' }); }
     const wsub = await (await fetch(`http://127.0.0.1:${VPORT}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replay: exportReplay(weeklyRun), player: 'weekly player' }) })).json();
@@ -508,7 +508,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
     await page.waitForFunction(() => window.__jdGame && window.__jdGame.scene.isActive('Title'), null, { timeout: 15000 });
     await page.getByTestId('archive').click();
-    await page.waitForFunction((w) => [...document.querySelectorAll('[data-testid=archive-row]')].some((r) => r.dataset.kind === 'weekly' && r.textContent.startsWith(`Week ${w} · final · 0 verified runs`)), winfo.previous.week, { timeout: 10000 });
+    await page.waitForFunction((w) => [...document.querySelectorAll('[data-testid=archive-row]')].some((r) => r.dataset.kind === 'weekly' && r.textContent.startsWith(`Week ${w} · final · 0 checked games`)), winfo.previous.week, { timeout: 10000 });
     // challenge link (PLAN-v4 0.7.1): the e2e player's daily entry becomes a link; opening it plays that seed with the earnings overlaid, finishing shows the two-row result and the detailed share line; the run verifies independently
     const entry = await (await fetch(`http://127.0.0.1:${VPORT}/entry?hash=${sub.entry.replayHash}`)).json();
     assert.equal(entry.ok, true); assert.equal(entry.seed, dinfo.seed); assert.equal(entry.rounds.length, RULES.rounds); assert.equal(entry.rounds.reduce((a, b) => a + b, 0), sub.score); assert.ok(!('actions' in entry), 'earnings only');
@@ -532,7 +532,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     await dismissCopyDialog();
     assert.equal(await page.getByTestId('challenge-link').isDisabled(), true, 'no verified entry of its own yet: no link');
     await page.getByTestId('submit').click();
-    await page.waitForFunction(() => /Verified by re-simulation/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
+    await page.waitForFunction(() => /^Checked: /.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, { timeout: 15000 });
     assert.equal(await page.getByTestId('challenge-link').isDisabled(), false, 'the recipient\'s own verified run can be challenged in turn');
     const dboard2 = await (await fetch(`http://127.0.0.1:${VPORT}/daily`)).json();
     assert.equal(dboard2.entries.length, 2, 'the challenge run landed on the daily board through the normal path (two players, two entries)');
@@ -548,7 +548,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     await page.getByTestId('group-use').click(); await wait(100);
     assert.match(await page.getByTestId('group-row').textContent(), / · in use/);
     await page.getByTestId('groups-close').click();
-    await page.waitForFunction(() => /· group Lunch Crew$/.test(document.querySelector('[data-testid=daily-mode]')?.textContent || ''), null, { timeout: 15000 });
+    await page.waitForFunction(() => /· crew Lunch Crew$/.test(document.querySelector('[data-testid=daily-mode]')?.textContent || ''), null, { timeout: 15000 });
     let buddyToken;
     {
       const buddy = await browser.newContext({ viewport: { width: 1120, height: 700 }, bypassCSP: true });
@@ -562,7 +562,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
       await p2.getByTestId('group-join-code').fill(groupCode); await p2.getByTestId('group-join').click();
       await p2.waitForFunction(() => /Lunch Crew · code [a-z2-7]{8} · 2 members/.test(document.querySelector('[data-testid=group-row]')?.textContent || ''), null, { timeout: 10000 });
       await p2.getByTestId('group-use').click(); await p2.getByTestId('groups-close').click();
-      await p2.waitForFunction(() => /· group Lunch Crew$/.test(document.querySelector('[data-testid=daily-mode]')?.textContent || ''), null, { timeout: 15000 });
+      await p2.waitForFunction(() => /· crew Lunch Crew$/.test(document.querySelector('[data-testid=daily-mode]')?.textContent || ''), null, { timeout: 15000 });
       buddyToken = JSON.parse(await p2.evaluate(() => localStorage.getItem('jd.identity.v1'))).token;
       await buddy.close();
     }
@@ -577,7 +577,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     assert.equal((await fetch(`http://127.0.0.1:${VPORT}/daily?group=${groupCode}`)).status, 401, 'a group board needs a member\'s token');
     // this device's locally recorded submission on the daily is the anonymous one planted above (the local record keeps the higher score), so the group view honestly says 'beyond the top 2'
     await page.reload(); await page.waitForFunction(() => /^You: (#\d of 2|beyond the top 2) \(\$\d+\)/.test(document.querySelector('[data-testid=daily-board]')?.textContent || ''), null, { timeout: 15000 });
-    assert.match(await page.getByTestId('daily-mode').textContent(), /· group Lunch Crew$/);
+    assert.match(await page.getByTestId('daily-mode').textContent(), /· crew Lunch Crew$/);
     await page.getByTestId('groups').click(); await page.waitForSelector('[data-testid=group-use-everyone]', { timeout: 10000 }); await page.getByTestId('group-use-everyone').click(); await page.getByTestId('groups-close').click();
     await page.waitForFunction(() => /^You: (#\d of 3|beyond the top 3) \(\$\d+\)/.test(document.querySelector('[data-testid=daily-board]')?.textContent || ''), null, { timeout: 15000 });
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:${VPORT}`);
@@ -618,7 +618,7 @@ test('junkyard draft: full run in the browser', { timeout: 300000 }, async () =>
     // the title's button plays the minted seed, and the HUD names it (PLAN-v3 0.6.1)
     await page.getByTestId('daily').click();
     await page.waitForFunction((seed) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, dinfo.seed, { timeout: 15000 });
-    assert.equal(await page.getByTestId('hud-seed').textContent(), `seed ${dinfo.seed} · today's challenge`);
+    assert.equal(await page.getByTestId('hud-seed').textContent(), `yard ${dinfo.seed} · today's challenge`);
     // large_text_layout_fits (HUD): a maximum-length seed at 130 % keeps round, score and local-best on the canvas
     await page.evaluate(() => localStorage.setItem('jd.settings.v1', JSON.stringify({ volume: 0.7, muted: false, reducedMotion: true, textScale: 1.3 })));
     await page.goto(`${URL}/?dev=1&scene=game&seed=${'m'.repeat(64)}&verifier=http://127.0.0.1:${VPORT}`);

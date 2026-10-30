@@ -10,25 +10,17 @@ import { RULES } from './rules';
 import type { RunState } from './run';
 
 export type BadgeId = 'clean' | 'minimalist' | 'all-hands';
-export interface Badge { id: BadgeId; title: string; text: string }
-
 /** Machines placed in the final round at or below which a run that still beats the bot par counts as Minimalist. */
 export const MINIMALIST_MACHINES = 8;
 
-export const BADGE_INFO: Record<BadgeId, Badge> = {
-  clean: { id: 'clean', title: 'Clean', text: 'Nothing waited and no hopper was blocked, in any round.' },
-  minimalist: { id: 'minimalist', title: 'Minimalist', text: `At most ${MINIMALIST_MACHINES} machines in the final round, and still at or above the bot par. Fewer final-round machines also break score ties on the verified board.` },
-  'all-hands': { id: 'all-hands', title: 'All Hands', text: 'Every machine you owned was on the grid at the end: nothing left in the bin, nothing sold.' },
-};
-
 /** Badges earned by a finished (or at least started) run; `botPar` null means Minimalist cannot be judged. */
-export function badgesFor(run: Pick<RunState, 'rounds' | 'score' | 'layout' | 'bin' | 'sold'>, botPar: number | null): Badge[] {
-  const out: Badge[] = [];
+export function badgeIdsFor(run: Pick<RunState, 'rounds' | 'score' | 'layout' | 'bin' | 'sold'>, botPar: number | null): BadgeId[] {
+  const out: BadgeId[] = [];
   if (!run.rounds.length) return out;
   const clean = run.rounds.every((r) => Object.values(r.result.cellStats).every((st) => st.jammedTicks === 0 && st.blockedTicks === 0));
-  if (clean) out.push(BADGE_INFO.clean);
+  if (clean) out.push('clean');
   const finalRound = run.rounds.length >= RULES.rounds ? run.rounds[RULES.rounds - 1] : null;
-  if (finalRound && botPar != null && finalRound.layout.machines.length <= MINIMALIST_MACHINES && run.score >= botPar) out.push(BADGE_INFO.minimalist);
-  if (finalRound && run.bin.length === 0 && run.sold === 0) out.push(BADGE_INFO['all-hands']);
+  if (finalRound && botPar != null && finalRound.layout.machines.length <= MINIMALIST_MACHINES && run.score >= botPar) out.push('minimalist');
+  if (finalRound && run.bin.length === 0 && run.sold === 0) out.push('all-hands');
   return out;
 }

@@ -6,8 +6,6 @@
 import { apply, newRun, type Action, type ForkOrigin, type RunState } from './run';
 import { RULES } from './rules';
 
-export const forkLabelOf = (f: ForkOrigin): string => `forked from ${f.player} after round ${f.round} · practice`;
-
 /**
  * The state right after round `n` of `actions` on `seed` (the draft of round n + 1), as a practice run that remembers
  * where it came from. Throws when the replay has fewer than `n` finished rounds, when `n` is out of range, or when an

@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { badgesFor, MINIMALIST_MACHINES } from '../game/src/sim/badges';
+import { badgeIdsFor, MINIMALIST_MACHINES } from '../game/src/sim/badges';
 import { apply, newRun, type RunState } from '../game/src/sim/run';
 import { runLayout } from '../game/src/sim/sim';
 import { RULES } from '../game/src/sim/rules';
 import type { Layout, Machine } from '../game/src/sim/types';
 
-const ids = (run: Pick<RunState, 'rounds' | 'score' | 'layout' | 'bin' | 'sold'>, par: number | null) => badgesFor(run, par).map((b) => b.id);
+const ids = (run: Pick<RunState, 'rounds' | 'score' | 'layout' | 'bin' | 'sold'>, par: number | null) => badgeIdsFor(run, par);
 
 function finish(seed: string, edit?: (s: RunState) => void): RunState {
   const s = newRun(seed);

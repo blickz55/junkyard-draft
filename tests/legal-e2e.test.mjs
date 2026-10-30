@@ -83,7 +83,7 @@ test('0.8.6 legal minimum in the browser: pages served, the panel from title and
     assert.equal(exported.ok, true); assert.equal(exported.player.name, 'Legal Tester');
     assert.equal(exported.entries.length, 1); assert.equal(exported.entries[0].replayHash, sub.entry.replayHash); assert.equal(exported.entries[0].storage, 'hot'); assert.ok(exported.entries[0].replay && Array.isArray(exported.entries[0].replay.actions));
     assert.ok(!JSON.stringify(exported).includes(token), 'the device key is not in the export');
-    await page.waitForFunction(() => /^Saved junkyard-draft-my-data-.*1 entry, 1 with a stored replay/.test(document.querySelector('[data-testid=data-status]')?.textContent || ''), null, { timeout: 5000 });
+    await page.waitForFunction(() => /^Saved junkyard-draft-my-data-.*1 entry, 1 with a stored recording/.test(document.querySelector('[data-testid=data-status]')?.textContent || ''), null, { timeout: 5000 });
 
     // delete my data: the confirmation, then the verifier forgets and the device gets a new key
     await page.getByTestId('data-delete').click();
@@ -91,7 +91,7 @@ test('0.8.6 legal minimum in the browser: pages served, the panel from title and
     assert.match(await page.getByTestId('dialog').textContent(), /cannot be undone/);
     await page.getByTestId('dialog-ok').click();
     await page.waitForFunction(() => document.querySelector('[data-testid=data-status]')?.dataset.deleted === '1', null, { timeout: 10000 });
-    assert.match(await page.getByTestId('data-status').textContent(), /^Deleted\. 1 entry anonymised, 0 archived replays dropped; this device has a new key and no name\./);
+    assert.match(await page.getByTestId('data-status').textContent(), /^Deleted\. 1 entry anonymised, 0 archived recordings dropped; this device has a new key and no name\./);
     const after = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.identity.v1')));
     assert.notEqual(after.token, token, 'a new device key'); assert.equal(after.name, null);
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.player')), null, 'the local name is gone');
