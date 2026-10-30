@@ -1,0 +1,46 @@
+{
+  "url": "http://127.0.0.1:4478",
+  "rate": 60,
+  "ips": 3,
+  "minutes": 2,
+  "submissions": {
+    "200": 357
+  },
+  "codes": {},
+  "verifyMs": {
+    "samples": 357,
+    "p50": 4.629699999997683,
+    "p95": 8.718399999997928,
+    "p99": 10.254200000010314,
+    "max": 110.06910000000002
+  },
+  "healthMs": {
+    "samples": 459,
+    "p50": 1.0794999999998254,
+    "p95": 1.7415000000037253,
+    "p99": 5.783999999999651,
+    "max": 9.692599999999999
+  },
+  "healthErrors": 0,
+  "healthAfter": {
+    "hotFileBytes": 474900,
+    "lastCommitMs": 1.66,
+    "commits": 357,
+    "resim": {
+      "jobs": 357,
+      "timeouts": 0,
+      "queued": 0,
+      "busy": false,
+      "capMs": 10000,
+      "maxQueue": 32
+    },
+    "limiters": {
+      "ip": 3,
+      "player": 0,
+      "read": 0,
+      "write": 0,
+      "events": 0
+    }
+  },
+  "at": "2026-10-30T05:08:00.523Z"
+}

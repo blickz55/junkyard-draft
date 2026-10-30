@@ -64,6 +64,12 @@
  * /health reports the hot file's bytes, the last commit's duration, the par queue and limiter cardinalities; a report hides
  * a name only when two established reporters agree or a moderator confirms, and an unconfirmed hide expires after 72 h;
  * deletion also drops a player's cold replays; opt-in events keep their address hash for 7 days.
+ *
+ * Re-simulation (0.8.2): a submission is prepared (decode, rules version, duplicate, issued seed: no simulation), re-simulated
+ * ONCE (score, last-round machines and per-round earnings from one run; three runs before) in a persistent worker thread
+ * with a wall-clock cap and a bounded queue, then recorded on the event loop (window, keep-best, retention, commit). Every
+ * refusal carries a reason `code` beside its `error`. Boards keep a per-seed sorted index, so reads and the retention pass no
+ * longer sort the whole board.
  */
 import http from 'node:http';
 import fs from 'node:fs';
@@ -74,7 +80,7 @@ import { Worker, isMainThread, parentPort, workerData } from 'node:worker_thread
 import { playSeed } from '../tools/autoplay-lib';
 import { Rng } from '../game/src/sim/rng';
 import { decodeReplay, verifyReplay, canonicalReplayJson, type ReplayFile } from '../game/src/sim/replay';
-import { replay as replayRun } from '../game/src/sim/run';
+import { replay as replayRun, type RunState } from '../game/src/sim/run';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { dailySeedFor, isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
 import { mintSeed, mintWeeklySeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS, base32Lower } from './mint';
@@ -113,14 +119,30 @@ export const VERSION: string = pkg.version;
 export interface BoardEntry { seed: string; score: number; player: string; verifiedAt: string; rulesVersion: number; actions: number; replayHash: string; replayAvailable?: boolean; finalMachines?: number; /** claimed identity (PLAN-v3 0.6.0); absent on anonymous entries, which are never claimable */ playerId?: string; /** per-round earnings derived at verification (PLAN-v4 0.7.1); absent on entries verified before and without a stored replay */ rounds?: number[] }
 /** Printed under every board: the one comparator, in words. */
 export const TIE_BREAK = 'Equal scores: fewer machines in round 6 first, then the earlier verified submission.';
-/** Machines on the grid in the final round of a replay, or null when it cannot be re-simulated. */
+/** One run of a replay, or null when an action is illegal. */
+function simulateOnce(r: Pick<ReplayFile, 'seed' | 'actions' | 'rulesVersion'>): RunState | null { try { return replayRun(r.seed, r.actions, r.rulesVersion); } catch { return null; } }
 /** Per-round earnings of a replay, derived by re-simulation (never from the payload): what a challenge link overlays (PLAN-v4 0.7.1). */
-export function roundsOf(r: Pick<ReplayFile, 'seed' | 'actions' | 'rulesVersion'>): number[] | null {
-  try { const s = replayRun(r.seed, r.actions, r.rulesVersion); return s.rounds.length ? s.rounds.map((x) => x.earned) : null; } catch { return null; }
+export function roundsOf(r: Pick<ReplayFile, 'seed' | 'actions' | 'rulesVersion'>): number[] | null { const s = simulateOnce(r); return s && s.rounds.length ? s.rounds.map((x) => x.earned) : null; }
+/** Machines on the grid in the final round of a replay, or null when it cannot be re-simulated. */
+export function finalMachinesOf(r: Pick<ReplayFile, 'seed' | 'actions' | 'rulesVersion'>): number | null { const s = simulateOnce(r); const last = s?.rounds[s.rounds.length - 1]; return last ? last.layout.machines.length : null; }
+/** Why a submission was refused (0.8.2), beside the human `error`; additive, so clients and operators can act without parsing prose. */
+export type RefusalCode = 'bad-replay' | 'rules-version' | 'duplicate' | 'unissued-seed' | 'illegal-action' | 'unfinished' | 'did-not-reproduce' | 'resim-timeout' | 'busy' | 'rate-limited' | 'too-large' | 'bad-request' | 'storage';
+/** The outcome of the one re-simulation of a submission. */
+export type Resim = { ok: true; score: number; finalMachines: number; rounds: number[] } | { ok: false; error: string; code: 'rules-version' | 'illegal-action' | 'unfinished' | 'did-not-reproduce' };
+/**
+ * The one re-simulation (0.8.2): score, machines in the last round and per-round earnings from a single run of the replay.
+ * Pure and synchronous; the worker thread and the inline path (tests, tools) share it. The claimed score is never trusted.
+ */
+export function resimulate(r: ReplayFile): Resim {
+  if (r.rulesVersion !== RULES_VERSION) return { ok: false, error: `rules version ${r.rulesVersion} unsupported (have ${RULES_VERSION})`, code: 'rules-version' };
+  let s: RunState;
+  try { s = replayRun(r.seed, r.actions, r.rulesVersion); } catch (e) { return { ok: false, error: (e as Error).message, code: 'illegal-action' }; }
+  if (s.phase !== 'finished') return { ok: false, error: `re-simulated score $${s.score} does not match claimed $${r.claimedScore} (run not finished)`, code: 'unfinished' };
+  if (s.score !== r.claimedScore) return { ok: false, error: `re-simulated score $${s.score} does not match claimed $${r.claimedScore}`, code: 'did-not-reproduce' };
+  const last = s.rounds[s.rounds.length - 1];
+  return { ok: true, score: s.score, finalMachines: last ? last.layout.machines.length : 0, rounds: s.rounds.map((x) => x.earned) };
 }
-export function finalMachinesOf(r: Pick<ReplayFile, 'seed' | 'actions' | 'rulesVersion'>): number | null {
-  try { const s = replayRun(r.seed, r.actions, r.rulesVersion); const last = s.rounds[s.rounds.length - 1]; return last ? last.layout.machines.length : null; } catch { return null; }
-}
+export interface SubmitResult { ok: boolean; score?: number; error?: string; code?: RefusalCode; entry?: BoardEntry; recorded?: boolean; player?: string; late?: boolean; closesAt?: string }
 /** Actions of a verified replay, kept so anyone can watch it; bounded by the replay limits enforced at verification. */
 export interface StoredReplay { seed: string; rulesVersion: number; actions: ReplayFile['actions']; score: number; player: string; verifiedAt: string }
 /** The autoplayer's median score on a seed: a target that exists on day one without inventing competitors. */
@@ -244,7 +266,13 @@ export interface VerifierOptions {
 const byRank = (a: BoardEntry, b: BoardEntry) => b.score - a.score || (a.finalMachines ?? Infinity) - (b.finalMachines ?? Infinity) || a.verifiedAt.localeCompare(b.verifiedAt) || a.replayHash.localeCompare(b.replayHash);
 
 export class Verifier {
-  private data: Board;
+  private _data!: Board;
+  /** Per-seed board order for the current rules version, built lazily after every change to the board (0.8.2): reads and the retention pass take a seed's sorted slice instead of filtering and sorting every entry. */
+  private index: Map<string, BoardEntry[]> | null = null;
+  private get data(): Board { return this._data; }
+  private set data(b: Board) { this._data = b; this.index = null; }
+  /** Whether the per-seed index is currently built (tests). */
+  get indexed(): boolean { return this.index !== null; }
   readonly replaysPerSeed: number;
   readonly maxEntriesPerSeed: number;
   readonly maxSeeds: number;
@@ -282,8 +310,9 @@ export class Verifier {
     const entries = this.data.entries.map((e) => {
       if ((e.finalMachines != null && e.rounds != null) || e.rulesVersion !== RULES_VERSION) return e;
       const r = this.data.replays?.[e.replayHash]; if (!r) return e;
-      const file = { seed: r.seed, actions: r.actions, rulesVersion: r.rulesVersion };
-      const n = e.finalMachines ?? finalMachinesOf(file); const rounds = e.rounds ?? roundsOf(file);
+      const s = simulateOnce({ seed: r.seed, actions: r.actions, rulesVersion: r.rulesVersion }); // one run per entry (0.8.2)
+      const last = s?.rounds[s.rounds.length - 1];
+      const n = e.finalMachines ?? (last ? last.layout.machines.length : null); const rounds = e.rounds ?? (s && s.rounds.length ? s.rounds.map((x) => x.earned) : null);
       if (n == null && rounds == null) return e;
       changed = true; return { ...e, ...(n != null ? { finalMachines: n } : {}), ...(rounds ? { rounds } : {}) };
     });
@@ -292,8 +321,19 @@ export class Verifier {
   }
 
   /** Current-version entries for a seed in board order. Entries persisted under another rules version never rank. */
+  /** A seed's current-version entries in board order: from the index for the live board, a one-off sort for a candidate board (0.8.2). */
+  private sortedSeed(seed: string, data: Board = this.data): BoardEntry[] {
+    if (data !== this.data) return data.entries.filter((e) => e.seed === seed && e.rulesVersion === RULES_VERSION).sort(byRank);
+    if (!this.index) {
+      const idx = new Map<string, BoardEntry[]>();
+      for (const e of this.data.entries) { if (e.rulesVersion !== RULES_VERSION) continue; let a = idx.get(e.seed); if (!a) { a = []; idx.set(e.seed, a); } a.push(e); }
+      for (const a of idx.values()) a.sort(byRank);
+      this.index = idx;
+    }
+    return this.index.get(seed) ?? [];
+  }
   private rank(seed: string, data: Board = this.data, members?: ReadonlySet<string> | null, now = new Date()): BoardEntry[] {
-    const hot = data.entries.filter((e) => e.seed === seed && e.rulesVersion === RULES_VERSION).sort(byRank).map((e) => this.withLabel(e, now));
+    const hot = this.sortedSeed(seed, data).map((e) => this.withLabel(e, now));
     const all = hot.length || data !== this.data ? hot : this.coldEntries(seed, now).filter((e) => e.rulesVersion === RULES_VERSION).sort(byRank);
     return members ? all.filter((e) => !!e.playerId && members.has(e.playerId)) : all; // a group board: members' verified entries only, ranks recomputed over them (PLAN-v4 0.7.2)
   }
@@ -392,7 +432,7 @@ export class Verifier {
     if (data.replays) {
       const keep = new Set<string>();
       const touched = new Set(data.entries.map((e) => e.seed));
-      for (const s of touched) for (const e of this.rank(s, data).slice(0, this.replaysPerSeed)) keep.add(e.replayHash);
+      for (const s of touched) for (const e of (s === seed ? this.sortedSeed(s, data) : this.sortedSeed(s)).slice(0, this.replaysPerSeed)) keep.add(e.replayHash); // only the submitted seed changed; every other seed's order comes from the index (0.8.2)
       for (const e of data.entries) if (e.rulesVersion !== RULES_VERSION) keep.add(e.replayHash); // other versions never rank here, but a rollback needs their replays intact (PLAN-v2 §1)
       for (const h of Object.keys(data.replays)) if (!keep.has(h)) delete data.replays[h];
     }
@@ -600,35 +640,44 @@ export class Verifier {
     try { fs.mkdirSync(path.dirname(this.auditFile), { recursive: true }); fs.appendFileSync(this.auditFile, JSON.stringify(row) + '\n'); } catch (e) { console.error(`moderation audit append failed: ${(e as Error).message}`); }
   }
 
-  submit(replayText: string, player = 'anonymous', playerId: string | null = null, now = new Date()): { ok: boolean; score?: number; error?: string; entry?: BoardEntry; recorded?: boolean; player?: string; late?: boolean; closesAt?: string } {
+  /**
+   * Step 1 of a submission (0.8.2), cheap and synchronous: decode, rules version, duplicate, issued seed. Nothing is simulated,
+   * so the request path refuses most bad input before paying for a re-simulation.
+   */
+  prepare(replayText: string): { ok: true; replay: ReplayFile; replayHash: string } | { ok: false; error: string; code: RefusalCode } {
     let replay: ReplayFile;
-    try { replay = decodeReplay(replayText); } catch (e) { return { ok: false, error: `rejected: ${(e as Error).message}` }; }
-    if (replay.rulesVersion !== RULES_VERSION) return { ok: false, error: `rejected: rules version ${replay.rulesVersion} not accepted (server has ${RULES_VERSION})` };
-    const v = verifyReplay(replay);
-    if (!v.ok) return { ok: false, error: v.error ? `rejected: ${v.error}` : `rejected: re-simulated score $${v.score} does not match claimed $${v.claimed}${v.finished ? '' : ' (run not finished)'}` };
+    try { replay = decodeReplay(replayText); } catch (e) { return { ok: false, error: `rejected: ${(e as Error).message}`, code: 'bad-replay' }; }
+    if (replay.rulesVersion !== RULES_VERSION) return { ok: false, error: `rejected: rules version ${replay.rulesVersion} not accepted (server has ${RULES_VERSION})`, code: 'rules-version' };
     const replayHash = replayId(replay);
-    if (this.data.entries.some((e) => e.replayHash === replayHash)) return { ok: false, error: 'rejected: duplicate replay' };
-    if (isMintedDailySeed(replay.seed) || isWeeklySeed(replay.seed)) { // a minted-looking seed counts only if this server issued it and its window is open (PLAN-v3 0.6.1, PLAN-v4 0.7.5)
-      const rec = this.issuedRecordForSeed(replay.seed);
-      if (!rec) return { ok: false, error: `rejected: not an issued ${isWeeklySeed(replay.seed) ? 'weekly' : 'daily'} seed` };
-    }
+    const dup = this.data.entries.find((e) => e.replayHash === replayHash);
+    if (dup && dup.score === replay.claimedScore) return { ok: false, error: 'rejected: duplicate replay', code: 'duplicate' }; // an identical resubmission skips the simulation; the same actions with a different claim still go through it and fail as a mismatch, as before
+    if ((isMintedDailySeed(replay.seed) || isWeeklySeed(replay.seed)) && !this.issuedRecordForSeed(replay.seed)) return { ok: false, error: `rejected: not an issued ${isWeeklySeed(replay.seed) ? 'weekly' : 'daily'} seed`, code: 'unissued-seed' }; // a minted-looking seed counts only if this server issued it (PLAN-v3 0.6.1, PLAN-v4 0.7.5)
+    return { ok: true, replay, replayHash };
+  }
+  /** Step 2: the one re-simulation (the HTTP path runs it in a worker; tests and tools call it inline). */
+  resimulate(replay: ReplayFile): Resim { return resimulate(replay); }
+  /** Step 3, synchronous: judge the re-simulation, apply the window, keep-best and retention, commit. Throws StorageError if it cannot persist. */
+  record(replay: ReplayFile, replayHash: string, sim: Resim, player = 'anonymous', playerId: string | null = null, now = new Date()): SubmitResult {
+    if (!sim.ok) return { ok: false, error: `rejected: ${sim.error}`, code: sim.code };
+    if (this.data.entries.some((e) => e.replayHash === replayHash)) return { ok: false, error: 'rejected: duplicate replay', code: 'duplicate' }; // two copies in flight: the second finds the first
     const claimed = playerId ? this.data.players?.[playerId] : undefined;
-    const anon = normaliseName(player); const label = claimed ? this.labelOf(playerId!, claimed) : anon && !nameProblem(anon) ? anon : 'anonymous'; // the anonymous label is a user-written field too: filtered, and dropped rather than refused (PLAN-v4 §1)
+    const anon = normaliseName(player); const label = claimed ? this.labelOf(playerId!, claimed, now) : anon && !nameProblem(anon) ? anon : 'anonymous'; // the anonymous label is a user-written field too: filtered, and dropped rather than refused (PLAN-v4 §1)
     if (isMintedDailySeed(replay.seed) || isWeeklySeed(replay.seed)) { // after the close the run is verified and told so, but the final board never changes (PLAN-v3 0.6.2)
-      const rec = this.issuedRecordForSeed(replay.seed)!;
-      if (now.getTime() >= Date.parse(rec.closesAt)) { this.observeFreeze(now); return { ok: true, score: v.score, late: true, recorded: false, closesAt: rec.closesAt, player: label }; }
+      const rec = this.issuedRecordForSeed(replay.seed);
+      if (!rec) return { ok: false, error: `rejected: not an issued ${isWeeklySeed(replay.seed) ? 'weekly' : 'daily'} seed`, code: 'unissued-seed' };
+      if (now.getTime() >= Date.parse(rec.closesAt)) { this.observeFreeze(now); return { ok: true, score: sim.score, late: true, recorded: false, closesAt: rec.closesAt, player: label }; }
     }
     // verifiedAt is the injected clock (0.8.1): reporter standing and tie-breaks read this stamp, so a fake clock in tests governs it too
-    const entry: BoardEntry = { seed: replay.seed, score: v.score, player: label, verifiedAt: now.toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash, finalMachines: finalMachinesOf(replay) ?? undefined, rounds: roundsOf(replay) ?? undefined, ...(playerId ? { playerId } : {}) };
+    const entry: BoardEntry = { seed: replay.seed, score: sim.score, player: label, verifiedAt: now.toISOString(), rulesVersion: replay.rulesVersion, actions: replay.actions.length, replayHash, finalMachines: sim.finalMachines, rounds: sim.rounds, ...(playerId ? { playerId } : {}) };
     // keep-best per (seed, player): a worse or equal run is verified but not recorded; a better one replaces the old entry and its replay
     let entries = this.data.entries; const replays = { ...(this.data.replays ?? {}) };
     if (playerId) {
       const mine = entries.find((e) => e.seed === replay.seed && e.playerId === playerId && e.rulesVersion === RULES_VERSION);
-      if (mine && byRank(mine, entry) <= 0) return { ok: true, score: v.score, entry: mine, recorded: false, player: label };
+      if (mine && byRank(mine, entry) <= 0) return { ok: true, score: sim.score, entry: mine, recorded: false, player: label };
       if (mine) { entries = entries.filter((e) => e !== mine); delete replays[mine.replayHash]; }
     }
     const event = isMintedDailySeed(replay.seed) || isWeeklySeed(replay.seed) ? this.issuedRecordForSeed(replay.seed) : null; const prevTop = event ? this.rank(replay.seed)[0] ?? null : null;
-    replays[replayHash] = { seed: replay.seed, rulesVersion: replay.rulesVersion, actions: replay.actions, score: v.score, player: entry.player, verifiedAt: entry.verifiedAt };
+    replays[replayHash] = { seed: replay.seed, rulesVersion: replay.rulesVersion, actions: replay.actions, score: sim.score, player: entry.player, verifiedAt: entry.verifiedAt };
     const candidate: Board = {
       ...this.data, // never rebuild the board from a subset of its fields: cached pars were lost that way (review F08)
       entries: [...entries, entry],
@@ -637,7 +686,12 @@ export class Verifier {
     this.prune(candidate, replay.seed);
     this.commit(candidate); // throws StorageError: nothing recorded, caller answers 503
     if (event) { const top = this.rank(replay.seed)[0]; if (top && top.replayHash === replayHash && !(prevTop && playerId && prevTop.playerId === playerId)) this.announce({ kind: 'lead', record: event, entry: top, previous: prevTop }); } // a new #1 on an open event (PLAN-v4 0.7.6); a leader improving their own run is not news
-    return { ok: true, score: v.score, entry, recorded: true, player: label };
+    return { ok: true, score: sim.score, entry, recorded: true, player: label };
+  }
+  /** Verify a replay inline and record it: prepare → one re-simulation → record. Returns the verdict (never trusts claimedScore). Throws StorageError if it cannot persist. */
+  submit(replayText: string, player = 'anonymous', playerId: string | null = null, now = new Date()): SubmitResult {
+    const p = this.prepare(replayText); if (!p.ok) return { ok: false, error: p.error, code: p.code };
+    return this.record(p.replay, p.replayHash, this.resimulate(p.replay), player, playerId, now);
   }
   board(seed: string, limit = 20, members?: ReadonlySet<string> | null, now = new Date()): BoardEntry[] {
     const n = Math.min(MAX_BOARD_LIMIT, Math.max(1, Math.floor(limit) || 1));
@@ -771,6 +825,58 @@ export function computeParSync(seed: string, runs = PAR_RUNS, tries = PAR_TRIES)
 if (!isMainThread && parentPort && workerData && typeof (workerData as { parSeed?: unknown }).parSeed === 'string') {
   const wd = workerData as { parSeed: string; runs?: number; tries?: number };
   parentPort.postMessage(computeParSync(wd.parSeed, wd.runs, wd.tries));
+}
+// worker entry for re-simulation (0.8.2): a persistent worker answers { id, replay } with { id, result } until terminated
+if (!isMainThread && parentPort && workerData && (workerData as { resimWorker?: unknown }).resimWorker === true) {
+  parentPort.on('message', (m: { id: number; replay: ReplayFile }) => { let result: Resim; try { result = resimulate(m.replay); } catch (e) { result = { ok: false, error: (e as Error).message, code: 'illegal-action' }; } parentPort!.postMessage({ id: m.id, result }); });
+}
+export class QueueFullError extends Error {}
+export class ResimTimeoutError extends Error {}
+export interface VerifyServiceOptions { /** wall-clock cap per re-simulation (default 10 s; a legal 4,000-action replay takes milliseconds) */ capMs?: number; /** submissions waiting behind the running one; beyond this the request answers 503 busy */ maxQueue?: number }
+/**
+ * Re-simulation off the event loop (0.8.2): one job at a time in a persistent worker thread (spawned on first use, replaced
+ * after a timeout or a crash), a bounded FIFO queue, a wall-clock cap per job. The service never touches the board: the
+ * request path prepares before and records after. `compute` can be injected (tests); null means the worker.
+ */
+export class VerifyService {
+  private worker: Worker | null = null;
+  private seq = 0; private jobs = 0; private timeouts = 0;
+  private queue: { replay: ReplayFile; resolve: (r: Resim) => void; reject: (e: Error) => void }[] = [];
+  private pending: { id: number; timer: NodeJS.Timeout; resolve: (r: Resim) => void; reject: (e: Error) => void } | null = null;
+  readonly capMs: number; readonly maxQueue: number;
+  constructor(private readonly compute: ((replay: ReplayFile) => Promise<Resim>) | null = null, opts: VerifyServiceOptions = {}) { this.capMs = opts.capMs ?? 10_000; this.maxQueue = opts.maxQueue ?? 32; }
+  get busy(): boolean { return !!this.pending; }
+  get queued(): number { return this.queue.length; }
+  get stats() { return { jobs: this.jobs, timeouts: this.timeouts, queued: this.queue.length, busy: this.busy, capMs: this.capMs, maxQueue: this.maxQueue }; }
+  /** Re-simulate off the loop; rejects with QueueFullError at once when the queue is full, with ResimTimeoutError when the cap passes. */
+  verify(replay: ReplayFile): Promise<Resim> {
+    if (this.pending && this.queue.length >= this.maxQueue) return Promise.reject(new QueueFullError(`verifier busy: ${this.maxQueue} submissions already waiting`));
+    return new Promise<Resim>((resolve, reject) => { this.queue.push({ replay, resolve, reject }); this.drain(); });
+  }
+  private drain() {
+    if (this.pending || !this.queue.length) return;
+    const job = this.queue.shift()!; const id = ++this.seq; this.jobs++;
+    const timer = setTimeout(() => { const p = this.pending; if (!p || p.id !== id) return; this.timeouts++; this.pending = null; this.resetWorker(); p.reject(new ResimTimeoutError(`re-simulation exceeded ${this.capMs} ms`)); this.drain(); }, this.capMs);
+    this.pending = { id, timer, resolve: job.resolve, reject: job.reject };
+    const run = this.compute ? this.compute(job.replay) : this.inWorker(id, job.replay);
+    run.then((r) => this.settle(id, (p) => p.resolve(r)), (e: unknown) => this.settle(id, (p) => p.reject(e instanceof Error ? e : new Error(String(e)))));
+  }
+  private settle(id: number, fn: (p: NonNullable<VerifyService['pending']>) => void) { const p = this.pending; if (!p || p.id !== id) return; clearTimeout(p.timer); this.pending = null; fn(p); this.drain(); }
+  private inWorker(id: number, replay: ReplayFile): Promise<Resim> {
+    const w = this.ensureWorker();
+    return new Promise<Resim>((resolve, reject) => {
+      const done = () => { w.off('message', onMsg); w.off('error', onErr); w.off('exit', onExit); };
+      const onMsg = (m: { id: number; result: Resim }) => { if (m.id !== id) return; done(); resolve(m.result); };
+      const onErr = (e: Error) => { done(); this.resetWorker(); reject(e); };
+      const onExit = (code: number) => { done(); if (this.worker === w) this.worker = null; reject(new Error(`re-simulation worker exited with ${code}`)); };
+      w.on('message', onMsg); w.on('error', onErr); w.on('exit', onExit);
+      w.postMessage({ id, replay });
+    });
+  }
+  private ensureWorker(): Worker { if (!this.worker) { this.worker = new Worker(new URL(import.meta.url), { workerData: { resimWorker: true }, execArgv: loaderArgs() }); this.worker.unref(); } return this.worker; }
+  private resetWorker() { const w = this.worker; this.worker = null; if (w) void w.terminate(); }
+  /** Stop the worker and fail whatever is waiting (shutdown). */
+  close() { this.resetWorker(); if (this.pending) { clearTimeout(this.pending.timer); const p = this.pending; this.pending = null; p.reject(new Error('verifier closing')); } for (const j of this.queue.splice(0)) j.reject(new Error('verifier closing')); }
 }
 /** Only the module-loader flags of this process (e.g. --import tsx) go to the worker: node --test adds flags a Worker rejects. */
 function loaderArgs(): string[] {
@@ -950,6 +1056,8 @@ export interface ServerOptions {
   errorLog?: ((line: string) => void) | null;
   /** socket timeouts (0.8.1); defaults 15 s headers, 30 s request, 5 s keep-alive */
   timeouts?: { headersMs?: number; requestMs?: number; keepAliveMs?: number };
+  /** re-simulation off the event loop (0.8.2); null or absent runs the single pass inline (tests, tools) */
+  verify?: VerifyService | null;
 }
 
 /** Daily-salted hash of a client address for the request log (0.8.1): one key per client within a UTC day, unlinkable across days or restarts; never the address. */
@@ -957,7 +1065,7 @@ export const hashIp = (salt: string, ip: string, now = new Date()): string => cr
 /** The request path as logged (0.8.1): a group code is the only membership secret and never reaches the log. */
 export const redactPath = (p: string): string => p.replace(/([?&]group=)[^&]*/g, '$1~');
 
-export interface ShutdownOptions { announcer?: { idle(): Promise<void> } | null; log?: ((line: string) => void) | null; /** hard stop after this many ms */ graceMs?: number; exit?: (code: number) => void; /** signals to hook; [] for tests that call the returned function */ signals?: NodeJS.Signals[] }
+export interface ShutdownOptions { announcer?: { idle(): Promise<void> } | null; /** called after the server closed (0.8.2: stop the re-simulation worker) */ after?: () => void; log?: ((line: string) => void) | null; /** hard stop after this many ms */ graceMs?: number; exit?: (code: number) => void; /** signals to hook; [] for tests that call the returned function */ signals?: NodeJS.Signals[] }
 /** SIGTERM/SIGINT drain (0.8.1): stop accepting, let in-flight requests and queued announcements finish, then exit 0; a hard stop with exit 1 after graceMs. Returns the shutdown function. */
 export function installShutdown(server: http.Server, o: ShutdownOptions = {}): () => Promise<void> {
   const log = o.log === null ? null : o.log ?? ((l: string) => console.log(l)); const exit = o.exit ?? ((c: number) => process.exit(c)); const grace = o.graceMs ?? 10_000; let started = false;
@@ -967,6 +1075,7 @@ export function installShutdown(server: http.Server, o: ShutdownOptions = {}): (
     const hard = setTimeout(() => { try { server.closeAllConnections(); } catch { /* already closed */ } exit(1); }, grace); hard.unref();
     await new Promise<void>((r) => { server.close(() => r()); try { server.closeIdleConnections(); } catch { /* not listening */ } });
     try { await o.announcer?.idle(); } catch { /* the announcer logs its own trouble */ }
+    try { o.after?.(); } catch { /* best effort */ }
     clearTimeout(hard); exit(0);
   };
   for (const s of o.signals ?? ['SIGTERM', 'SIGINT']) process.once(s, () => { void shutdown(); });
@@ -986,6 +1095,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const rl = opts.rateLimit === null ? null : new RateLimiter(opts.rateLimit?.limit ?? 60, opts.rateLimit?.windowMs ?? 60_000, opts.now);
   const events = opts.events ?? null;
   const par = opts.par ?? null;
+  const verify = opts.verify ?? null;
   const withPar = (seed: string) => { par?.request(seed, seed === verifier.todaySeed(new Date((opts.now ?? Date.now)()))); return verifier.par(seed); }; // today's minted seed goes first; the answer never waits for the job
   const erl = events ? new RateLimiter(opts.eventsRateLimit ?? DEFAULT_EVENTS_RATE_LIMIT, 60_000, opts.now) : null;
   const prl = new RateLimiter(opts.playerRateLimit ?? DEFAULT_PLAYER_RATE_LIMIT, 60_000, opts.now); // per-player submissions (PLAN-v3 §1 abuse baseline)
@@ -1022,7 +1132,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     const route = () => {
       if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
       if (req.method === 'GET' && url.pathname === '/health') return json(200, { ok: true, version: VERSION, rulesVersion: RULES_VERSION, protocol: PROTOCOL, entries: verifier.size, entriesAllVersions: verifier.sizeAllVersions, cold: { days: verifier.cold.dayCount, replays: verifier.cold.replayCount }, ...(opts.announcer?.enabled ? { discord: opts.announcer.stats } : {}), uptimeSec: Math.round((Date.now() - started) / 1000),
-        ...verifier.health, par: par ? { busy: par.busy, queued: par.queued, failures: par.failures } : null, limiters: { ip: rl?.keys ?? 0, player: prl.keys, read: readRl?.keys ?? 0, write: writeRl?.keys ?? 0, events: erl?.keys ?? 0 }, historyStart: verifier.historyStart(new Date((opts.now ?? Date.now)())), log: 'json' }); // 0.8.1: the SQLite trigger's inputs, the par queue and limiter cardinalities, visible
+        ...verifier.health, par: par ? { busy: par.busy, queued: par.queued, failures: par.failures } : null, resim: verify ? verify.stats : null, limiters: { ip: rl?.keys ?? 0, player: prl.keys, read: readRl?.keys ?? 0, write: writeRl?.keys ?? 0, events: erl?.keys ?? 0 }, historyStart: verifier.historyStart(new Date((opts.now ?? Date.now)())), log: 'json' }); // 0.8.1: the SQLite trigger's inputs, the par queue and limiter cardinalities, visible
       if (req.method === 'GET' && readRl) { const r = readRl.take(ip); if (!r.ok) return json(429, { ok: false, error: `rate limited: ${readRl.limit} reads per minute per address` }, { 'Retry-After': String(r.retryAfterSec) }); } // 0.8.1: every read but /health
       if (req.method === 'GET' && url.pathname === '/replay') {
         const r = verifier.replay(url.searchParams.get('hash') || '', new Date((opts.now ?? Date.now)()));
@@ -1078,7 +1188,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const r = irl.take(bearerId); if (!r.ok) { req.resume(); return json(429, { ok: false, error: 'rate limited' }, { 'Retry-After': String(r.retryAfterSec) }); }
         { const w = writeLimited(); if (w != null) { req.resume(); return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) }); } }
         let body = '';
-        req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
+        req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large', code: 'too-large' }); req.destroy(); } });
         req.on('end', () => guarded(() => {
           if (res.writableEnded) return;
           let parsed: { name?: unknown } | null = null;
@@ -1098,7 +1208,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         { const w = writeLimited(); if (w != null) { req.resume(); return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) }); } }
         const action = url.pathname.split('/')[2] ?? 'create';
         let body = '';
-        req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
+        req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large', code: 'too-large' }); req.destroy(); } });
         req.on('end', () => guarded(() => {
           if (res.writableEnded) return;
           let parsed: { name?: unknown; code?: unknown } = {};
@@ -1123,7 +1233,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const r = rrl.take(bearerId); if (!r.ok) { req.resume(); return json(429, { ok: false, error: 'rate limited' }, { 'Retry-After': String(r.retryAfterSec) }); }
         { const w = writeLimited(); if (w != null) { req.resume(); return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) }); } }
         let body = '';
-        req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
+        req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large', code: 'too-large' }); req.destroy(); } });
         req.on('end', () => guarded(() => {
           if (res.writableEnded) return;
           type ReportBody = { playerId?: unknown; hash?: unknown; reason?: unknown }; let parsed: ReportBody | null = null;
@@ -1142,7 +1252,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const action = url.pathname.slice('/moderation/'.length);
         if (req.method !== 'POST' || !['clear', 'confirm', 'rename', 'rename-group'].includes(action)) { req.resume(); return json(404, { ok: false, error: 'not found' }); }
         let body = '';
-        req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
+        req.on('data', (c) => { body += c; if (body.length > 4096) { json(413, { ok: false, error: 'too large', code: 'too-large' }); req.destroy(); } });
         req.on('end', () => guarded(() => {
           if (res.writableEnded) return;
           type ModBody = { playerId?: unknown; code?: unknown; name?: unknown }; let parsed: ModBody | null = null;
@@ -1158,23 +1268,34 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         return;
       }
       if (req.method === 'POST' && url.pathname === '/verify') {
-        if (rl) { const r = rl.take(ip); if (!r.ok) { req.resume(); return json(429, { ok: false, error: `rate limited: ${rl.limit} submissions per ${rl.windowMs / 1000}s` }, { 'Retry-After': String(r.retryAfterSec) }); } }
-        if (bearerId) { const r = prl.take(bearerId); if (!r.ok) { req.resume(); return json(429, { ok: false, error: `rate limited: ${prl.limit} submissions per minute per player` }, { 'Retry-After': String(r.retryAfterSec) }); } }
+        if (rl) { const r = rl.take(ip); if (!r.ok) { req.resume(); return json(429, { ok: false, error: `rate limited: ${rl.limit} submissions per ${rl.windowMs / 1000}s`, code: 'rate-limited' }, { 'Retry-After': String(r.retryAfterSec) }); } }
+        if (bearerId) { const r = prl.take(bearerId); if (!r.ok) { req.resume(); return json(429, { ok: false, error: `rate limited: ${prl.limit} submissions per minute per player`, code: 'rate-limited' }, { 'Retry-After': String(r.retryAfterSec) }); } }
         let body = '';
-        req.on('data', (c) => { body += c; if (body.length > MAX_BODY) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
+        req.on('data', (c) => { body += c; if (body.length > MAX_BODY) { json(413, { ok: false, error: 'too large', code: 'too-large' }); req.destroy(); } });
         req.on('end', () => guarded(() => {
           if (res.writableEnded) return;
           let parsed: { replay: unknown; player?: string };
-          try { parsed = JSON.parse(body) as { replay: unknown; player?: string }; } catch (e) { return json(400, { ok: false, error: `bad request: ${(e as Error).message}` }); }
-          if (!parsed || typeof parsed !== 'object') return json(400, { ok: false, error: 'bad request: body is not an object' });
-          try {
-            const result = verifier.submit(JSON.stringify(parsed.replay ?? null), typeof parsed.player === 'string' ? parsed.player : undefined, bearerId, new Date((opts.now ?? Date.now)()));
-            if (result.ok && result.entry) par?.request(result.entry.seed);
-            json(result.ok ? 200 : 422, result);
-          } catch (e) {
-            if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable, nothing was recorded; try again' }, { 'Retry-After': '5' });
-            json(500, { ok: false, error: 'internal error' });
-          }
+          try { parsed = JSON.parse(body) as { replay: unknown; player?: string }; } catch (e) { return json(400, { ok: false, error: `bad request: ${(e as Error).message}`, code: 'bad-request' }); }
+          if (!parsed || typeof parsed !== 'object') return json(400, { ok: false, error: 'bad request: body is not an object', code: 'bad-request' });
+          const prep = verifier.prepare(JSON.stringify(parsed.replay ?? null)); // cheap refusals before any simulation (0.8.2)
+          if (!prep.ok) return json(422, { ok: false, error: prep.error, code: prep.code });
+          const player = typeof parsed.player === 'string' ? parsed.player : undefined;
+          const finish = (sim: Resim) => guarded(() => {
+            try {
+              const result = verifier.record(prep.replay, prep.replayHash, sim, player, bearerId, new Date((opts.now ?? Date.now)()));
+              if (result.ok && result.entry) par?.request(result.entry.seed);
+              json(result.ok ? 200 : 422, result);
+            } catch (e) {
+              if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable, nothing was recorded; try again', code: 'storage' }, { 'Retry-After': '5' });
+              throw e;
+            }
+          });
+          if (!verify) return finish(verifier.resimulate(prep.replay)); // no worker service: inline, still one pass
+          verify.verify(prep.replay).then(finish, (e: unknown) => {
+            if (e instanceof QueueFullError) return json(503, { ok: false, error: 'verifier busy; try again in a moment', code: 'busy' }, { 'Retry-After': '5' });
+            if (e instanceof ResimTimeoutError) return json(422, { ok: false, error: `rejected: ${e.message}`, code: 'resim-timeout' });
+            failed(e);
+          });
         }));
         return;
       }
@@ -1182,7 +1303,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       if (req.method === 'POST' && url.pathname === '/events' && events && erl) {
         const r = erl.take(ip); if (!r.ok) { req.resume(); return json(429, { ok: false, error: 'rate limited' }, { 'Retry-After': String(r.retryAfterSec) }); }
         let body = '';
-        req.on('data', (c) => { body += c; if (body.length > MAX_EVENTS_BODY) { json(413, { ok: false, error: 'too large' }); req.destroy(); } });
+        req.on('data', (c) => { body += c; if (body.length > MAX_EVENTS_BODY) { json(413, { ok: false, error: 'too large', code: 'too-large' }); req.destroy(); } });
         req.on('end', () => guarded(() => {
           if (res.writableEnded) return;
           let parsed: unknown;
@@ -1246,7 +1367,9 @@ if (isMain) {
   try { const { moved } = verifier.splitCold(new Date()); if (moved.length) console.log(`cold: moved ${moved.length} closed day(s) to ${path.join(path.dirname(file), 'cold')}`); } catch (e) { console.error(`cold split failed: ${(e as Error).message}`); }
   setInterval(() => { try { verifier.splitCold(new Date()); } catch { /* next hour */ } }, 3_600_000).unref();
   const par = process.env.BOT_PAR === '0' ? null : new ParService(verifier, (s) => computeParInWorker(s, Number(process.env.BOT_PAR_CAP_MS || 20_000)));
-  const server = createServer(verifier, { rateLimit: { limit, windowMs: 60_000 }, playerRateLimit, readRateLimit, writeRateLimit, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events, par, announcer, moderationToken });
+  const verify = process.env.RESIM_INLINE === '1' ? null : new VerifyService(null, { capMs: Number(process.env.RESIM_CAP_MS || 10_000), maxQueue: Number(process.env.RESIM_QUEUE || 32) }); // 0.8.2: one re-simulation at a time in a worker; RESIM_INLINE=1 keeps it on the loop (debugging)
+  console.log(verify ? `re-simulation: one job at a time in a worker thread, ${verify.capMs} ms cap, ${verify.maxQueue} waiting at most` : 're-simulation: inline on the event loop (RESIM_INLINE=1)');
+  const server = createServer(verifier, { rateLimit: { limit, windowMs: 60_000 }, playerRateLimit, readRateLimit, writeRateLimit, corsOrigin, trustProxy, log: process.env.VERIFIER_LOG === '0' ? null : undefined, events, par, verify, announcer, moderationToken });
   server.listen(port, host, () => console.log(`replay verifier v${VERSION} → http://${host}:${port}/  (board: ${file}, events: ${events.file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, ${playerRateLimit}/min/player, CORS ${corsOrigin}${trustProxy ? ', trusting the rightmost X-Forwarded-For hop / X-Real-IP' : ''})`));
-  installShutdown(server, { announcer }); // 0.8.1: SIGTERM/SIGINT stop accepting, finish in-flight requests and queued announcements, exit 0 (hard stop after 10 s)
+  installShutdown(server, { announcer, after: () => verify?.close() }); // 0.8.1: SIGTERM/SIGINT stop accepting, finish in-flight requests and queued announcements, exit 0 (hard stop after 10 s)
 }
