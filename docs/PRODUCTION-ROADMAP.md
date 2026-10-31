@@ -293,7 +293,7 @@ Brief at the same time. Three loopable stems (build: sparse and warm; run: drivi
 | VPS (Hetzner CX23 class) | v0.8 | ≈ €4 a month; €8–15 after 10k DAU |
 | Off-box backup storage | v0.8 | ≈ €3–4 a month |
 | Cloudflare Pages, uptime monitor, Discord, GHCR | v0.8 | €0 |
-| Transactional email provider | v0.11 | €0–20 a month at beta volumes |
+| Transactional email provider: Resend (the owner, 2026-10-31) | v0.11 | €0 on the free plan (100 a day), $20 a month once the digest needs more |
 | AI triage API | v0.11 | expected under $20 a month at beta volumes; measured and reported in STATUS monthly |
 | Legal templates or a one-hour review | v0.8 | $0–500 |
 | Capsule/key art | included in 6.1 | — |

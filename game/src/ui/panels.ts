@@ -1,6 +1,6 @@
 /**
- * The fairness policy, the legal texts, a division's board and the inbox are long or rarely opened, so they load on first use as
- * chunks of their own instead of weighing on every first visit. The service worker caches the chunks with the rest of the build, so they still open offline.
+ * The fairness policy, the legal texts, a division's board, the inbox and email sign-in are long or rarely opened, so they load on
+ * first use as chunks of their own instead of weighing on every first visit. The service worker caches the chunks with the rest of the build, so they still open offline.
  */
 import type Phaser from 'phaser';
 import { alertText } from './dom';
@@ -32,4 +32,16 @@ export const openInbox = (...args: Parameters<typeof import('./InboxPanel').open
     args[0],
     () => import('./InboxPanel'),
     (m) => m.openInbox(...args),
+  );
+export const openEmailLink = (...args: Parameters<typeof import('./EmailLink').openEmailLink>) =>
+  opening(
+    args[0],
+    () => import('./EmailLink'),
+    (m) => m.openEmailLink(...args),
+  );
+export const openLinkLanding = (...args: Parameters<typeof import('./EmailLink').openLinkLanding>) =>
+  opening(
+    args[0],
+    () => import('./EmailLink'),
+    (m) => m.openLinkLanding(...args),
   );

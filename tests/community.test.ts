@@ -44,6 +44,7 @@ const TABLES = [
   'divisions',
   'trophies',
   'cosmetics',
+  'device_keys',
 ];
 /** A finished game on a seed, enough for the verifier to take it. */
 function playedRun(seed: string, pick = 0) {
@@ -83,18 +84,18 @@ test('migrations: up makes every table of the roadmap, down takes them away agai
   assert.equal(s.version, s.migrations.length);
   assert.deepEqual(tables(s), [...TABLES].sort());
   assert.deepEqual(s.migrate(), [], 'nothing left to apply');
-  assert.deepEqual(s.rollback(0), [1]);
+  assert.deepEqual(s.rollback(0), [2, 1]);
   assert.equal(s.version, 0);
   assert.deepEqual(tables(s), []);
-  assert.deepEqual(s.migrate(), [1]);
+  assert.deepEqual(s.migrate(), [1, 2]);
   assert.deepEqual(tables(s), [...TABLES].sort());
   const t = s.threadFor('daily', '2030-01-10');
   s.addPost(t.id, 'p1', 'kept');
   s.close();
   const again = open(dir);
-  assert.equal(again.version, 1);
+  assert.equal(again.version, again.migrations.length);
   assert.equal(again.threadPage(t.id).posts[0].body, 'kept', 'a reopen keeps the data and runs nothing');
-  assert.equal((db(again).prepare('SELECT COUNT(*) AS n FROM schema_migrations').get() as { n: number }).n, 1);
+  assert.equal((db(again).prepare('SELECT COUNT(*) AS n FROM schema_migrations').get() as { n: number }).n, again.migrations.length);
   again.close();
 });
 
@@ -248,7 +249,7 @@ test('forgetting a player reaches every row that holds their id; what others rea
 test('the list of player columns is complete: the schema is walked, so a new column has to be placed', () => {
   const s = open();
   const listed = new Set(PLAYER_COLUMNS.map((c) => `${c.table}.${c.column}`));
-  const notPlayers = new Set(['posts.thread_id']);
+  const notPlayers = new Set(['posts.thread_id', 'device_keys.key_id']); // a key's hash: its row goes with the player
   const found: string[] = [];
   for (const table of tables(s)) {
     const columns = db(s).prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
@@ -285,7 +286,7 @@ test('health: the size on disk and the schema every time, the counts at most onc
   const t = s.threadFor('daily', '2030-01-10');
   s.addPost(t.id, 'p', 'one');
   const h = s.health();
-  assert.deepEqual({ schema: h.schema, threads: h.threads, posts: h.posts, accounts: h.accounts }, { schema: 1, threads: 1, posts: 1, accounts: 0 });
+  assert.deepEqual({ schema: h.schema, threads: h.threads, posts: h.posts, accounts: h.accounts }, { schema: 2, threads: 1, posts: 1, accounts: 0 });
   assert.ok(h.bytes > 0);
   s.addPost(t.id, 'p', 'two');
   assert.equal(s.health().posts, 1, 'cached');
@@ -306,7 +307,7 @@ test('a snapshot of a live database has everything committed, and passes the int
   s.addPost(t.id, 'p', 'after the snapshot');
   s.close();
   const seen = inspectDatabase(dest);
-  assert.deepEqual(seen, { integrity: 'ok', schema: 1, accounts: 0, threads: 1, posts: 100 });
+  assert.deepEqual(seen, { integrity: 'ok', schema: 2, accounts: 0, threads: 1, posts: 100 });
   assert.ok(!fs.existsSync(`${dest}-wal`), 'one file, nothing beside it');
 });
 
@@ -314,10 +315,10 @@ test('the operator tool shows where a directory stands and takes it back down', 
   const dir = tempDir();
   open(dir).close();
   const tool = (...a: string[]) => spawnSync(process.execPath, ['--import', 'tsx', 'tools/community.ts', ...a], { encoding: 'utf8' });
-  assert.match(tool(dir, 'status').stdout, /"schema": 1/);
+  assert.match(tool(dir, 'status').stdout, /"schema": 2/);
   const down = tool(dir, 'down', '0');
   assert.equal(down.status, 0, down.stderr);
-  assert.deepEqual(JSON.parse(down.stdout).reversed, [1]);
+  assert.deepEqual(JSON.parse(down.stdout).reversed, [2, 1]);
   assert.equal(JSON.parse(tool(dir, 'status').stdout).schema, 0, 'it stays down: only the verifier migrates up');
   assert.equal(tool(tempDir(), 'status').status, 1, 'no database, no status');
   assert.equal(tool().status, 2);
@@ -337,7 +338,7 @@ test('the routes: /health reports the store, /me/export carries it, DELETE /me e
   const bearer = { Authorization: `Bearer ${token}` };
   try {
     const health = (await (await fetch(`${base}/health`)).json()) as { community: { schema: number; posts: number; bytes: number } };
-    assert.equal(health.community.schema, 1);
+    assert.equal(health.community.schema, 2);
     assert.equal(health.community.posts, 2);
     assert.ok(health.community.bytes > 0);
     const out = (await (await fetch(`${base}/me/export`, { headers: bearer })).json()) as { community: { posts: { body: string }[] } };

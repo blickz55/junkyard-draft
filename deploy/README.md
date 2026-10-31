@@ -19,7 +19,7 @@ What is in this directory:
 | `docker-compose.yml` | the verifier (GHCR image, named volume, `TRUST_PROXY=1`, port on 127.0.0.1 only, rotated logs) and Caddy |
 | `Caddyfile` | TLS for `verify.<DOMAIN>`, HSTS, `X-Real-IP`, 2 MB body cap, JSON access log |
 | `.env.example` → `.env` | compose variables: `DOMAIN`, `ACME_EMAIL`, `VERIFIER_TAG` (the deploy workflow pins the tag here) |
-| `verifier.env.example` → `verifier.env` | the container's secrets and settings: `DAILY_SECRET`, `MODERATION_TOKEN`, `CORS_ORIGIN`, `DISCORD_WEBHOOK_URL`, and (0.10.4) `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` for the daily reminder (`npx web-push generate-vapid-keys`; empty keeps reminders off) |
+| `verifier.env.example` → `verifier.env` | the container's secrets and settings: `DAILY_SECRET`, `MODERATION_TOKEN`, `RESEND_API_KEY`, `MAIL_FROM`, `CORS_ORIGIN`, `DISCORD_WEBHOOK_URL`, and (0.10.4) `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` for the daily reminder (`npx web-push generate-vapid-keys`; empty keeps reminders off) |
 | `_headers` | template for Cloudflare Pages; `npm run build` renders it into `dist/_headers` with the CSP header and the immutable rule for the content-hashed `main-<hash>.js` |
 | `backup.cron` | nightly archive of the volume, nightly off-box copy, Sunday restore drill (0.8.3) |
 | `../.github/workflows/deploy.yml` | after a green `ci` run: main → Pages; a `v*` tag → pull and restart the verifier over SSH, then `/health` and `tools/mint-check.ts` |
@@ -85,6 +85,14 @@ It fetches the page from the real origin and checks the headers, reads `build.js
 
 ## 6. Backups ⚑
 Install `backup.cron` in root's crontab (`crontab -e`, paste, adjust the rclone remote). It reads the volume's host path from `docker volume inspect` and drills against the loopback port. Test it once by hand: run the 03:17 line, then `node --import tsx tools/restore-drill.ts /var/backups/junkyard/jd-backup-*.tar.gz --live http://127.0.0.1:4400`, and record the result in STATUS (0.8.3's VPS half). The archive holds the community database as a snapshot taken while the verifier runs, and the restore drill checks it.
+
+## 7. Email sign-in ⚑ (Resend)
+Without it the game plays as before, and Settings says signing in is not available yet.
+1. Create a Resend account and add the domain `send.<domain>`. A subdomain keeps sign-in mail apart from the mailboxes in §1, and its records cannot clash with theirs.
+2. Add the records Resend lists to Cloudflare DNS, proxy **off**, and wait for it to say Verified.
+3. Create an API key with sending access only. Put it in `verifier.env` as `RESEND_API_KEY` and in the password manager; `MAIL_FROM` is already set for `send.<domain>`. Restart the verifier: the log says `email sign-in: on` and `/health` says `"email": true`.
+4. Sign in from the game with a Gmail, an Outlook and an iCloud address, and record in `docs/STATUS.md` whether each mail reached the inbox. If they land in spam, Postmark is the fallback: `server/link.ts` has one function to change.
+The free plan sends 100 mails a day. Sign-in links fit in that; the weekly digest (0.11.7) will not past about 100 subscribers, and then it is the $20 plan.
 
 ## Releases, rollback and the rules version
 - **Tag → verifier.** `git tag v0.8.0 && git push origin v0.8.0`: `ci` builds, smokes and pushes `ghcr.io/blickz55/junkyard-verifier:v0.8.0`, publishes the Release, and `deploy` then checks out the tag on the VPS, pins `VERIFIER_TAG=v0.8.0` in `.env`, pulls and restarts, waits for `/health` on the loopback, and checks the public `/health` and today's mint. Rollback: `Actions → deploy → Run workflow` with `verifier_tag` = the previous tag, or on the VPS `sed -i 's/^VERIFIER_TAG=.*/VERIFIER_TAG=v0.7.9/' .env && docker compose up -d`. Nothing in the data directory is deleted either way (`server/README.md`, rules-version runbook).

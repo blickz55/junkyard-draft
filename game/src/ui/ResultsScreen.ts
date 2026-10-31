@@ -40,6 +40,7 @@ import { openPolicy, openPrivacy } from './panels';
 import { reactionLine, reactionTotal, type ReactionCounts } from '../content/reactions';
 import { loadReactions } from '../render/reactions';
 import { reactionBar } from './ReactionBar';
+import { syncNow } from '../render/link';
 import { recordWatched } from '../render/storage';
 import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
 import { groupHeaders, groupParam, loadGroup } from '../render/groups';
@@ -91,6 +92,7 @@ export function mountResults(
     scene.scene.start('Game', { seed, fresh: true, challenge: o.challenge && o.challenge.seed === seed ? o.challenge : undefined });
   }; // a retry keeps the challenge; another yard drops it (PLAN-v4 0.7.1)
   const verifierUrl = resolveVerifierUrl();
+  void syncNow(verifierUrl); // 0.11.1: what this game earned goes to the account
   const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
 
   // the results card (production roadmap 0.9.2): the standing sentence leads, then the money, then the deltas (the foreman's mark,

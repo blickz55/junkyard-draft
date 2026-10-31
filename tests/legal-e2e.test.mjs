@@ -48,7 +48,7 @@ test('the Privacy panel opens from the home footer with its three tabs', { timeo
   await page.getByTestId('more').click();
   await page.getByTestId('privacy').click();
   await page.waitForSelector('[data-testid=privacy-dialog]');
-  assert.match(await page.getByTestId('legal-summary').textContent(), /no accounts, no e-mail sign-up, no cookies/);
+  assert.match(await page.getByTestId('legal-summary').textContent(), /needs no account to play, and has no passwords, no cookies/);
   assert.match(await page.getByTestId('legal-meta').textContent(), /^Privacy notice · last changed \d{4}-\d{2}-\d{2}/);
   await page.getByTestId('legal-tab-terms').click();
   assert.match(await page.getByTestId('legal-meta').textContent(), /^Terms of play/);
@@ -144,7 +144,7 @@ test('the results screen carries the link too', { timeout: 90000 }, async () => 
   await page.waitForSelector('[data-testid=privacy]');
   await page.getByTestId('privacy').click();
   await page.waitForSelector('[data-testid=privacy-dialog]');
-  assert.match(await page.getByTestId('legal-summary').textContent(), /no accounts/);
+  assert.match(await page.getByTestId('legal-summary').textContent(), /needs no account/);
   await page.keyboard.press('Escape');
   await noDialog('privacy-dialog');
   assert.deepEqual(page.errors, [], 'no page errors');

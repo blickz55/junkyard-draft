@@ -4,7 +4,7 @@
  * confirmed are cached too. The token leaves the device only as a bearer header on POSTs. Recovery = the token as a code.
  */
 import { tagFor, recoveryCodeFor, tokenFromRecoveryCode, TOKEN_HEX } from '../identity/identity';
-import { markStorageFailure } from './storage';
+import { markStorageFailure, saveLinked } from './storage';
 import { t } from '../content/strings';
 
 export interface Identity {
@@ -67,6 +67,10 @@ export async function localTag(): Promise<string> {
 export function setClaimed(name: string, tag: string, playerId?: string) {
   const id = loadIdentity();
   write({ ...id, name, tag, playerId: playerId ?? id.playerId });
+}
+/** After signing in by email (0.11.1): this device now speaks for that player, whose name may not be claimed yet. */
+export function setPlayer(playerId: string, name: string | null, tag: string) {
+  write({ ...loadIdentity(), playerId, name, tag });
 }
 export function clearClaimed() {
   const id = loadIdentity();
@@ -132,6 +136,7 @@ export async function deleteMyData(
     const body = (await res.json()) as { ok: boolean; error?: string; anonymisedEntries?: number; coldReplaysDropped?: number };
     if (!res.ok || !body.ok) return { ok: false, error: body.error ?? t('identity.errDeleteRefused', { status: res.status }) };
     resetIdentity();
+    saveLinked(false);
     return { ok: true, anonymisedEntries: body.anonymisedEntries ?? 0, coldReplaysDropped: body.coldReplaysDropped ?? 0 };
   } catch {
     return { ok: false, error: t('identity.errNoAnswerDelete') };

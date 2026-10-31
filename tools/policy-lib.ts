@@ -41,6 +41,7 @@ import {
   HIDDEN_LABEL,
   APPEAL_CONTACT,
 } from '../server/verify';
+import { LINK_PER_ADDRESS, LINK_PER_IP, LINK_PER_PLAYER, LINK_TTL_MS } from '../server/link';
 
 export interface PolicySection {
   title: string;
@@ -106,7 +107,8 @@ export function buildPolicy(): Policy {
     {
       title: 'Identity and your data',
       lines: [
-        'There are no accounts or passwords. On first use the game creates a random 128-bit key on your device. The verifier sees only its SHA-256 hash (your player id) and never stores or logs the key itself; the key travels only to https or loopback verifiers.',
+        'Playing needs no account and there are no passwords. On first use the game creates a random 128-bit key on your device. The verifier sees only its SHA-256 hash (your player id) and never stores or logs the key itself; the key travels only to https or loopback verifiers.',
+        'Signing in with email is optional. A one-time link proves the address; the verifier keeps its SHA-256 hash and never the address. Each device keeps its own key, and the verifier records which player the hash of that key stands for.',
         `Your display name (up to ${NAME_MAX} characters, normalised, ${NAME_BLOCKLIST.length} blocked words after folding look-alikes) is shown as Name#TAG, the four-character tag derived from your player id over the alphabet ${TAG_ALPHABET}. You can rename once every ${hours(RENAME_COOLDOWN_MS)}; a rename follows you onto every board.`,
         'The recovery code is your key in base32 groups. Anyone with it can play as you: keep it private. Entering it on another device moves the player there.',
         'Your data: "Download my data" in the game (GET /me/export with your key) returns everything stored under your player id: entries with their kept replays, group memberships, the moderation record of your name, the reports you filed. "Delete my data" (DELETE /me) removes your name, anonymises your entries as "deleted", drops their replays from live and cold storage, ends your group memberships and replaces the key on your device. Nothing else about you is stored; the privacy notice (Privacy & data in the game, legal/privacy.html next to it) says who runs the service and why each item is kept.',
@@ -130,6 +132,7 @@ export function buildPolicy(): Policy {
       title: 'Abuse limits',
       lines: [
         `Submissions: ${DEFAULT_RATE_LIMIT} per minute per address and ${DEFAULT_PLAYER_RATE_LIMIT} per minute per player; identity calls ${IDENTITY_RATE_LIMIT} per minute per player; reports ${REPORT_RATE_LIMIT} per minute per player; reads ${DEFAULT_READ_RATE_LIMIT} and identity, group, report or deletion calls ${DEFAULT_WRITE_RATE_LIMIT} per minute per address; statistics ${DEFAULT_EVENTS_RATE_LIMIT} per minute per address; request bodies up to ${Math.round(MAX_BODY_BYTES / 1024)} KB; at most ${DEFAULT_MAX_PLAYERS} claimed identities (the oldest that never played and sit in no group make room). Limits answer 429 with Retry-After and never record anything.`,
+        `Sign-in emails: ${LINK_PER_ADDRESS} an hour per address, ${LINK_PER_PLAYER} per player and ${LINK_PER_IP} per network address; a link works once, for ${LINK_TTL_MS / 60_000} minutes.`,
         `Protocol level ${PROTOCOL}: endpoints only grow; a client one release behind keeps working.`,
       ],
     },

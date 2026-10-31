@@ -60,7 +60,7 @@ export function buildLegal(): Legal {
   const privacy: LegalDoc = {
     id: 'privacy',
     title: 'Privacy notice',
-    summary: `${O.product} has no accounts, no e-mail sign-up, no cookies and no advertising. The game keeps your settings and best scores on your device. The verifier keeps what public leaderboards need: the replays you submit, the display name you choose and a hash of a key your device made. You can download or delete all of it from the game, and nothing identifies you to us beyond that key.`,
+    summary: `${O.product} needs no account to play, and has no passwords, no cookies and no advertising. The game keeps your settings and best scores on your device. The verifier keeps what public leaderboards need: the replays you submit, the display name you choose and a hash of a key your device made. Signing in with email is your choice: it keeps a hash of your address, never the address, so your progress can follow you to another device. You can download or delete all of it from the game.`,
     sections: [
       {
         title: 'Who is responsible',
@@ -88,8 +88,9 @@ export function buildLegal(): Legal {
           'Reactions and watching. Which of the eight reactions your player id left on which run, and which recordings your player id watched and how often, with the times. Purpose: other players see the counts, never who left what or who watched. Both stay until you take the reaction back or delete your data.',
           "Divisions and trophies. When a day closes, the division your checked game placed in, your place in it, any medal, and a running count of medals. Purpose: a board of your own size. Other players see the division board with your name, as they see the day's board. Your name comes off when you delete your data.",
           `Your inbox. A line when someone reacts to a run of yours, beats your score from a challenge link, or when your division or crew has a result, with the time. A line goes ${INBOX_READ_DAYS} days after you read it, or when you delete your data.`,
+          `Signing in with email, only if you use it. When you ask for a link, the address goes to ${O.mailProvider} so the email can be delivered, and is not stored by the verifier. The verifier keeps the SHA-256 hash of the address, the hash of the one-time link for a day after it expires, the hashes of the device keys that signed in, and a copy of your settings, best scores, stars and record so they can follow you to another device. Purpose: signing you in on another device, which you asked for. Legal basis: the agreement. It stays until you sign out in Settings or delete your data.`,
           'Daily reminder, only if you turn it on. The push subscription your browser issues (an address at your browser maker\'s push service and two keys that let only your browser read the message) and the hour you chose, with your player id when you have claimed a name. Purpose: one notification a day, "The yard is open", the same for everyone, nothing else. Legal basis: consent, withdrawn by turning the reminder off, which deletes the subscription; "Delete my data" removes it too, and a subscription the push service reports gone is dropped.',
-          'Not collected: no e-mail address, no password, no cookies, no advertising or analytics scripts, no payment data, no precise location. The desktop edition sends nothing the web game does not.',
+          'Not collected: no e-mail address in readable form, no password, no cookies, no advertising or analytics scripts, no payment data, no precise location. The desktop edition sends nothing the web game does not.',
         ],
       },
       {
@@ -105,6 +106,7 @@ export function buildLegal(): Legal {
           `Processors that run the service for the operator: ${O.hosting.verifier}; ${O.hosting.site}; ${O.hosting.source}; ${O.hosting.certificates}; ${O.hosting.chat}.`,
           "Your browser connects to Cloudflare's network to load the game and to the verifier's host to submit runs and read boards; each sees your network address the way any web server does, under its own privacy policy. The verifier itself stores no addresses.",
           "The boards are public. Anyone can see your display name and tag, your scores and ranks and, within the fairness policy's reveal rules, your replays; a Discord channel the operator connects shows the same facts. Nothing is sold, and there is no advertising.",
+          `If you sign in with email, ${O.mailProvider} delivers the link. It sees the address and that an email was sent, and keeps delivery records for up to 30 days. It holds them in the United States under the EU Standard Contractual Clauses and the Data Privacy Framework.`,
           "If you turn the daily reminder on, your browser maker's push service (Apple, Google or Mozilla, depending on the browser) relays one encrypted message a day: it sees that a message went to your browser, not what it says.",
         ],
       },

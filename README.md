@@ -9,8 +9,9 @@ the verifier re-simulates your replay before it goes on a board.
   weekly on Fridays at 18:00 UTC). A Windows desktop edition is attached to each release.
 - **Daily and weekly challenges** with verified boards, medals by percentile, an archive of
   every closed day, groups by code, challenge links and forks.
-- **No accounts.** Your device makes a key; the verifier knows only its hash. The in-game
-  *Privacy & data* panel downloads or deletes everything stored about you.
+- **No account needed.** Your device makes a key; the verifier knows only its hash. Signing in
+  with email is optional and carries your progress to another device. The in-game *Privacy &
+  data* panel downloads or deletes everything stored about you.
 
 ## For players
 

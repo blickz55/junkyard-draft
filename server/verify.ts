@@ -85,6 +85,22 @@ import { RULES_VERSION } from '../game/src/sim/types';
 import { PushStore, PushError, validateHour, validateSubscription } from './push';
 import { COMMUNITY_DB, CommunityStore, MAX_INBOX_PAGE, type InboxRow } from './community';
 import { isReaction } from '../game/src/content/reactions';
+import {
+  LINK_PER_ADDRESS,
+  LINK_PER_IP,
+  LINK_PER_PLAYER,
+  LINK_TTL_MS,
+  MAX_SYNC_BYTES,
+  MailError,
+  emailHash,
+  linkTokenHash,
+  linkUrl,
+  newLinkToken,
+  normaliseEmail,
+  resendMailer,
+  signInMail,
+  type Mailer,
+} from './link';
 import { isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
 import { mintSeed, mintWeeklySeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS, base32Lower } from './mint';
 import { isWeekId, isWeeklySeed, weeklyIdOf, weeklyWindow, currentWeekId, nextWeekId, prevWeekId, isoWeekId } from '../game/src/sim/weekly';
@@ -2109,6 +2125,10 @@ export interface ServerOptions {
   push?: PushStore | null;
   /** the community database (0.11.0); absent, /health says null and the deletion and export routes leave it out */
   community?: CommunityStore | null;
+  /** sends the sign-in mail (0.11.1); absent, the email routes answer 503 */
+  mailer?: Mailer | null;
+  /** where a sign-in link opens the game (default the operator's site) */
+  siteUrl?: string;
   /** POST /events limit per client IP per minute (default 30) */
   eventsRateLimit?: number;
   /** POST /verify limit per player id per minute when a bearer is present (default 2) */
@@ -2241,6 +2261,11 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       return { ...r, payload: { ...p, code: undefined, crew: verifier.group(String(p.code))?.name ?? null, top: verifier.playerLabel(p.top as string, now) } };
     return r;
   };
+  /** The player a request speaks for: the hash of its key, or the player that key signed in as (0.11.1). */
+  const bearerPlayer = (req: http.IncomingMessage): string | null => {
+    const key = playerIdFromToken(bearerOf(req));
+    return key ? (community?.playerOfKey(key) ?? key) : null;
+  };
   /** Reaction counts on a board's rows (0.11.3): a run nobody reacted to carries no field. */
   const withReactions = <T extends { replayHash: string }>(entries: T[]): T[] => {
     if (!community || !entries.length) return entries;
@@ -2259,6 +2284,11 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const grl = new RateLimiter(GROUP_RATE_LIMIT, 60_000, opts.now); // per-player group calls (PLAN-v4 0.7.2)
   const rrl = new RateLimiter(REPORT_RATE_LIMIT, 60_000, opts.now); // per-player reports (PLAN-v4 0.7.7)
   const reactRl = new RateLimiter(REACT_RATE_LIMIT, 60_000, opts.now); // per-player reactions (0.11.3)
+  const HOUR = 3_600_000;
+  const linkAddressRl = new RateLimiter(LINK_PER_ADDRESS, HOUR, opts.now); // sign-in mail (0.11.1): nobody's inbox can be flooded through us
+  const linkPlayerRl = new RateLimiter(LINK_PER_PLAYER, HOUR, opts.now);
+  const linkIpRl = new RateLimiter(LINK_PER_IP, HOUR, opts.now);
+  const mailer = opts.mailer ?? null;
   const readRl = opts.readRateLimit === null ? null : new RateLimiter(opts.readRateLimit ?? DEFAULT_READ_RATE_LIMIT, 60_000, opts.now); // per-address reads (0.8.1)
   const writeRl = opts.writeRateLimit === null ? null : new RateLimiter(opts.writeRateLimit ?? DEFAULT_WRITE_RATE_LIMIT, 60_000, opts.now); // per-address writes (0.8.1)
   const logSalt = randomBytes(16).toString('hex');
@@ -2351,6 +2381,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           cold: { days: verifier.cold.dayCount, replays: verifier.cold.replayCount },
           push: push ? { enabled: push.enabled, subscriptions: push.count, ...push.stats } : null,
           community: community?.health() ?? null,
+          email: !!mailer && !!community,
           ...(opts.announcer?.enabled ? { discord: opts.announcer.stats } : {}),
           uptimeSec: Math.round((Date.now() - started) / 1000),
           ...verifier.health,
@@ -2380,7 +2411,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
               : { ok: false, error: 'no verified replay with that hash' },
           );
         }
-        const bearer = playerIdFromToken(bearerOf(req));
+        const bearer = bearerPlayer(req);
         if (req.headers.authorization && !bearer) return json(401, { ok: false, error: 'bad token' });
         const gate = verifier.revealGate(r.seed, bearer, new Date((opts.now ?? Date.now)()));
         if (gate) return json(403, { ok: false, reason: 'reveal-gate', ...gate });
@@ -2392,7 +2423,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         { ok: true; members: ReadonlySet<string> | null; group: { code: string; name: string } | null } | { ok: false; status: number; error: string } => {
         const code = url.searchParams.get('group');
         if (!code) return { ok: true, members: null, group: null };
-        const pid = playerIdFromToken(bearerOf(req));
+        const pid = bearerPlayer(req);
         if (!pid) return { ok: false, status: 401, error: 'a group board needs your identity token' };
         const members = verifier.groupMembers(code, pid);
         if (!members) return { ok: false, status: 403, error: 'unknown group or not a member' };
@@ -2428,7 +2459,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         if (!e) return json(404, { ok: false, error: 'no verified entry with that hash' });
         if (!e.rounds)
           return json(404, { ok: false, reason: 'no-rounds', error: 'that entry has no per-round earnings (verified before 0.7.1 without a stored replay)' });
-        const viewer = playerIdFromToken(bearerOf(req));
+        const viewer = bearerPlayer(req);
         return json(200, {
           ok: true,
           ...e,
@@ -2506,7 +2537,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         });
       }
       // identity (PLAN-v3 0.6.0): the bearer is a device token; only its hash is used or stored
-      const bearerId = playerIdFromToken(bearerOf(req));
+      const bearerId = bearerPlayer(req);
       if (req.headers.authorization && !bearerId) return json(401, { ok: false, error: 'bad token' });
       if (url.pathname === '/identity' && req.method === 'GET') {
         if (!bearerId) return json(401, { ok: false, error: 'token required' });
@@ -2635,6 +2666,114 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         );
         return;
       }
+      // email sign-in (0.11.1): server/link.ts says how it works; every route below needs the device's key
+      if (url.pathname === '/link/start' || url.pathname === '/link/verify' || url.pathname === '/link/unlink' || url.pathname === '/me/sync') {
+        const reading = url.pathname === '/me/sync' && req.method === 'GET';
+        if (!reading && req.method !== 'POST') {
+          req.resume();
+          return json(405, { ok: false, error: 'method not allowed' });
+        }
+        if (!community || (!mailer && url.pathname === '/link/start')) {
+          req.resume();
+          return json(503, { ok: false, code: 'email-off', error: 'email sign-in is not enabled on this verifier' });
+        }
+        if (!bearerId) {
+          req.resume();
+          return json(401, { ok: false, error: 'token required' });
+        }
+        if (reading) {
+          if (!community.isLinked(bearerId)) return json(403, { ok: false, code: 'not-linked', error: 'sign in first' });
+          return json(200, { ok: true, blob: JSON.parse(community.syncBlob(bearerId) ?? 'null') as unknown });
+        }
+        {
+          const w = writeLimited();
+          if (w != null) {
+            req.resume();
+            return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) });
+          }
+        }
+        if (url.pathname === '/link/start') {
+          for (const r of [linkIpRl.take(ip), linkPlayerRl.take(bearerId)])
+            if (!r.ok) {
+              req.resume();
+              return json(
+                429,
+                { ok: false, code: 'rate-limited', error: 'too many sign-in emails; try again later' },
+                { 'Retry-After': String(r.retryAfterSec) },
+              );
+            }
+        }
+        const limit = url.pathname === '/me/sync' ? MAX_SYNC_BYTES : 1024;
+        let body = '';
+        req.on('data', (c) => {
+          body += c;
+          if (body.length > limit) {
+            json(413, { ok: false, error: 'too large', code: 'too-large' });
+            req.destroy();
+          }
+        });
+        req.on('end', () =>
+          guarded(() => {
+            if (res.writableEnded) return;
+            let p: { email?: unknown; token?: unknown; blob?: unknown };
+            try {
+              p = JSON.parse(body || '{}') as typeof p;
+            } catch {
+              return json(400, { ok: false, error: 'bad json' });
+            }
+            if (url.pathname === '/link/start') {
+              const email = normaliseEmail(p.email);
+              if (!email) return json(422, { ok: false, code: 'bad-email', error: 'that is not an email address' });
+              const hash = emailHash(email);
+              const r = linkAddressRl.take(hash);
+              if (!r.ok)
+                return json(
+                  429,
+                  { ok: false, code: 'rate-limited', error: 'too many sign-in emails; try again later' },
+                  { 'Retry-After': String(r.retryAfterSec) },
+                );
+              const token = newLinkToken();
+              const tokenHash = linkTokenHash(token);
+              community.startLink(tokenHash, hash, bearerId, LINK_TTL_MS);
+              // the same answer whether the address is known or not, so nobody can test who plays here
+              mailer!(signInMail(email, linkUrl(opts.siteUrl ?? OPERATOR.siteUrl, token), tokenHash)).then(
+                () => json(200, { ok: true }),
+                (e: unknown) => {
+                  if (e instanceof MailError) return json(502, { ok: false, code: 'mail-failed', error: 'the email did not go out' });
+                  failed(e);
+                },
+              );
+              return;
+            }
+            if (url.pathname === '/link/verify') {
+              const hash = typeof p.token === 'string' ? community.takeLink(linkTokenHash(p.token)) : null;
+              if (!hash) return json(410, { ok: false, code: 'link-gone', error: 'that link has expired or was already used' });
+              const owner = community.playerByEmail(hash);
+              const mine = community.emailOf(bearerId);
+              if (mine && mine !== hash) return json(409, { ok: false, code: 'linked-elsewhere', error: 'this device is signed in with another address' });
+              if (!owner) community.bindEmail(bearerId, hash);
+              else if (owner !== bearerId) community.addDeviceKey(playerIdFromToken(bearerOf(req))!, owner);
+              const playerId = owner ?? bearerId;
+              return json(200, {
+                ok: true,
+                joined: !!owner && owner !== bearerId,
+                playerId,
+                tag: tagFor(playerId),
+                name: verifier.player(playerId)?.name ?? null,
+                blob: JSON.parse(community.syncBlob(playerId) ?? 'null') as unknown,
+              });
+            }
+            if (url.pathname === '/link/unlink') {
+              const unlinked = community.unlink(bearerId, playerIdFromToken(bearerOf(req))!);
+              return json(unlinked ? 200 : 403, unlinked ? { ok: true } : { ok: false, code: 'not-linked', error: 'sign in first' });
+            }
+            if (!community.isLinked(bearerId)) return json(403, { ok: false, code: 'not-linked', error: 'sign in first' });
+            community.saveSync(bearerId, JSON.stringify(p.blob ?? null));
+            return json(200, { ok: true });
+          }),
+        );
+        return;
+      }
       if (url.pathname === '/me/inbox' && req.method === 'GET') {
         // 0.11.7: what happened to this player's runs while they were away
         if (!bearerId) return json(401, { ok: false, error: 'token required' });
@@ -2688,6 +2827,8 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           ok: true,
           ...verifier.exportPlayer(bearerId, new Date((opts.now ?? Date.now)())),
           community: community?.exportPlayer(bearerId) ?? {},
+          // what the devices that signed in as this player had put on the boards before they did (0.11.1)
+          earlierDevices: (community?.deviceKeysOf(bearerId) ?? []).map((k) => verifier.exportPlayer(k, new Date((opts.now ?? Date.now)()))),
         });
       }
       if (url.pathname === '/me' && req.method === 'DELETE') {
@@ -2698,6 +2839,12 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         }
         try {
           const r = verifier.deletePlayer(bearerId);
+          for (const key of community?.deviceKeysOf(bearerId) ?? []) {
+            // what a signed-in device had put on the boards under its own key goes too (0.11.1)
+            const earlier = verifier.deletePlayer(key);
+            r.entries += earlier.entries;
+            r.coldReplays += earlier.coldReplays;
+          }
           const pushRemoved = push?.unsubscribePlayer(bearerId) ?? 0; // 0.10.4: the reminder goes with the player
           const communityRows = community?.forget(bearerId) ?? 0; // 0.11.0: every row that names the player
           return json(200, {
@@ -3193,6 +3340,17 @@ if (isMain) {
     setInterval(() => {
       push.tick().catch((e) => console.error(`push tick failed: ${(e as Error).message}`));
     }, 60_000).unref();
+  // email sign-in (0.11.1): an API key turns it on; the sending address has to be verified with Resend first
+  const resendKey = process.env.RESEND_API_KEY || '';
+  const mailer = resendKey
+    ? resendMailer({
+        apiKey: resendKey,
+        from: process.env.MAIL_FROM || `${OPERATOR.product} <sign-in@send.${OPERATOR.domain}>`,
+        replyTo: OPERATOR.contactEmail,
+        url: process.env.RESEND_API_URL || undefined,
+      })
+    : null;
+  console.log(mailer ? 'email sign-in: on, through Resend' : 'email sign-in: off (set RESEND_API_KEY to send sign-in links)');
   // the community database (0.11.0): next to the board, migrated here, so a bad migration stops the start instead of half-running
   const community = new CommunityStore(process.env.COMMUNITY_DB || path.join(path.dirname(file), COMMUNITY_DB));
   console.log(`community store: schema ${community.version} of ${community.migrations.length} (${community.file})`);
@@ -3207,6 +3365,8 @@ if (isMain) {
     events,
     push,
     community,
+    mailer,
+    siteUrl: process.env.SITE_URL || undefined,
     par,
     verify,
     announcer,

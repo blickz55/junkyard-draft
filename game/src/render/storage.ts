@@ -35,6 +35,7 @@ const K = {
   stars: 'jd.stars.v1',
   watched: 'jd.watched.v1',
   trophies: 'jd.trophies.v1',
+  linked: 'jd.linked.v1',
 };
 /**
  * Score records are partitioned by rules version (PLAN-v2 0.5.0): `jd.bests.v2` / `jd.submissions.v2` hold
@@ -629,6 +630,75 @@ export function recordStanding(s: Standing, version: number = RULES_VERSION): St
   writeByVersion(K.standings, version, kept);
   return kept;
 }
+/** This device signed in with email (0.11.1). */
+export const loadLinked = (): boolean => readRaw(K.linked) === true;
+export const saveLinked = (on: boolean) => write(K.linked, on);
+
+/** What an email account carries between devices (0.11.1): the settings that belong to the player, and the progress for the current rules. */
+export interface SyncData {
+  settings: Partial<Settings>;
+  bests: Bests;
+  stars: Record<string, number>;
+  days: string[];
+  dailies: string[];
+  medals: MedalRecord[];
+  standings: Standing[];
+  watched: WatchedRecord[];
+  kinds: KindCounts;
+}
+/** Text size and picture quality belong to the screen in front of you, so they stay out. */
+const SYNCED_SETTINGS = ['volume', 'muted', 'reducedMotion', 'buses', 'reducedAudio', 'chatter', 'telemetry'] as const;
+export function readSyncData(): SyncData {
+  const settings = loadSettings();
+  return {
+    settings: Object.fromEntries(SYNCED_SETTINGS.map((k) => [k, settings[k]])),
+    bests: loadBests(),
+    stars: loadStars(),
+    days: loadDaysPlayed(),
+    dailies: loadDailyDates(),
+    medals: loadMedals(),
+    standings: loadStandings(),
+    watched: loadWatched(),
+    kinds: loadKinds(),
+  };
+}
+/** The account's copy as this game can use it, or null. It came from our server but it is still input: each part keeps what fits. */
+export function validateSync(raw: unknown): SyncData | null {
+  if (!isObj(raw)) return null;
+  const strings = (v: unknown) => (Array.isArray(v) ? v.filter(isStr) : []);
+  const list = <T>(v: unknown, guard: (x: unknown) => x is T) => (Array.isArray(v) ? v.filter(guard) : []);
+  return {
+    settings: isObj(raw.settings) ? (raw.settings as Partial<Settings>) : {},
+    bests: validateBests(raw.bests),
+    stars: isObj(raw.stars) ? Object.fromEntries(Object.entries(raw.stars).filter((e): e is [string, number] => isFiniteNum(e[1]))) : {},
+    days: strings(raw.days),
+    dailies: strings(raw.dailies),
+    medals: list(raw.medals, isMedalRecord),
+    standings: list(raw.standings, isStanding),
+    watched: list(raw.watched, isWatched),
+    kinds: isObj(raw.kinds)
+      ? Object.fromEntries(
+          MACHINE_KINDS.flatMap((k) => (isFiniteNum((raw.kinds as Record<string, unknown>)[k]) ? [[k, (raw.kinds as Record<string, number>)[k]]] : [])),
+        )
+      : {},
+  };
+}
+/** Replace this device's progress with `d`; settings only when given, which is on joining an account. */
+export function writeSyncData(d: SyncData, settings: Partial<Settings> | null): void {
+  const all = loadBestsAll();
+  all.byVersion[String(RULES_VERSION)] = d.bests;
+  write(K.bests, all);
+  const stars = (readRaw(K.stars) as Record<string, unknown> | null) ?? {};
+  write(K.stars, { ...stars, [String(RULES_VERSION)]: d.stars });
+  write(K.days, d.days.slice(-400));
+  write(K.dailyStreak, d.dailies.slice(-400));
+  writeByVersion(K.medals, RULES_VERSION, d.medals);
+  writeByVersion(K.standings, RULES_VERSION, d.standings);
+  writeByVersion(K.watched, RULES_VERSION, d.watched);
+  writeByVersion(K.kinds, RULES_VERSION, d.kinds);
+  if (settings) saveSettings(validateSettings({ ...loadSettings(), ...settings }, loadSettings()));
+}
+
 /** The trophies this device last heard about (0.11.11). They belong to the player, not to a rules version, and never decay. */
 export function loadTrophies(): Record<string, number> {
   const raw = readRaw(K.trophies);

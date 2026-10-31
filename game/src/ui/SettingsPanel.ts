@@ -13,7 +13,8 @@ import { loadSettings, updateSettings } from '../render/storage';
 import { chatter } from '../content/foreman';
 import { t, type StringKey } from '../content/strings';
 import { playerLabel, identityDialog } from './identityDialog';
-import { openPrivacy } from './panels';
+import { openEmailLink, openPrivacy } from './panels';
+import { loadLinked } from '../render/storage';
 
 const section = (title: string, ...rows: HTMLElement[]) => h('section', { class: 'jd-set-section' }, h('div', { class: 'jd-head' }, title), ...rows);
 const row = (label: string, ...right: HTMLElement[]) =>
@@ -139,6 +140,16 @@ export function openSettings(scene: Phaser.Scene, verifierUrl: string, restart: 
     { small: true },
   );
   const playerNote = h('div', { class: 'jd-dim', style: 'font-size:0.75em' }, '');
+  const linkLabel = () => (loadLinked() ? t('link.linked') : t('link.open'));
+  const linkBtn = btn(
+    linkLabel(),
+    'link-email',
+    () =>
+      openEmailLink(scene, verifierUrl, () => {
+        linkBtn.textContent = linkLabel();
+      }),
+    { small: true },
+  );
   const chatterBtn = btn(
     chatter() === 'less' ? t('title.foremanLess') : t('title.foremanFull'),
     'foreman-chatter',
@@ -210,7 +221,7 @@ export function openSettings(scene: Phaser.Scene, verifierUrl: string, restart: 
       soundTest,
     ),
     section(t('settings.display'), row(t('title.motion'), motionBtn), row(t('title.textSize'), textBtn), row('', qualityBtn)),
-    section(t('settings.player'), row(t('home.name'), playerBtn), playerNote, row(t('settings.sal'), chatterBtn)),
+    section(t('settings.player'), row(t('home.name'), playerBtn), playerNote, row(t('settings.email'), linkBtn), row(t('settings.sal'), chatterBtn)),
     section(
       t('settings.data'),
       h('div', { class: 'jd-set-row' }, statsBtn, privacyBtn, diagBtn),

@@ -88,7 +88,8 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 ## M15 — production roadmap v0.11 Say something (`docs/PRODUCTION-ROADMAP.md` §5)
 
 - [x] 0.11.0 The community store: `server/community.ts` on `node:sqlite`, the fifteen tables, migrations up and down (`server/migrations/`, numbered SQL modules rather than loose .sql files, so the verifier stays one file), `/health` reports the size, `tools/backup.ts` snapshots the database and the restore drill checks it, a page of a 100k-post thread under 20 ms (`tests/community.test.ts`)
-- [ ] 0.11.1 Email link (⚑ the provider)
+- [x] 0.11.1 Email link: built on Resend, off until `RESEND_API_KEY` is set (`server/link.ts`, `tests/link.test.ts`, `tests/link-e2e.test.mjs` against a stand-in): the full flow, a second device restores the identity, `DELETE /me` removes the hash, the copy and the devices, the policy regenerates. Writing, messaging and the hub read `CommunityStore.isLinked` when they arrive
+- [ ] ⚑ 0.11.1 live: the Resend account, the verified `send.<domain>`, the API key, test mails to Gmail, Outlook and iCloud (`deploy/README.md` §7)
 - [ ] 0.11.2 The moderation pipeline (⚑ the policy)
 - [x] 0.11.3 Reactions on runs: the eight, one per player per run (`tests/community.test.ts`), counts on board rows, the results and the recording (`tests/social-e2e.test.mjs`), one unread line per run for the owner; protocol 3
 - [ ] 0.11.7 Inbox and notifications: **in-game inbox done** (reaction batch, challenge beaten, group day closed, division result; `tests/community.test.ts`, `tests/social-e2e.test.mjs`). To come with what they depend on: replies (0.11.5), moderation outcome and appeal result (0.11.2), push per kind (0.11.5), the weekly digest and its one-click unsubscribe (0.11.1)

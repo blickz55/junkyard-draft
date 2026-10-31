@@ -52,6 +52,7 @@ export function hashMigrations(list: readonly MigrationSource[]): Migration[] {
 export const PLAYER_COLUMNS: readonly { table: string; column: string; forget: 'delete' | 'clear'; private?: boolean }[] = [
   { table: 'accounts', column: 'player_id', forget: 'delete' },
   { table: 'email_links', column: 'player_id', forget: 'delete', private: true },
+  { table: 'device_keys', column: 'player_id', forget: 'delete', private: true },
   { table: 'threads', column: 'author_id', forget: 'clear' },
   { table: 'posts', column: 'author_id', forget: 'delete' },
   { table: 'reactions', column: 'player_id', forget: 'delete' },
@@ -387,6 +388,77 @@ export class CommunityStore {
     const at = this.now();
     this.sql('DELETE FROM notifications WHERE player_id = ? AND read_at IS NOT NULL AND read_at < ?').run(playerId, at - INBOX_READ_DAYS * 86_400_000);
     return Number(this.sql('UPDATE notifications SET read_at = ? WHERE player_id = ? AND read_at IS NULL').run(at, playerId).changes);
+  }
+
+  /** A one-time link (0.11.1): only hashes are kept. Links long dead go now, so the table stays small. */
+  startLink(tokenHash: string, emailHash: string, playerId: string, ttlMs: number): void {
+    const at = this.now();
+    this.sql('DELETE FROM email_links WHERE expires_at < ?').run(at - 86_400_000);
+    this.sql('INSERT INTO email_links (token_hash, email_hash, player_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?)').run(
+      tokenHash,
+      emailHash,
+      playerId,
+      at,
+      at + ttlMs,
+    );
+  }
+  /** Use a link, once: the address's hash, or null when it is unknown, spent or expired. */
+  takeLink(tokenHash: string): string | null {
+    const at = this.now();
+    const r = this.sql('UPDATE email_links SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND expires_at >= ? RETURNING email_hash').get(
+      at,
+      tokenHash,
+      at,
+    ) as { email_hash: string } | undefined;
+    return r?.email_hash ?? null;
+  }
+  /** The player an address belongs to. */
+  playerByEmail(emailHash: string): string | null {
+    return (this.sql('SELECT player_id FROM accounts WHERE email_hash = ?').get(emailHash) as { player_id: string } | undefined)?.player_id ?? null;
+  }
+  /** The hash of the address a player linked, or null. */
+  emailOf(playerId: string): string | null {
+    return (this.sql('SELECT email_hash FROM accounts WHERE player_id = ?').get(playerId) as { email_hash: string | null } | undefined)?.email_hash ?? null;
+  }
+  isLinked(playerId: string): boolean {
+    return this.emailOf(playerId) !== null;
+  }
+  bindEmail(playerId: string, emailHash: string): void {
+    const at = this.now();
+    this.sql(
+      'INSERT INTO accounts (player_id, email_hash, linked_at, created_at) VALUES (?, ?, ?, ?) ON CONFLICT (player_id) DO UPDATE SET email_hash = excluded.email_hash, linked_at = excluded.linked_at',
+    ).run(playerId, emailHash, at, at);
+  }
+  /** A device signed in: from now on the hash of its key stands for this player. */
+  addDeviceKey(keyId: string, playerId: string): void {
+    this.sql('INSERT INTO device_keys (key_id, player_id, created_at) VALUES (?, ?, ?) ON CONFLICT (key_id) DO UPDATE SET player_id = excluded.player_id').run(
+      keyId,
+      playerId,
+      this.now(),
+    );
+  }
+  /** Who a device key stands for, when it signed in as someone else. Called on every request with a key. */
+  playerOfKey(keyId: string): string | null {
+    return (this.sql('SELECT player_id FROM device_keys WHERE key_id = ?').get(keyId) as { player_id: string } | undefined)?.player_id ?? null;
+  }
+  deviceKeysOf(playerId: string): string[] {
+    return (this.sql('SELECT key_id FROM device_keys WHERE player_id = ?').all(playerId) as unknown as { key_id: string }[]).map((r) => r.key_id);
+  }
+  /** Forget the address and what travelled with it. The device asking stays this player; the others go back to being themselves. */
+  unlink(playerId: string, keepKey: string): boolean {
+    return this.transaction(() => {
+      if (!this.isLinked(playerId)) return false;
+      this.sql('UPDATE accounts SET email_hash = NULL, linked_at = NULL, sync_blob = NULL WHERE player_id = ?').run(playerId);
+      this.sql('DELETE FROM email_links WHERE player_id = ?').run(playerId);
+      this.sql('DELETE FROM device_keys WHERE player_id = ? AND key_id <> ?').run(playerId, keepKey);
+      return true;
+    });
+  }
+  syncBlob(playerId: string): string | null {
+    return (this.sql('SELECT sync_blob FROM accounts WHERE player_id = ?').get(playerId) as { sync_blob: string | null } | undefined)?.sync_blob ?? null;
+  }
+  saveSync(playerId: string, blob: string): void {
+    this.sql('UPDATE accounts SET sync_blob = ? WHERE player_id = ?').run(blob, playerId);
   }
 
   /** Everything stored under a player, for `/me/export`. */

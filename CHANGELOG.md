@@ -5,6 +5,13 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### 0.11.1 sign in with email — 2026-10-31 (no rules change, protocol 3: additive)
+- **Your name and progress can follow you.** Settings → Email sends a one-time link. Open it on a device and press Sign in: that device becomes you, with your name, your best scores, your stars and your record, and a better game on one device reaches the others. There is no password. Playing still needs no account.
+- **We keep a scrambled form of your address, never the address.** A link works once, for 15 minutes. Its secret part stays out of every server log, and nothing happens until a person presses Sign in, so a mail scanner that follows links signs nobody in. The device that opens the link is the one that signs in, so typing someone else's address gains nothing, and a known address gets the same answer as an unknown one, so nobody can test who plays here. At most three mails an hour go to an address.
+- **Every device keeps its own key.** The server records only that the hash of a key stands for a player, so it still never holds a key.
+- Signing out forgets the address and the copy, and the other devices go back to being themselves. Deleting your data also takes what those devices had put on the boards before they signed in, and the export shows it first.
+- Resend carries the mail, off until `RESEND_API_KEY` is set. The privacy notice names it, and the summary and the fairness page no longer say there are no accounts.
+
 ### 0.11.7 the inbox, first part — 2026-10-31 (no rules change, protocol 3: additive)
 - **Find out what happened while you were away.** An Inbox link on Home, amber with a number when something is new: reactions on your games (one line per game however many arrive), someone beating your score from your challenge link, with a button to beat it back, your division's result with a button to its board, and your crew's day. Opening it reads it. Read lines go after 60 days. The first part of 0.11.7: replies, moderation outcomes, push per kind and the weekly digest wait for what they depend on.
 - A line this version of the game does not know is left out, so a newer server cannot break an older game. Names are looked up when you read, so a rename or a moderation decision follows, and no player id or crew code reaches the client.

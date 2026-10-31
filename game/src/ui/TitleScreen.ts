@@ -35,7 +35,8 @@ import { HIDDEN_LABEL } from '../identity/identity';
 import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWeekly, todaysYard } from '../render/daily';
 import { openArchive } from './ArchivePanel';
 import { openRecord } from './RecordPanel';
-import { openDivision, openInbox, openPolicy, openPrivacy } from './panels';
+import { openDivision, openInbox, openLinkLanding, openPolicy, openPrivacy } from './panels';
+import { syncNow, takeLinkToken } from '../render/link';
 import { hasInbox, loadInbox } from '../render/inbox';
 import { isFresh, latestPlacement } from '../render/divisions';
 import { periodLabel, placeLine } from '../content/division';
@@ -555,6 +556,13 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     else if (fresh) start(TUTORIAL_SEED, true);
     else playToday();
   });
+  // email sign-in (0.11.1): a link that just came back asks first; a signed-in device brings itself level, and redraws if it learnt something
+  const linkToken = takeLinkToken();
+  if (linkToken) openLinkLanding(scene, verifierUrl, linkToken, restart);
+  else
+    void syncNow(verifierUrl).then((learnt) => {
+      if (learnt && screen.isConnected && !ui.dialogOpen) restart();
+    });
 }
 
 function importRecording(scene: Phaser.Scene) {

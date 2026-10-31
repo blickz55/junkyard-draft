@@ -23,6 +23,8 @@ export const OPERATOR = {
   /** where a player appeals a moderation decision (PLAN-v4 0.7.7; the verifier's policy page prints it) */
   appealEmail: 'moderation@junkyarddraft.com',
   /** the processors the privacy notice lists as recipients */
+  /** who carries the sign-in mail (0.11.1) */
+  mailProvider: 'Resend, Inc., in the United States',
   hosting: {
     verifier: 'Hetzner Online GmbH (virtual server in the European Union)',
     site: 'Cloudflare, Inc. (Pages hosting, DNS and e-mail forwarding for the domain)',
@@ -35,5 +37,5 @@ export const OPERATOR = {
   /** the proxy's and the verifier's logs: json-file rotation, files × size (deploy/docker-compose.yml) */
   logRotation: '7 files of 20 MB each',
   /** the day these texts were last changed (shown on every page; bump it when the text changes) */
-  legalUpdated: '2026-10-30',
+  legalUpdated: '2026-10-31',
 } as const;
