@@ -73,6 +73,7 @@ export function installDevApi(scene: GameScene) {
       offers: scene.run.offers,
       bin: scene.run.bin,
       layout: scene.run.layout,
+      job: scene.run.job,
       rounds: scene.run.rounds.map((r) => ({ round: r.round, earned: r.earned, shipped: r.result.shipped })),
       actions: scene.run.actions.length,
     }),

@@ -34,7 +34,7 @@ function recorder() {
 
 test('controller: build → running → summary → build with ticks reported, the layout frozen while running, and saves on every accepted action', () => {
   const r = recorder();
-  const c = new RoundController({ seed: 'ctl-seed', fresh: true }, r.hooks);
+  const c = new RoundController({ seed: 'classic-ctl-seed', fresh: true }, r.hooks);
   assert.equal(c.mode, 'build');
   assert.equal(c.run.phase, 'draft');
   assert.equal(c.pick(0), true);
@@ -82,7 +82,7 @@ test('controller: build → running → summary → build with ticks reported, t
 
 test('controller: pause/resume, speed, undo/redo with history notifications, and rejections reported', () => {
   const r = recorder();
-  const c = new RoundController({ seed: 'ctl-seed-2', fresh: true }, r.hooks);
+  const c = new RoundController({ seed: 'classic-ctl-seed-2', fresh: true }, r.hooks);
   c.pick(0);
   const part = c.run.bin[0];
   assert.equal(c.act({ t: 'place', id: part.id, x: 2, y: 2, dir: 0 }), false, 'occupied cell is refused');
@@ -123,7 +123,7 @@ test('controller: pause/resume, speed, undo/redo with history notifications, and
 
 test('controller: single step while paused (0.8.12): refused while building or running, one tick per call with onTick, the phase left at 1, the round ending normally on the last tick', () => {
   const r = recorder();
-  const c = new RoundController({ seed: 'ctl-seed-step', fresh: true }, r.hooks);
+  const c = new RoundController({ seed: 'classic-ctl-seed-step', fresh: true }, r.hooks);
   const ticks = () => r.log.filter((l) => l.startsWith('tick')).reduce((n, l) => n + Number(l.split('×')[1] ?? 1), 0);
   assert.equal(c.stepTick(), false, 'build: nothing to step');
   c.pick(0);
@@ -156,7 +156,7 @@ test('controller: single step while paused (0.8.12): refused while building or r
 
 test('controller: a watched replay plays itself through scheduled steps, never persists, and reports when done', () => {
   // record a legal run first
-  const s = newRun('ctl-replay');
+  const s = newRun('classic-ctl-replay');
   for (let round = 1; round <= RULES.rounds; round++) {
     apply(s, { t: 'pick', i: 0 });
     if (round === 1) {
@@ -168,7 +168,7 @@ test('controller: a watched replay plays itself through scheduled steps, never p
   }
   const recorded: Action[] = s.actions.slice();
   const r = recorder();
-  const c = new RoundController({ seed: 'ctl-replay', fresh: true, replay: recorded, replayLabel: 'verified replay by tester' }, r.hooks);
+  const c = new RoundController({ seed: 'classic-ctl-replay', fresh: true, replay: recorded, replayLabel: 'verified replay by tester' }, r.hooks);
   assert.equal(c.isPlayback, true);
   assert.equal(c.playbackPending, true);
   assert.deepEqual(
@@ -179,7 +179,7 @@ test('controller: a watched replay plays itself through scheduled steps, never p
   assert.equal(c.act({ t: 'pick', i: 0 }), true, 'the controller itself can act during playback (the scene ignores player input)');
   // rewind: build a fresh controller and drive the queue
   const r2 = recorder();
-  const c2 = new RoundController({ seed: 'ctl-replay', fresh: true, replay: recorded, replayLabel: 'x' }, r2.hooks);
+  const c2 = new RoundController({ seed: 'classic-ctl-replay', fresh: true, replay: recorded, replayLabel: 'x' }, r2.hooks);
   let safety = 0;
   c2.advanceReplay();
   while (c2.playbackPending && safety++ < 100) {
@@ -195,7 +195,7 @@ test('controller: a watched replay plays itself through scheduled steps, never p
 });
 
 test("controller: while watching, manual Space/advance cannot double the queue's own boundary (review F09), and callbacks scheduled before a stop are dropped", () => {
-  const s = newRun('ctl-space');
+  const s = newRun('classic-ctl-space');
   for (let round = 1; round <= RULES.rounds; round++) {
     apply(s, { t: 'pick', i: 0 });
     if (round === 1) {
@@ -206,7 +206,7 @@ test("controller: while watching, manual Space/advance cannot double the queue's
     apply(s, { t: 'next' });
   }
   const r = recorder();
-  const c = new RoundController({ seed: 'ctl-space', fresh: true, replay: s.actions.slice(), replayLabel: 'x' }, r.hooks);
+  const c = new RoundController({ seed: 'classic-ctl-space', fresh: true, replay: s.actions.slice(), replayLabel: 'x' }, r.hooks);
   let safety = 0;
   c.advanceReplay();
   while (c.playbackPending && safety++ < 200) {
@@ -224,7 +224,7 @@ test("controller: while watching, manual Space/advance cannot double the queue's
   assert.equal(c.run.phase, 'finished');
   // stale callbacks: stop a fresh playback while an advance is scheduled; flushing it must not act
   const r2 = recorder();
-  const c2 = new RoundController({ seed: 'ctl-space', fresh: true, replay: s.actions.slice(), replayLabel: 'x' }, r2.hooks);
+  const c2 = new RoundController({ seed: 'classic-ctl-space', fresh: true, replay: s.actions.slice(), replayLabel: 'x' }, r2.hooks);
   c2.advanceReplay(); // picks + places, starts the run, schedules the 4× speed
   const before = c2.run.actions.length;
   c2.stopReplay();
@@ -235,13 +235,13 @@ test("controller: while watching, manual Space/advance cannot double the queue's
 
 test('controller: a damaged save starts fresh with a notice; a run saved mid-result resumes in summary mode', () => {
   const r = recorder();
-  const bad = new RoundController({ seed: 'ctl-save', fresh: false, actions: [{ t: 'pick', i: 9 } as Action] }, r.hooks);
-  assert.match(bad.resumeNotice ?? '', /could not be resumed/);
+  const bad = new RoundController({ seed: 'classic-ctl-save', fresh: false, actions: [{ t: 'pick', i: 9 } as Action] }, r.hooks);
+  assert.match(bad.resumeNotice ?? '', /couldn't be picked up/);
   assert.equal(bad.run.actions.length, 0);
-  const s = newRun('ctl-save');
+  const s = newRun('classic-ctl-save');
   apply(s, { t: 'pick', i: 0 });
   apply(s, { t: 'run' });
-  const resumed = new RoundController({ seed: 'ctl-save', fresh: false, actions: s.actions }, r.hooks);
+  const resumed = new RoundController({ seed: 'classic-ctl-save', fresh: false, actions: s.actions }, r.hooks);
   assert.equal(resumed.mode, 'summary', 'a save taken after run but before next opens on the summary');
   assert.equal(resumed.nextRound(), 'build');
 });

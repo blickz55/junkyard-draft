@@ -2,13 +2,14 @@
 // shared fixture, each in its own browser context): HiDPI canvas with correct pointer mapping, the Canvas renderer completing a
 // round, WebGL context loss and restore, the stall marker, the tips badge and demo, keyboard ownership, DOM dialogs, records
 // partitioned by rules version, the tips dialog at 130 %, the lesson, the overlay tracking the canvas, reduced audio, the reroll
-// button, the impact samples, the throughput hum, the art atlas.
+// button, the sound bank, the ambient bed, a hidden tab going quiet, the art atlas.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { fixture, cellCenter, binSlotCenter } from './e2e/fixture.mjs';
+import { fixture, cellCenter, binSlotCenter, until } from './e2e/fixture.mjs';
 
-const { draftOffers, TUTORIAL_SEED } = await import('../game/src/sim/run.ts');
+const { draftOffers } = await import('../game/src/sim/run.ts');
 const { RULES_VERSION } = await import('../game/src/sim/types.ts');
+const { beltShape } = await import('../game/src/render/placement.ts');
 
 const f = await fixture();
 after(() => f.close());
@@ -27,6 +28,11 @@ const openTitle = async (ctxOpts = {}, pageOpts = {}, query = '') => {
   await page.jd.title();
   return page;
 };
+/** The job card, where a fresh game opens one: its button is the first gesture of a shift. */
+const startJob = async (page) => {
+  const start = page.getByTestId('job-start');
+  if (await start.count()) await start.click();
+};
 const settings130 = {
   fn: () => {
     try {
@@ -42,7 +48,7 @@ test(
   'hidpi_canvas_keeps_logical_coordinates: at deviceScaleFactor 2 the backing store is twice the 1120x700 container, the camera zooms by 2 times the board fit, text renders at resolution 2, a drag lands on the logical cell',
   { timeout: 60000 },
   async () => {
-    const page = await open('seed=render-dpr', { deviceScaleFactor: 2 });
+    const page = await open('seed=classic-render-dpr', { deviceScaleFactor: 2 });
     const { api, drag } = page.jd;
     const dims = await page.evaluate(() => {
       const c = document.querySelector('canvas');
@@ -73,7 +79,7 @@ test(
 );
 
 test('canvas_renderer_completes_a_round: ?renderer=canvas boots the Canvas renderer and a round runs to its summary', { timeout: 60000 }, async () => {
-  const page = await open('seed=render-canvas&renderer=canvas');
+  const page = await open('seed=classic-render-canvas&renderer=canvas');
   const { api, mode } = page.jd;
   assert.equal(await page.evaluate(() => window.__jdGame.renderer.type), 1, 'Phaser.CANVAS renderer selected');
   await api('pick', 0);
@@ -90,7 +96,7 @@ test(
   'webgl_context_loss_keeps_the_run: losing and restoring the context mid-build leaves the state untouched and the grid redrawn',
   { timeout: 60000 },
   async () => {
-    const page = await open('seed=render-loss');
+    const page = await open('seed=classic-render-loss');
     const { api, when, mode } = page.jd;
     assert.equal(await page.evaluate(() => window.__jdGame.renderer.type), 2, 'WebGL renderer in use');
     await api('pick', 0);
@@ -141,7 +147,7 @@ test(
   'stall_marker_names_the_blocking_cell (PLAN-v1 0.3.5): a head-on conveyor jams the line; the HUD says what and where, the total stays at $0, the marker sits on the first blocking cell',
   { timeout: 60000 },
   async () => {
-    const page = await open('seed=stall-seed');
+    const page = await open('seed=classic-stall-seed');
     const { api, mode } = page.jd;
     await api('pick', 0);
     const st = await api('state');
@@ -160,7 +166,7 @@ test(
       { timeout: 15000 },
     );
     const stall = await seen.jsonValue();
-    assert.match(stall.text, /^Stalled: [A-Za-z ]+ at \d,\d is (waiting|blocked) — nothing shipped for 8 s$/, stall.text);
+    assert.match(stall.text, /^Stuck: the [A-Za-z ]+ is (waiting|blocked)\. Nothing shipped for 8 s$/, stall.text);
     assert.ok(stall.flaggedAt > 0 && stall.flaggedAt <= 10, `flagged by tick ${stall.flaggedAt} (read at tick ${stall.tick})`); // the flag tick, not the poll's: at 4x on a loaded CI runner the sim advances several ticks per frame
     assert.ok(
       [2 * 8 + 1, 2 * 8 + 2].includes(stall.cell),
@@ -184,7 +190,7 @@ test(
   { timeout: 60000 },
   async () => {
     let seed = '';
-    for (let i = 0; i < 500 && !seed; i++) if (draftOffers(`tips-${i}`, 1).includes('press')) seed = `tips-${i}`;
+    for (let i = 0; i < 500 && !seed; i++) if (draftOffers(`classic-tips-${i}`, 1).includes('press')) seed = `classic-tips-${i}`;
     assert.ok(seed, 'found a seed whose round-1 offers include a press');
     const page = await open(`seed=${seed}`);
     const { api, when, draft } = page.jd;
@@ -256,7 +262,7 @@ test(
   'keyboard_ownership (review F05): Enter on a focused offer picks it; Tab from a button moves DOM focus; Space with Tips open does not start the run; Esc blurs first',
   { timeout: 60000 },
   async () => {
-    const page = await open('seed=kbd-own');
+    const page = await open('seed=classic-kbd-own');
     const { api, when, mode } = page.jd;
     await page.focus('[data-testid=offer-1]');
     await page.keyboard.press('Enter');
@@ -318,19 +324,23 @@ test(
     const { when, textMatches, noDialog, title } = page.jd;
     await page.goto(`${URL}/?dev=1&verifier=http://127.0.0.1:9`); // nothing listens on port 9: the daily must fall back to practice (PLAN-v3 0.6.1)
     await title();
-    await textMatches('daily-mode', /^practice \(unranked\): offline$/, 10000);
-    assert.match(await page.getByTestId('daily-seed').textContent(), /^yard daily-\d{4}-\d{2}-\d{2}$/, 'the practice yard is the plain date');
+    await textMatches('daily-mode', /^practice: offline$/, 10000);
+    await page.getByTestId('settings').click();
     await page.getByTestId('player').click();
     await page.getByTestId('dialog-input').fill('Kbd Tester');
     await page.keyboard.press('Enter');
-    await textMatches('player', /^Player: Kbd Tester$/, 5000);
+    await textMatches('player', /^Kbd Tester$/, 5000);
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.player')), 'Kbd Tester');
     await page.getByTestId('player').click();
     await page.waitForSelector('[data-testid=dialog]', { timeout: 5000 });
     await page.keyboard.press('Escape');
     await noDialog();
-    assert.equal(await page.getByTestId('player').textContent(), 'Player: Kbd Tester', 'cancel keeps the name');
+    assert.equal(await page.getByTestId('player').textContent(), 'Kbd Tester', 'cancel keeps the name');
+    await page.getByTestId('settings-close').click();
+    await noDialog('settings-dialog');
+    await page.jd.frames(3);
     // policy panel (PLAN-v3 0.6.5): generated from the code, names the rules version and the tie rule, Esc closes
+    await page.getByTestId('more').click();
     await page.getByTestId('policy').click();
     await page.waitForSelector('[data-testid=policy-dialog]', { timeout: 5000 });
     assert.match(await page.getByTestId('policy-headline').textContent(), new RegExp(`^Rules version ${RULES_VERSION} · verifier protocol \\d+$`));
@@ -341,6 +351,7 @@ test(
     // identity_recovery (PLAN-v3 0.6.0): the recovery code shown here restores the same device token in a fresh browser context
     const identityBefore = JSON.parse(await page.evaluate(() => localStorage.getItem('jd.identity.v1')));
     assert.match(identityBefore.token, /^[0-9a-f]{32}$/, 'a device token exists after the first use of the player dialog');
+    await page.getByTestId('settings').click();
     await page.getByTestId('player').click();
     await page.getByTestId('dialog-recovery').click();
     await when(() => /^[0-9A-Z]{5}(-[0-9A-Z]{5}){3}-[0-9A-Z]{6}$/.test(document.querySelector('[data-testid=dialog-input]')?.value || ''), null, 5000);
@@ -348,25 +359,31 @@ test(
     assert.match(code, /^[0-9A-Z]{5}(-[0-9A-Z]{5}){3}-[0-9A-Z]{6}$/, `recovery code in base32 groups: ${code}`);
     await page.getByTestId('dialog-ok').click();
     await noDialog();
+    await page.getByTestId('settings-close').click();
+    await noDialog('settings-dialog');
+    await page.jd.frames(3);
     {
       const p2 = await openTitle();
-      assert.equal(await p2.getByTestId('player').textContent(), 'Set player name…', 'a fresh context has no name');
+      assert.equal(await p2.getByTestId('player-name').textContent(), 'Choose a name', 'a fresh context has no name');
+      await p2.getByTestId('settings').click();
       await p2.getByTestId('player').click();
       await p2.getByTestId('dialog-restore').click();
       await p2.jd.when(() => (document.querySelector('[data-testid=dialog-input]')?.value || '') === '', null, 5000);
       await p2.getByTestId('dialog-input').fill(code.toLowerCase().replace(/-/g, ' '));
       await p2.keyboard.press('Enter');
-      await p2.jd.textMatches('player-note', /^Restored your key/, 10000);
+      await p2.jd.textMatches('player-note', /^Your key is back/, 10000);
       const restored = JSON.parse(await p2.evaluate(() => localStorage.getItem('jd.identity.v1')));
       assert.equal(restored.token, identityBefore.token, 'the restored device token equals the original (case, spaces and dashes ignored)');
       await p2.ctx.close();
     }
+    await page.getByTestId('more').click();
     await page.getByTestId('import').click();
     await page.getByTestId('dialog-input').fill('{"not":"a replay"}');
     await page.getByTestId('dialog-ok').click();
-    await when(() => /Could not read the recording/.test(document.querySelector('[data-testid=dialog]')?.textContent ?? ''), null, 5000);
+    await when(() => /Couldn't read that recording/.test(document.querySelector('[data-testid=dialog]')?.textContent ?? ''), null, 5000);
     await page.getByTestId('dialog-ok').click();
     await noDialog();
+    await page.getByTestId('more').click();
     await page.getByTestId('custom').click();
     await page.getByTestId('dialog-input').fill('dialog-seed');
     await page.getByTestId('dialog-ok').click();
@@ -404,11 +421,11 @@ test(
     assert.equal(migrated.legacy, null, 'legacy key removed');
     assert.equal(migrated.v2?.byVersion?.['2']?.overall?.score, 912, 'migrated into the rules-2 slot whatever version runs');
     if (RULES_VERSION === 2) {
-      assert.match(migrated.text, /Best score: \$912/);
+      assert.match(migrated.text, /Best: \$912/);
       assert.equal(await page.locator('[data-testid^=archived-bests-]').count(), 0, 'nothing archived while rules 2 are current');
     } else {
       assert.match(migrated.text, /No finished games yet/);
-      assert.match(migrated.text, /Under older rules \(v2\)/);
+      assert.match(migrated.text, /From earlier versions \(v2\)/);
       assert.match(migrated.text, /\$912/, 'the migrated v2 best is archived, not the headline, under newer rules');
     }
     await page.ctx.close();
@@ -446,12 +463,12 @@ test(
         text: d?.textContent,
         scrollH: sc?.scrollHeight,
         clientH: sc?.clientHeight,
-        headline: document.querySelector('#ui')?.textContent?.includes('Best score: $1500'),
+        headline: document.querySelector('#ui')?.textContent?.includes('Best: $1500'),
       };
     });
     assert.equal(arch.present, true);
     assert.equal(arch.open, false, 'collapsed by default');
-    assert.match(arch.text ?? '', /Under older rules \(v1\)/);
+    assert.match(arch.text ?? '', /From earlier versions \(v1\)/);
     assert.match(arch.text ?? '', /\$300/);
     assert.equal(arch.headline, true, 'the current version is the headline');
     assert.ok(arch.scrollH <= arch.clientH + 1, `the title still fits at 130 % with the archived block (${arch.scrollH} vs ${arch.clientH})`);
@@ -464,7 +481,8 @@ test(
   { timeout: 60000 },
   async () => {
     const page = await openTitle({}, { init: settings130 });
-    await page.getByTestId('tips').click();
+    await page.getByTestId('howto').click();
+    await page.getByTestId('howto-tips').click();
     await page.getByTestId('tip-splitter').click();
     await page.jd.when(() => document.querySelector('[data-testid=tip-splitter]')?.classList.contains('jd-active'), null, 5000);
     const fit = await page.evaluate(() => {
@@ -493,95 +511,29 @@ test(
 );
 
 test(
-  'tutorial_seed_teaches_one_rule_per_round (PLAN-v1 0.3.4): a fresh profile sees Learn first; the lesson reaches round 4 in ≤ 40 actions with the hint strip as the only guidance; round 3 in three steps with Show me',
-  { timeout: 120000 },
+  'a fresh profile sees the lesson as the one primary action; once it is done it stays offered, quietly (the lesson itself: tests/walkthrough-e2e.test.mjs)',
+  { timeout: 60000 },
   async () => {
     const page = await openTitle();
-    const { api, when, draft, mode, hint: _h } = page.jd;
     const learn = await page.evaluate(() => {
       const b = document.querySelector('[data-testid=learn]');
-      return { text: b?.textContent, amber: !!b && b.classList.contains('jd-btn-primary') };
+      return {
+        text: b?.textContent,
+        primary: !!b && b.classList.contains('jd-btn-primary'),
+        today: document.querySelector('[data-testid=daily]')?.classList.contains('jd-btn-primary'),
+      };
     });
-    assert.deepEqual(learn, { text: 'Learn to play (3 min)', amber: true }, 'a fresh profile gets the lesson as the highlighted secondary action');
-    await page.goto(`${URL}/?dev=1&scene=game&seed=${TUTORIAL_SEED}`);
-    await draft();
-    const act = async (a) => {
-      assert.equal(await api('act', a), true, `action accepted: ${JSON.stringify(a)}`);
-    };
-    const hint = () => api('hint');
-    const at = async (x, y) => (await api('state')).layout.machines.find((m) => m.x === x && m.y === y);
-    const binKind = async (k) => (await api('state')).bin.find((m) => m.kind === k);
-    const round = async (r) => {
-      await api('run');
-      await api('finishRun');
-      await mode('summary');
-      await api('next');
-      await when((rr) => window.__jd.phase() === 'draft' && window.__jd.state().round === rr, r + 1);
-    };
-    let st = await api('state');
-    assert.deepEqual(st.offers, ['crusher']);
-    assert.equal(st.bin.length, 3, 'three spare conveyors in the bin');
-    assert.match(await hint(), /Pick the CRUSHER/);
-    // round 1: crusher replaces the conveyor after the hopper
-    await api('pick', 0);
-    assert.match(await hint(), /Make room/);
-    await act({ t: 'unplace', id: (await at(2, 2)).id });
-    await act({ t: 'place', id: (await binKind('crusher')).id, x: 2, y: 2, dir: 1 });
-    assert.match(await hint(), /only takes items from behind/, 'a misoriented crusher is explained');
-    await act({ t: 'rotate', id: (await at(2, 2)).id });
-    await act({ t: 'rotate', id: (await at(2, 2)).id });
-    await act({ t: 'rotate', id: (await at(2, 2)).id });
-    assert.match(await hint(), /Good: the hopper feeds the crusher/);
-    await round(1);
-    // round 2: furnace after the crusher, dock moved right
-    st = await api('state');
-    assert.deepEqual(st.offers, ['furnace']);
-    assert.match(await hint(), /FURNACE/);
-    await api('pick', 0);
-    assert.match(await hint(), /Move the dock/);
-    const dock = await at(5, 2);
-    await act({ t: 'unplace', id: dock.id });
-    await act({ t: 'place', id: dock.id, x: 6, y: 2, dir: 0 });
-    await act({ t: 'place', id: (await binKind('furnace')).id, x: 5, y: 2, dir: 0 });
-    assert.match(await hint(), /Shards reach the furnace/);
-    await api('run');
-    await api('finishRun');
-    await mode('summary');
-    assert.ok((await api('state')).rounds[1].shipped.ingot >= 1, 'round 2 shipped ingots');
-    await api('next');
-    await when(() => window.__jd.phase() === 'draft' && window.__jd.state().round === 3);
-    // round 3: splitter after the crusher, both branches merged back by side-loading, spare sold
-    st = await api('state');
-    assert.deepEqual(st.offers, ['splitter']);
-    await api('pick', 0);
-    assert.match(await hint(), /Replace the conveyor after the crusher/);
-    await act({ t: 'unplace', id: (await at(3, 2)).id });
-    await act({ t: 'place', id: (await binKind('splitter')).id, x: 3, y: 2, dir: 0 });
-    assert.match(await hint(), /^Top branch:/, 'round 3 comes in three short steps (0.9.3): the splitter is in, now the top branch');
-    assert.equal(await page.evaluate(() => document.querySelector('[data-testid=show-me]')?.textContent), 'Show me', 'the step offers its demo');
-    const convs = (await api('state')).bin.filter((m) => m.kind === 'conveyor');
-    assert.equal(convs.length, 5, 'three spares plus the two replaced conveyors');
-    await act({ t: 'place', id: convs[0].id, x: 3, y: 1, dir: 0 });
-    await act({ t: 'place', id: convs[1].id, x: 4, y: 1, dir: 1 });
-    assert.match(await hint(), /^Bottom branch/, 'the top branch is back on the belt: now the bottom one');
-    await act({ t: 'place', id: convs[2].id, x: 3, y: 3, dir: 0 });
-    await act({ t: 'place', id: convs[3].id, x: 4, y: 3, dir: 3 });
-    assert.match(await hint(), /ingots flow/, 'the real simulation confirms the merge');
-    await act({ t: 'sell', id: convs[4].id });
-    await round(3);
-    st = await api('state');
-    assert.equal(st.round, 4);
-    assert.equal(st.offers.length, 3, 'round 4 is an ordinary draft');
-    assert.ok(st.actions <= 40, `reached round 4 in ${st.actions} actions`);
-    assert.match(await hint(), /ordinary pick/);
-    assert.equal(await page.evaluate(() => localStorage.getItem('jd.onboarded.v1')), '1', 'finishing the lesson marks the profile onboarded');
-    assert.equal((await api('tips')).open, false, 'no modal or panel interrupted the lesson');
-    await page.goto(`${URL}/?dev=1`);
+    assert.deepEqual(learn, { text: 'Learn to play (3 min)', primary: true, today: false });
+    await page.evaluate(() => localStorage.setItem('jd.onboarded.v1', '1'));
+    await page.reload();
     await page.jd.title();
-    assert.equal(await page.getByTestId('learn').textContent(), 'Learn (3 min)', 'afterwards the lesson stays offered, unhighlighted');
-    assert.deepEqual(page.errors, [], 'no page errors');
+    assert.equal(await page.getByTestId('learn').textContent(), 'Take the lesson again');
+    assert.equal(
+      await page.evaluate(() => document.querySelector('[data-testid=daily]')?.classList.contains('jd-btn-primary')),
+      true,
+      "today's yard is the primary now",
+    );
     await page.ctx.close();
-    void _h;
   },
 );
 
@@ -626,7 +578,7 @@ test(
   { timeout: 90000 },
   async () => {
     const page = await open(
-      'seed=auto-12',
+      'seed=classic-auto-12',
       {},
       {
         init: {
@@ -651,6 +603,7 @@ test(
       },
     );
     const { api, mode } = page.jd;
+    await startJob(page);
     await api('pick', 0);
     await api('run');
     await page.getByTestId('speed-4').click();
@@ -660,13 +613,13 @@ test(
     assert.equal(a.buses.factory, 0.4, 'bus levels load from settings');
     assert.ok(a.ticks >= 80 && a.maxPerTick <= 1 && a.chords === 0, `reduced audio: ${JSON.stringify(a)}`);
     assert.deepEqual([a.hum.on, a.hum.starts], [false, 0], 'reduced audio never starts the hum');
-    assert.equal(a.samples.played, 0, 'reduced audio is synth-only: no impact samples');
+    assert.equal(a.hum.loops, 0, 'no looping source under reduced audio');
     await page.ctx.close();
     const p2 = await openTitle();
-    await p2.getByTestId('audio-buses').locator('summary').click();
+    await p2.getByTestId('settings').click();
     await p2.getByTestId('bus-music').fill('0.25');
     await p2.getByTestId('reduced-audio').click();
-    await p2.jd.textMatches('reduced-audio', /^Reduced audio: On$/, 5000);
+    await p2.jd.textMatches('reduced-audio', /^Fewer sounds: On$/, 5000);
     const saved = JSON.parse(await p2.evaluate(() => localStorage.getItem('jd.settings.v1')));
     assert.equal(saved.buses.music, 0.25);
     assert.equal(saved.reducedAudio, true);
@@ -678,10 +631,9 @@ test(
   'reroll_button (rules v3, PLAN-v2 0.5.4): disabled while unaffordable in round 1, buys new offers once in round 2 for the cost, then disables',
   { timeout: 60000 },
   async () => {
-    const page = await open('seed=reroll-e2e');
+    const page = await open('seed=classic-reroll-e2e');
     const { api, when, mode } = page.jd;
-    assert.equal(await page.evaluate(() => document.querySelector('[data-testid=reroll]')?.disabled), true, 'round 1: nothing earned yet, so no reroll');
-    assert.match(await page.evaluate(() => document.querySelector('[data-testid=reroll-note]')?.textContent ?? ''), /cost/);
+    assert.equal(await page.locator('[data-testid=reroll]').count(), 0, 'round 1: nothing earned yet, so the button is not there to tempt anyone');
     const st0 = await api('state');
     await api('pick', Math.max(0, st0.offers.indexOf('crusher')));
     const st1 = await api('state');
@@ -709,57 +661,59 @@ test(
       `$${after.score}`,
       'the HUD shows the deducted score',
     );
-    assert.equal(await page.evaluate(() => document.querySelector('[data-testid=reroll]')?.disabled), true, 'once per round');
-    assert.match(await page.evaluate(() => document.querySelector('[data-testid=reroll-note]')?.textContent ?? ''), /once per round/);
+    assert.equal(await page.locator('[data-testid=reroll]').count(), 0, 'once a shift: gone once used');
     assert.deepEqual(page.errors, [], 'no page errors');
     await page.ctx.close();
   },
 );
 
 test(
-  'impact_samples_under_the_synth (DOSSIER-v1 0.4.13): both WAVs load and the dock clink plays; a blocked file falls back to synth-only without errors',
+  'sound_bank_renders_from_recipes (docs/SOUND.md): no audio file is fetched; the first gesture renders the catalog in short slices; a shift at 4x plays rendered voices with no page errors',
   { timeout: 90000 },
   async () => {
-    const page = await open('seed=auto-12');
+    const page = await f.page();
+    const fetched = [];
+    page.on('request', (r) => fetched.push(r.url()));
+    await page.goto(`${URL}/?dev=1&scene=game&seed=auto-12`);
+    await page.jd.draft();
     const { api, mode } = page.jd;
+    const before = await api('audio');
+    assert.equal(before.bank.rendered, 0, 'nothing renders before a gesture');
+    await startJob(page);
     await api('pick', 0);
     await api('run');
     await page.getByTestId('speed-4').click();
+    const a = await until(
+      async () => {
+        const i = await api('audio');
+        return i.bank.rendered === i.bank.total ? i : false;
+      },
+      { what: 'the catalog to render' },
+    );
+    assert.equal(a.bank.failed, 0, JSON.stringify(a.bank));
+    assert.ok(a.bank.maxSliceMs < 50, `no slice near a blocked frame: ${a.bank.maxSliceMs} ms`);
     await mode('summary', 30000);
-    const s = (await api('audio')).samples;
-    assert.deepEqual({ loaded: s.loaded, missing: s.missing, failed: s.failed }, { loaded: 2, missing: [], failed: [] }, JSON.stringify(s));
-    assert.ok(s.played >= 1, `the clink played with the ships (${s.played})`);
+    const done = await api('audio');
+    assert.ok(done.played >= 1, `rendered voices played: ${done.played}`);
+    assert.equal(done.contextState, 'running');
+    assert.deepEqual(
+      fetched.filter((u) => /\.(wav|mp3|ogg|flac|m4a)(\?|$)/.test(u)),
+      [],
+      'no audio bytes over the network',
+    );
     assert.deepEqual(page.errors, [], 'no page errors');
     await page.ctx.close();
-    const p2 = await f.page();
-    await p2.route('**/sfx/press.wav', (route) => route.fulfill({ status: 404, body: 'gone' }));
-    await p2.goto(`${URL}/?dev=1&scene=game&seed=auto-12`);
-    await p2.jd.draft();
-    await p2.evaluate(() => {
-      window.__jd.pick(0);
-      window.__jd.run();
-    });
-    await p2.getByTestId('speed-4').click();
-    await p2.jd.mode('summary', 30000);
-    const s2 = await p2.evaluate(() => window.__jd.audio().samples);
-    assert.deepEqual({ loaded: s2.loaded, missing: s2.missing }, { loaded: 1, missing: ['press'] }, JSON.stringify(s2));
-    assert.ok(s2.played >= 1, 'the ship clink still plays when the press file is missing');
-    assert.deepEqual(
-      p2.errors.filter((e) => !/Failed to load resource/.test(e)),
-      [],
-      'a missing sample is not an error (the 404 itself is logged by the browser, nothing else)',
-    );
-    await p2.ctx.close();
   },
 );
 
 test(
-  "throughput_hum_follows_the_line (DOSSIER-v1 0.4.10): no music during build; the drone starts on the round's root, detunes while the belt jams, stops at the summary",
+  "ambient_bed_follows_the_line (DOSSIER-v1 0.4.10, docs/SOUND.md): no music during build; the bed starts on the round's root, its loops run, it detunes while the belt jams, it stops at the summary and no looping source outlives it",
   { timeout: 60000 },
   async () => {
-    const page = await open('seed=stall-seed');
+    const page = await open('seed=classic-stall-seed');
     const { api, mode } = page.jd;
     assert.equal((await api('audio')).hum.on, false, 'no music during build');
+    await startJob(page);
     await api('pick', 0);
     const st = await api('state');
     const conv = st.layout.machines.find((m) => m.x === 3 && m.y === 2);
@@ -778,6 +732,7 @@ test(
     ).jsonValue();
     assert.ok(started.root > 130 && started.root < 132, `round 1 root is C3: ${started.root}`);
     await page.getByTestId('speed-4').click();
+    await until(async () => (await api('audio')).hum.loops === 2, { what: 'the pad and the belt to start once rendered' });
     const jammed = await (
       await page.waitForFunction(
         () => {
@@ -788,18 +743,98 @@ test(
         { timeout: 15000 },
       )
     ).jsonValue();
-    assert.ok(jammed.on && jammed.freq > jammed.root && jammed.cutoff >= 300 && jammed.cutoff <= 2000, `a jam detunes the drone: ${JSON.stringify(jammed)}`);
+    assert.ok(
+      jammed.on && jammed.freq > jammed.root && jammed.freq < jammed.root * 1.03 && jammed.cutoff >= 300 && jammed.cutoff <= 2000,
+      `a jam detunes the pad: ${JSON.stringify(jammed)}`,
+    );
     await api('finishRun');
     await mode('summary');
     const after = (await api('audio')).hum;
-    assert.deepEqual([after.on, after.starts], [false, 1], 'the hum stops at the summary');
+    assert.deepEqual([after.on, after.starts], [false, 1], 'the bed stops at the summary');
+    await until(async () => (await api('audio')).hum.loops === 0, { what: 'the loops to fade and stop' });
     assert.deepEqual(page.errors, [], 'no page errors');
     await page.ctx.close();
   },
 );
 
 test(
-  'art_atlas_aliases_every_key (DOSSIER-v1 0.4.8): the SVG set packs into one texture with every scene key an alias; a missing file falls back; at dpr 2 the atlas doubles and frames keep their logical size',
+  'sound_test_plays_every_sound (docs/SOUND.md): every row of the Settings list plays, a bed stops when the next row plays, nothing keeps looping',
+  { timeout: 60000 },
+  async () => {
+    const page = await open('seed=auto-12'); // the dev API is installed by the game scene
+    const { api } = page.jd;
+    await startJob(page);
+    await page.evaluate(() => window.__jdGame.scene.getScene('Game').scene.start('Title'));
+    await page.jd.title();
+    await page.getByTestId('settings').click();
+    await page.getByTestId('sound-test').locator('summary').click();
+    const rows = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-testid^="sound-"]')].map((e) => e.dataset.testid).filter((t) => t !== 'sound-test'),
+    );
+    const bank = await until(
+      async () => {
+        const b = (await api('audio')).bank;
+        return b.rendered === b.total ? b : false;
+      },
+      { what: 'the catalog to render' },
+    );
+    assert.equal(rows.length, bank.total - 1, 'every sound but the room has a row');
+    for (const row of rows) {
+      const before = (await api('audio')).played;
+      await page.getByTestId(row).click();
+      await until(async () => (await api('audio')).played > before, { what: `${row} to play` });
+    }
+    await page.getByTestId('sound-pad').click();
+    await until(async () => (await api('audio')).hum.loops === 1, { what: 'the bed to run' });
+    await page.getByTestId('sound-click').click();
+    await until(async () => (await api('audio')).hum.loops === 0, { what: 'the bed to stop for the next row' });
+    assert.deepEqual(page.errors, [], 'no page errors');
+    await page.ctx.close();
+  },
+);
+
+test(
+  'a_hidden_tab_goes_quiet (docs/SOUND.md): hidden, the context fades and suspends while a shift is running; visible again it resumes, unless the game itself is paused',
+  { timeout: 60000 },
+  async () => {
+    const page = await open('seed=auto-12');
+    const { api, mode } = page.jd;
+    const show = (state) =>
+      page.evaluate((v) => {
+        Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
+        document.dispatchEvent(new Event('visibilitychange'));
+      }, state);
+    const context = (state) => until(async () => (await api('audio')).contextState === state, { what: `the context to be ${state}` });
+    await startJob(page);
+    await api('pick', 0);
+    await api('run');
+    await page.getByTestId('speed-1').click();
+    await until(async () => (await api('audio')).hum.loops === 2, { what: 'the bed' });
+    await context('running');
+    await show('hidden');
+    await context('suspended');
+    await show('visible');
+    await context('running');
+    await page.evaluate(() => document.activeElement?.blur()); // the shortcuts yield to a focused button
+    await page.keyboard.press('Escape');
+    await mode('paused');
+    await context('suspended');
+    await show('hidden');
+    await show('visible');
+    assert.equal((await api('audio')).contextState, 'suspended', 'coming back does not wake a paused game');
+    await page.keyboard.press('Escape');
+    await mode('running');
+    await context('running');
+    await api('finishRun');
+    await mode('summary');
+    await until(async () => (await api('audio')).hum.loops === 0, { what: 'the loops to stop' });
+    assert.deepEqual(page.errors, [], 'no page errors');
+    await page.ctx.close();
+  },
+);
+
+test(
+  'art_atlas_aliases_every_key (DOSSIER-v1 0.4.8): the sheet is one texture with every scene key an alias; at dpr 2 the atlas is the sheet itself and frames keep their logical size; a missing sheet falls back to the procedural look at 1x',
   { timeout: 90000 },
   async () => {
     const page = await open('seed=atlas-seed');
@@ -812,29 +847,30 @@ test(
         'tile-sel',
         'tile-cursor',
         'm-conveyor',
+        'm-conveyor-bend',
         'm-hopper',
         'm-crusher',
         'm-crusher-1',
         'm-furnace',
+        'm-furnace-1',
         'm-press',
         'm-press-1',
         'm-press-2',
         'm-splitter',
+        'm-splitter-1',
         'm-dock',
         'm-tuner',
-        'belt-0',
-        'belt-1',
-        'belt-2',
-        'belt-3',
-        'belt-4',
-        'belt-5',
-        'belt-6',
-        'belt-7',
+        ...Array.from({ length: 8 }, (_, k) => `belt-${k}`),
+        ...Array.from({ length: 8 }, (_, k) => `belt-bend-${k}`),
+        ...Array.from({ length: 4 }, (_, k) => `rubble-${k}`),
         'i-scrap',
         'i-shards',
         'i-plate',
         'i-ingot',
         'i-slag',
+        'ground',
+        'shelf',
+        'fx-glow',
         'dot',
         'px',
       ];
@@ -842,6 +878,7 @@ test(
       return {
         status: window.__jdArt,
         allExist: keys.every((k) => tm.exists(k)),
+        everyKey: keys.filter((k) => k !== 'dot' && k !== 'px').length,
         shared: keys.filter((k) => k !== 'dot' && k !== 'px').every((k) => tm.get(k).source[0] === atlasSrc),
         crusherCut: (() => {
           const f = tm.getFrame('m-crusher');
@@ -849,6 +886,10 @@ test(
         })(),
         plateCut: (() => {
           const f = tm.getFrame('i-plate');
+          return [f.cutWidth, f.cutHeight];
+        })(),
+        groundCut: (() => {
+          const f = tm.getFrame('ground');
           return [f.cutWidth, f.cutHeight];
         })(),
         base64: tm.getBase64('m-crusher').slice(0, 22),
@@ -863,36 +904,20 @@ test(
         shared: art.shared,
         crusherCut: art.crusherCut,
         plateCut: art.plateCut,
+        groundCut: art.groundCut,
       },
-      { built: true, packed: 29, missing: [], allExist: true, shared: true, crusherCut: [72, 72], plateCut: [24, 24] },
+      { built: true, packed: art.everyKey, missing: [], allExist: true, shared: true, crusherCut: [72, 72], plateCut: [24, 24], groundCut: [576, 432] },
       JSON.stringify(art),
     );
     assert.equal(art.base64, 'data:image/png;base64,', 'frame-aware base64 export still works for the DOM');
     assert.deepEqual(page.errors, [], 'no page errors with the atlas');
     await page.ctx.close();
-    // fallback: block one SVG; the key still exists (generated) and the rest still pack
-    const p2 = await f.page();
-    await p2.route('**/art/m-press.svg', (route) => route.fulfill({ status: 404, body: 'gone' }));
-    await p2.goto(`${URL}/?dev=1&scene=game&seed=atlas-seed`);
-    await p2.jd.draft();
-    const fb = await p2.evaluate(() => ({
-      status: window.__jdArt,
-      pressExists: window.__jdGame.textures.exists('m-press'),
-      pressShared: window.__jdGame.textures.get('m-press').source[0] === window.__jdGame.textures.get('art').source[0],
-    }));
-    assert.deepEqual(
-      { built: fb.status.built, packed: fb.status.packed.length, missing: fb.status.missing, pressExists: fb.pressExists, pressShared: fb.pressShared },
-      { built: true, packed: 28, missing: ['m-press'], pressExists: true, pressShared: false },
-      JSON.stringify(fb),
-    );
-    await p2.ctx.close();
-    // hidpi_atlas_keeps_logical_size (DOSSIER-v1 0.4.8b): at ?dpr=2 the atlas is twice the 1x snapshot and every packed frame is cut at 2x, yet machines, items and tiles display at their logical 72 / 24 px; a procedural fallback stays 1x
+    // hidpi_atlas_keeps_logical_size (DOSSIER-v1 0.4.8b): at ?dpr=2 the atlas is twice the 1x copy and every frame is cut at 2x, yet machines, items and tiles display at their logical 72 / 24 px
     const p3 = await f.page({ deviceScaleFactor: 2 });
-    await p3.route('**/art/m-dock.svg', (route) => route.fulfill({ status: 404, body: 'gone' }));
     await p3.goto(`${URL}/?dev=1&scene=game&seed=atlas-seed&dpr=2`);
     await p3.jd.draft();
     await p3.evaluate(() => window.__jd.pick(0));
-    const hi = await p3.evaluate(() => {
+    const logicalSizes = () => {
       const g = window.__jdGame;
       const tm = g.textures;
       const scene = g.scene.getScene('Game');
@@ -907,17 +932,18 @@ test(
       const by = (prefix) => imgs.find((o) => o.texture.key.startsWith(prefix));
       const m = by('m-');
       const tile = by('tile');
-      const dock = tm.exists('m-dock') ? tm.getFrame('m-dock') : null;
+      const ground = by('ground');
       return {
         status: window.__jdArt,
         crusherCut: [tm.getFrame('m-crusher').cutWidth, tm.getFrame('m-crusher').cutHeight],
         plateCut: tm.getFrame('i-plate').cutWidth,
         machine: m && [m.texture.key, m.displayWidth, m.displayHeight],
         tile: tile && [tile.displayWidth, tile.displayHeight],
-        dockCut: dock && dock.cutWidth,
-        dockShared: tm.get('m-dock').source[0] === tm.get('art').source[0],
+        ground: ground && [ground.displayWidth, ground.displayHeight],
+        shared: tm.get('m-dock').source[0] === tm.get('art').source[0],
       };
-    });
+    };
+    const hi = await p3.evaluate(logicalSizes);
     assert.deepEqual(
       {
         built: hi.status.built,
@@ -928,24 +954,103 @@ test(
         plateCut: hi.plateCut,
         machine: hi.machine && hi.machine.slice(1),
         tile: hi.tile,
-        dockCut: hi.dockCut,
-        dockShared: hi.dockShared,
+        ground: hi.ground,
+        shared: hi.shared,
       },
       {
         built: true,
         scale: 2,
-        packed: 28,
+        packed: art.everyKey,
         atlas: { width: art.status.atlas.width * 2, height: art.status.atlas.height * 2 },
         crusherCut: [144, 144],
         plateCut: 48,
         machine: [72, 72],
         tile: [72, 72],
-        dockCut: 72,
-        dockShared: false,
+        ground: [576, 432],
+        shared: true,
       },
       JSON.stringify(hi),
     );
     assert.ok(hi.machine && hi.machine[0].startsWith('m-'), 'a machine sprite is on screen');
     await p3.ctx.close();
+    // fallback: without the sheet every key is generated at 1x, even at dpr 2, and the game still plays
+    const p2 = await f.page({ deviceScaleFactor: 2 });
+    await p2.route('**/art/sheet.webp', (route) => route.fulfill({ status: 404, body: 'gone' }));
+    await p2.goto(`${URL}/?dev=1&scene=game&seed=atlas-seed&dpr=2`);
+    await p2.jd.draft();
+    await p2.evaluate(() => window.__jd.pick(0));
+    const fb = await p2.evaluate(logicalSizes);
+    const keysExist = await p2.evaluate(() =>
+      ['m-press', 'm-furnace-1', 'm-splitter-1', 'rubble-2', 'ground', 'shelf', 'fx-glow'].every((k) => window.__jdGame.textures.exists(k)),
+    );
+    assert.deepEqual(
+      {
+        built: fb.status.built,
+        packed: fb.status.packed.length,
+        missing: fb.status.missing.length,
+        keysExist,
+        crusherCut: fb.crusherCut,
+        machine: fb.machine && fb.machine.slice(1),
+        ground: fb.ground,
+        shared: fb.shared,
+      },
+      { built: false, packed: 0, missing: art.everyKey, keysExist: true, crusherCut: [72, 72], machine: [72, 72], ground: [576, 432], shared: false },
+      JSON.stringify(fb),
+    );
+    await p2.ctx.close();
+  },
+);
+
+test(
+  'belt_corners_and_junk_piles: a conveyor fed from one side draws as a corner, mirrored for a left turn, the shelf stays straight and a round leaves the corners alone; every rubble cell has a junk pile under the machines',
+  { timeout: 60000 },
+  async () => {
+    const page = await open('seed=yard-13');
+    const read = () =>
+      page.evaluate(() => {
+        const s = window.__jdGame.scene.getScene('Game');
+        return {
+          layout: s.run.layout,
+          belts: [...s.view.views.values()]
+            .filter((v) => v.belt)
+            .map((v) => ({ id: v.m.id, inBin: v.inBin, key: v.img.texture.key, flip: v.img.flipY, overlay: v.belt.texture.key, overlayFlip: v.belt.flipY })),
+          piles: s.children.list.filter((o) => o.texture?.key.startsWith('rubble-')).map((o) => ({ key: o.texture.key, depth: o.depth, x: o.x, y: o.y })),
+        };
+      });
+    const expectShapes = (st, when) => {
+      const shapes = [];
+      for (const b of st.belts) {
+        const m = st.layout.machines.find((q) => q.id === b.id);
+        const shape = b.inBin ? 'straight' : beltShape(st.layout, m);
+        shapes.push(shape);
+        const bent = shape !== 'straight';
+        assert.equal(b.key, bent ? 'm-conveyor-bend' : 'm-conveyor', `${when}: conveyor ${b.id} draws its shape (${shape})`);
+        assert.match(b.overlay, bent ? /^belt-bend-\d$/ : /^belt-\d$/, `${when}: its rolling belt follows`);
+        assert.equal(b.flip, shape === 'left', `${when}: only a left turn is mirrored`);
+        assert.equal(b.overlayFlip, shape === 'left', `${when}: the belt is mirrored with it`);
+      }
+      return shapes;
+    };
+    const st = await read();
+    const shapes = expectShapes(st, 'at the start');
+    assert.ok(shapes.includes('left') && shapes.includes('right'), `the yard has both corners: ${shapes.join(',')}`);
+    assert.ok(st.belts.some((b) => b.inBin) && st.belts.filter((b) => b.inBin).every((b) => b.key === 'm-conveyor'), 'parts on the shelf stay straight');
+    const rubble = st.layout.rubble;
+    assert.equal(st.piles.length, rubble.length, 'one pile per rubble cell');
+    assert.ok(
+      st.piles.every((p) => p.depth === 1 && /^rubble-[0-3]$/.test(p.key)),
+      'piles lie under the machines',
+    );
+    const again = await read();
+    assert.deepEqual(again.piles, st.piles, 'the same yard draws the same piles');
+    // a round: the state frames come and go, the corners stay
+    await page.jd.api('pick', 0);
+    await page.jd.api('run');
+    await page.waitForFunction(() => window.__jd.mode() === 'running');
+    await page.jd.api('finishRun');
+    await page.waitForFunction(() => window.__jd.mode() === 'summary');
+    expectShapes(await read(), 'after a round');
+    assert.deepEqual(page.errors, [], 'no page errors');
+    await page.ctx.close();
   },
 );

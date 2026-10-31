@@ -11,6 +11,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { apply, newRun, draftOffers, TUTORIAL_SEED, type RunState } from '../game/src/sim/run';
+import { TUTORIAL_GAP } from '../game/src/sim/yard';
+import { dropOnLine } from '../tests/e2e/line';
 import { exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
 import { RULES_VERSION } from '../game/src/sim/types';
@@ -43,7 +45,7 @@ function finish(seed: string, prefer: string[], shape?: (s: RunState) => void): 
   const s = newRun(seed);
   for (let r = 1; r <= RULES.rounds; r++) {
     const i = prefer.map((k) => s.offers.indexOf(k as never)).find((x) => x >= 0) ?? 0;
-    apply(s, { t: 'pick', i });
+    if (s.phase === 'draft') apply(s, { t: 'pick', i });
     if (r === 1 && shape) shape(s);
     apply(s, { t: 'run' });
     apply(s, { t: 'next' });
@@ -67,7 +69,7 @@ for (const seed of ['golden-ordinary-1', 'golden-ordinary-2']) {
 }
 // a run that sells every pick after the first: picks are sold immediately each round
 {
-  const s = newRun('golden-sell');
+  const s = newRun('classic-golden-sell');
   for (let r = 1; r <= RULES.rounds; r++) {
     const i = Math.max(0, s.offers.indexOf('crusher'));
     apply(s, { t: 'pick', i });
@@ -81,7 +83,7 @@ for (const seed of ['golden-ordinary-1', 'golden-ordinary-2']) {
 // a press line: find a seed whose round-2 offers include a press, put the crusher at (2,2) in round 1 and the press at (3,2) in round 2
 {
   let seed = '';
-  for (let i = 0; i < 500 && !seed; i++) if (draftOffers(`golden-press-${i}`, 2).includes('press')) seed = `golden-press-${i}`;
+  for (let i = 0; i < 500 && !seed; i++) if (draftOffers(`classic-golden-press-${i}`, 2).includes('press')) seed = `classic-golden-press-${i}`;
   const s = newRun(seed);
   for (let r = 1; r <= RULES.rounds; r++) {
     const want = r === 1 ? 'crusher' : r === 2 ? 'press' : 'crusher';
@@ -96,7 +98,7 @@ for (const seed of ['golden-ordinary-1', 'golden-ordinary-2']) {
 }
 corpus.push({
   name: 'golden-churn',
-  run: finish('golden-churn', ['crusher'], (s) => {
+  run: finish('classic-golden-churn', ['crusher'], (s) => {
     swapIn(s, 2, 2);
     const m = s.layout.machines.find((x) => x.x === 2 && x.y === 2)!;
     for (let k = 0; k < 6; k++) {
@@ -111,7 +113,7 @@ corpus.push({
 });
 // a reroll in round 2 (affordable after a crusher round), then the usual play; the corpus pins that rerolled offers and the deduction replay exactly
 {
-  const s = newRun('golden-reroll');
+  const s = newRun('classic-golden-reroll');
   for (let r = 1; r <= RULES.rounds; r++) {
     if (r === 2) apply(s, { t: 'reroll' });
     apply(s, { t: 'pick', i: Math.max(0, s.offers.indexOf('crusher')) });
@@ -124,15 +126,39 @@ corpus.push({
 }
 corpus.push({
   name: 'tutorial-1',
-  run: finish(TUTORIAL_SEED, ['crusher', 'furnace', 'splitter'], (s) => swapIn(s, 2, 2)),
-  note: 'the tutorial scenario (constrained drafts, spare conveyors); scenario semantics are versioned with RULES_VERSION from 0.4.1 on',
+  run: (() => {
+    // the lesson: shift 1 closes the gap, shifts 2 and 3 put the crusher and the furnace on the belt, shift 4 takes the first card
+    const s = newRun(TUTORIAL_SEED);
+    for (let r = 1; r <= RULES.rounds; r++) {
+      if (s.phase === 'draft') apply(s, { t: 'pick', i: 0 });
+      if (r === 1) apply(s, { t: 'place', id: s.bin[0].id, x: TUTORIAL_GAP.x, y: TUTORIAL_GAP.y, dir: 1 });
+      if (r === 2) swapIn(s, 2, 1);
+      if (r === 3) swapIn(s, 3, 1);
+      apply(s, { t: 'run' });
+      apply(s, { t: 'next' });
+    }
+    return s;
+  })(),
+  note: 'the lesson (no pick in shift 1, one card in shifts 2 and 3); scenario semantics are versioned with RULES_VERSION from 0.4.1 on',
 });
 corpus.push({
   name: 'tutorialish',
   run: finish('tutorialish', ['crusher']),
   note: 'a tutorial-looking name without the dash: an ordinary seed, never a scenario',
 });
-corpus.push({ name: 'daily-2026-10-29', run: finish('daily-2026-10-29', ['crusher'], (s) => swapIn(s, 2, 2)), note: 'a daily seed label' });
+corpus.push({
+  name: 'daily-2026-10-29',
+  run: finish('daily-2026-10-29', ['crusher'], (s) => dropOnLine(s, 'crusher')),
+  note: 'a daily seed label on a generated yard',
+});
+for (const seed of ['golden-yard-1', 'golden-yard-2', 'golden-yard-3']) {
+  const job = newRun(seed).job!;
+  corpus.push({
+    name: seed,
+    run: finish(seed, ['crusher', job.material === 'ingot' ? 'furnace' : 'press'], (s) => dropOnLine(s, 'crusher')),
+    note: `a generated yard on a ${job.material} job: rubble, the job's price and the shelf's spare conveyors are all in the score`,
+  });
+}
 
 fs.mkdirSync(OUT, { recursive: true });
 for (const f of fs.readdirSync(OUT)) if (f.endsWith('.json')) fs.rmSync(path.join(OUT, f));

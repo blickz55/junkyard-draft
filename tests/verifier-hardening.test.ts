@@ -1,5 +1,6 @@
 // Production roadmap 0.8.1, verifier hardening first cut: one test per item.
 import { test } from 'node:test';
+import { dropOnLine } from './e2e/line';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -36,9 +37,7 @@ function finishedRun(seed: string) {
   for (let r = 1; r <= RULES.rounds; r++) {
     apply(s, { t: 'pick', i: s.offers.indexOf('crusher') >= 0 ? s.offers.indexOf('crusher') : 0 });
     if (r === 1) {
-      const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!;
-      apply(s, { t: 'unplace', id: conv.id });
-      apply(s, { t: 'place', id: s.bin[0].id, x: 2, y: 2, dir: 0 });
+      dropOnLine(s);
     }
     apply(s, { t: 'run' });
     apply(s, { t: 'next' });

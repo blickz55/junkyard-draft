@@ -1,6 +1,6 @@
 # The foreman — character sheet (production roadmap 0.9.1, text only)
 
-The foreman is the one voice in Junkyard Draft. He speaks on the title, in the draft, at the end of a round and on the results screen; later (0.11.5) he opens and closes every daily thread, and with the art commission (0.12.2) he gets a face. Until then he is a name and a line in a box. The voice is reviewed by the owner ⚑; the lines live in `game/src/content/strings.ts` under `foreman.*` and are picked in `game/src/content/foreman.ts`.
+The foreman is the one voice in Junkyard Draft. He speaks on the home screen, at the end of a shift and on the results screen, and the instruction card in a game wears his name; later (0.11.5) he opens and closes every daily thread, and with the art commission (0.12.2) he gets a face. Until then he is a name and a line in a box. The voice is reviewed by the owner ⚑; the lines live in `game/src/content/strings.ts` under `foreman.*` and are picked in `game/src/content/foreman.ts`.
 
 ## Name
 
@@ -33,16 +33,12 @@ The man who has run this yard for thirty years and has seen every line a new han
 |---|---|---|
 | welcome | the title screen | no |
 | dailyOpen / dailyFinal | the title strip says which (today's board open, or final) | no |
-| firstDraft | the first pick of a game | yes |
-| lesson.* | each step of the lesson (the tutorial's hint carries the fact; Sal adds one line) | yes |
-| refused | a placement the rules refused (the reason is in the hint strip) | yes |
-| bottleneck.* | the draft after a round, one per bottleneck kind | yes |
 | roundGood / roundFlat | the round-end banner: the round earned more than the one before, or not | no |
 | results.* | the results screen by band: top (better than 80 %), upper (50 %), lower, few (under five checked games), offline, first game | no |
 | streak3 / streak7 / streak30 | the title, on the day a streak reaches 3, 7, 30 | no |
 | firstShare / firstCrew | once, after the first share copy and the first crew joined or created | no |
 
-"Teaching" lines stay when the player chooses **Foreman: lessons only** (the "less chatter" setting); everything else goes quiet.
+Since rules v4 the instructions in a game are the coach's (`render/guide.ts`, one instruction at a time, docs/UX-STANDARD.md), so everything here is flavour: **Sal: Quiet** in Settings silences all of it.
 
 ## Variants and choice
 

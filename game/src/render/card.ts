@@ -28,6 +28,8 @@ export interface CardInput {
   fork?: { player: string; round: number } | null;
   permalink?: string;
   build?: string;
+  /** stars on the job (rules v4) */
+  stars?: number;
 }
 export interface CardText {
   title: string;
@@ -59,7 +61,7 @@ export function cardText(i: CardInput): CardText {
       : t('card.footerLocal');
   return {
     title: t('card.title'),
-    seedLine: t('card.yardLine', { label: seedLabel(i.seed), rounds: RULES.rounds }),
+    seedLine: `${t('card.yardLine', { label: seedLabel(i.seed), rounds: RULES.rounds })}${i.stars == null ? '' : ` · ${'★'.repeat(i.stars)}${'☆'.repeat(3 - i.stars)}`}`,
     score: money(i.score),
     glyphs: i.rounds.map(roundGlyph).join(''),
     standing,

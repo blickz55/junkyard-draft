@@ -82,7 +82,7 @@ test('gateVerdict: passes a healthy result, fails a synthetic regression with a 
 });
 
 test('search policies: neutral accepts plateau moves, never scores below greedy on the same input, and both are deterministic', () => {
-  const s = newRun('policy-seed');
+  const s = newRun('classic-policy-seed');
   const bin = [...s.bin, { id: 900, kind: 'crusher' as const, x: -1, y: -1, dir: 0 as const }];
   const g1 = improve(s.layout, bin, new Rng('p:g'), 30, 4, 'greedy');
   const g2 = improve(s.layout, bin, new Rng('p:g'), 30, 4, 'greedy');
@@ -128,7 +128,8 @@ test('derived sanity bound and dead-end definitions', () => {
   const hoppers = RULES.starter.filter((m) => m.kind === 'hopper').length + RULES.rounds;
   assert.equal(
     scoreSanityBound(),
-    RULES.rounds * hoppers * Math.ceil(RULES.ticksPerRound / RULES.hopperPeriod) * Math.max(...Object.values(RULES.value)) + RULES.rounds * RULES.sellValue,
+    RULES.rounds * hoppers * Math.ceil(RULES.ticksPerRound / RULES.hopperPeriod) * Math.max(...Object.values(RULES.value), RULES.job.price) +
+      RULES.rounds * RULES.sellValue,
   );
   const { report } = playSeed('dead-0', new Rng('dead-0:search:greedy'), 5);
   assert.equal(report.deadEnd, report.flatRounds >= RULES.rounds, 'deadEnd means no improving draft in any round');

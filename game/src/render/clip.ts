@@ -16,6 +16,8 @@ import type { Layout, Material, SimEvent } from '../sim/types';
 import { BELT_FRAMES, CELL, itemTexture, machineTexture } from './textures';
 import { CSS, FONT, MONO, P } from './palette';
 import { artFrame } from './atlas';
+import { beltShape } from './placement';
+import { rubbleFrame } from './simframes';
 import { encodeGif, quantize } from './gif';
 
 export interface ClipOptions {
@@ -97,6 +99,7 @@ export class ClipPainter {
     private readonly label: { title: string; seed: string; player: string; round: number; totalBefore: number; footer: string },
     maxHeight = 720,
     scaleCap = Infinity,
+    /** a flat floor: a GIF pays for every textured pixel of concrete, and nobody watches the concrete */ private readonly flatFloor = false,
   ) {
     const w0 = layout.width * CELL + MARGIN * 2,
       h0 = layout.height * CELL + MARGIN * 2 + STRIP;
@@ -142,11 +145,24 @@ export class ClipPainter {
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.fillStyle = hex(P.bg);
     ctx.fillRect(0, 0, this.width / scale, this.height / scale);
-    for (let y = 0; y < this.layout.height; y++)
-      for (let x = 0; x < this.layout.width; x++) this.blit('tile', MARGIN + x * CELL, MARGIN + y * CELL, CELL, CELL);
+    if (this.flatFloor) {
+      ctx.fillStyle = hex(P.floor);
+      ctx.fillRect(MARGIN, MARGIN, this.layout.width * CELL, this.layout.height * CELL);
+    } else
+      for (let y = 0; y < this.layout.height; y++)
+        for (let x = 0; x < this.layout.width; x++) this.blit('tile', MARGIN + x * CELL, MARGIN + y * CELL, CELL, CELL);
     ctx.strokeStyle = hex(P.panelLine);
     ctx.lineWidth = 2;
     ctx.strokeRect(MARGIN, MARGIN, this.layout.width * CELL, this.layout.height * CELL);
+    for (const cell of this.layout.rubble ?? []) {
+      const { key, quarter } = rubbleFrame(cell);
+      const c = this.cellXY(cell);
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate((quarter * Math.PI) / 2);
+      this.blit(key, -CELL / 2, -CELL / 2, CELL, CELL);
+      ctx.restore();
+    }
     for (const cell of this.jammed) {
       const c = this.cellXY(cell);
       ctx.fillStyle = 'rgba(235,103,87,0.28)';
@@ -167,8 +183,10 @@ export class ClipPainter {
               ? 'm-press-1'
               : 'm-press-2'
             : machineTexture(m.kind);
-      this.blit(key, -CELL / 2, -CELL / 2, CELL, CELL);
-      if (m.kind === 'conveyor') this.blit(`belt-${beltFrame % BELT_FRAMES}`, -CELL / 2, -CELL / 2, CELL, CELL);
+      const shape = m.kind === 'conveyor' ? beltShape(this.layout, m) : 'straight';
+      if (shape === 'left') ctx.scale(1, -1); // a left turn is the right turn mirrored
+      this.blit(shape === 'straight' ? key : 'm-conveyor-bend', -CELL / 2, -CELL / 2, CELL, CELL);
+      if (m.kind === 'conveyor') this.blit(`${shape === 'straight' ? 'belt' : 'belt-bend'}-${beltFrame % BELT_FRAMES}`, -CELL / 2, -CELL / 2, CELL, CELL);
       ctx.restore();
     }
     for (const it of sim.items) {
@@ -375,6 +393,7 @@ export async function renderGif(
     },
     Infinity,
     1,
+    true,
   );
   const strip = `${seedLabel} · $${totalBefore + rec.earned}${hash8 ? ` · ${hash8}` : ''}`;
   const speed = o.speed ?? 4,

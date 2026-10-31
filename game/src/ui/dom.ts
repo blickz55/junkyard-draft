@@ -11,7 +11,7 @@
  * Every interactive element carries `data-testid`, which the e2e uses instead of Phaser object names.
  */
 import type Phaser from 'phaser';
-import { CSS, FONT, MONO } from '../render/palette';
+import { CSS, DISPLAY, FONT, MONO } from '../render/palette';
 import { prefs } from '../render/prefs';
 import { audio } from '../render/audio';
 import { t } from '../content/strings';
@@ -72,11 +72,11 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = 
 }
 
 /** The foreman's box (0.9.1): his name tag and one line; hidden when the line is empty (lessons only). */
-export function foremanBox(text: string, tid = 'foreman', style = ''): HTMLElement {
+export function foremanBox(text: string, tid = 'foreman', style = '', tag = t('foreman.name')): HTMLElement {
   const box = h(
     'div',
     { class: 'jd-foreman', tid, style: `${text ? '' : 'display:none; '}${style}` },
-    h('span', { class: 'jd-foreman-tag' }, t('foreman.name')),
+    h('span', { class: 'jd-foreman-tag' }, tag),
     h('span', { class: 'jd-foreman-text' }, text),
   );
   return box;
@@ -107,8 +107,9 @@ export function btn(
 }
 
 const STYLE = `
-#game { position: relative; }
+#game { position: relative; background: #1a1612 url(art/yard-bg.webp) center / cover no-repeat; }
 #ui { position: absolute; inset: 0; pointer-events: none; z-index: 5; font-family: ${FONT}; color: ${CSS.text}; --px: 1px; --base: 16px;
+  --jd-display: ${DISPLAY}; --jd-glass: linear-gradient(180deg, rgba(46, 40, 33, 0.96), rgba(30, 26, 21, 0.96)); --jd-line: #4a4235; --jd-radius: 0.6em; --jd-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
   font-size: calc(var(--base) * var(--text-scale, 1) * var(--fit, 1)); line-height: 1.3; }
 @media (max-width: 1024px) { #ui { --base: 15px; } }
 @media (max-width: 600px) { #ui { --base: 14px; } }
@@ -117,30 +118,94 @@ const STYLE = `
 #ui .jd-screen { position: absolute; inset: 0; pointer-events: auto; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; padding: 0.5em max(1.25em, calc((100% - 72em) / 2)); gap: 0.35em; }
 @media (max-width: 600px) { #ui .jd-screen { padding: 0.4em 0.75em; } }
 @media (pointer: coarse) { #ui .jd-btn, #ui .jd-offer, #ui .jd-entry, #ui .jd-link, #ui input[type=range] { min-height: 44px; } #ui .jd-btn { min-width: 44px; } }
-#ui .jd-mono { font-family: ${MONO}; }
+#ui .jd-mono { font-variant-numeric: tabular-nums; }
 #ui .jd-dim { color: ${CSS.dim}; }
 #ui .jd-amber { color: ${CSS.amber}; }
 #ui .jd-green { color: ${CSS.green}; }
 #ui .jd-red { color: ${CSS.red}; }
 #ui .jd-blue { color: ${CSS.blue}; }
 #ui .jd-gold { color: ${CSS.gold}; }
-#ui .jd-head { font-weight: 700; letter-spacing: 0.15em; color: ${CSS.amber}; font-size: 0.8125em; text-transform: uppercase; }
-#ui .jd-panel { background: rgba(36, 32, 26, 0.92); border: 1px solid #3f382d; border-radius: 0.25em; padding: 0.55em 0.85em; }
+#ui .jd-head { font-family: var(--jd-display); font-weight: 700; letter-spacing: 0.08em; color: ${CSS.amber}; font-size: 1em; text-transform: uppercase; margin: 0; }
+#ui .jd-panel { background: var(--jd-glass); border: 1px solid var(--jd-line); border-radius: var(--jd-radius); box-shadow: var(--jd-shadow); padding: 0.55em 0.85em; }
 #ui .jd-row { display: flex; flex-wrap: wrap; gap: 0.6em; align-items: center; }
 #ui .jd-center { justify-content: center; }
 #ui .jd-between { justify-content: space-between; }
 #ui .jd-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75em; }
-#ui .jd-actions { gap: 0.5em; margin-top: 0.3em; }
+#ui .jd-actions { gap: 0.5em; margin-top: 0.3em; justify-content: center; }
+#ui .jd-results-job { display: flex; flex-direction: column; align-items: center; }
+#ui .jd-results-stars { font-size: 3em; line-height: 1; letter-spacing: 0.08em; color: #4a4235; }
+#ui .jd-results-stars .on { color: #f5c542; text-shadow: 0 0 0.4em rgba(245, 197, 66, 0.5); display: inline-block; }
+#ui .jd-results-jobline { font-family: var(--jd-display); font-weight: 700; font-size: 1.5em; line-height: 1.15; }
+#ui .jd-results-score { font-family: var(--jd-display); font-size: 3.5em; font-weight: 700; line-height: 1.05; }
+#ui .jd-results-rank { font-size: 0.875em; margin-top: 0.25em; }
+#ui .jd-results-status { font-size: 0.8125em; min-height: 1.3em; text-align: center; }
+#ui .jd-results [data-testid=headline]:empty { display: none; }
 #ui .jd-strip-head, #ui .jd-strip-left, #ui .jd-strip-right { flex-wrap: nowrap; }
 #ui .jd-strip-left { overflow: hidden; }
 #ui .jd-strip-right { flex: 0 0 auto; }
 @media (max-width: 900px) { #ui .jd-strip-head, #ui .jd-strip-left, #ui .jd-strip-right { flex-wrap: wrap; } #ui .jd-strip-left { overflow: visible; } #ui .jd-strip-right { flex: 1 1 100%; } }
-#ui .jd-actions-label { width: 3.6em; flex: 0 0 auto; text-align: right; font-size: 0.7em; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: ${CSS.dim}; }
 @media (max-width: 900px) { #ui .jd-grid2 { grid-template-columns: 1fr; } }
 #ui .jd-btn { font: inherit; font-weight: 700; font-size: 0.875em; padding: 0.5em 1.1em; border-radius: 0.2em; border: 2px solid rgba(0,0,0,0.35); cursor: pointer; color: #1a1612; background: ${CSS.amber}; box-shadow: 0 2px 0 rgba(0,0,0,0.35); white-space: nowrap; }
-#ui .jd-btn-steel { background: #8e9aa6; color: #1a1612; }
-#ui .jd-btn-dark { background: #5a6670; color: ${CSS.text}; }
-#ui .jd-btn-small { font-size: 0.75em; padding: 0.4em 0.9em; }
+#ui .jd-btn-primary { background: linear-gradient(180deg, #ffc24d, #e0932a); color: #1a1612; box-shadow: 0 2px 0 #8f5c19, 0 3px 10px rgba(240, 168, 48, 0.3); }
+#ui .jd-btn-steel { background: linear-gradient(180deg, #a2adb8, #828e9a); color: #1a1612; }
+#ui .jd-btn-dark { background: linear-gradient(180deg, #4d463c, #3a342c); color: ${CSS.text}; border-color: #5f574a; }
+#ui .jd-btn-small { font-size: 0.8125em; padding: 0.35em 0.8em; }
+#ui .jd-choice { width: min(92%, 26em); gap: 0.65em; padding: 1em 1.1em; }
+#ui .jd-choice .jd-head { font-size: 1.125em; }
+#ui .jd-choice-buttons { display: flex; flex-direction: column; gap: 0.45em; margin-top: 0.2em; }
+#ui .jd-choice-buttons .jd-btn { width: 100%; font-size: 1em; padding: 0.6em 1em; }
+#ui .jd-choice-note { font-size: 0.75em; text-align: center; }
+#ui .jd-job-flavour { font-size: 0.9375em; }
+#ui .jd-job-goal { font-family: var(--jd-display); font-weight: 700; font-size: 2em; line-height: 1.05; }
+#ui .jd-job-marks { display: flex; gap: 1.1em; margin-top: 0.25em; flex-wrap: wrap; }
+#ui .jd-job-mark { display: inline-flex; gap: 0.35em; align-items: baseline; }
+#ui .jd-recipe { display: flex; flex-wrap: wrap; align-items: center; gap: 0.15em 0.3em; margin-top: 0.45em; font-size: 0.8125em; }
+#ui .jd-recipe-label { margin-right: 0.15em; }
+#ui .jd-recipe-step { padding: 0.08em 0.5em; border-radius: 0.3em; border: 1px dashed ${CSS.edgeLight}; color: ${CSS.dim}; white-space: nowrap; }
+#ui .jd-recipe-step.on { border: 1px solid ${CSS.green}; color: ${CSS.green}; background: rgba(111,207,138,0.1); }
+#ui .jd-recipe-arrow { color: ${CSS.edgeLight}; }
+#ui .jd-howto { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 0.35em; font-size: 0.9375em; }
+#ui .jd-title { background: radial-gradient(ellipse at 50% 0%, rgba(240, 168, 48, 0.1), transparent 60%); gap: 0.6em; padding-top: 0.75em; padding-bottom: 0.75em; }
+#ui .jd-hero { position: relative; flex: 0 0 auto; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.4em 1.5em; padding: 0.75em 1.2em; border-radius: 0.8em; overflow: hidden; border: 1px solid var(--jd-line); background: linear-gradient(90deg, rgba(20, 17, 13, 0.92) 25%, rgba(20, 17, 13, 0.35) 70%), url(art/hero.webp) center / cover no-repeat, #2a241d; box-shadow: var(--jd-shadow); }
+#ui .jd-wordmark { font-family: var(--jd-display); font-weight: 800; font-size: 3em; line-height: 0.95; letter-spacing: 0.02em; margin: 0; color: #ffc24d; text-shadow: 0 2px 0 #6a3f10, 0 0 1em rgba(240, 168, 48, 0.25); }
+#ui .jd-tagline { font-size: 1.0625em; margin-top: 0.2em; }
+#ui .jd-hero-name { flex: 0 1 auto; min-width: 0; }
+#ui .jd-hero-side { flex: 0 1 26em; min-width: 0; display: flex; flex-direction: column; gap: 0.4em; }
+#ui .jd-hero-corner { display: flex; gap: 0.6em; align-items: center; justify-content: flex-end; }
+#ui .jd-player { font-size: 0.8125em; color: ${CSS.text}; white-space: nowrap; text-shadow: 0 1px 3px #1a1612; }
+#ui .jd-home-main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 0.6em; align-items: stretch; flex: 0 0 auto; }
+#ui .jd-home-lead, #ui .jd-home-side { display: flex; flex-direction: column; gap: 0.6em; min-width: 0; }
+#ui .jd-hero { min-height: 6.5em; }
+@media (min-height: 760px) and (min-width: 761px) { #ui .jd-hero { min-height: 13em; align-items: flex-end; } }
+#ui [data-testid=today-job] { min-height: 9.5em; display: flex; flex-direction: column; gap: 0.35em; justify-content: center; }
+#ui .jd-results { background: linear-gradient(180deg, rgba(26, 22, 18, 0.72), #1a1612 19em), url(art/hero.webp) top center / max(100%, 900px) auto no-repeat; }
+#ui .jd-more { margin: 0.4em auto 0; max-width: 46em; width: 100%; text-align: center; }
+#ui .jd-more > summary { cursor: pointer; font-weight: 700; font-size: 0.9375em; padding: 0.3em; }
+#ui .jd-home-card { background: var(--jd-glass); border: 1px solid var(--jd-line); border-radius: var(--jd-radius); box-shadow: var(--jd-shadow); padding: 0.7em 0.95em; display: flex; flex-direction: column; gap: 0.35em; }
+#ui .jd-home-today { flex: 1 0 auto; }
+#ui .jd-home-card.jd-home-continue { flex-direction: row; align-items: center; gap: 0.75em; }
+#ui .jd-home-card.jd-home-continue > .jd-btn { flex: 1 1 60%; width: auto; }
+#ui .jd-home-continue > div { flex: 1 1 40%; min-width: 0; }
+#ui .jd-hero .jd-foreman { background: rgba(20, 17, 13, 0.8); border-radius: 0.3em; }
+#ui .jd-home-card > .jd-btn { width: 100%; font-family: var(--jd-display); font-size: 1.375em; padding: 0.3em 1em; }
+#ui .jd-home-more { display: flex; flex-wrap: wrap; gap: 0.5em; justify-content: center; }
+#ui .jd-home-more .jd-btn { flex: 1 1 11em; max-width: 20em; min-width: 0; white-space: normal; }
+#ui .jd-home-foot { display: flex; flex-wrap: wrap; gap: 0.2em 1.1em; justify-content: center; font-size: 0.8125em; color: ${CSS.dim}; margin-top: auto; }
+#ui .jd-home-note { font-size: 0.8125em; text-align: center; }
+#ui .jd-rank-line { font-family: var(--jd-display); font-weight: 700; font-size: 1.5em; line-height: 1.1; color: ${CSS.gold}; }
+#ui .jd-board-lines { font-size: 0.8125em; }
+#ui .jd-board-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ui .jd-settings { width: min(94%, 34em); max-height: 92%; overflow-y: auto; gap: 0.7em; padding: 0.9em 1.1em; }
+#ui .jd-settings-title { font-size: 1.25em; }
+#ui .jd-set-section { display: flex; flex-direction: column; gap: 0.35em; border-top: 1px solid #3f382d; padding-top: 0.5em; }
+#ui .jd-set-row { display: flex; align-items: center; gap: 0.6em; flex-wrap: wrap; }
+#ui .jd-set-label { flex: 0 0 7em; font-size: 0.875em; }
+#ui .jd-set-right { display: flex; align-items: center; gap: 0.5em; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
+#ui .jd-sound-list { display: flex; flex-direction: column; gap: 0.25em; margin-top: 0.3em; }
+#ui .jd-sound-list .jd-set-label { flex: 1 1 auto; }
+@media (max-height: 760px) { #ui .jd-home-today .jd-recipe { display: none; } #ui [data-testid=today-job] { min-height: 6.6em; } }
+@media (max-height: 520px) and (orientation: landscape) { #ui [data-testid=today-job] { min-height: 0; } #ui .jd-hero { padding: 0.25em 0.8em; min-height: 0; } #ui .jd-wordmark { font-size: 1.5em; } #ui .jd-tagline, #ui .jd-hero .jd-foreman, #ui .jd-home-today .jd-job-flavour, #ui .jd-home-today .jd-recipe, #ui .jd-home-rank { display: none; } #ui .jd-hero-side { flex: 0 0 auto; } #ui .jd-job-goal { font-size: 1.5em; } }
+@media (max-width: 760px) { #ui .jd-home-main { grid-template-columns: minmax(0, 1fr); } #ui .jd-wordmark { font-size: 2.5em; } #ui .jd-hero { padding: 0.8em 1em; } #ui .jd-hero-side { flex: 1 1 100%; } #ui .jd-hero-corner { justify-content: space-between; } }
 #ui .jd-link { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; pointer-events: auto; }
 #ui .jd-link:focus-visible { outline: 2px solid ${CSS.amber}; outline-offset: 2px; }
 #ui .jd-foreman { display: flex; gap: 0.6em; align-items: baseline; border-left: 3px solid ${CSS.amber}; background: rgba(240, 168, 48, 0.08); padding: 0.3em 0.7em; font-size: 0.875em; }
@@ -162,7 +227,7 @@ const STYLE = `
 @media (max-width: 600px) { #ui .jd-tips-nav { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; } #ui .jd-tips-nav .jd-btn { flex: 1 1 40%; } }
 #ui .jd-tips-nav .jd-btn { text-align: left; white-space: normal; }
 #ui .jd-tips-nav .jd-btn.jd-active { background: ${CSS.amber}; color: #1a1612; }
-#ui .jd-tips-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 0.4em; }
+#ui .jd-tips-body { flex: 1 1 16em; min-width: 0; display: flex; flex-direction: column; gap: 0.4em; }
 #ui .jd-tips-title { font-weight: 700; font-size: 1.05em; }
 #ui .jd-tips-text { margin: 0; font-size: 0.8125em; }
 #ui .jd-tips-demo { display: block; border: 1px solid #3f382d; align-self: center; max-width: 100%; height: auto; }
@@ -220,6 +285,9 @@ class UiLayer {
     game.scale.on('resize', sync);
     window.addEventListener('resize', sync);
     requestAnimationFrame(sync);
+    // the bundled faces arrive after the first layout, and the title fits itself to what it measures
+    void document.fonts?.ready.then(sync);
+    document.fonts?.addEventListener?.('loadingdone', sync);
     this.sync();
   }
   /** Publish the player's preferences as CSS state and refit the title (the overlay itself covers the container by CSS). */
@@ -266,6 +334,7 @@ class UiLayer {
     }
   }
   unmount() {
+    this.root?.querySelectorAll('.jd-modal').forEach((m) => m.remove()); // a dialog belongs to the screen it opened on
     if (this.screen) {
       this.screen.remove();
       this.screen = null;

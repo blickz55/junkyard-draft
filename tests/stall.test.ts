@@ -28,8 +28,8 @@ test('stall monitor: flags the lowest jammed cell after STALL_TICKS without a sh
   assert.equal(m.lastShipTick, 0);
 });
 
-test('stall text: the machine, its cell (1-based) and whether it is blocked or waiting', () => {
-  assert.equal(stallText('hopper', 0, 1), 'Stalled: Scrap Hopper at 1,2 is blocked — nothing shipped for 8 s');
-  assert.equal(stallText('conveyor', 4, 2), 'Stalled: Conveyor at 5,3 is waiting — nothing shipped for 8 s');
-  assert.match(stallText(null, 2, 2), /^Stalled: Item at 3,3 is waiting/);
+test('stall text: the machine and whether it is blocked or waiting; the mark on the yard shows where', () => {
+  assert.equal(stallText('hopper', 0, 1), 'Stuck: the Scrap Hopper is blocked. Nothing shipped for 8 s');
+  assert.equal(stallText('conveyor', 4, 2), 'Stuck: the Conveyor is waiting. Nothing shipped for 8 s');
+  assert.match(stallText(null, 2, 2), /^Stuck: the Item is waiting/);
 });

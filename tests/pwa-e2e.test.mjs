@@ -122,7 +122,7 @@ test('offline: the title loads from the cache and says so; a practice game plays
   await title();
   await when(() => /practice/i.test(document.querySelector('[data-testid=daily-mode]')?.textContent || ''));
   await page.screenshot({ path: path.join(SHOTS, `pwa-offline-title-${Date.now()}.png`) });
-  await page.goto(`${srv.url}/?dev=1&scene=game&seed=pwa-offline`);
+  await page.goto(`${srv.url}/?dev=1&scene=game&seed=classic-pwa-offline`);
   await playOut();
   assert.match(await page.textContent('[data-testid=headline]'), /offline/i, 'the results say the game was offline (no board)');
   await page.screenshot({ path: path.join(SHOTS, `pwa-offline-results-${Date.now()}.png`) });
@@ -135,7 +135,7 @@ test(
   async () => {
     await ctx.setOffline(false);
     // mid-run: a new deploy appears while a game is on; the game scene shows nothing
-    await page.goto(`${srv.url}/?dev=1&scene=game&seed=pwa-update`);
+    await page.goto(`${srv.url}/?dev=1&scene=game&seed=classic-pwa-update`);
     await when(() => !!window.__jd && window.__jd.phase() === 'draft');
     srv.setRoot(distB);
     await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
@@ -144,7 +144,8 @@ test(
     await api('pick', 0);
     assert.equal(await page.locator('[data-testid=update-ready]').count(), 0, 'still nothing while building');
     // back on the title: the strip, then the restart
-    await page.evaluate(() => document.querySelector('[data-testid=title]').click());
+    await page.evaluate(() => document.querySelector('[data-testid=menu]').click());
+    await page.evaluate(() => document.querySelector('[data-testid=menu-home]').click());
     await title();
     await when(() => !!document.querySelector('[data-testid=update-ready]'));
     await page.screenshot({ path: path.join(SHOTS, `pwa-update-ready-${Date.now()}.png`) });
@@ -182,9 +183,9 @@ test('the install offer: not before the second finished run; then the prompt, In
   await page.waitForTimeout(0);
   assert.equal(await page.locator('[data-testid=install-offer]').count(), 0, 'one run is too early');
   // the second finished run, then the title: the offer
-  await page.goto(`${srv.url}/?dev=1&scene=game&seed=pwa-second`);
+  await page.goto(`${srv.url}/?dev=1&scene=game&seed=classic-pwa-second`);
   await playOut();
-  await page.evaluate(() => document.querySelector('[data-testid=title]').click());
+  await page.evaluate(() => document.querySelector('[data-testid=home]').click());
   await title();
   await fakePrompt();
   await when(() => !!document.querySelector('[data-testid=install-offer]'));
@@ -229,7 +230,8 @@ test(
     });
     await page.goto(`${srv.url}/?dev=1`);
     await title();
-    await when(() => /^Reminder$/.test(document.querySelector('[data-testid=reminder]')?.textContent || ''));
+    await page.getByTestId('more').click();
+    await when(() => /^Remind me$/.test(document.querySelector('[data-testid=reminder]')?.textContent || ''));
     await page.getByTestId('reminder').click();
     await when(() => !!document.querySelector('[data-testid=reminder-dialog]'));
     await page.selectOption('[data-testid=push-hour]', '9');
@@ -246,10 +248,10 @@ test(
     await page.screenshot({ path: path.join(SHOTS, `pwa-reminder-${Date.now()}.png`) });
     await page.getByTestId('reminder-close').click();
     await when(() => !document.querySelector('[data-testid=reminder-dialog]'));
-    await when(() => /^Reminder: /.test(document.querySelector('[data-testid=reminder]')?.textContent || ''), null, 5000);
     // a reload keeps it; off again
     await page.goto(`${srv.url}/?dev=1`);
     await title();
+    await page.getByTestId('more').click();
     await when(() => /^Reminder: /.test(document.querySelector('[data-testid=reminder]')?.textContent || ''));
     await page.getByTestId('reminder').click();
     await when(() => /Stop reminders/.test(document.querySelector('[data-testid=push]')?.textContent || ''));
@@ -260,9 +262,7 @@ test(
     assert.equal(await page.evaluate(() => window.__unsubscribed), 1, 'the browser subscription was released');
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.push.v1')), 'null');
     await page.keyboard.press('Escape');
-    await when(
-      () => !document.querySelector('[data-testid=reminder-dialog]') && /^Reminder$/.test(document.querySelector('[data-testid=reminder]')?.textContent || ''),
-    );
+    await when(() => !document.querySelector('[data-testid=reminder-dialog]'));
     assert.deepEqual(errors, []);
   },
 );
@@ -277,7 +277,7 @@ test(
         window.__shared = { title: d.title, text: d.text, files: (d.files || []).map((f) => ({ name: f.name, type: f.type, size: f.size })) };
       };
     });
-    await page.goto(`${srv.url}/?dev=1&scene=game&seed=pwa-share`);
+    await page.goto(`${srv.url}/?dev=1&scene=game&seed=classic-pwa-share`);
     await playOut();
     await when(() => !!document.querySelector('[data-testid=share-native]'));
     await page.getByTestId('share-native').click();
@@ -287,7 +287,7 @@ test(
     assert.match(shared.text, /https?:\/\/\S+/, 'the text carries the link');
     assert.match(shared.text, /[░▒▓█]{6}/, 'the spoiler-free grid');
     assert.equal(shared.files.length, 1, 'the card travels as a picture');
-    assert.match(shared.files[0].name, /^junkyard-pwa-share-\$\d+-card\.png$/);
+    assert.match(shared.files[0].name, /^junkyard-classic-pwa-share-\$\d+-card\.png$/);
     assert.equal(shared.files[0].type, 'image/png');
     assert.ok(shared.files[0].size > 10_000, `the card has bytes (${shared.files[0].size})`);
     const gif = await page.evaluate(() =>
@@ -298,7 +298,7 @@ test(
     );
     assert.equal(gif.round, 6, 'the final layout');
     assert.ok(gif.size <= 4 * 1024 * 1024, `the GIF is under 4 MB (${gif.size})`);
-    assert.match(gif.strip, /pwa-share · \$\d+$/, 'an unchecked run: yard and score, no hash');
+    assert.match(gif.strip, /classic-pwa-share · \$\d+$/, 'an unchecked run: yard and score, no hash');
     assert.deepEqual(errors, []);
   },
 );

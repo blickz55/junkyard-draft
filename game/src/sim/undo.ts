@@ -14,11 +14,12 @@ export function canUndo(s: RunState): boolean {
   return s.phase === 'build' && s.actions.length > 0 && UNDOABLE.has(s.actions[s.actions.length - 1].t);
 }
 
-/** The state with its last build edit removed, plus the removed action; null when nothing can be undone. */
-export function undo(s: RunState): { state: RunState; undone: Action } | null {
+/** The state with its last `count` build edits removed (a swap is several actions, undone as one), plus what was removed; null when nothing can be undone. */
+export function undo(s: RunState, count = 1): { state: RunState; undone: Action[] } | null {
   if (!canUndo(s)) return null;
-  const undone = s.actions[s.actions.length - 1];
-  return { state: replay(s.seed, s.actions.slice(0, -1), RULES_VERSION), undone };
+  const last = s.actions.slice(-count);
+  if (last.length !== count || !last.every((a) => UNDOABLE.has(a.t))) return null;
+  return { state: replay(s.seed, s.actions.slice(0, -count), RULES_VERSION), undone: last };
 }
 
 /** Re-applies an undone action in place; false when the rules no longer accept it (the state moved on). */

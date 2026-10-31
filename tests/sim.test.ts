@@ -17,7 +17,6 @@ import {
   sanitizeSeed,
   isTutorialSeed,
   TUTORIAL_SEED,
-  TUTORIAL_SPARE_CONVEYORS,
 } from '../game/src/sim/run';
 import { createHash } from 'node:crypto';
 import { exportReplay, decodeReplay, encodeReplay, verifyReplay, validateReplayFile } from '../game/src/sim/replay';
@@ -105,7 +104,7 @@ test('draft offers are seeded, distinct, and round 1 always includes a crusher',
 });
 
 test('run: pick → place → run → next, invalid actions rejected, replay reproduces score', () => {
-  const s = newRun('test-seed');
+  const s = newRun('classic-test-seed');
   assert.equal(s.phase, 'draft');
   assert.throws(() => apply(s, { t: 'run' }), RunError);
   const crusherIdx = s.offers.indexOf('crusher');
@@ -137,7 +136,7 @@ test('run: pick → place → run → next, invalid actions rejected, replay rep
   // tampered action (placing on occupied cell) is rejected
   const bad = { ...roundTrip, actions: [...roundTrip.actions.slice(0, 1), { t: 'place', id: 6, x: 1, y: 2, dir: 0 } as const, ...roundTrip.actions.slice(1)] };
   assert.equal(verifyReplay(bad).ok, false);
-  assert.equal(replay('test-seed', s.actions, RULES_VERSION).score, s.score);
+  assert.equal(replay('classic-test-seed', s.actions, RULES_VERSION).score, s.score);
 });
 
 test('long east-moving chains advance as a unit (no false jams from a pass cap)', () => {
@@ -150,7 +149,7 @@ test('long east-moving chains advance as a unit (no false jams from a pass cap)'
 });
 
 test('malformed actions are rejected by apply and by decodeReplay', () => {
-  const s = newRun('v');
+  const s = newRun('classic-v');
   for (const bad of [
     { t: 'pick', i: 0.5 },
     { t: 'pick', i: -1 },
@@ -173,7 +172,7 @@ test('malformed actions are rejected by apply and by decodeReplay', () => {
 });
 
 test('selling a bin part adds the sell bonus to the score and is replay-verified; placed machines cannot be sold', () => {
-  const s = newRun('sell-seed');
+  const s = newRun('classic-sell-seed');
   apply(s, { t: 'pick', i: 0 });
   const id = s.bin[0].id;
   assert.throws(() => apply(s, { t: 'sell', id: 1 }), /only bin parts/);
@@ -218,7 +217,7 @@ test('press: two shards become one $8 plate, scrap passes through, absorbed shar
 });
 
 test('rules version 2: new runs carry it, replays from other versions are rejected, press picks replay-verify', () => {
-  const s = newRun('press-seed');
+  const s = newRun('classic-press-seed');
   assert.equal(s.rulesVersion, RULES_VERSION); // the current version, whatever it is (rules-v3 branch: 3)
   // play a run that places a press whenever one is offered
   for (let r = 1; r <= RULES.rounds; r++) {
@@ -246,7 +245,7 @@ test('rules version 2: new runs carry it, replays from other versions are reject
 // ---- review findings (2026-10-26): boundaries between live play, saves and replays
 
 test('all_replay_entry_points_require_explicit_version: missing, null or foreign rules versions are rejected everywhere', () => {
-  const s = newRun('ver-seed');
+  const s = newRun('classic-ver-seed');
   for (let r = 1; r <= RULES.rounds; r++) {
     apply(s, { t: 'pick', i: 0 });
     apply(s, { t: 'run' });
@@ -264,7 +263,7 @@ test('all_replay_entry_points_require_explicit_version: missing, null or foreign
   assert.throws(() => validateReplayFile({ ...file, seed: 'x'.repeat(65) }), /seed/);
   assert.throws(() => validateReplayFile({ ...file, claimedScore: 'big' }), /claimed score/);
   // replay() itself no longer defaults the version
-  assert.throws(() => replay('ver-seed', s.actions, undefined as unknown as number), /rules version missing/);
+  assert.throws(() => replay('classic-ver-seed', s.actions, undefined as unknown as number), /rules version missing/);
 });
 
 test('every_live_save_remains_resumable: seed bounds apply at creation and the action budget always leaves room to finish', () => {
@@ -275,7 +274,7 @@ test('every_live_save_remains_resumable: seed bounds apply at creation and the a
   assert.equal(sanitizeSeed('   '), 'junkyard');
   assert.equal(newRun('x'.repeat(64)).seed.length, 64, 'the maximum length is playable');
   // fill the history with legal edits (rotating the dock changes nothing but counts as an action)
-  const s = newRun('budget-seed');
+  const s = newRun('classic-budget-seed');
   apply(s, { t: 'pick', i: 0 });
   const dock = s.layout.machines.find((m) => m.kind === 'dock')!;
   let rejected: Error | null = null;
@@ -348,15 +347,15 @@ test('tuner (rules v3, PLAN-v2 0.5.3): adjacent processors hold one tick less on
 
 test('reroll (rules v3, PLAN-v2 0.5.4): once per round in the draft for RULES.rerollCost from the score, refused below the cost, in other phases and in the tutorial; later rounds never change; replays verify; accounting holds', () => {
   // boundary on the pure predicate
-  const base = newRun('reroll-seed');
+  const base = newRun('classic-reroll-seed');
   assert.match(canReroll({ ...base, score: RULES.rerollCost - 1 }) ?? '', /cannot afford/);
   assert.equal(canReroll({ ...base, score: RULES.rerollCost }), null, 'exactly the cost is enough');
   assert.equal(canReroll({ ...base, score: RULES.rerollCost + 1 }), null);
   assert.match(canReroll({ ...base, score: 999, phase: 'build' }) ?? '', /not drafting/);
   assert.match(canReroll({ ...base, score: 999, rerolledRound: 1 }) ?? '', /already used/);
-  assert.match(canReroll({ ...newRun(TUTORIAL_SEED), score: 999 }) ?? '', /tutorial/);
+  assert.match(canReroll({ ...newRun(TUTORIAL_SEED), phase: 'draft', score: 999 }) ?? '', /tutorial/);
   // through apply: a starter round earns $38, which cannot buy a $40 reroll in round 2
-  const poor = newRun('reroll-poor');
+  const poor = newRun('classic-reroll-poor');
   apply(poor, { t: 'pick', i: 0 });
   apply(poor, { t: 'run' });
   apply(poor, { t: 'next' });
@@ -364,7 +363,7 @@ test('reroll (rules v3, PLAN-v2 0.5.4): once per round in the draft for RULES.re
   assert.throws(() => apply(poor, { t: 'reroll' }), RunError);
   // a crusher round affords one: offers change, score drops by the cost, a second reroll is refused, rounds 3–6 are identical to a run that never rerolled
   const play = (reroll: boolean) => {
-    const s = newRun('reroll-rich');
+    const s = newRun('classic-reroll-rich');
     for (let r = 1; r <= RULES.rounds; r++) {
       if (r === 2 && reroll) {
         const before = s.offers.slice();
@@ -392,12 +391,13 @@ test('reroll (rules v3, PLAN-v2 0.5.4): once per round in the draft for RULES.re
   const a = play(true),
     b = play(false);
   assert.ok(a.score >= RULES.rerollCost + 38, 'round 1 with a crusher affords the reroll');
-  for (const r of [3, 4, 5, 6]) assert.deepEqual(draftOffers('reroll-rich', r), draftOffers('reroll-rich', r), 'offers are a pure function of (seed, round)');
+  for (const r of [3, 4, 5, 6])
+    assert.deepEqual(draftOffers('classic-reroll-rich', r), draftOffers('classic-reroll-rich', r), 'offers are a pure function of (seed, round)');
   assert.deepEqual(
     a.rounds.map((x) => x.round),
     b.rounds.map((x) => x.round),
   );
-  assert.notDeepEqual(rerollOffers('reroll-rich', 2), draftOffers('reroll-rich', 2), 'the reroll stream differs from the draft stream');
+  assert.notDeepEqual(rerollOffers('classic-reroll-rich', 2), draftOffers('classic-reroll-rich', 2), 'the reroll stream differs from the draft stream');
   // accounting: score = production + sales − rerolls
   assert.equal(a.score, a.rounds.reduce((t, x) => t + x.earned, 0) + a.sold - a.rerolls * RULES.rerollCost);
   // the replay carries the reroll and verifies; a permuted-key copy is the same canonical action
@@ -423,42 +423,15 @@ test('round-tiered offers (PLAN-v2 0.5.3): the tuner is never offered before rou
   assert.deepEqual(draftOffers('tier-7', 4), draftOffers('tier-7', 4), 'deterministic per (seed, round)');
 });
 
-test("tutorial seed (PLAN-v1 0.3.4): rounds 1-3 offer one machine each, three spare conveyors start in the bin, rounds 4-6 draft normally; every other seed's offers are byte-identical to before", () => {
+test('classic yards keep their old drafts: a crusher in round 1, one seed one stream, no later guarantee', () => {
   assert.equal(isTutorialSeed(TUTORIAL_SEED), true);
   assert.equal(isTutorialSeed('tutorial-x'), true);
   assert.equal(isTutorialSeed('junkyard'), false);
-  assert.deepEqual(
-    [1, 2, 3].map((r) => draftOffers(TUTORIAL_SEED, r)),
-    [['crusher'], ['furnace'], ['splitter']],
-  );
-  for (const r of [4, 5, 6]) assert.equal(draftOffers(TUTORIAL_SEED, r).length, 3, 'rounds 4-6 are an ordinary draft');
-  const s = newRun(TUTORIAL_SEED);
-  assert.equal(s.bin.length, TUTORIAL_SPARE_CONVEYORS);
-  assert.ok(s.bin.every((m) => m.kind === 'conveyor'));
-  assert.equal(newRun('junkyard').bin.length, 0, 'ordinary seeds start with an empty bin');
-  // snapshot taken before the tutorial table existed: the offer streams of ordinary seeds are unchanged
+  assert.ok(draftOffers('classic-junkyard', 1).includes('crusher'));
+  assert.deepEqual(draftOffers('classic-junkyard', 2), draftOffers('classic-junkyard', 2));
+  for (const r of [2, 3, 4, 5, 6]) assert.equal(draftOffers('classic-junkyard', r).length, 3);
+  // the offer stream of a classic seed is pinned: a change here is a rules change
   const h = createHash('sha256');
-  for (let i = 0; i < 50; i++) for (let r = 1; r <= 6; r++) h.update(JSON.stringify(draftOffers('snap-' + i, r)));
-  for (const seed of ['junkyard', 'e2e-seed', 'auto-12', 'daily-2026-10-29']) for (let r = 1; r <= 6; r++) h.update(JSON.stringify(draftOffers(seed, r)));
-  assert.equal(
-    h.digest('hex'),
-    'f02d6c589664e9af03d5f484f8db16d5d2ce9458c8da941acbea0228712a9959',
-    'OFFERS_SNAPSHOT: draftOffers for non-tutorial seeds must not change without a RULES_VERSION bump (rules v3: the tuner joins the pool from round 3, so the v2 snapshot b016e31a… was retired with the bump)',
-  );
-  // a tutorial run replays and verifies like any other
-  apply(s, { t: 'pick', i: 0 });
-  assert.throws(() => apply(s, { t: 'pick', i: 1 }), RunError, 'only one offer exists');
-  const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!;
-  apply(s, { t: 'unplace', id: conv.id });
-  apply(s, { t: 'place', id: s.bin.find((m) => m.kind === 'crusher')!.id, x: 2, y: 2, dir: 0 });
-  apply(s, { t: 'run' });
-  apply(s, { t: 'next' });
-  assert.ok(s.rounds[0].result.shipped.shards > 0, 'round 1 ships shards');
-  for (let r = 2; r <= RULES.rounds; r++) {
-    apply(s, { t: 'pick', i: 0 });
-    apply(s, { t: 'run' });
-    apply(s, { t: 'next' });
-  }
-  const v = verifyReplay(exportReplay(s));
-  assert.deepEqual({ ok: v.ok, score: v.score }, { ok: true, score: s.score });
+  for (let i = 0; i < 50; i++) for (let r = 1; r <= 6; r++) h.update(JSON.stringify(draftOffers('classic-snap-' + i, r)));
+  assert.equal(h.digest('hex'), '263ea2a19bb73d7dfd0b602a89fac723689b0601ba7ccb389d30cac26122f0b9');
 });

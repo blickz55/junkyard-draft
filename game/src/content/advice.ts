@@ -12,6 +12,7 @@ import { money } from './format';
 /** Player-facing text for a RunError message thrown by `apply` (never empty). */
 export function explainRunError(message: string): string {
   const m = message.toLowerCase();
+  if (m.includes('rubble')) return t('advice.rubble');
   if (m.includes('occupied')) return t('advice.occupied');
   if (m.includes('out of bounds')) return t('advice.outOfBounds');
   if (m.includes('not building')) return t('advice.notBuilding');

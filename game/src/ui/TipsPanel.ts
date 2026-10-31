@@ -11,6 +11,7 @@ import { createSim, step, cellIndex, type SimState } from '../sim/sim';
 import type { Material } from '../sim/types';
 import { itemTexture, machineTexture } from '../render/textures';
 import { artFrame } from '../render/atlas';
+import { beltShape } from '../render/placement';
 import { P } from '../render/palette';
 import { loadReadTips, markTipRead } from '../render/storage';
 import { prefs } from '../render/prefs';
@@ -192,7 +193,9 @@ export class TipsPanel {
       ctx.save();
       ctx.translate(c.x, c.y);
       ctx.rotate((m.dir * Math.PI) / 2);
-      this.blit(ctx, machineTexture(m.kind), -DEMO_CELL / 2, -DEMO_CELL / 2, DEMO_CELL, DEMO_CELL);
+      const shape = m.kind === 'conveyor' ? beltShape(L, m) : 'straight';
+      if (shape === 'left') ctx.scale(1, -1); // a left turn is the right turn mirrored
+      this.blit(ctx, shape === 'straight' ? machineTexture(m.kind) : 'm-conveyor-bend', -DEMO_CELL / 2, -DEMO_CELL / 2, DEMO_CELL, DEMO_CELL);
       ctx.restore();
     }
     for (const it of sim.items) {

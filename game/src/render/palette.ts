@@ -35,6 +35,19 @@ export const CSS = {
   blue: '#5aa9e6',
   gold: '#f5c542',
   panel: '#24201a',
+  // the chrome (docs/UX-STANDARD.md): primary button, secondary button, panel edges
+  primaryTop: '#ffc24d',
+  primaryBottom: '#e0932a',
+  primaryEdge: '#8f5c19',
+  primaryGlow: '#6a3f10',
+  steelTop: '#a2adb8',
+  steelBottom: '#828e9a',
+  darkTop: '#4d463c',
+  darkBottom: '#3a342c',
+  edge: '#4a4235',
+  edgeLight: '#5f574a',
 };
 export const FONT = 'Inter, "Segoe UI", system-ui, sans-serif';
-export const MONO = 'ui-monospace, Menlo, Consolas, monospace';
+export const DISPLAY = '"Barlow Condensed", Inter, "Segoe UI", system-ui, sans-serif';
+/** Data and small print: Inter again, so no layout depends on the platform's monospace (`.jd-mono` adds tabular figures). */
+export const MONO = 'Inter, ui-monospace, Menlo, Consolas, monospace';

@@ -174,7 +174,7 @@ export function generateTextures(scene: Phaser.Scene) {
     bolt(g, C - 12, C - 12);
   });
   // furnace: dark box with glowing mouth facing east, chimney
-  make('m-furnace', C, C, (g) => {
+  const furnace = (g: Phaser.GameObjects.Graphics) => {
     body(g, 0x4a3a30, 7, 6);
     g.fillStyle(0x1a1210, 1);
     g.fillRoundedRect(14, 16, C - 28, C - 32, 6);
@@ -190,7 +190,9 @@ export function generateTextures(scene: Phaser.Scene) {
     notch(g);
     bolt(g, 12, C - 12);
     bolt(g, C - 12, C - 12);
-  });
+  };
+  make('m-furnace', C, C, furnace);
+  make('m-furnace-1', C, C, furnace);
   // press: steel frame, ram pressing a plate, output east
   make('m-press', C, C, (g) => {
     body(g, 0x4f6b8a, 7, 6);
@@ -236,7 +238,7 @@ export function generateTextures(scene: Phaser.Scene) {
       bolt(g, C - 12, C - 12);
     });
   // splitter: Y plate, input west, outputs north+south
-  make('m-splitter', C, C, (g) => {
+  const splitter = (g: Phaser.GameObjects.Graphics) => {
     body(g, 0x5c6a52, 7, 8);
     g.fillStyle(0x2f3a2a, 1);
     g.fillRoundedRect(14, 14, C - 28, C - 28, 8);
@@ -258,7 +260,9 @@ export function generateTextures(scene: Phaser.Scene) {
     bolt(g, C - 12, 12);
     bolt(g, 12, C - 12);
     bolt(g, C - 12, C - 12);
-  });
+  };
+  make('m-splitter', C, C, splitter);
+  make('m-splitter-1', C, C, splitter);
   // tuner (rules v3): a squat steel box with a gauge dial, an amber needle and a coil along the bottom; no arrow because nothing passes through
   make('m-tuner', C, C, (g) => {
     body(g, 0x5a5466, 8, 8);
@@ -370,6 +374,34 @@ export function generateTextures(scene: Phaser.Scene) {
     g.fillCircle(9, 11, 3);
     g.fillStyle(0xd34a2a, 0.7);
     g.fillCircle(15, 14, 2);
+  });
+
+  // the yard without the sheet: rows of the floor tile, a flat shelf, a junk pile as three lumps
+  make('ground', C * 8, C * 6, (g) => {
+    g.fillStyle(P.floor, 1);
+    g.fillRect(0, 0, C * 8, C * 6);
+    g.lineStyle(1, P.floorLine, 1);
+    for (let x = 0; x < 8; x++) for (let y = 0; y < 6; y++) g.strokeRect(x * C + 0.5, y * C + 0.5, C - 1, C - 1);
+  });
+  make('shelf', C * 8, 100, (g) => {
+    g.fillStyle(P.panel, 1);
+    g.fillRect(0, 0, C * 8, 100);
+    g.lineStyle(1, P.panelLine, 1);
+    g.strokeRect(0.5, 0.5, C * 8 - 1, 99);
+  });
+  for (let i = 0; i < 4; i++)
+    make(`rubble-${i}`, C, C, (g) => {
+      g.fillStyle(P.rust, 1);
+      g.fillCircle(26 + i * 4, 30, 16);
+      g.fillStyle(P.scrap, 1);
+      g.fillCircle(46, 42 - i * 2, 17);
+      g.fillStyle(P.steelDark, 1);
+      g.fillCircle(30, 50, 12);
+    });
+
+  make('fx-glow', C, C, (g) => {
+    g.fillStyle(0xffffff, 0.5);
+    g.fillCircle(H, H, 22);
   });
 
   // ui

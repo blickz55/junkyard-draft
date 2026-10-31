@@ -40,6 +40,8 @@ export interface ShareInput {
   badges?: string[];
   /** new offers bought (rules v3); the detailed variant shows the deduction so the score reads as production + sales − offers */
   rerolls?: number;
+  /** stars earned on the job (rules v4), shown as ★★☆; absent on a yard with no job */
+  stars?: number;
 }
 
 export const PLAYER_MAX = 32;
@@ -79,7 +81,8 @@ export function outcomeText(score: number, c: { player: string; score: number })
 }
 
 export function shareText(s: ShareInput): string {
-  const lines: string[] = [t('share.header', { label: seedLabel(s.seed), score: money(s.score) }), roundGrid(s.rounds)];
+  const head = t('share.header', { label: seedLabel(s.seed), score: money(s.score) });
+  const lines: string[] = [s.stars == null ? head : `${head} · ${'★'.repeat(s.stars)}${'☆'.repeat(3 - s.stars)}`, roundGrid(s.rounds)];
   const standing = standingText(s);
   lines.push(s.fork ? t('share.try', { player: s.fork.player, round: s.fork.round + 1 }) : standing || t('share.local'));
   if (s.variant === 'detailed') {

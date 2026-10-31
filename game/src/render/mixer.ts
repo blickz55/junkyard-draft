@@ -1,10 +1,13 @@
 /**
- * Voice allocation for the synth (DOSSIER-v1 §3.1, 0.4.9). Pure and clock-driven so it is unit-tested in Node:
+ * Voice allocation for the sound (DOSSIER-v1 §3.1, 0.4.9). Pure and clock-driven so it is unit-tested in Node:
  *   - polyphony caps per group with value priority (a louder/higher-value request steals from the lowest active voice),
  *   - same-tick ships coalesce into one chord (distinct values, highest first, capped),
  *   - transforms keep at most CAPS.transform voices, dropping the lowest tier first,
  *   - reduced audio: at most one sound per tick (ship > transform > jam), never a chord.
  */
+import { hz } from '../sound/dsp';
+import { rootMidi } from '../sound/line';
+
 export type Group = 'ship' | 'transform' | 'ui' | 'jam' | 'misc';
 export const CAPS: Record<Group, number> = { ship: 8, transform: 4, ui: 4, jam: 1, misc: 2 };
 
@@ -75,15 +78,11 @@ export function planTick(t: TickSounds, reducedAudio: boolean): TickPlan {
   return { chord, transforms, jam, count: (chord.length ? 1 : 0) + transforms.length + (jam ? 1 : 0) };
 }
 
-// ---------- throughput hum (DOSSIER-v1 §3.2, 0.4.10) ----------
-export const HUM_BASE_HZ = 130.81; // C3
-export const HUM_RESOLVE_HZ = 261.63; // C4: the fanfare's root, an octave below its first note
-const PENTATONIC = [0, 2, 4, 7, 9, 12];
-/** Root for a round (1-based): up a major pentatonic scale from C3; round 6 lands on the octave. */
-export function humRoot(round: number): number {
-  const i = Math.max(0, Math.min(PENTATONIC.length - 1, Math.round(round) - 1));
-  return HUM_BASE_HZ * Math.pow(2, PENTATONIC[i] / 12);
-}
+// ---------- the ambient bed (DOSSIER-v1 §3.2, 0.4.10; docs/SOUND.md) ----------
+/** A jam pulls the pad this many cents sharp of the melody: tension, gently. */
+export const JAM_CENTS = 16;
+/** The pad's root for a round (1-based): up a major pentatonic scale from C3; round 6 lands on the octave. */
+export const humRoot = (round: number) => hz(rootMidi(round));
 /** Low-pass cutoff for items in flight: 0 → 300 Hz, 12+ → 2 kHz, exponential between so each item is audible. */
 export function humCutoff(inFlight: number): number {
   const x = Math.max(0, Math.min(1, inFlight / 12));
@@ -101,10 +100,9 @@ export interface HumTarget {
   detuned: boolean;
   rise: number;
 }
-/** What the drone should do this tick: a jam detunes it a quarter tone; the last ten ticks rise one octave. */
+/** What the bed should do this tick: a jam detunes the pad slightly; `rise` goes 0 to 1 over the last ten ticks, for a small swell, never a pitch climb. */
 export function humTarget(root: number, i: HumInput): HumTarget {
   const rise = Math.max(0, Math.min(1, (i.tick - (i.ticksPerRound - 10)) / 10));
   const detuned = i.jammed;
-  const freq = root * Math.pow(2, rise + (detuned ? 0.5 / 12 : 0));
-  return { freq, cutoff: humCutoff(i.inFlight), detuned, rise };
+  return { freq: root * 2 ** ((detuned ? JAM_CENTS : 0) / 1200), cutoff: humCutoff(i.inFlight), detuned, rise };
 }

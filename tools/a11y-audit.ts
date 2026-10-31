@@ -84,6 +84,9 @@ export const MATERIALS: Record<string, RGB> = {
   ingot: hexToRgb(P.ingot),
   slag: hexToRgb(P.slag),
 };
+/** The sprites as drawn: the mean colour of each item frame, measured by tools/make-art.mjs. Shapes differ too; this holds the drawing to the palette's rule. */
+const measured = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools', 'make-art', 'item-colours.json'), 'utf8')) as Record<string, string>;
+export const SPRITES: Record<string, RGB> = Object.fromEntries(Object.entries(measured).map(([k, v]) => [k, hexToRgb(v)]));
 export const SEMANTIC: Record<string, RGB> = { ok: hexToRgb(P.ok), bad: hexToRgb(P.bad), amberSelect: hexToRgb(P.amber), cursorFrame: hexToRgb(P.cursor) };
 
 export interface PairResult {
@@ -95,7 +98,7 @@ export interface PairResult {
   deltaL: number;
   ok: boolean;
 }
-export function auditCvd(groups: Record<string, Record<string, RGB>> = { materials: MATERIALS, semantic: SEMANTIC }): PairResult[] {
+export function auditCvd(groups: Record<string, Record<string, RGB>> = { materials: MATERIALS, sprites: SPRITES, semantic: SEMANTIC }): PairResult[] {
   const out: PairResult[] = [];
   for (const [group, colors] of Object.entries(groups)) {
     const names = Object.keys(colors);
@@ -130,7 +133,7 @@ if (isMain) {
       `  ${r.ok ? 'ok  ' : 'FAIL'} ${r.ratio.toFixed(2).padStart(5)}:1 (need ${r.required}) ${r.name}  ${r.fgHex} on ${r.bgHex} @${r.px}px${r.bold ? ' bold' : ''}`,
     );
   console.log('CVD (worst pair per group and simulation)');
-  for (const group of ['materials', 'semantic'])
+  for (const group of ['materials', 'sprites', 'semantic'])
     for (const kind of ['normal', 'protanopia', 'deuteranopia', 'tritanopia'] as CvdKind[]) {
       const rows = cvdResults.filter((r) => r.group === group && r.kind === kind).sort((x, y) => x.deltaE - y.deltaE);
       const w = rows[0];

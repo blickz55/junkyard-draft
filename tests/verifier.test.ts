@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { dropOnLine } from './e2e/line';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -43,9 +44,7 @@ function finishedRun(seed: string) {
   for (let r = 1; r <= RULES.rounds; r++) {
     apply(s, { t: 'pick', i: s.offers.indexOf('crusher') >= 0 ? s.offers.indexOf('crusher') : 0 });
     if (r === 1) {
-      const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!;
-      apply(s, { t: 'unplace', id: conv.id });
-      apply(s, { t: 'place', id: s.bin[0].id, x: 2, y: 2, dir: 0 });
+      dropOnLine(s);
     }
     apply(s, { t: 'run' });
     apply(s, { t: 'next' });
@@ -252,7 +251,7 @@ test('tie-breaker (PLAN-v2 0.5.5): equal scores rank by fewer round-6 machines, 
     [6, 5],
   ];
   const mk = (extra: number, twist = false) => {
-    const s = newRun('tie-seed');
+    const s = newRun('classic-tie-seed');
     for (let r = 1; r <= RULES.rounds; r++) {
       apply(s, { t: 'pick', i: 0 });
       if (r === RULES.rounds) for (let k = 0; k < extra; k++) apply(s, { t: 'place', id: s.bin[k].id, x: park[k][0], y: park[k][1], dir: 0 });
@@ -273,7 +272,7 @@ test('tie-breaker (PLAN-v2 0.5.5): equal scores rank by fewer round-6 machines, 
   const r5 = v.submit(JSON.stringify(exportReplay(five)), 'five');
   assert.equal(r5.ok, true);
   assert.equal(v.submit(JSON.stringify(exportReplay(fiveLater)), 'five-later').ok, true);
-  const board = v.board('tie-seed');
+  const board = v.board('classic-tie-seed');
   assert.deepEqual(
     board.map((e) => [e.player, e.finalMachines]),
     [
@@ -290,7 +289,7 @@ test('tie-breaker (PLAN-v2 0.5.5): equal scores rank by fewer round-6 machines, 
   assert.equal(rf.ok, true);
   assert.equal(rf.entry!.finalMachines, 6, 'derived from the replay, not the payload');
   // the histogram's rank for an entry equals its board position
-  const hg = v.histogram('tie-seed', r5.entry!.replayHash);
+  const hg = v.histogram('classic-tie-seed', r5.entry!.replayHash);
   assert.equal(hg.mine!.rank, board.findIndex((e) => e.replayHash === r5.entry!.replayHash) + 1);
   assert.deepEqual(hg.around.map((a) => a.player).slice(0, 2), ['five', 'five-later'], 'neighbours come from the same comparator');
   // legacy entries: strip finalMachines from the file; one keeps its stored replay (derived at startup), one loses it (ranks last among equals)
@@ -300,7 +299,7 @@ test('tie-breaker (PLAN-v2 0.5.5): equal scores rank by fewer round-6 machines, 
   delete raw.replays[lost.replayHash];
   fs.writeFileSync(file, JSON.stringify(raw));
   const again = new Verifier(file);
-  const b2 = again.board('tie-seed');
+  const b2 = again.board('classic-tie-seed');
   assert.deepEqual(
     b2.map((e) => e.player),
     ['five-later', 'six', 'forger', 'seven', 'five'],
@@ -512,7 +511,7 @@ test("retention: stored replays are kept only for each seed's top N entries; sco
   const v = new Verifier(file, { replaysPerSeed: 2 });
   // three legal runs with distinct scores for one seed: crusher placed (best), crusher sold (+$10), crusher left in the bin (starter only)
   const variant = (mode: 'place' | 'sell' | 'bin') => {
-    const s = newRun('prune-seed');
+    const s = newRun('classic-prune-seed');
     for (let r = 1; r <= RULES.rounds; r++) {
       apply(s, { t: 'pick', i: r === 1 ? s.offers.indexOf('crusher') : 0 });
       if (r === 1 && mode === 'place') {
@@ -531,7 +530,7 @@ test("retention: stored replays are kept only for each seed's top N entries; sco
   const low = v.submit(encodeReplay(exportReplay(variant('bin'))), 'c');
   assert.ok(best.ok && mid.ok && low.ok);
   assert.ok(best.score! > mid.score! && mid.score! > low.score!, `distinct scores ${best.score} > ${mid.score} > ${low.score}`);
-  const board = v.board('prune-seed');
+  const board = v.board('classic-prune-seed');
   assert.equal(board.length, 3, 'all three scores stay on the board');
   assert.deepEqual(
     board.map((e) => e.replayAvailable),
@@ -708,7 +707,7 @@ test('bounds: query limits are finite integers clamped to [1, max]; limiter card
 
 test('replay identity is SHA-256 of the canonical content; legacy 8-hex ids still resolve for playback', () => {
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-board-')), 'board.json');
-  const run = finishedRun('id-seed');
+  const run = finishedRun('classic-id-seed');
   const r = exportReplay(run);
   assert.match(replayId(r), /^[0-9a-f]{64}$/);
   assert.notEqual(replayId(r), replayId({ ...r, actions: r.actions.slice(0, -1) }));
@@ -1032,9 +1031,9 @@ test('identity: claim, rename within the cooldown refused, same name idempotent,
     assert.equal(r.ok, false, `refused: ${String(bad)}`);
   }
   // a legacy anonymous entry and a claimed one on the same seed
-  const run = finishedRun('id-seed');
+  const run = finishedRun('classic-id-seed');
   assert.equal(v.submit(JSON.stringify(exportReplay(run)), 'legacy name').ok, true);
-  const s = newRun('id-seed');
+  const s = newRun('classic-id-seed');
   for (let r = 1; r <= RULES.rounds; r++) {
     apply(s, { t: 'pick', i: 0 });
     apply(s, { t: 'run' });
@@ -1045,13 +1044,13 @@ test('identity: claim, rename within the cooldown refused, same name idempotent,
   assert.equal(mine.player, `Jon#${tagFor(id)}`);
   assert.equal(mine.entry!.playerId, id);
   assert.equal(mine.recorded, true);
-  const legacy = v.board('id-seed').find((e) => e.player === 'legacy name')!;
+  const legacy = v.board('classic-id-seed').find((e) => e.player === 'legacy name')!;
   assert.equal(legacy.playerId, undefined, 'legacy entries carry no player id and are never claimable');
   const late = v.claim(id, 'Jonathan', new Date(t0.getTime() + RENAME_COOLDOWN_MS + 1));
   assert.ok(late.ok);
   assert.deepEqual(
     new Verifier(file)
-      .board('id-seed')
+      .board('classic-id-seed')
       .map((e) => e.player)
       .sort(),
     [`Jonathan#${tagFor(id)}`, 'legacy name'],
@@ -1063,7 +1062,7 @@ test('identity: claim, rename within the cooldown refused, same name idempotent,
   assert.equal(v.replay(mine.entry!.replayHash), null);
   assert.deepEqual(
     v
-      .board('id-seed')
+      .board('classic-id-seed')
       .map((e) => [e.player, e.playerId])
       .sort(),
     [
@@ -1085,7 +1084,7 @@ test('identity: keep-best per (seed, player): a better run replaces the entry an
     [6, 5],
   ];
   const mk = (extra: number, twist = false) => {
-    const s = newRun('kb-seed');
+    const s = newRun('classic-kb-seed');
     for (let r = 1; r <= RULES.rounds; r++) {
       apply(s, { t: 'pick', i: 0 });
       if (r === RULES.rounds) for (let k = 0; k < extra; k++) apply(s, { t: 'place', id: s.bin[k].id, x: park[k][0], y: park[k][1], dir: 0 });
@@ -1103,24 +1102,24 @@ test('identity: keep-best per (seed, player): a better run replaces the entry an
   assert.equal(r1.recorded, true);
   const r2 = v.submit(JSON.stringify(exportReplay(five)), 'x', id); // same score, fewer machines: better under the tie rule
   assert.equal(r2.recorded, true);
-  assert.equal(v.board('kb-seed').length, 1);
-  assert.equal(v.board('kb-seed')[0].replayHash, r2.entry!.replayHash);
+  assert.equal(v.board('classic-kb-seed').length, 1);
+  assert.equal(v.board('classic-kb-seed')[0].replayHash, r2.entry!.replayHash);
   assert.equal(v.replay(r1.entry!.replayHash), null, 'the replaced replay is gone');
   assert.ok(v.replay(r2.entry!.replayHash));
   const r3 = v.submit(JSON.stringify(exportReplay(six)), 'x', id); // worse: verified, not recorded, the kept entry is returned
   assert.equal(r3.ok, true);
   assert.equal(r3.recorded, false);
   assert.equal(r3.entry!.replayHash, r2.entry!.replayHash);
-  assert.equal(v.board('kb-seed').length, 1);
+  assert.equal(v.board('classic-kb-seed').length, 1);
   const r4 = v.submit(JSON.stringify(exportReplay(fiveAgain)), 'x', id); // equal: the earlier receipt stays
   assert.equal(r4.ok, true);
   assert.equal(r4.recorded, false);
-  assert.equal(v.board('kb-seed')[0].replayHash, r2.entry!.replayHash);
+  assert.equal(v.board('classic-kb-seed')[0].replayHash, r2.entry!.replayHash);
   assert.equal(v.submit(JSON.stringify(exportReplay(fiveAgain)), 'x', id).ok, true, 'not recorded, so not a duplicate either');
   const r5 = v.submit(JSON.stringify(exportReplay(six)), 'x', id2);
   assert.equal(r5.recorded, true);
   assert.deepEqual(
-    v.board('kb-seed').map((e) => e.player.split('#')[0]),
+    v.board('classic-kb-seed').map((e) => e.player.split('#')[0]),
     ['Ann', 'Bob'],
     'two players, two entries',
   );
@@ -1221,11 +1220,7 @@ test('minted daily: seeds differ per date and per secret; the commitment publish
     for (let r = 1; r <= RULES.rounds; r++) {
       const i = s.offers.indexOf('crusher');
       apply(s, { t: 'pick', i: i >= 0 ? i : 0 });
-      if (r === 1) {
-        const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!;
-        apply(s, { t: 'unplace', id: conv.id });
-        apply(s, { t: 'place', id: s.bin[0].id, x: 2, y: 2, dir: 0 });
-      }
+      if (r === 1) dropOnLine(s);
       if (r === 2) apply(s, { t: 'rotate', id: s.bin[0].id });
       apply(s, { t: 'run' });
       apply(s, { t: 'next' });
@@ -1278,9 +1273,7 @@ const twistRun = (seed: string) => {
     const i = s.offers.indexOf('crusher');
     apply(s, { t: 'pick', i: i >= 0 ? i : 0 });
     if (r === 1) {
-      const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!;
-      apply(s, { t: 'unplace', id: conv.id });
-      apply(s, { t: 'place', id: s.bin[0].id, x: 2, y: 2, dir: 0 });
+      dropOnLine(s);
     }
     if (r === 2) apply(s, { t: 'rotate', id: s.bin[0].id });
     apply(s, { t: 'run' });
@@ -1394,11 +1387,12 @@ test('medals: absent while a day is open, set once at freeze from the final boar
   ];
   const mk = (extra: number) => {
     const s = newRun(rec.seed);
+    const free = park.filter(([x, y]) => !s.layout.rubble?.includes(y * s.layout.width + x) && !s.layout.machines.some((m) => m.x === x && m.y === y));
     for (let r = 1; r <= RULES.rounds; r++) {
       apply(s, { t: 'pick', i: 0 });
       if (r === RULES.rounds)
         for (let k = 0; k < extra; k++) {
-          const cell = park[k];
+          const cell = free[k];
           apply(s, { t: 'place', id: s.bin[k].id, x: cell[0], y: cell[1], dir: 0 });
         }
       apply(s, { t: 'run' });
@@ -1779,7 +1773,7 @@ test("groups: create/join/leave/rename/disband with caps and filtered names; a g
     [0, 5],
   ];
   const mk = (extra: number) => {
-    const s = newRun('group-seed');
+    const s = newRun('classic-group-seed');
     for (let r = 1; r <= RULES.rounds; r++) {
       apply(s, { t: 'pick', i: 0 });
       if (r === RULES.rounds) for (let k = 0; k < extra; k++) apply(s, { t: 'place', id: s.bin[k].id, x: park[k][0], y: park[k][1], dir: 0 });
@@ -1791,23 +1785,23 @@ test("groups: create/join/leave/rename/disband with caps and filtered names; a g
   assert.ok(v.submit(JSON.stringify(exportReplay(mk(0))), 'x', ids[2], t0).ok, 'non-member, best run'); // 5 machines: ranks first globally
   assert.ok(v.submit(JSON.stringify(exportReplay(mk(1))), 'x', ids[0], t0).ok);
   assert.ok(v.submit(JSON.stringify(exportReplay(mk(2))), 'x', ids[1], t0).ok);
-  assert.ok(v.submit(JSON.stringify(exportReplay(finishedRun('group-seed'))), 'anonymous', null, t0).ok, 'an anonymous entry is never in any group');
+  assert.ok(v.submit(JSON.stringify(exportReplay(finishedRun('classic-group-seed'))), 'anonymous', null, t0).ok, 'an anonymous entry is never in any group');
   const members = v.groupMembers(code, ids[0])!;
   assert.equal(members.size, 2);
   assert.equal(v.groupMembers(code, ids[2]), null, 'a non-member gets nothing');
   assert.equal(v.groupMembers('zzzzzzzz', ids[0]), null);
-  const global = v.board('group-seed', 100),
-    scoped = v.board('group-seed', 100, members);
+  const global = v.board('classic-group-seed', 100),
+    scoped = v.board('classic-group-seed', 100, members);
   assert.equal(global.length, 4);
   assert.deepEqual(
     scoped.map((e) => e.playerId),
     [ids[0], ids[1]],
     'members only, in rank order',
   );
-  const hg = v.histogram('group-seed', scoped[1].replayHash, members);
+  const hg = v.histogram('classic-group-seed', scoped[1].replayHash, members);
   assert.equal(hg.n, 2);
   assert.equal(hg.mine!.rank, 2, 'rank recomputed over the group (globally this run is #3)');
-  assert.equal(v.histogram('group-seed', scoped[1].replayHash).mine!.rank, 4, 'globally the anonymous crusher run and the non-member rank above it');
+  assert.equal(v.histogram('classic-group-seed', scoped[1].replayHash).mine!.rank, 4, 'globally the anonymous crusher run and the non-member rank above it');
   // rename (creator only, cooldown), leave hands over, disband
   assert.equal(v.renameGroup(ids[1], code, 'Nope', t0).ok, false);
   const ren = v.renameGroup(ids[0], code, 'Lunch Crew 2', new Date(t0.getTime() + 60_000));
@@ -1853,7 +1847,7 @@ test("groups: create/join/leave/rename/disband with caps and filtered names; a g
     const mine = await call('GET', '/groups', tok('c'));
     assert.equal(mine.status, 200);
     assert.ok((mine.json.groups as { code: string }[]).some((g) => g.code === hc));
-    const scopedBoard = await call('GET', `/board?seed=group-seed&group=${hc}`, tok('c'));
+    const scopedBoard = await call('GET', `/board?seed=classic-group-seed&group=${hc}`, tok('c'));
     assert.equal(scopedBoard.status, 200);
     assert.deepEqual(
       (scopedBoard.json.entries as BoardEntry[]).map((e) => e.playerId),
@@ -1928,11 +1922,12 @@ test('weekly: minted from the same secret under its own domain, opens exactly Fr
   ];
   const mk = (extra: number) => {
     const s = newRun(rec.seed);
+    const free = park.filter(([x, y]) => !s.layout.rubble?.includes(y * s.layout.width + x) && !s.layout.machines.some((m) => m.x === x && m.y === y));
     for (let r = 1; r <= RULES.rounds; r++) {
       apply(s, { t: 'pick', i: 0 });
       if (r === RULES.rounds)
         for (let k = 0; k < extra; k++) {
-          const cell = park[k];
+          const cell = free[k];
           apply(s, { t: 'place', id: s.bin[k].id, x: cell[0], y: cell[1], dir: 0 });
         }
       apply(s, { t: 'run' });

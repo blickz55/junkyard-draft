@@ -52,5 +52,5 @@ test('fork (PLAN-v4 0.7.3): for every golden replay and every round, the fork eq
     assert.throws(() => forkFrom(g.seed, g.actions.slice(0, 3), g.rulesVersion, 2, origin), /only \d+ finished round/);
     assert.throws(() => forkFrom(g.seed, g.actions, g.rulesVersion + 1, 1, origin), /rules version/);
   }
-  assert.equal(forkLabel({ ...origin, round: 3 }), 'a try from Jon#7Q2M after round 3 · practice');
+  assert.equal(forkLabel({ ...origin, round: 3 }), 'a try from Jon#7Q2M after shift 3 · practice');
 });

@@ -3,7 +3,7 @@ import type { Dir, MachineKind, Material } from './types';
 /** Machines that hold an item for a fixed number of ticks (the only keys RULES.process may have). */
 export type ProcessorKind = 'crusher' | 'furnace' | 'press';
 
-/** Tuning constants for rules version 3 (rules-v3 branch). Changing any value requires bumping RULES_VERSION. */
+/** Tuning constants for rules version 4. Changing any value requires bumping RULES_VERSION. */
 export const RULES = {
   gridWidth: 8,
   gridHeight: 6,
@@ -39,7 +39,24 @@ export const RULES = {
    * weight 0 and no card until a written go/no-go in docs/DESIGN.md admits them (0.5.3 flips the weight and the tier table).
    */
   experimental: { sieve: false }, // 0.5.2 fixture: no convincing benefit on the same inventory (docs/DESIGN.md); kept in the sim for the record, never offered
-  /** Starter layout machine kinds. */
+  /** How a seed builds a yard (rules v4, game/src/sim/yard.ts). `shapes`: relative odds of the belt's shape; `roomRows`/`roomColumns`: free rows or columns kept on one side of it; `shelf`: the parts every game starts with, enough to turn two corners. */
+  yard: {
+    shapes: { straight: 2, bend: 4, zigzag: 3 } as Record<'straight' | 'bend' | 'zigzag', number>,
+    roomRows: 2,
+    roomColumns: 3,
+    straightPieces: 3,
+    rubbleMin: 2,
+    rubbleMax: 4,
+    shelf: ['conveyor', 'conveyor'] as MachineKind[],
+  },
+  /** The job (rules v4): what a yard is paid to deliver. Its product sells for `price` here, so doing the job and topping the board are the same thing; `stars` are the three marks in units shipped over the game (calibrated by tools/job-study.ts: the plain recipe from shift 2 earns two stars, the third needs a widened line). */
+  job: {
+    price: 24,
+    weights: { ingot: 2, plate: 1 } as Record<'ingot' | 'plate', number>,
+    stars: { ingot: [50, 100, 160] as readonly [number, number, number], plate: [40, 80, 135] as readonly [number, number, number] },
+    lessonStars: [5, 15, 30] as readonly [number, number, number],
+  },
+  /** Starter layout machine kinds (the classic yard, rules v1 to v3). */
   starter: [
     { kind: 'hopper', x: 1, y: 2, dir: 0 },
     { kind: 'conveyor', x: 2, y: 2, dir: 0 },

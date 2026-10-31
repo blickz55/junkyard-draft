@@ -9,7 +9,7 @@
  *   scriptMsPerFrame (CDP TaskDuration / ScriptDuration ÷ frames), drawsPerFrame, bindsPerFrame,
  *   maxObjects (display list peak), textObjectsCreated (scene.add.text calls during the run), heapMB.
  *
- *   node --import tsx tools/perf.ts [--url http://127.0.0.1:5173] [--seed auto-12] [--speed 4] [--throttle 4]
+ *   node --import tsx tools/perf.ts [--url http://127.0.0.1:5173] [--seed classic-auto-12] [--speed 4] [--throttle 4]
  *                                    [--device A|B|C|D] [--renderer webgl|canvas|both] [--skip-electron] [--json out.json]
  *
  * Default (no --device): Chromium at 1×, Chromium with CPU throttling (--throttle), and the packaged Electron
@@ -35,7 +35,7 @@ const opt = (k: string, d: string) => {
   return i >= 0 ? args[i + 1] : d;
 };
 const URL = opt('url', 'http://127.0.0.1:5173');
-const SEED = opt('seed', 'auto-12');
+const SEED = opt('seed', 'classic-auto-12');
 const SPEED = Number(opt('speed', '4'));
 const THROTTLE = Number(opt('throttle', '4'));
 const JSON_OUT = opt('json', '');

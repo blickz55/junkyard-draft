@@ -12,6 +12,8 @@ export const MIME = {
   '.webmanifest': 'application/manifest+json',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.woff2': 'font/woff2',
   '.wav': 'audio/wav',
   '.txt': 'text/plain; charset=utf-8',
   '.css': 'text/css',

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "rulesVersion": 3,
+  "rulesVersion": 4,
   "protocol": 2,
   "tieBreak": "Equal scores: fewer machines in round 6 first, then the earlier verified submission.",
   "rules": {
@@ -50,6 +50,46 @@
     "experimental": {
       "sieve": false
     },
+    "yard": {
+      "shapes": {
+        "straight": 2,
+        "bend": 4,
+        "zigzag": 3
+      },
+      "roomRows": 2,
+      "roomColumns": 3,
+      "straightPieces": 3,
+      "rubbleMin": 2,
+      "rubbleMax": 4,
+      "shelf": [
+        "conveyor",
+        "conveyor"
+      ]
+    },
+    "job": {
+      "price": 24,
+      "weights": {
+        "ingot": 2,
+        "plate": 1
+      },
+      "stars": {
+        "ingot": [
+          50,
+          100,
+          160
+        ],
+        "plate": [
+          40,
+          80,
+          135
+        ]
+      },
+      "lessonStars": [
+        5,
+        15,
+        30
+      ]
+    },
     "starter": [
       {
         "kind": "hopper",
@@ -87,7 +127,7 @@
     {
       "title": "Rules",
       "lines": [
-        "Rules version 3. Any change to a rule or tuning value bumps the version; replays and saves from an older version no longer verify or resume, and old verified entries stay in their own archive.",
+        "Rules version 4. Any change to a rule or tuning value bumps the version; replays and saves from an older version no longer verify or resume, and old verified entries stay in their own archive.",
         "6 rounds on an 8×6 grid, 80 ticks per round. Score = total money shipped.",
         "Reroll: once per round in the draft for $40 from the running score; the new offers come from their own stream, so a reroll never changes a later round.",
         "Tuner: adjacent crusher, furnace and press work 1 tick faster; offered from round 3.",

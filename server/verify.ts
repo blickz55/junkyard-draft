@@ -28,7 +28,7 @@
  * - GET  /health → { ok, version, rulesVersion, entries, uptimeSec }
  * - GET  /histogram?seed=<seed>&hash=<replayHash> → the verified score distribution for a seed (PLAN-v1 0.4.1): bins, N, and
  *                 the caller's rank / percentile / neighbours when its replay hash is on the board. Never a fabricated population.
- * - POST /events  { installId, consent: true, events[] } → opt-in funnel events (PLAN-v1 0.3.7), appended to events.jsonl with a
+ * - POST /events  { installId, consent: true, events[] } → anonymous play data (PLAN-v1 0.3.7), appended to events.jsonl with a
  *                 daily-salted IP hash; only the fixed vocabulary in game/src/telemetry/events.ts is accepted; 30-day retention.
  * - GET  /funnel  → unique installs per funnel step and event counts (what tools/funnel.ts prints).
  * - Bot par (PLAN-v1 0.4.5): the first time a seed is asked about, the shipped autoplayer runs in a worker thread (wall-clock
@@ -80,7 +80,7 @@ import { Worker, isMainThread, parentPort, workerData } from 'node:worker_thread
 import { playSeed } from '../tools/autoplay-lib';
 import { Rng } from '../game/src/sim/rng';
 import { decodeReplay, canonicalReplayJson, type ReplayFile } from '../game/src/sim/replay';
-import { replay as replayRun, type RunState } from '../game/src/sim/run';
+import { replay as replayRun, runStars, type RunState } from '../game/src/sim/run';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { PushStore, PushError, validateHour, validateSubscription } from './push';
 import { isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
@@ -137,6 +137,7 @@ export interface BoardEntry {
   finalMachines?: number;
   /** claimed identity (PLAN-v3 0.6.0); absent on anonymous entries, which are never claimable */ playerId?: string;
   /** per-round earnings derived at verification (PLAN-v4 0.7.1); absent on entries verified before and without a stored replay */ rounds?: number[];
+  /** stars on the yard's job (rules v4), derived from the re-simulated replay; additive; absent on a yard with no job and on older entries */ stars?: number;
 }
 /** Printed under every board: the one comparator, in words. */
 export const TIE_BREAK = 'Equal scores: fewer machines in round 6 first, then the earlier verified submission.';
@@ -176,7 +177,7 @@ export type RefusalCode =
   | 'storage';
 /** The outcome of the one re-simulation of a submission. */
 export type Resim =
-  | { ok: true; score: number; finalMachines: number; rounds: number[] }
+  | { ok: true; score: number; finalMachines: number; rounds: number[]; stars?: number }
   | { ok: false; error: string; code: 'rules-version' | 'illegal-action' | 'unfinished' | 'did-not-reproduce' };
 /**
  * The one re-simulation (0.8.2): score, machines in the last round and per-round earnings from a single run of the replay.
@@ -196,7 +197,13 @@ export function resimulate(r: ReplayFile): Resim {
   if (s.score !== r.claimedScore)
     return { ok: false, error: `re-simulated score $${s.score} does not match claimed $${r.claimedScore}`, code: 'did-not-reproduce' };
   const last = s.rounds[s.rounds.length - 1];
-  return { ok: true, score: s.score, finalMachines: last ? last.layout.machines.length : 0, rounds: s.rounds.map((x) => x.earned) };
+  return {
+    ok: true,
+    score: s.score,
+    finalMachines: last ? last.layout.machines.length : 0,
+    stars: s.job ? runStars(s) : undefined,
+    rounds: s.rounds.map((x) => x.earned),
+  };
 }
 export interface SubmitResult {
   ok: boolean;
@@ -1234,6 +1241,7 @@ export class Verifier {
       actions: replay.actions.length,
       replayHash,
       finalMachines: sim.finalMachines,
+      ...(sim.stars != null ? { stars: sim.stars } : {}),
       rounds: sim.rounds,
       ...(playerId ? { playerId } : {}),
     };

@@ -14,6 +14,7 @@ export interface FlowLink {
   y: number;
   /** its output direction */ dir: Dir;
   /** the neighbour takes items from this side */ ok: boolean;
+  /** conveyor into conveyor: the belt's own chevrons say it, no mark needed */ belt?: boolean;
 }
 
 export function flowLinks(layout: Layout): FlowLink[] {
@@ -23,7 +24,8 @@ export function flowLinks(layout: Layout): FlowLink[] {
       const nx = m.x + DIR_DX[o],
         ny = m.y + DIR_DY[o];
       const target = layout.machines.find((q) => q.x === nx && q.y === ny);
-      out.push({ x: m.x, y: m.y, dir: o, ok: !!target && inputTravelDirs(target.kind, target.dir).includes(o) });
+      const ok = !!target && inputTravelDirs(target.kind, target.dir).includes(o);
+      out.push({ x: m.x, y: m.y, dir: o, ok, ...(ok && m.kind === 'conveyor' && target.kind === 'conveyor' ? { belt: true } : {}) });
     }
   return out;
 }
@@ -55,6 +57,7 @@ export function drawFlowLinks(g: FlowGraphics, links: readonly FlowLink[], cellX
     const { px, py } = cellXY(l.x, l.y);
     const ex = px + CELL / 2 + DIR_DX[l.dir] * (CELL / 2),
       ey = py + CELL / 2 + DIR_DY[l.dir] * (CELL / 2); // the shared edge's midpoint
+    if (l.belt) continue;
     if (l.ok) {
       g.fillStyle(P.amber, 0.5);
       chevron(ex, ey, l.dir, 14);

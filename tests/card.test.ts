@@ -13,7 +13,7 @@ test('share card text (PLAN-v4 0.7.4): verified standing only when verified; med
   assert.equal(local.footer, 'junkyard draft · this device · not yet checked');
   assert.doesNotMatch(local.footer, /rules v/, 'the rules version is never shown (glossary)');
   assert.equal(local.glyphs, '░▒▓▓▒▒');
-  assert.equal(local.seedLine, 'Daily 2026-10-25 · 6 rounds');
+  assert.equal(local.seedLine, 'Daily 2026-10-25 · 6 shifts');
   assert.equal(local.score, '$1234');
   const verified = cardText({
     ...base,
@@ -26,7 +26,7 @@ test('share card text (PLAN-v4 0.7.4): verified standing only when verified; med
     group: { name: 'Lunch Crew' },
     build: 'abc123',
   });
-  assert.equal(verified.standing, 'better than 92 % of 40 checked games as Jon#7Q2M');
+  assert.equal(verified.standing, 'better than 92 % of 40 games as Jon#7Q2M');
   assert.deepEqual(verified.extras, ['crew Lunch Crew: #3 of 40', 'medal: gold (final board)']);
   assert.equal(verified.footer, 'junkyard draft · checked · build abc123');
   const few = cardText({ ...base, verified: true, rank: { n: 1, of: 2 }, n: 2 });
@@ -37,6 +37,6 @@ test('share card text (PLAN-v4 0.7.4): verified standing only when verified; med
   assert.deepEqual(challenge.extras, ["beat Ann#AB12's $1200 by $34", 'http://x/?seed=1']);
   assert.deepEqual(cardText({ ...base, score: 1200, verified: false, challenge: { player: 'Ann#AB12', score: 1200 } }).extras, ["tied Ann#AB12's $1200"]);
   const fork = cardText({ ...base, verified: false, fork: { player: 'Jon#7Q2M', round: 2 } });
-  assert.equal(fork.standing, "a try from Jon#7Q2M's game, from round 3");
-  assert.equal(fork.footer, 'junkyard draft · a try · not a ranked score');
+  assert.equal(fork.standing, "a try from Jon#7Q2M's game, from shift 3");
+  assert.equal(fork.footer, 'junkyard draft · a try · not on the board');
 });

@@ -24,7 +24,7 @@ test('string table: every entry has text and a note; keys are grouped by screen;
   assert.equal(render('{n, plural, =0 {none} one {# game} other {# games}}', { n: 0 }), 'none');
   assert.equal(render('{a}{b}', { a: 'x' }), 'x{b}', 'an unknown placeholder stays visible rather than vanishing');
   assert.equal(t('share.days', { n: 3 }), '3 days played');
-  assert.equal(t('results.pctFew', { n: 1, rank: 1 }), '1 checked game so far · you are #1');
+  assert.equal(t('results.pctFew', { n: 1, rank: 1 }), '1 game so far · you are #1');
   assert.equal(
     t('privacy.deleted', { n: 1, r: 0, days: 14 }),
     'Deleted. 1 entry anonymised, 0 archived recordings dropped; this device has a new key and no name. Backups age out within 14 days.',
@@ -60,11 +60,11 @@ test('pseudo-locale: every letter accented, about 30 % longer, digits, dollar si
   try {
     const s = t('title.daily');
     assert.doesNotMatch(s, /[A-Za-z]/);
-    assert.ok(s.length > "Today's challenge".length);
+    assert.ok(s.length > "Play today's yard".length);
   } finally {
     setLocale('en');
   }
-  assert.equal(t('title.daily'), "Today's challenge");
+  assert.equal(t('title.daily'), "Play today's yard");
 });
 
 test('formats: money without grouping and with the typographic minus, integers, UTC dates', () => {

@@ -40,23 +40,28 @@ test(
         fs.rmSync(saved, { force: true });
       }
       // text entry without window.prompt (review F04): the title's player name, custom seed and replay import are DOM dialogs
-      await page.waitForFunction(() => !!document.querySelector('[data-testid=player]'), null, { timeout: 20000 }); // function predicates: the built page's CSP (0.8.0) blocks the eval that polls a string one
+      await page.waitForFunction(() => !!document.querySelector('[data-testid=settings]'), null, { timeout: 20000 }); // function predicates: the built page's CSP (0.8.0) blocks the eval that polls a string one
+      await page.click('[data-testid=settings]');
       await page.click('[data-testid=player]');
       await page.fill('[data-testid=dialog-input]', 'Desk Tester');
       await page.keyboard.press('Enter');
-      await page.waitForFunction(() => document.querySelector('[data-testid=player]')?.textContent === 'Player: Desk Tester', null, { timeout: 5000 });
+      await page.waitForFunction(() => document.querySelector('[data-testid=player]')?.textContent === 'Desk Tester', null, { timeout: 5000 });
+      await page.click('[data-testid=settings-close]');
+      await page.waitForFunction(() => document.querySelector('[data-testid=player-name]')?.textContent === 'Desk Tester', null, { timeout: 5000 });
+      await page.click('[data-testid=more]');
       await page.click('[data-testid=import]');
       await page.fill('[data-testid=dialog-input]', 'not json');
       await page.click('[data-testid=dialog-ok]');
-      await page.waitForFunction(() => /Could not read the recording/.test(document.querySelector('[data-testid=dialog]')?.textContent || ''), null, {
+      await page.waitForFunction(() => /Couldn't read that recording/.test(document.querySelector('[data-testid=dialog]')?.textContent || ''), null, {
         timeout: 5000,
       });
       await page.click('[data-testid=dialog-ok]');
+      await page.click('[data-testid=more]');
       await page.click('[data-testid=custom]');
       await page.fill('[data-testid=dialog-input]', 'desk-seed');
       await page.click('[data-testid=dialog-ok]');
       await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft' && window.__jd.state().seed === 'desk-seed', null, { timeout: 20000 });
-      await page.evaluate("location.search = '?dev=1&scene=game&seed=smoke-seed'");
+      await page.evaluate("location.search = '?dev=1&scene=game&seed=classic-smoke-seed'");
       await page.waitForFunction(() => !!window.__jd && window.__jd.phase() === 'draft', null, { timeout: 20000 });
       const api = (fn, ...a) => page.evaluate(`window.__jd[${JSON.stringify(fn)}](...${JSON.stringify(a)})`);
       const st0 = await api('state');

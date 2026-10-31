@@ -1,7 +1,7 @@
 // The custom Phaser entry (production roadmap 0.10.2). The npm package's `dist/phaser.esm.js` is one 1.2 MB file that no
 // bundler can trim, so the game is built from `phaser/src` with only the modules it uses: the WebGL and Canvas renderers,
-// the 2D camera, images, graphics, text, containers, groups and the two shapes, the keyboard, mouse and touch input, the
-// SVG, binary and image loaders, tweens, the clock, textures and the scale manager. No physics, tilemaps, sound (the game
+// the 2D camera, images, graphics, text, containers and groups, the keyboard, mouse and touch input, the
+// image loader, tweens, the clock, textures and the scale manager. No physics, tilemaps, sound (the game
 // has its own WebAudio bus in game/src/render/audio.ts), particles, sprites, animations beyond what the core needs, or
 // cameras in 3D. scripts/esbuild-config.mjs aliases `phaser` to this file for the dev server, the production build and the
 // hardening test alike, and rewrites Phaser's `typeof FLAG` build switches the way its own webpack build does; TypeScript
@@ -18,11 +18,7 @@ require('../node_modules/phaser/src/gameobjects/graphics/GraphicsCreator');
 require('../node_modules/phaser/src/gameobjects/text/TextFactory');
 require('../node_modules/phaser/src/gameobjects/container/ContainerFactory');
 require('../node_modules/phaser/src/gameobjects/group/GroupFactory');
-require('../node_modules/phaser/src/gameobjects/shape/rectangle/RectangleFactory');
-require('../node_modules/phaser/src/gameobjects/shape/arc/ArcFactory');
 // loader file types (this.load.*)
-require('../node_modules/phaser/src/loader/filetypes/SVGFile');
-require('../node_modules/phaser/src/loader/filetypes/BinaryFile');
 require('../node_modules/phaser/src/loader/filetypes/ImageFile');
 // the scene plugins every scene gets (plugins/DefaultPlugins.js names them; each registers in the PluginCache when required)
 require('../node_modules/phaser/src/time/Clock');
@@ -30,7 +26,6 @@ require('../node_modules/phaser/src/tweens/TweenManager');
 require('../node_modules/phaser/src/input/InputPlugin');
 require('../node_modules/phaser/src/loader/LoaderPlugin');
 require('../node_modules/phaser/src/data/DataManagerPlugin');
-require('../node_modules/phaser/src/gameobjects/lights/LightsPlugin');
 
 let Phaser = {
   Cameras: { Scene2D: require('../node_modules/phaser/src/cameras/2d') },
@@ -54,8 +49,6 @@ let Phaser = {
     Text: require('../node_modules/phaser/src/gameobjects/text/Text'),
     TextStyle: require('../node_modules/phaser/src/gameobjects/text/TextStyle'),
     Container: require('../node_modules/phaser/src/gameobjects/container/Container'),
-    Rectangle: require('../node_modules/phaser/src/gameobjects/shape/rectangle/Rectangle'),
-    Arc: require('../node_modules/phaser/src/gameobjects/shape/arc/Arc'),
   },
   Input: {
     Events: require('../node_modules/phaser/src/input/events'),

@@ -25,11 +25,11 @@ test('saturated furnace: hopper → crusher → furnace → dock; the furnace (3
   assert.ok(b.heldTicks >= Math.ceil(RULES.ticksPerRound * HELD_FRACTION) && b.heldTicks <= RULES.ticksPerRound, `held ${b.heldTicks} ticks`);
   assert.ok(res.shipped.ingot > 0, 'the line works, it is just slow');
   assert.deepEqual(b.fixes, ['tuner', 'splitter']);
-  assert.match(line, /^The furnace at 5,3 held the line for \d+ of 80 seconds\. A tuner beside it, or a second furnace behind a splitter, would clear it\.$/);
+  assert.match(line, /^The furnace held you back for \d+ of 80 seconds\. A Tuner next to it, or a second furnace behind a Splitter, would clear it\.$/);
   // in round 2 the tuner is not in the pool yet (offered from round 3): the sentence names only the splitter fix
   const early = analyseRound(L, res, 2);
   assert.deepEqual(early.fixes, ['splitter']);
-  assert.match(bottleneckLine(early), /seconds\. A second furnace behind a splitter would clear it\.$/);
+  assert.match(bottleneckLine(early), /seconds\. A second furnace behind a Splitter would clear it\.$/);
   assert.deepEqual(analyseRound(L, runLayout(L), 4), b, 'deterministic');
 });
 
@@ -40,10 +40,7 @@ test('blocked hopper: a hopper pushing into the side of a crusher is blocked on 
   assert.equal(b.count, RULES.ticksPerRound / RULES.hopperPeriod);
   assert.equal(b.heldTicks, b.count);
   assert.deepEqual(b.fixes, []);
-  assert.equal(
-    line,
-    'The hopper at 2,3 was blocked on 40 of its 40 tries: nothing ahead takes its scrap. Point it into a conveyor or the back of a machine (R rotates).',
-  );
+  assert.equal(line, 'The hopper was stuck on 40 of its 40 tries: nothing ahead takes its scrap. Turn it toward the belt.');
 });
 
 test('dead-end belt: a conveyor pointing off the grid holds every item; nothing ships, and the belt, not "disconnected", is named', () => {
@@ -51,7 +48,7 @@ test('dead-end belt: a conveyor pointing off the grid holds every item; nothing 
   assert.equal(b.kind, 'dead-end');
   assert.equal(b.machine?.kind, 'conveyor');
   assert.deepEqual([b.machine?.x, b.machine?.y], [7, 2]);
-  assert.match(line, /^The conveyor at 8,3 is a dead end: items waited there for \d+ of 80 seconds\. Point it on toward the dock \(R rotates\)\.$/);
+  assert.match(line, /^The conveyor is a dead end: things piled up for \d+ of 80 seconds\. Turn it toward the dock\.$/);
 });
 
 test('starved processor: one hopper split over two crusher lines leaves each crusher idle half the round; supply is named with the hopper fix', () => {
@@ -62,10 +59,7 @@ test('starved processor: one hopper split over two crusher lines leaves each cru
   assert.equal(b.machine?.kind, 'crusher');
   assert.ok(b.utilisation <= 0.5 && b.utilisation > 0.3, `utilisation ${b.utilisation}`);
   assert.deepEqual(b.fixes, ['hopper']);
-  assert.match(
-    line,
-    /^Supply held the line: the crusher at 2,[24] was idle \d+ % of the round \(\d+ items in 80 seconds\)\. A second hopper would raise the ceiling\.$/,
-  );
+  assert.match(line, /^Not enough scrap: the crusher sat idle \d+ % of the shift\. A second hopper would keep it busy\.$/);
 });
 
 test('slag line: a furnace fed raw scrap melts it into $1 slag; the crusher is the fix', () => {
@@ -75,10 +69,7 @@ test('slag line: a furnace fed raw scrap melts it into $1 slag; the crusher is t
   assert.equal(b.machine?.kind, 'furnace');
   assert.equal(b.count, res.shipped.slag);
   assert.deepEqual(b.fixes, ['crusher']);
-  assert.equal(
-    line,
-    `The furnace at 3,3 melted ${res.shipped.slag} raw scrap into slag at $1 each. A crusher before it turns the scrap into shards first, worth $12 each as ingots.`,
-  );
+  assert.equal(line, `The Furnace melted ${res.shipped.slag} raw scrap into slag at $1 each. Put a Crusher before it: shards make ingots.`);
 });
 
 test('disconnected: no hopper at all ships nothing and jams nothing; balanced: hopper → crusher → dock keeps up exactly', () => {
@@ -89,7 +80,7 @@ test('disconnected: no hopper at all ships nothing and jams nothing; balanced: h
   const ok = analyse(lay(m('hopper', 0, 2), m('crusher', 1, 2), m('dock', 2, 2)));
   assert.equal(ok.b.kind, 'balanced');
   assert.equal(ok.b.count, 1);
-  assert.equal(ok.line, 'Nothing held the line this round: every machine kept up with the hopper. The next ceiling is supply; another hopper would raise it.');
+  assert.equal(ok.line, 'Nothing held you back: every machine kept up with the hopper. More scrap is the next step: add a hopper.');
 });
 
 test('merge: two lines squeezing into one belt before the dock name the conveyor with its feeders and the dock/press fixes', () => {
@@ -103,7 +94,7 @@ test('merge: two lines squeezing into one belt before the dock name the conveyor
   assert.deepEqual(b.fixes, ['dock', 'press']);
   assert.match(
     line,
-    /^The conveyor at 3,3 held the line for \d+ of 80 seconds: 3 lines squeeze into one belt\. A second dock on one of the branches, or a press to halve the traffic, would clear it\.$/,
+    /^This conveyor held you back for \d+ of 80 seconds: 3 lines squeeze into one belt\. A second dock on one of the branches, or a Press to halve the traffic, would clear it\.$/,
   );
 });
 

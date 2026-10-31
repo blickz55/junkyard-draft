@@ -12,6 +12,7 @@ import { execSync, spawn, type ChildProcess } from 'node:child_process';
 import { build } from 'esbuild';
 import net from 'node:net';
 import { apply, newRun } from '../game/src/sim/run';
+import { dropOnLine } from '../tests/e2e/line';
 import { exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
 
@@ -84,11 +85,7 @@ function finishedRun(seed: string) {
   for (let r = 1; r <= RULES.rounds; r++) {
     const i = s.offers.indexOf('crusher');
     apply(s, { t: 'pick', i: i >= 0 ? i : 0 });
-    if (r === 1) {
-      const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!;
-      apply(s, { t: 'unplace', id: conv.id });
-      apply(s, { t: 'place', id: s.bin[0].id, x: 2, y: 2, dir: 0 });
-    }
+    if (r === 1) dropOnLine(s, 'crusher');
     apply(s, { t: 'run' });
     apply(s, { t: 'next' });
   }

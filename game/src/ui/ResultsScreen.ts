@@ -3,7 +3,10 @@ import { verifierUrl as resolveVerifierUrl } from '../render/config';
 import type Phaser from 'phaser';
 import { h, btn, ui, textureImg, promptText, showText, foremanBox, setForeman } from './dom';
 import { foremanSays, resultsBand } from '../content/foreman';
-import type { RunState } from '../sim/run';
+import { runStars, shippedTotal, type RunState } from '../sim/run';
+import { priceOf } from '../sim/yard';
+import { jobTarget, materialMany, starMarks } from '../content/job';
+import { rankFor, rankLine, rankNext } from '../content/ranks';
 import { encodeReplay, exportReplay } from '../sim/replay';
 import { RULES } from '../sim/rules';
 import {
@@ -43,7 +46,7 @@ import { loadForkBests } from '../render/storage';
 import { t } from '../content/strings';
 import { money, int, utcDateTime } from '../content/format';
 import { yardLabel } from '../content/yard';
-import { materialName } from '../content/machines';
+import { machineName, materialName } from '../content/machines';
 
 /** What the scene keeps so tests and later screens can read it. */
 export interface ResultsHost extends Phaser.Scene {
@@ -74,6 +77,8 @@ export function mountResults(
     replayPlayer?: string;
     newFork?: boolean;
     prevSeedBest?: number | null;
+    /** total stars before and after this game (rules v4); absent for a recording or a try */
+    stars?: { before: number; after: number };
   },
 ) {
   const fork = run.forkedFrom ?? null; // PLAN-v4 0.7.3
@@ -92,7 +97,7 @@ export function mountResults(
   const headline = h(
     'div',
     { class: 'jd-head', tid: 'headline', style: 'font-size:1.0625em; letter-spacing:0.08em; text-transform:none' },
-    o.replayed ? t('results.headReplay') : t('results.head'),
+    o.replayed ? t('results.headReplay') : '',
   );
   const setHeadline = (text: string, standing: boolean) => {
     headline.textContent = text;
@@ -140,11 +145,50 @@ export function mountResults(
     for (const [seed, b] of Object.entries(bests.bySeed)) if (dailyDateOf(seed) === y) return b.score;
     return null;
   })();
+  // the job comes first (rules v4): how many stars, and exactly what the next one would have taken
+  const job = run.job;
+  const earned = runStars(run);
+  const jobBlock = job
+    ? (() => {
+        const n = shippedTotal(run, job.material);
+        return h(
+          'div',
+          { class: 'jd-results-job', tid: 'results-job' },
+          h(
+            'div',
+            { class: 'jd-results-stars', tid: 'results-stars', ariaLabel: starMarks(earned) },
+            ...[0, 1, 2].map((i) => h('span', { class: i < earned ? 'on' : '' }, '★')),
+          ),
+          h(
+            'div',
+            { class: 'jd-results-jobline', tid: 'results-jobline' },
+            earned === 3
+              ? t('results.allStars')
+              : t('results.nearMiss', { n: int(job.stars[earned] - n), mat: materialMany(job.material), stars: starMarks(earned + 1) }),
+          ),
+          h(
+            'div',
+            { class: 'jd-dim', tid: 'results-jobcount', style: 'font-size:0.875em' },
+            t('results.jobLine', { n: int(n), target: int(jobTarget(job)), mat: materialMany(job.material) }),
+          ),
+        );
+      })()
+    : null;
+  const newRank = o.stars && rankFor(o.stars.after).index > rankFor(o.stars.before).index;
+  const rankBlock = o.stars
+    ? h(
+        'div',
+        { class: newRank ? 'jd-gold jd-results-rank jd-pop' : 'jd-dim jd-results-rank', tid: 'results-rank' },
+        newRank ? t('rank.up', { rank: rankFor(o.stars.after).name }) : [rankLine(o.stars.after), rankNext(o.stars.after)].filter(Boolean).join(' · '),
+      )
+    : null;
   const header = h(
     'div',
     { style: 'text-align:center' },
+    jobBlock,
+    h('div', { class: 'jd-gold jd-pop jd-results-score', tid: 'score' }, money(run.score)),
     headline,
-    h('div', { class: 'jd-gold jd-pop', tid: 'score', style: 'font-size:4.25em; font-weight:700; line-height:1.05' }, money(run.score)),
+    rankBlock,
     deltas,
     h(
       'div',
@@ -163,15 +207,17 @@ export function mountResults(
             ? t('results.newTryBest', { score: money(run.score) })
             : t('results.tryBest', { score: money(loadForkBests()[run.seed]?.score ?? run.score) }),
         )
-      : o.newOverall
-        ? h('div', { class: 'jd-green', style: 'font-weight:700; letter-spacing:0.1em; margin-top:0.25em' }, t('results.newOverall'))
-        : o.newSeed
-          ? h('div', { class: 'jd-green', style: 'margin-top:0.25em' }, t('results.newYard'))
-          : h(
-              'div',
-              { class: 'jd-dim', style: 'font-size:0.875em; margin-top:0.25em' },
-              bests.overall ? t('results.bestLine', { score: money(bests.overall.score), seed: bests.overall.seed }) : '',
-            ),
+      : bests.runs <= 1
+        ? null
+        : o.newOverall
+          ? h('div', { class: 'jd-green', style: 'font-weight:700; letter-spacing:0.1em; margin-top:0.25em' }, t('results.newOverall'))
+          : o.newSeed
+            ? h('div', { class: 'jd-green', style: 'margin-top:0.25em' }, t('results.newYard'))
+            : h(
+                'div',
+                { class: 'jd-dim', style: 'font-size:0.875em; margin-top:0.25em' },
+                bests.overall ? t('results.bestLine', { score: money(bests.overall.score), seed: bests.overall.seed }) : '',
+              ),
     yesterdayBest != null
       ? h(
           'div',
@@ -208,7 +254,6 @@ export function mountResults(
   const renderBadges = () => {
     const earned = badgesFor(run, botPar);
     badgeRow.replaceChildren(...earned.map((b) => h('span', { class: 'jd-badge-pill', tid: `badge-${b.id}`, title: b.text }, b.title)));
-    if (earned.length) badgeRow.append(h('span', { class: 'jd-dim', style: 'font-size:0.6875em' }, t('results.badgesNote')));
   };
   renderBadges();
   renderDeltas();
@@ -256,7 +301,12 @@ export function mountResults(
           'div',
           { class: 'jd-row', style: 'margin-top:0.35em; gap:0.5em; font-size:0.875em' },
           textureImg(scene.game, `i-${m}`, materialName(m)),
-          t('results.shippedLine', { n: shipped[m], mat: materialName(m), each: money(RULES.value[m]), total: money(shipped[m] * RULES.value[m]) }),
+          t('results.shippedLine', {
+            n: shipped[m],
+            mat: materialName(m),
+            each: money(priceOf(run.layout, m)),
+            total: money(shipped[m] * priceOf(run.layout, m)),
+          }),
         ),
       );
   if (run.sold) shippedPanel.append(h('div', { style: 'margin-top:0.35em; font-size:0.875em' }, t('results.sold', { amount: money(run.sold) })));
@@ -269,9 +319,12 @@ export function mountResults(
       ),
     ); // score = production + sales − offers bought
   shippedPanel.append(
-    h('div', { class: 'jd-dim', style: 'margin-top:0.5em; font-size:0.8125em' }, t('results.picked', { list: run.picks.map((p) => cap(p)).join(', ') })),
+    h(
+      'div',
+      { class: 'jd-dim', style: 'margin-top:0.5em; font-size:0.8125em' },
+      t('results.picked', { list: run.picks.map((p) => machineName(p)).join(', ') }),
+    ),
   );
-  shippedPanel.append(h('div', { class: 'jd-dim', style: 'margin-top:0.35em; font-size:0.75em' }, t('results.scoreNote')));
 
   const histBox = h('div', { tid: 'histogram' });
   const entriesBox = h('div', { class: 'jd-entries' });
@@ -286,10 +339,10 @@ export function mountResults(
     boardHead,
     h('div', { class: 'jd-grid2', style: 'gap:1.25em; align-items:start' }, histBox, entriesBox),
   );
-  const status = h('div', { class: 'jd-mono jd-dim', tid: 'status', style: 'font-size:0.75em; min-height:1.3em' });
+  const status = h('div', { class: 'jd-dim jd-results-status', tid: 'status' });
   const setStatus = (text: string, cls = 'jd-dim') => {
     status.textContent = text;
-    status.className = `jd-mono ${cls}`;
+    status.className = `jd-results-status ${cls}`;
   };
 
   /** Everyone today, first (PLAN-v1 0.4.1): where this game sits among real checked games; with fewer than five, the entries that exist and never an invented population. */
@@ -350,7 +403,7 @@ export function mountResults(
               : t('results.headRank', { rank: int(hg.mine.rank), n: hg.n, scope })
             : hg.n
               ? t('results.headUnchecked', { n: hg.n, scope })
-              : t('results.head'),
+              : '',
           !!hg.mine,
         );
       if (hg.botPar != null && hg.botPar !== botPar) {
@@ -481,7 +534,7 @@ export function mountResults(
         headers: groupHeaders(verifierUrl),
       });
       const body = (await res.json()) as {
-        entries: { player: string; score: number; verifiedAt: string; replayHash: string; replayAvailable?: boolean; finalMachines?: number }[];
+        entries: { player: string; score: number; verifiedAt: string; replayHash: string; replayAvailable?: boolean; stars?: number; finalMachines?: number }[];
         tieBreak?: string;
       };
       if (!body.entries.length) entriesBox.append(h('div', { class: 'jd-mono jd-dim jd-board-note', style: 'font-size:0.75em' }, t('results.noScores')));
@@ -502,7 +555,7 @@ export function mountResults(
                 .catch((err: Error) => setStatus(err.message, 'jd-red'));
             },
           },
-          `${t('results.entry', { n: i + 1, score: money(e.score), player: e.player })}${e.replayAvailable ? t('results.entryWatch') : ''}`,
+          `${t('results.entry', { n: i + 1, score: money(e.score), player: e.player })}${e.stars ? ` ${starMarks(e.stars)}` : ''}${e.replayAvailable ? t('results.entryWatch') : ''}`,
         );
         const dare = btn(
           t('results.beatThis'),
@@ -527,8 +580,11 @@ export function mountResults(
             gate ? t('results.recordingsGate', { gate }) : t('results.recordingsHint'),
           ),
         );
-      entriesBox.append(h('div', { class: 'jd-mono jd-dim jd-board-note', tid: 'tie-rule', style: 'font-size:0.7em; margin-top:0.3em' }, t('results.tieRule')));
-      if (!keepStatus) setStatus(t('results.statusOnline'));
+      if (body.entries.some((e, i) => i > 0 && e.score === body.entries[i - 1].score))
+        entriesBox.append(
+          h('div', { class: 'jd-mono jd-dim jd-board-note', tid: 'tie-rule', style: 'font-size:0.7em; margin-top:0.3em' }, t('results.tieRule')),
+        );
+      if (!keepStatus) setStatus('');
     } catch {
       showOfflineBoard();
       if (!o.replayed) setHeadline(t('results.headOffline'), false);
@@ -566,6 +622,9 @@ export function mountResults(
     const i = body.entries.findIndex((e) => e.replayHash === replayHash);
     return { n: i >= 0 ? i + 1 : null, of: body.entries.length };
   };
+  // one primary at a time: the score goes on the board first, then "Play again" takes over
+  const canSubmit = !fork && !o.replayed;
+  let scoreIsIn = () => {};
   const submitBtn = btn(
     t('results.submit'),
     'submit',
@@ -613,6 +672,7 @@ export function mountResults(
           });
           queued = true;
           submitBtn.textContent = t('results.savedButton');
+          scoreIsIn();
           telemetry.track('daily_submit_result', { result: 'busy' });
           setStatus(t('results.savedOffline'), 'jd-amber');
           return;
@@ -632,6 +692,7 @@ export function mountResults(
           return;
         }
         verified = true;
+        scoreIsIn();
         telemetry.track('daily_submit_result', { result: 'verified' });
         if (isMintedDailySeed(run.seed)) {
           const dd = dailyDateOf(run.seed);
@@ -678,7 +739,7 @@ export function mountResults(
         if (!verified && !queued) submitBtn.disabled = false;
       } // a cancelled, busy or rejected attempt leaves the control usable (review F04); a saved one stays put
     },
-    { disabled: o.replayed, small: true, variant: 'steel', title: t('results.submitTitle') },
+    { disabled: o.replayed, variant: canSubmit ? 'primary' : 'dark', title: t('results.submitTitle') },
   );
 
   const copyWith = (b: HTMLButtonElement, label: string, text: string, title: string) => {
@@ -706,6 +767,7 @@ export function mountResults(
       : undefined;
   const buildShare = (variant: 'grid' | 'detailed') =>
     shareText({
+      stars: run.job ? earned : undefined,
       seed: run.seed,
       score: run.score,
       rulesVersion: run.rulesVersion,
@@ -729,6 +791,7 @@ export function mountResults(
     score: run.score,
     rounds: run.rounds.map((r) => r.earned),
     rulesVersion: run.rulesVersion,
+    stars: run.job ? earned : undefined,
     player: scene.lastPlayer || undefined,
     verified: !!scene.verifiedHash,
     rank: scene.lastRank,
@@ -905,12 +968,26 @@ export function mountResults(
     { small: true },
   );
 
-  const group = (label: string, tid: string, ...kids: (HTMLElement | null)[]) =>
-    h('div', { class: 'jd-row jd-actions', tid }, h('span', { class: 'jd-actions-label' }, label), ...kids.filter((k): k is HTMLElement => !!k));
+  const group = (tid: string, ...kids: (HTMLElement | null)[]) => h('div', { class: 'jd-row jd-actions', tid }, ...kids.filter((k): k is HTMLElement => !!k));
+  const link = (text: string, tid: string, onClick: () => void, title?: string) => h('button', { class: 'jd-link', tid, type: 'button', title, onClick }, text);
+  // one primary at a time: put the score on the board, and once it is there, play again
+  const retryBtn = btn(t('results.retry'), 'retry', () => go(run.seed), { variant: canSubmit ? 'dark' : 'primary' });
+  scoreIsIn = () => {
+    submitBtn.classList.replace('jd-btn-primary', 'jd-btn-dark');
+    retryBtn.classList.replace('jd-btn-dark', 'jd-btn-primary');
+  };
   const screen = h(
     'div',
     { class: 'jd-results' },
     header,
+    group(
+      'actions-play',
+      fork ? null : submitBtn,
+      retryBtn,
+      shareNativeBtn ?? shareBtn,
+      btn(t('common.titleScreen'), 'home', () => scene.scene.start('Title')),
+    ),
+    status,
     h('div', { class: 'jd-grid2', style: 'margin-top:0.5em' }, rounds, shippedPanel),
     boardPanel,
     o.replayed && run.rounds.length === RULES.rounds
@@ -939,34 +1016,22 @@ export function mountResults(
           ),
         )
       : null,
-    // actions in three labelled rows (production roadmap 0.8.7): Play (the one primary), Share, Watch; the legal links below
-    group(
-      t('results.rowPlay'),
-      'actions-play',
-      btn(t('results.retry'), 'retry', () => go(run.seed), { variant: 'primary' }),
-      btn(t('results.newYardBtn'), 'newseed', () => go(randomSeed()), { variant: 'steel' }),
-      btn(t('title.daily'), 'daily', () => go(todaySeed()), { variant: 'steel' }),
-      btn(t('common.titleScreen'), 'title', () => scene.scene.start('Title'), { small: true }),
-    ),
-    group(
-      t('results.rowShare'),
-      'actions-share',
-      shareNativeBtn,
-      fork ? null : submitBtn,
-      shareBtn,
-      detailedBtn,
-      shareLinkLabel,
-      cardBtn,
-      fork ? null : challengeBtn,
-    ),
-    group(t('results.rowWatch'), 'actions-watch', clipBtn, gifBtn, fork ? null : exportBtn, fork ? null : downloadBtn),
+    // every other way to share waits behind one line; the quiet links last
     h(
-      'div',
-      { class: 'jd-row jd-center', style: 'gap:0.4em' },
-      btn(t('title.policy'), 'policy', () => openPolicy(scene), { small: true, title: t('results.policyTitle') }),
-      btn(t('title.privacyLink'), 'privacy', () => openPrivacy(scene, verifierUrl, 'privacy'), { small: true, title: t('results.privacyTitle') }),
+      'details',
+      { class: 'jd-more', tid: 'share-more' },
+      h('summary', {}, t('results.shareMore')),
+      group('actions-share', shareNativeBtn ? shareBtn : null, detailedBtn, shareLinkLabel, cardBtn, fork ? null : challengeBtn),
+      group('actions-watch', clipBtn, gifBtn, fork ? null : exportBtn, fork ? null : downloadBtn),
     ),
-    status,
+    h(
+      'nav',
+      { class: 'jd-home-foot', tid: 'results-foot' },
+      link(t('results.newYardBtn'), 'newseed', () => go(randomSeed())),
+      isToday ? null : link(t('title.daily'), 'daily', () => go(todaySeed())),
+      link(t('title.policy'), 'policy', () => openPolicy(scene), t('results.policyTitle')),
+      link(t('title.privacyLink'), 'privacy', () => openPrivacy(scene, verifierUrl, 'privacy'), t('results.privacyTitle')),
+    ),
   );
   ui.mount(scene, screen, (e) => {
     if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) go(run.seed);

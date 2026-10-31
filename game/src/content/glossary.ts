@@ -32,6 +32,10 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   { internal: 'reroll', player: 'new offers (−$40)', note: 'the button says what it costs' },
   { internal: 'draft', player: 'pick', note: '"pick a machine"' },
   { internal: 'bin', player: 'the shelf', note: 'parts waiting to be placed' },
+  { internal: 'round', player: 'shift', note: 'six shifts make a game' },
+  { internal: 'cell', player: 'a spot', note: 'a place in the yard' },
+  { internal: 'title screen', player: 'home', note: 'the Menu in a game goes there' },
+  { internal: 'job', player: 'the job', note: '"Ship 160 ingots"; stars for the job, money for the board' },
   { internal: 'dock', player: 'shipping dock', note: 'kept; "sells what reaches it"' },
   { internal: 'splitter, tuner, press', player: 'kept, with a one-sentence job each', note: 'names are fine; jobs must be plain' },
   { internal: 'freeze, closes at', player: 'the day closes; results final at 00:00 UTC on …', note: '' },
@@ -70,9 +74,33 @@ export const BANNED_WORDS: readonly string[] = [
   'fork',
   'forked',
   'bin',
+  // docs/UX-STANDARD.md: words from the machine room and from 2003
+  'round',
+  'rounds',
+  'title screen',
+  'submit',
+  'submitted',
+  'submission',
+  'submissions',
+  'import',
+  'export',
+  'diagnostics',
+  'resolution',
+  'telemetry',
+  'provisional',
+  'ranked',
+  'unranked',
+  'grid',
+  'cell',
+  'cells',
+  'input',
+  'output',
+  'archive',
+  'archived',
+  'draft',
 ];
 /** Phrases that contain a banned word but are allowed: "your key" is the glossary's own term. */
-export const BANNED_EXCEPTIONS: readonly RegExp[] = [/\byour key\b/i];
+export const BANNED_EXCEPTIONS: readonly RegExp[] = [/\byour key\b/i, /\bjunkyard draft\b/i];
 
 export function bannedWordsIn(text: string): string[] {
   let scan = text.replace(/\{[^{}]*(\{[^{}]*\}[^{}]*)*\}/g, ' '); // placeholders and plural forms are not words the player reads

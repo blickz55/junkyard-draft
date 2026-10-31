@@ -6,14 +6,14 @@ import { apply, newRun } from '../game/src/sim/run';
 import { RULES } from '../game/src/sim/rules';
 
 test('fork payload: null without an origin, before the first round is done and after the last; else the seed, the origin and the round count', () => {
-  const s = newRun('try-seed');
+  const s = newRun('classic-try-seed');
   const origin = { hash: 'abc', player: 'Pat#AB12', actions: [{ t: 'pick' as const, i: 0 }] };
   assert.equal(forkPayload(s, null), null);
   assert.equal(forkPayload(s, origin), null, 'no round finished yet');
   apply(s, { t: 'pick', i: 0 });
   apply(s, { t: 'run' });
   assert.deepEqual(forkPayload(s, origin), {
-    seed: 'try-seed',
+    seed: 'classic-try-seed',
     fresh: false,
     fork: { origin: { hash: 'abc', player: 'Pat#AB12' }, actions: origin.actions, round: 1 },
   });

@@ -29,6 +29,42 @@ export function phaserFlagsPlugin() {
     },
   };
 }
+/** Skip one JS string literal starting at `i`; the index after its closing quote. */
+function afterLiteral(s, i) {
+  const q = s[i];
+  for (let k = i + 1; k < s.length; k++) {
+    if (s.charCodeAt(k) === 92) k++;
+    else if (s[k] === q) return k + 1;
+  }
+  throw new Error('unterminated string in the string table');
+}
+/** The string table without its translators' notes: `'key': s('text', 'note'),` keeps the text and an empty note. */
+export function stripStringNotes(src) {
+  let out = '';
+  let at = 0;
+  for (let i = src.indexOf(': s('); i >= 0; i = src.indexOf(': s(', at)) {
+    let k = i + 4;
+    while (/\s/.test(src[k])) k++;
+    k = afterLiteral(src, k);
+    while (/[\s,]/.test(src[k])) k++;
+    const end = afterLiteral(src, k);
+    out += src.slice(at, k) + "''";
+    at = end;
+  }
+  return out + src.slice(at);
+}
+/** Production only: the notes are the longest thing in the table and no player ever reads them (the dev build keeps them, the tests read the source). */
+export function stringNotesPlugin() {
+  return {
+    name: 'string-notes',
+    setup(build) {
+      build.onLoad({ filter: /[\\/]content[\\/]strings\.ts$/ }, async (args) => ({
+        contents: stripStringNotes(await fs.promises.readFile(args.path, 'utf8')),
+        loader: 'ts',
+      }));
+    },
+  };
+}
 /** Phaser's version and notice for the bundle's one legal comment (the per-file banners are dropped: the same MIT notice 17 times). */
 export function phaserNotice(root) {
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'node_modules', 'phaser', 'package.json'), 'utf8'));
@@ -50,7 +86,7 @@ export function buildOptions({
     format: 'esm',
     // 0.10.2: the game is built from phaser/src with only the modules it uses (game/phaser-entry.cjs); the types still come from the package
     alias: { phaser: path.join(root, 'game', 'phaser-entry.cjs') },
-    plugins: [phaserFlagsPlugin()],
+    plugins: dev ? [phaserFlagsPlugin()] : [phaserFlagsPlugin(), stringNotesPlugin()],
     legalComments: 'none',
     banner: { js: phaserNotice(root) },
     target: ['es2022', 'chrome110', 'firefox110', 'safari16'],

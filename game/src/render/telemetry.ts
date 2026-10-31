@@ -1,6 +1,7 @@
 /**
- * Client side of the opt-in funnel (PLAN-v1 0.3.7). Off by default; nothing is queued, stored or sent until
- * the player turns "Share anonymous play statistics" on. When on: a random 128-bit install id is created,
+ * Client side of the play data (PLAN-v1 0.3.7; on by default since rules v4, the owner's decision, 2026-10-31). A player who
+ * has not chosen is in, unless the browser sends Global Privacy Control or Do Not Track; the switch in Settings turns it off
+ * for good and deletes everything. When on: a random 128-bit install id is created,
  * events from the fixed vocabulary (game/src/telemetry/events.ts) are batched and POSTed to the verifier's
  * /events every few seconds; the unsent queue is persisted with the install state so a page navigation never
  * loses a batch (the next boot sends it; every event carries a random id and the server counts an id once per install, so a batch
@@ -32,6 +33,11 @@ function randomId(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** The browser asks not to be tracked: a player who has not chosen starts with the switch off. */
+const browserOptedOut = (): boolean =>
+  typeof navigator !== 'undefined' &&
+  ((navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl === true || navigator.doNotTrack === '1');
+
 class Telemetry {
   private queue: TelemetryEvent[] = [];
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -56,7 +62,12 @@ class Telemetry {
   }
 
   get enabled(): boolean {
-    return loadSettings().telemetry === true;
+    return loadSettings().telemetry ?? !browserOptedOut();
+  }
+  /** The install id, created on first use. */
+  private ensureInstall() {
+    const st = loadTelemetryState();
+    if (!st.installId) saveTelemetryState({ ...st, installId: randomId() });
   }
   get installId(): string | null {
     return this.enabled ? loadTelemetryState().installId : null;
@@ -78,8 +89,7 @@ class Telemetry {
   setEnabled(on: boolean) {
     if (on) {
       updateSettings({ telemetry: true });
-      const st = loadTelemetryState();
-      if (!st.installId) saveTelemetryState({ ...st, installId: randomId() });
+      this.ensureInstall();
       this.track('consent_set', { on: true });
       void this.flush();
     } else {
@@ -98,6 +108,7 @@ class Telemetry {
   /** Record an event (no-op unless enabled; once-per-install events are deduplicated; invalid events are dropped). */
   track(name: EventName, props?: Props): boolean {
     if (!this.enabled) return false;
+    this.ensureInstall();
     if (ONCE_EVENTS.has(name)) {
       const st = loadTelemetryState();
       if (st.firsts.includes(name)) return false;

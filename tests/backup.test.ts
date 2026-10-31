@@ -1,6 +1,7 @@
 // Production roadmap 0.8.3: backups never carry the secret or a temp file, carry a hash manifest, prune by count; the restore drill
 // unpacks, verifies hashes, starts a verifier on the copy and serves the archive's entries; a tampered archive fails the drill.
 import { test } from 'node:test';
+import { dropOnLine, straightPieces } from './e2e/line';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -17,10 +18,8 @@ function finishedRun(seed: string, rotations = 0) {
   for (let r = 1; r <= RULES.rounds; r++) {
     apply(s, { t: 'pick', i: s.offers.indexOf('crusher') >= 0 ? s.offers.indexOf('crusher') : 0 });
     if (r === 1) {
-      const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2)!;
-      apply(s, { t: 'unplace', id: conv.id });
-      apply(s, { t: 'place', id: s.bin[0].id, x: 2, y: 2, dir: 0 });
-      const other = s.layout.machines.find((m) => m.x === 3 && m.y === 2)!;
+      dropOnLine(s);
+      const other = straightPieces(s)[0];
       for (let k = 0; k < rotations; k++) apply(s, { t: 'rotate', id: other.id });
     }
     apply(s, { t: 'run' });

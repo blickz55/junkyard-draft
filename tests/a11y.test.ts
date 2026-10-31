@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { auditContrast, auditCvd, MATERIALS } from '../tools/a11y-audit';
+import { auditContrast, auditCvd, MATERIALS, SPRITES } from '../tools/a11y-audit';
 import { contrast, deltaE, hexToRgb, shiftValue, simulate } from '../tools/a11y-lib';
 
 test('every text/background pair the UI draws meets WCAG AA contrast', () => {
@@ -19,6 +19,20 @@ test('materials and semantic colours stay apart under protanopia, deuteranopia a
     const d = deltaE(simulate(MATERIALS.shards, kind), simulate(MATERIALS.plate, kind));
     assert.ok(d >= 20, `shards vs plate under ${kind}: ΔE ${d.toFixed(1)} < 20`);
   }
+});
+
+test('the item sprites as drawn stay apart too: their measured mean colours pass the same rule, and each stays near its palette colour', () => {
+  assert.deepEqual(Object.keys(SPRITES).sort(), Object.keys(MATERIALS).sort(), 'every material has a measured sprite');
+  const results = auditCvd({ sprites: SPRITES });
+  assert.deepEqual(
+    results.filter((r) => !r.ok).map((r) => `${r.a}/${r.b} @${r.kind}: ΔE ${r.deltaE}, ΔL* ${r.deltaL}`),
+    [],
+  );
+  for (const kind of ['normal', 'protanopia', 'deuteranopia', 'tritanopia'] as const) {
+    const d = deltaE(simulate(SPRITES.shards, kind), simulate(SPRITES.plate, kind));
+    assert.ok(d >= 20, `shards vs plate sprites under ${kind}: ΔE ${d.toFixed(1)} < 20`);
+  }
+  for (const m of Object.keys(SPRITES)) assert.ok(deltaE(SPRITES[m], MATERIALS[m]) < 25, `${m}: the sprite has drifted from its palette colour`);
 });
 
 test('hover_colors_meet_AA: button hover states keep their label contrast (the old brighten-everything hover dropped dark-steel to 3.1:1)', () => {

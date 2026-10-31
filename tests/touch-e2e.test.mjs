@@ -43,7 +43,7 @@ test(
   'round one by touch: tap a card, tap the shelf part, tap a cell, two fingers rotate, a long press drags, a drag to the shelf removes',
   { timeout: 90000 },
   async () => {
-    await page.goto(f.gameUrl('scene=game&seed=touch-1'));
+    await page.goto(f.gameUrl('scene=game&seed=classic-touch-1'));
     await draft();
     const before = (await api('audio')).unlockAttempts;
     await page.getByTestId('offer-0').tap();
@@ -139,7 +139,7 @@ test('rounds two to six by touch, then the results', { timeout: 120000 }, async 
 });
 
 test('the Tips panel lists the action table: one row per control, the same table the keys are bound from', { timeout: 60000 }, async () => {
-  await page.goto(f.gameUrl('scene=game&seed=touch-2'));
+  await page.goto(f.gameUrl('scene=game&seed=classic-touch-2'));
   await draft();
   await api('openTips', 'controls');
   await when(() => document.querySelector('[data-testid=tip-controls]')?.classList.contains('jd-active'), null, 5000);
@@ -154,13 +154,13 @@ test('the Tips panel lists the action table: one row per control, the same table
   assert.match(cells[1], /\bR\b/);
   assert.match(cells[3], /two fingers/);
   await api('closeTips');
-  // the build help under a coarse pointer says tap, and the keyboard line is composed from the table
+  // the build help under a coarse pointer says tap
   await api('pick', 0);
   await mode('build');
-  await tapAt(cellCenter(7, 0)); // empty yard: nothing selected, so the panel shows the help lines
+  await tapAt(cellCenter(7, 0)); // the picked part is in hand: the first tap on the yard puts it there
+  await tapAt(cellCenter(7, 1)); // empty yard: nothing selected, so the panel shows the help lines
   await when(() => !document.querySelector('[data-testid=rotate]'), null, 5000);
   const help = await page.evaluate(() => document.querySelector('#ui .jd-side')?.textContent ?? '');
-  assert.match(help, /Tap a part on the shelf, then tap a cell/);
-  assert.match(help, /Keyboard: .*Tab cycles the shelf/);
+  assert.match(help, /Tap a part, then tap where it goes/);
   assert.deepEqual(page.errors, []);
 });

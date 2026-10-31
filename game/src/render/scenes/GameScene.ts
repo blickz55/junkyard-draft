@@ -11,15 +11,15 @@ import { forkFrom } from '../../sim/fork';
 import type { ForkOrigin } from '../../sim/run';
 import { RULES_VERSION } from '../../sim/types';
 import { decideQuality, QUALITY_PROBE_FRAMES } from '../quality';
-import { InputController, type InputHost } from '../InputController';
+import { InputController, type Inspected, type InputHost } from '../InputController';
 import { SimView } from '../SimView';
 import { forkPayload, reportPlayer, type ReplayOrigin } from '../replayActions';
-import { hintFor } from '../guide';
+import { hintFor, LESSON_LAST_SHIFT } from '../guide';
 import { StallMonitor, stallText } from '../StallMonitor';
 import { PopPool } from '../PopPool';
 import { GameTelemetry } from '../GameTelemetry';
 import { flowLinks, drawFlowLinks, type FlowLink } from '../FlowOverlay';
-import { isTutorialSeed, type Action, type RoundRecord, type RunState } from '../../sim/run';
+import { isTutorialSeed, shippedTotal, type Action, type RoundRecord, type RunState } from '../../sim/run';
 import type { SimState } from '../../sim/sim';
 import { RoundController, type Mode } from '../RoundController';
 import { TipsPanel } from '../../ui/TipsPanel';
@@ -29,10 +29,17 @@ import { RULES } from '../../sim/rules';
 import type { SimEvent } from '../../sim/types';
 import { CELL } from '../textures';
 import { fit } from '../atlas';
-import { label, panel } from '../ui';
-import { CSS, FONT, P } from '../palette';
+import { label } from '../ui';
+import { CSS, FONT } from '../palette';
 import { audio } from '../audio';
-import { clearSave, isOnboarded, loadReadTips, loadSettings, setOnboarded, updateSettings, writeSave } from '../storage';
+import { clearSave, loadReadTips, loadSettings, setOnboarded, updateSettings, writeSave } from '../storage';
+import { h, ui } from '../../ui/dom';
+import { choiceDialog } from '../../ui/choice';
+import { openJobCard } from '../../ui/JobCard';
+import { openHowTo } from '../../ui/HowTo';
+import { machineCard, rubbleCard } from '../../ui/Inspector';
+import { todaysYard } from '../daily';
+import { verifierUrl } from '../config';
 import { BIN_H, BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y, binSlotXY, boardCameraCenter, fitBoard } from '../layout';
 import { installDevApi } from '../devapi';
 import { prefs } from '../prefs';
@@ -44,6 +51,9 @@ export interface BoardGeometry {
   shelf: { x: number; y: number; w: number; h: number };
   slots: { x: number; y: number }[];
 }
+
+/** Yards whose job card was shown since the page loaded: a retry goes straight in. */
+const jobCardsSeen = new Set<string>();
 
 export class GameScene extends Phaser.Scene {
   /** authoritative run state, mode machine, sim pacing, undo/redo and playback live in the controller; the scene renders and routes input */
@@ -87,6 +97,8 @@ export class GameScene extends Phaser.Scene {
   private inputCtl!: InputController;
   private tutorial = false;
   private tutorialStep = 0;
+  /** a new game, not a resume or a recording: it opens on the job card */
+  private freshStart = false;
   /** +$ pops are pooled (0.3.9; render/PopPool.ts) */
   private pops!: PopPool;
   /** the funnel's observer on the controller hooks (render/GameTelemetry.ts) */
@@ -143,6 +155,7 @@ export class GameScene extends Phaser.Scene {
         onNextRound: () => {
           this.inputCtl.heldId = null;
           this.syncMachines();
+          this.updateHud();
           this.renderSide();
           this.updateHint();
         },
@@ -158,10 +171,7 @@ export class GameScene extends Phaser.Scene {
         },
         onStateChange: (a) => this.onStateChange(a),
         onReject: (a, message) => {
-          if (a.t === 'place') {
-            this.panel?.setForeman(foremanSays('refused'));
-            this.inputCtl.showReject(explainRunError(message), { x: a.x, y: a.y });
-          }
+          if (a.t === 'place') this.inputCtl.showReject(explainRunError(message), { x: a.x, y: a.y });
         },
         onPlaybackDone: () => {
           this.syncMachines();
@@ -178,8 +188,13 @@ export class GameScene extends Phaser.Scene {
     if (forked) this.run.forkedFrom = forked; // PLAN-v4 0.7.3: the resumed state is now a labelled practice fork
     if (data.fresh && !data.replay) telemetry.gameStart(data.seed);
     if (this.ctl.resumeNotice) clearSave(); // a damaged save is dropped so the title stops offering it; the notice is shown once
-    this.tutorial = isTutorialSeed(data.seed) && !this.replayQueue; // the tutorial seed carries the lesson; other seeds get one pointer to it
+    this.tutorial =
+      isTutorialSeed(data.seed) &&
+      !this.replayQueue &&
+      !(this.run.round === LESSON_LAST_SHIFT && this.run.phase === 'result') &&
+      this.run.round <= LESSON_LAST_SHIFT;
     this.tutorialStep = 0;
+    this.freshStart = data.fresh && !data.replay;
     this.view?.clear();
   }
 
@@ -191,7 +206,7 @@ export class GameScene extends Phaser.Scene {
         this.tweens.add(cfg);
       },
     });
-    this.cameras.main.setBackgroundColor(P.bg); // the camera is fitted to the board slot once the panel has laid out (layoutBoard)
+    // the camera is fitted to the board slot once the panel has laid out (layoutBoard)
     this.input.mouse?.disableContextMenu();
     this.buildStatic();
     this.flowGfx = this.add.graphics().setDepth(3);
@@ -200,6 +215,7 @@ export class GameScene extends Phaser.Scene {
       (x, y) => this.cellXY(x, y),
       (i) => this.binSlot(i),
     ).attach();
+    this.view.drawYard(this.run.layout);
     this.inputCtl = new InputController(this, this.inputHost()).attach();
     this.panel = new GamePanel(
       this,
@@ -216,8 +232,9 @@ export class GameScene extends Phaser.Scene {
         openTips: (id) => this.openTips(id ?? this.suggestedTip ?? undefined),
         rotateSelected: () => this.rotateSelected(),
         toBin: (id) => {
-          this.act({ t: 'unplace', id });
+          if (this.act({ t: 'unplace', id })) this.inputCtl.selectedId = null;
           this.syncMachines();
+          this.renderSide();
         },
         sell: (id) => {
           if (this.act({ t: 'sell', id })) {
@@ -228,7 +245,10 @@ export class GameScene extends Phaser.Scene {
           }
         },
         nextRound: () => this.nextRound(),
-        toTitle: () => this.scene.start('Title'),
+        openMenu: () => this.openMenu(),
+        skipLesson: () => this.skipLesson(),
+        showMachine: (id) => this.inspect({ kind: 'machine', id }),
+        starReached: (n) => audio.star(n as 1 | 2 | 3),
         toggleMute: () => {
           audio.setMuted(!audio.muted);
           return audio.muted;
@@ -243,7 +263,7 @@ export class GameScene extends Phaser.Scene {
         forkHere: () => this.forkHere(),
         ...(this.replayOrigin?.hash ? { reportName: () => reportPlayer(this, this.replayOrigin!) } : {}),
       },
-      this.run.seed,
+      this.run,
       this.replayLabel,
       audio.muted,
       this.run.forkedFrom ? forkLabel(this.run.forkedFrom) : null,
@@ -266,13 +286,114 @@ export class GameScene extends Phaser.Scene {
     });
     if (this.replayQueue) this.time.delayedCall(600, () => this.ctl.advanceReplay());
     if (this.mode === 'summary') this.showSummary();
+    else if (this.freshStart && this.run.job && !jobCardsSeen.has(this.run.seed)) {
+      jobCardsSeen.add(this.run.seed);
+      openJobCard(this, this.run.seed, this.run.job, () => audio.unlock());
+    }
+  }
+
+  // ---------- the menu, the lesson's ends ----------
+  /** The way out of any moment: a running shift waits while the menu is open, and nothing is lost by leaving. */
+  openMenu() {
+    if (ui.dialogOpen) return;
+    const wasRunning = this.mode === 'running';
+    if (wasRunning) this.setPaused(true);
+    const resume = () => {
+      if (wasRunning) this.setPaused(false);
+    };
+    const soundLabel = () => t(audio.muted ? 'menu.soundOff' : 'menu.soundOn');
+    const watching = this.replayLabel != null;
+    choiceDialog(this, {
+      title: t('menu.title'),
+      tid: 'menu-dialog',
+      choices: [
+        { label: t('menu.resume'), tid: 'menu-resume', primary: true, run: resume },
+        { label: t('menu.howto'), tid: 'menu-howto', run: () => openHowTo(this, this.tips, resume) },
+        {
+          label: soundLabel(),
+          tid: 'menu-sound',
+          keepOpen: true,
+          run: (b) => {
+            audio.setMuted(!audio.muted);
+            b.textContent = soundLabel();
+            this.panel.syncMute();
+          },
+        },
+        ...(this.tutorial ? [{ label: t('menu.skip'), tid: 'menu-skip', run: () => this.skipLesson() }] : []),
+        { label: t(watching ? 'menu.leave' : 'menu.home'), tid: 'menu-home', run: () => this.goHome() },
+      ],
+      note: watching ? undefined : t('menu.saved'),
+      onDismiss: resume,
+    });
+  }
+  private goHome() {
+    audio.resume();
+    if (this.replayLabel) this.stopReplay();
+    else this.scene.start('Title');
+  }
+  /** Out of the lesson at any moment: it counts as done and its game is dropped. */
+  skipLesson() {
+    setOnboarded();
+    clearSave();
+    audio.resume();
+    this.scene.start('Title');
+  }
+  /** The lesson's last shift is over: what you learned, and three ways on. */
+  private lessonDone() {
+    this.tutorial = false;
+    setOnboarded();
+    const stay = () => {
+      this.renderSide();
+      this.updateHint();
+    };
+    choiceDialog(this, {
+      title: t('lesson.doneTitle'),
+      tid: 'lesson-done',
+      lead: [h('div', { tid: 'lesson-done-text' }, t('lesson.doneText'))],
+      choices: [
+        {
+          label: t('lesson.doneDaily'),
+          tid: 'lesson-daily',
+          primary: true,
+          run: () => {
+            clearSave();
+            audio.unlock();
+            void todaysYard(verifierUrl()).then((seed) => {
+              if (this.scene.isActive('Game')) this.scene.start('Game', { seed, fresh: true });
+            });
+          },
+        },
+        { label: t('lesson.doneStay'), tid: 'lesson-stay', run: stay },
+        { label: t('lesson.doneHome'), tid: 'lesson-home', run: () => this.scene.start('Title') },
+      ],
+      onDismiss: stay,
+    });
+  }
+
+  // ---------- what is this? ----------
+  /** The card for whatever was tapped; null closes it. Arrows on the machine show what goes in and what comes out. */
+  inspect(target: Inspected | null) {
+    this.inputCtl.hideGhost();
+    if (!target || target.kind === 'ground') {
+      this.panel.showInspector(null);
+      return;
+    }
+    const close = () => this.inspect(null);
+    if (target.kind === 'rubble') {
+      this.panel.showInspector(rubbleCard(close), { x: target.x * CELL, y: target.y * CELL });
+      return;
+    }
+    const m = this.inputCtl.machineById(target.id);
+    if (!m) return;
+    const slot = this.run.bin.findIndex((q) => q.id === m.id);
+    const at = slot >= 0 ? binSlotXY(slot) : this.cellXY(m.x, m.y);
+    this.panel.showInspector(machineCard(this.game, m, this.run, close), { x: at.px - GRID_X, y: at.py - GRID_Y });
+    if (slot < 0) this.inputCtl.showGhost(m, m.x, m.y, true);
   }
 
   private buildStatic() {
-    for (let y = 0; y < RULES.gridHeight; y++)
-      for (let x = 0; x < RULES.gridWidth; x++) fit(this.add.image(GRID_X + x * CELL, GRID_Y + y * CELL, 'tile')).setOrigin(0);
-    this.add.rectangle(GRID_X, GRID_Y, GRID_W, GRID_H).setOrigin(0).setStrokeStyle(2, P.panelLine);
-    panel(this, GRID_X, BIN_Y, GRID_W, BIN_H, 0.9);
+    fit(this.add.image(GRID_X, GRID_Y, 'ground')).setOrigin(0);
+    fit(this.add.image(GRID_X, BIN_Y, 'shelf')).setOrigin(0);
     label(this, GRID_X + 10, BIN_Y + 6, t(coarsePointer() ? 'game.shelfLabelTouch' : 'game.shelfLabel'), 12, CSS.amber, {
       fontStyle: 'bold',
       letterSpacing: 1,
@@ -287,6 +408,7 @@ export class GameScene extends Phaser.Scene {
   }
   private updateHud() {
     this.panel.setHud(this.run, this.run.score, false);
+    if (this.run.job) this.panel.setJob(shippedTotal(this.run, this.run.job.material), false);
   }
 
   private cellXY(x: number, y: number) {
@@ -358,6 +480,8 @@ export class GameScene extends Phaser.Scene {
         return scene.tips?.isOpen ?? false;
       },
       act: (a) => this.act(a),
+      actAll: (actions) => this.actAll(actions),
+      inspect: (target) => this.inspect(target),
       syncMachines: () => this.syncMachines(),
       renderSide: () => this.renderSide(),
       startRun: () => this.startRun(),
@@ -367,6 +491,7 @@ export class GameScene extends Phaser.Scene {
       stopReplay: () => this.stopReplay(),
       closeTips: () => this.closeTips(),
       pick: (i) => this.pick(i),
+      openMenu: () => this.openMenu(),
       undo: () => {
         this.undo();
       },
@@ -409,10 +534,14 @@ export class GameScene extends Phaser.Scene {
   act(a: Action): boolean {
     return this.ctl.act(a);
   }
+  actAll(actions: Action[]): boolean {
+    return this.ctl.actAll(actions);
+  }
   /** Controller hook: the run changed (an accepted action, or null for undo/redo/speed): refresh HUD, hints and the panel. */
   private onStateChange(a: Action | null) {
     if (!this.panel) return; // init() runs before create(): nothing to draw yet
     if (a) {
+      this.panel.showInspector(null);
       this.inputCtl.clearToast();
       if (a.t === 'place' && !this.replayQueue) {
         const m = this.run.layout.machines.find((q) => q.id === a.id);
@@ -427,13 +556,12 @@ export class GameScene extends Phaser.Scene {
       if (tip) this.suggestedTip = tip.id;
     }
     this.updateHud();
-    if (!a || a.t === 'place' || a.t === 'pick' || a.t === 'rotate') this.updateHint();
-    if (!a || a.t !== 'rotate') this.renderSide();
+    this.renderSide(); // rotations too: the panel's picture must always face the way the machine on the yard faces
   }
   pick(i: number) {
     if (this.run.phase !== 'draft') return;
     if (this.act({ t: 'pick', i })) {
-      audio.lockIn();
+      audio.pick();
       this.inputCtl.selectedId = this.run.bin[this.run.bin.length - 1]?.id ?? null;
       this.syncMachines();
       this.renderSide();
@@ -486,10 +614,13 @@ export class GameScene extends Phaser.Scene {
       selected,
       tipsBadge: !this.replayLabel && this.suggestedTip != null && !loadReadTips().includes(this.suggestedTip),
       tipsOpen: this.tips?.isOpen ?? false,
+      lesson: this.tutorial,
     };
   }
   renderSide() {
-    if (this.panel) this.panel.render(this.panelState());
+    if (!this.panel) return;
+    this.panel.render(this.panelState());
+    this.updateHint();
   }
   openTips(id?: string) {
     this.tips.open(id ?? this.suggestedTip ?? undefined);
@@ -509,33 +640,27 @@ export class GameScene extends Phaser.Scene {
     };
   }
   // ---------- onboarding hints ----------
-  /** The guide (render/guide.ts) reads the run; the scene shows the text, moves the lesson's funnel step and gives the foreman his situation. */
+  /** The coach (render/guide.ts) reads the run; the scene shows the instruction, lights what to touch and moves the lesson's funnel step. */
   updateHint() {
-    const r = this.run;
-    const g = hintFor(r, { tutorial: this.tutorial, onboarded: isOnboarded(), watching: !!this.replayLabel, resumeNotice: this.ctl.resumeNotice });
+    const g = hintFor(this.run, {
+      tutorial: this.tutorial,
+      touch: coarsePointer(),
+      selected: this.inputCtl?.selectedId,
+      watching: !!this.replayLabel,
+      mode: this.mode,
+      resumeNotice: this.ctl.resumeNotice,
+    });
     if (this.ctl.resumeNotice) this.ctl.resumeNotice = null; // the notice is shown once
-    if (this.tutorial) {
-      if (g.step !== this.tutorialStep) {
-        this.tele.tutorialStep(this.tutorialStep, g.step);
-        this.tutorialStep = g.step;
-      } // funnel: which lesson step is on screen
-      if (r.round >= 4) {
-        this.tutorial = false;
-        setOnboarded();
-      }
-    }
-    if (g.foreman) this.panel?.setForeman(foremanSays(g.foreman));
-    else if (!this.tutorial && r.phase === 'build' && this.panel) this.panel.setForeman(this.panel.foremanText); // keep the draft's line through the build
-    this.setHint(g.text, g.demo);
+    if (this.tutorial && g.step !== this.tutorialStep) {
+      this.tele.tutorialStep(this.tutorialStep, g.step);
+      this.tutorialStep = g.step;
+    } // funnel: which lesson step is on screen
+    this.panel?.setHint(g.text, g.spots);
   }
   /** Current hint text (typed accessor for the dev API and tests instead of private-field access). */
   hintText(): string {
     return this.panel?.hintText ?? '';
   }
-  private setHint(text: string, demo?: string) {
-    this.panel?.setHint(text, demo);
-  }
-
   // ---------- simulation playback ----------
   /** Controller hook: the layout is frozen and the live sim exists; reset the per-round visuals. */
   private onRunStart() {
@@ -549,7 +674,7 @@ export class GameScene extends Phaser.Scene {
     audio.run();
     audio.humStart(this.run.round);
     this.renderSide();
-    this.setHint(this.replayLabel ? t('hint.watching') : t('hint.running'));
+    this.updateHint();
   }
   startRun() {
     this.ctl.startRun();
@@ -592,6 +717,7 @@ export class GameScene extends Phaser.Scene {
     this.clearStallMark();
     audio.humStop(true); // the drone resolves to the fanfare's root under the settle
     audio.settle();
+    if (this.run.job) this.panel.setJob(shippedTotal(this.run, this.run.job.material), true); // the last seconds may pass a star too
     this.showSummary();
   }
 
@@ -610,7 +736,7 @@ export class GameScene extends Phaser.Scene {
         const quality = decideQuality(this.dprProbe);
         updateSettings({ renderQuality: quality });
         this.dprProbe = null;
-        if (quality === 'low') this.setHint(t('hint.lowQuality'));
+        if (quality === 'low') this.panel.setHint(t('hint.lowQuality'));
       }
     }
     if (this.ctl.advance(delta)) return; // the round ended: onRoundEnd tore the live visuals down
@@ -620,6 +746,7 @@ export class GameScene extends Phaser.Scene {
       this.hudDirty = false;
       this.lastHudAt = now;
       this.panel.setHud(this.run, this.run.score + sim.earned, true);
+      if (this.run.job) this.panel.setJob(shippedTotal(this.run, this.run.job.material) + sim.shipped[this.run.job.material], true);
     }
     this.view.animate(sim, this.ctl.tickPhase, delta, this.speed, _time);
     this.panel.setProgress(sim.tick, sim.earned);
@@ -678,7 +805,7 @@ export class GameScene extends Phaser.Scene {
     this.panel.showSummaryOverlay(this.run);
     this.drawFlow();
     this.renderSide();
-    this.setHint(this.run.round >= RULES.rounds ? t('hint.summaryFinal') : t('hint.summary'));
+    if (this.tutorial && this.run.round === LESSON_LAST_SHIFT) this.lessonDone();
   }
   nextRound() {
     if (this.mode !== 'summary') return;

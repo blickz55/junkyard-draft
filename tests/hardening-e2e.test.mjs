@@ -101,7 +101,7 @@ test('hardened production build: ?verifier= ignored off loopback, CSP holds thro
     const pageCsp = await page.evaluate(() => document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute('content'));
     assert.equal(pageCsp, csp);
     // 2. a round under the policy
-    await playOneRound(page, 'csp-seed');
+    await playOneRound(page, 'classic-csp-seed');
     assert.equal(hits.evil, 0);
     assert.deepEqual(await page.evaluate(() => window.__cspViolations), [], 'no CSP violation through draft, build, run and summary');
     fs.mkdirSync(SHOTS, { recursive: true });
@@ -119,7 +119,7 @@ test('hardened production build: ?verifier= ignored off loopback, CSP holds thro
     await banner.waitFor({ state: 'visible', timeout: 10000 });
     assert.match(await banner.textContent(), /not saving your progress/i);
     await broken.page.screenshot({ path: path.join(SHOTS, 'e2e-hardening-storage-banner.png') });
-    await playOneRound(broken.page, 'quota-seed');
+    await playOneRound(broken.page, 'classic-quota-seed');
     assert.deepEqual(await broken.page.evaluate(() => window.__cspViolations), []);
     await broken.ctx.close();
     assert.deepEqual(errors, [], 'no page errors');

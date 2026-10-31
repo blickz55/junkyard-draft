@@ -19,6 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { apply, newRun } from '../game/src/sim/run';
+import { dropOnLine } from '../tests/e2e/line';
 import { exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
 import { RULES_VERSION } from '../game/src/sim/types';
@@ -57,11 +58,7 @@ function dailyRun(seed: string) {
   for (let r = 1; r <= RULES.rounds; r++) {
     const i = run.offers.indexOf('crusher');
     apply(run, { t: 'pick', i: i >= 0 ? i : 0 });
-    if (r === 1) {
-      const conv = run.layout.machines.find((m) => m.x === 2 && m.y === 2)!;
-      apply(run, { t: 'unplace', id: conv.id });
-      apply(run, { t: 'place', id: run.bin[0].id, x: 2, y: 2, dir: 0 });
-    }
+    if (r === 1) dropOnLine(run, 'crusher');
     apply(run, { t: 'run' });
     apply(run, { t: 'next' });
   }

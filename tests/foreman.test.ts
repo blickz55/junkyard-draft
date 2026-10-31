@@ -19,7 +19,7 @@ const store = new Map<string, string>();
     return store.size;
   },
 } as Storage;
-const { SITUATIONS, TEACHING, variantKeys, foremanLine, foremanSays, resultsBand, foremanName } = await import('../game/src/content/foreman');
+const { SITUATIONS, variantKeys, foremanLine, foremanSays, resultsBand, foremanName } = await import('../game/src/content/foreman');
 const { buildSnapshot, SNAPSHOT_PATH, SNAPSHOT_DAYS } = await import('../tools/make-foreman-snapshot');
 const { bannedWordsIn } = await import('../game/src/content/glossary');
 const storage = await import('../game/src/render/storage');
@@ -57,21 +57,15 @@ test('foreman: the choice is deterministic per day, differs across days for most
   assert.ok(differing >= SITUATIONS.length / 2, `${differing} of ${SITUATIONS.length} situations vary across the four days`);
 });
 
-test('foreman: "lessons only" keeps the teaching lines and silences the rest; the setting is validated and persisted', () => {
+test('foreman: quiet silences every line; the setting is validated and persisted', () => {
   store.clear();
   assert.equal(storage.loadSettings().chatter, 'full', 'the default is the full foreman');
   assert.ok(foremanSays('welcome').length > 0);
-  assert.ok(foremanSays('refused').length > 0);
   storage.updateSettings({ chatter: 'less' });
   assert.equal(storage.loadSettings().chatter, 'less');
   assert.equal(foremanSays('welcome'), '', 'flavour goes quiet');
   assert.equal(foremanSays('resultsTop'), '');
   assert.equal(foremanSays('roundGood'), '');
-  assert.ok(foremanSays('refused').length > 0, 'a refusal still teaches');
-  assert.ok(foremanSays('bottleneckSlag').length > 0);
-  assert.ok(foremanSays('lesson2').length > 0);
-  assert.ok(foremanSays('firstDraft').length > 0);
-  for (const s of TEACHING) assert.ok(foremanSays(s).length > 0, `${s} is a teaching line`);
   store.set('jd.settings.v1', JSON.stringify({ chatter: 'loud' }));
   assert.equal(storage.loadSettings().chatter, 'full', 'an unknown value falls back');
   store.set('jd.settings.v1', JSON.stringify({ chatter: 'less' }));

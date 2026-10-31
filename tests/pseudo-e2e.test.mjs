@@ -69,7 +69,7 @@ test('the title at 130 % in the pseudo-locale: accented, padded, every control i
 });
 
 test('the pick and build panels and a round summary in the pseudo-locale stay inside the overlay', { timeout: 90000 }, async () => {
-  await page.goto(pseudoUrl('scene=game&seed=pseudo-yard'));
+  await page.goto(pseudoUrl('scene=game&seed=classic-pseudo-yard'));
   await draft();
   await frames();
   const pick = await page.evaluate(geometry);

@@ -114,7 +114,7 @@ for (const vp of VIEWPORTS) {
       assert.ok((await page.evaluate(visibleAndHit, 'daily')).ok, 'the daily button is on screen and not covered');
       await shot('title');
       // the draft
-      await page.goto(f.gameUrl('scene=game&seed=layout-1'));
+      await page.goto(f.gameUrl('scene=game&seed=classic-layout-1'));
       await draft();
       await overlaySynced();
       await frames(3);

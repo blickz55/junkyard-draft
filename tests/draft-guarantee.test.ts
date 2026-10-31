@@ -5,8 +5,8 @@ import assert from 'node:assert/strict';
 import { RULES } from '../game/src/sim/rules';
 import { draftOffers } from '../game/src/sim/run';
 
-test('late offer guarantee: off in rules v3; on, the listed rounds always carry a hopper or a crusher, other rounds and already-fine drafts are byte-identical', () => {
-  assert.deepEqual(RULES.lateOfferGuarantee.rounds, [], 'rules v3 ships without the guarantee');
+test('late offer guarantee: off in the rules; on, the listed rounds always carry a hopper or a crusher, other rounds and already-fine drafts are byte-identical', () => {
+  assert.deepEqual(RULES.lateOfferGuarantee.rounds, [], 'the rules ship without the guarantee');
   assert.deepEqual(RULES.lateOfferGuarantee.kinds, ['hopper', 'crusher']);
   const seeds = Array.from({ length: 200 }, (_, i) => `guarantee-${i}`);
   const base = new Map<string, string[][]>();
@@ -17,7 +17,7 @@ test('late offer guarantee: off in rules v3; on, the listed rounds always carry 
     );
   const lacking = (o: string[]) => !o.includes('hopper') && !o.includes('crusher');
   const lackingBefore = seeds.reduce((n, s) => n + [4, 5].filter((r) => lacking(base.get(s)![r - 1])).length, 0);
-  assert.ok(lackingBefore > 0, `some round-4/5 drafts offer neither kind under v3 (${lackingBefore} of ${seeds.length * 2}), so the guarantee has work to do`);
+  assert.ok(lackingBefore > 0, `some round-4/5 drafts offer neither kind (${lackingBefore} of ${seeds.length * 2}), so the guarantee has work to do`);
   const knob = RULES.lateOfferGuarantee as { rounds: number[] };
   knob.rounds = [4, 5];
   try {

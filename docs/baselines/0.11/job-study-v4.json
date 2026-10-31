@@ -1,0 +1,1093 @@
+{
+ "summary": {
+  "seeds": 60,
+  "tries": 120,
+  "ms": 142626,
+  "stars": {
+   "ingot": [
+    50,
+    100,
+    160
+   ],
+   "plate": [
+    40,
+    80,
+    135
+   ]
+  },
+  "ingot": {
+   "yards": 38,
+   "autoShipped": {
+    "min": 115,
+    "p25": 124,
+    "median": 150,
+    "p75": 169,
+    "max": 175
+   },
+   "plainShipped": {
+    "min": 115,
+    "p25": 120,
+    "median": 120,
+    "p75": 120,
+    "max": 125
+   },
+   "lateShipped": {
+    "min": 0,
+    "p25": 0,
+    "median": 24,
+    "p75": 48,
+    "max": 72
+   },
+   "autoScore": {
+    "min": 3084,
+    "p25": 3265,
+    "median": 3955,
+    "p75": 4231,
+    "max": 4511
+   },
+   "plainScore": {
+    "min": 2868,
+    "p25": 2988,
+    "median": 2991,
+    "p75": 2991,
+    "max": 3114
+   },
+   "starsAuto0123": [
+    0,
+    0,
+    22,
+    16
+   ],
+   "starsPlain0123": [
+    0,
+    0,
+    38,
+    0
+   ],
+   "starsLate0123": [
+    30,
+    8,
+    0,
+    0
+   ]
+  },
+  "plate": {
+   "yards": 22,
+   "autoShipped": {
+    "min": 90,
+    "p25": 90,
+    "median": 90,
+    "p75": 93,
+    "max": 94
+   },
+   "plainShipped": {
+    "min": 85,
+    "p25": 90,
+    "median": 90,
+    "p75": 90,
+    "max": 90
+   },
+   "lateShipped": {
+    "min": 0,
+    "p25": 0,
+    "median": 0,
+    "p75": 18,
+    "max": 54
+   },
+   "autoScore": {
+    "min": 2268,
+    "p25": 2383,
+    "median": 2447,
+    "p75": 2570,
+    "max": 2750
+   },
+   "plainScore": {
+    "min": 2148,
+    "p25": 2268,
+    "median": 2271,
+    "p75": 2271,
+    "max": 2274
+   },
+   "starsAuto0123": [
+    0,
+    0,
+    22,
+    0
+   ],
+   "starsPlain0123": [
+    0,
+    0,
+    22,
+    0
+   ],
+   "starsLate0123": [
+    21,
+    1,
+    0,
+    0
+   ]
+  }
+ },
+ "rows": [
+  {
+   "seed": "job-0",
+   "material": "ingot",
+   "shape": 8,
+   "rubble": 3,
+   "auto": 144,
+   "autoScore": 3955,
+   "plain": 120,
+   "late": 24,
+   "plainScore": 2988,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-1",
+   "material": "plate",
+   "shape": 8,
+   "rubble": 4,
+   "auto": 90,
+   "autoScore": 2582,
+   "plain": 90,
+   "late": 0,
+   "plainScore": 2268,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-2",
+   "material": "plate",
+   "shape": 8,
+   "rubble": 4,
+   "auto": 90,
+   "autoScore": 2268,
+   "plain": 90,
+   "late": 36,
+   "plainScore": 2268,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-3",
+   "material": "ingot",
+   "shape": 7,
+   "rubble": 4,
+   "auto": 170,
+   "autoScore": 4231,
+   "plain": 120,
+   "late": 0,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-4",
+   "material": "ingot",
+   "shape": 9,
+   "rubble": 4,
+   "auto": 123,
+   "autoScore": 3100,
+   "plain": 115,
+   "late": 23,
+   "plainScore": 2868,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-5",
+   "material": "ingot",
+   "shape": 5,
+   "rubble": 4,
+   "auto": 149,
+   "autoScore": 3850,
+   "plain": 125,
+   "late": 50,
+   "plainScore": 3114,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 1
+   }
+  },
+  {
+   "seed": "job-6",
+   "material": "plate",
+   "shape": 7,
+   "rubble": 4,
+   "auto": 90,
+   "autoScore": 2511,
+   "plain": 90,
+   "late": 18,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-7",
+   "material": "ingot",
+   "shape": 6,
+   "rubble": 4,
+   "auto": 123,
+   "autoScore": 3223,
+   "plain": 120,
+   "late": 0,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-8",
+   "material": "ingot",
+   "shape": 6,
+   "rubble": 3,
+   "auto": 172,
+   "autoScore": 4399,
+   "plain": 120,
+   "late": 0,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-9",
+   "material": "plate",
+   "shape": 7,
+   "rubble": 4,
+   "auto": 94,
+   "autoScore": 2407,
+   "plain": 90,
+   "late": 0,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-10",
+   "material": "ingot",
+   "shape": 5,
+   "rubble": 3,
+   "auto": 150,
+   "autoScore": 3714,
+   "plain": 125,
+   "late": 0,
+   "plainScore": 3114,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-11",
+   "material": "plate",
+   "shape": 9,
+   "rubble": 2,
+   "auto": 93,
+   "autoScore": 2500,
+   "plain": 85,
+   "late": 0,
+   "plainScore": 2148,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-12",
+   "material": "ingot",
+   "shape": 7,
+   "rubble": 4,
+   "auto": 172,
+   "autoScore": 4239,
+   "plain": 120,
+   "late": 72,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 1
+   }
+  },
+  {
+   "seed": "job-13",
+   "material": "plate",
+   "shape": 6,
+   "rubble": 4,
+   "auto": 90,
+   "autoScore": 2391,
+   "plain": 90,
+   "late": 0,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-14",
+   "material": "ingot",
+   "shape": 6,
+   "rubble": 4,
+   "auto": 149,
+   "autoScore": 3687,
+   "plain": 120,
+   "late": 72,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 1
+   }
+  },
+  {
+   "seed": "job-15",
+   "material": "ingot",
+   "shape": 5,
+   "rubble": 3,
+   "auto": 137,
+   "autoScore": 3676,
+   "plain": 125,
+   "late": 25,
+   "plainScore": 3114,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-16",
+   "material": "ingot",
+   "shape": 8,
+   "rubble": 4,
+   "auto": 124,
+   "autoScore": 3084,
+   "plain": 120,
+   "late": 24,
+   "plainScore": 2988,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-17",
+   "material": "plate",
+   "shape": 8,
+   "rubble": 2,
+   "auto": 90,
+   "autoScore": 2348,
+   "plain": 90,
+   "late": 0,
+   "plainScore": 2268,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-18",
+   "material": "plate",
+   "shape": 6,
+   "rubble": 3,
+   "auto": 90,
+   "autoScore": 2585,
+   "plain": 90,
+   "late": 18,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-19",
+   "material": "ingot",
+   "shape": 6,
+   "rubble": 2,
+   "auto": 172,
+   "autoScore": 4239,
+   "plain": 120,
+   "late": 0,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-20",
+   "material": "ingot",
+   "shape": 9,
+   "rubble": 3,
+   "auto": 123,
+   "autoScore": 3334,
+   "plain": 115,
+   "late": 0,
+   "plainScore": 2868,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-21",
+   "material": "ingot",
+   "shape": 5,
+   "rubble": 3,
+   "auto": 150,
+   "autoScore": 3994,
+   "plain": 125,
+   "late": 25,
+   "plainScore": 3114,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-22",
+   "material": "ingot",
+   "shape": 9,
+   "rubble": 4,
+   "auto": 172,
+   "autoScore": 4236,
+   "plain": 115,
+   "late": 69,
+   "plainScore": 2868,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 1
+   }
+  },
+  {
+   "seed": "job-23",
+   "material": "ingot",
+   "shape": 6,
+   "rubble": 2,
+   "auto": 120,
+   "autoScore": 3265,
+   "plain": 120,
+   "late": 72,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 1
+   }
+  },
+  {
+   "seed": "job-24",
+   "material": "plate",
+   "shape": 8,
+   "rubble": 4,
+   "auto": 90,
+   "autoScore": 2268,
+   "plain": 90,
+   "late": 18,
+   "plainScore": 2268,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-25",
+   "material": "plate",
+   "shape": 6,
+   "rubble": 2,
+   "auto": 94,
+   "autoScore": 2407,
+   "plain": 90,
+   "late": 54,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 1
+   }
+  },
+  {
+   "seed": "job-26",
+   "material": "ingot",
+   "shape": 6,
+   "rubble": 2,
+   "auto": 159,
+   "autoScore": 4087,
+   "plain": 120,
+   "late": 0,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-27",
+   "material": "plate",
+   "shape": 7,
+   "rubble": 4,
+   "auto": 90,
+   "autoScore": 2551,
+   "plain": 90,
+   "late": 0,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-28",
+   "material": "plate",
+   "shape": 8,
+   "rubble": 2,
+   "auto": 93,
+   "autoScore": 2420,
+   "plain": 90,
+   "late": 0,
+   "plainScore": 2268,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-29",
+   "material": "plate",
+   "shape": 7,
+   "rubble": 4,
+   "auto": 90,
+   "autoScore": 2271,
+   "plain": 90,
+   "late": 36,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-30",
+   "material": "plate",
+   "shape": 7,
+   "rubble": 2,
+   "auto": 94,
+   "autoScore": 2407,
+   "plain": 90,
+   "late": 0,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-31",
+   "material": "ingot",
+   "shape": 7,
+   "rubble": 4,
+   "auto": 169,
+   "autoScore": 4167,
+   "plain": 120,
+   "late": 48,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-32",
+   "material": "ingot",
+   "shape": 7,
+   "rubble": 4,
+   "auto": 160,
+   "autoScore": 4031,
+   "plain": 120,
+   "late": 24,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-33",
+   "material": "ingot",
+   "shape": 7,
+   "rubble": 3,
+   "auto": 121,
+   "autoScore": 3215,
+   "plain": 120,
+   "late": 48,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-34",
+   "material": "ingot",
+   "shape": 7,
+   "rubble": 4,
+   "auto": 133,
+   "autoScore": 3694,
+   "plain": 120,
+   "late": 48,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-35",
+   "material": "ingot",
+   "shape": 6,
+   "rubble": 4,
+   "auto": 172,
+   "autoScore": 4279,
+   "plain": 120,
+   "late": 0,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-36",
+   "material": "plate",
+   "shape": 6,
+   "rubble": 4,
+   "auto": 90,
+   "autoScore": 2585,
+   "plain": 90,
+   "late": 18,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-37",
+   "material": "plate",
+   "shape": 7,
+   "rubble": 4,
+   "auto": 90,
+   "autoScore": 2548,
+   "plain": 90,
+   "late": 0,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-38",
+   "material": "ingot",
+   "shape": 7,
+   "rubble": 4,
+   "auto": 133,
+   "autoScore": 3303,
+   "plain": 120,
+   "late": 0,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-39",
+   "material": "ingot",
+   "shape": 5,
+   "rubble": 4,
+   "auto": 125,
+   "autoScore": 3234,
+   "plain": 125,
+   "late": 25,
+   "plainScore": 3114,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-40",
+   "material": "ingot",
+   "shape": 6,
+   "rubble": 2,
+   "auto": 172,
+   "autoScore": 4319,
+   "plain": 120,
+   "late": 24,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-41",
+   "material": "ingot",
+   "shape": 9,
+   "rubble": 2,
+   "auto": 115,
+   "autoScore": 3225,
+   "plain": 115,
+   "late": 46,
+   "plainScore": 2868,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-42",
+   "material": "ingot",
+   "shape": 9,
+   "rubble": 4,
+   "auto": 123,
+   "autoScore": 3100,
+   "plain": 115,
+   "late": 69,
+   "plainScore": 2868,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 1
+   }
+  },
+  {
+   "seed": "job-43",
+   "material": "ingot",
+   "shape": 8,
+   "rubble": 3,
+   "auto": 161,
+   "autoScore": 3972,
+   "plain": 120,
+   "late": 0,
+   "plainScore": 2988,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-44",
+   "material": "plate",
+   "shape": 6,
+   "rubble": 2,
+   "auto": 92,
+   "autoScore": 2750,
+   "plain": 90,
+   "late": 36,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-45",
+   "material": "ingot",
+   "shape": 6,
+   "rubble": 4,
+   "auto": 173,
+   "autoScore": 4343,
+   "plain": 120,
+   "late": 0,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-46",
+   "material": "ingot",
+   "shape": 7,
+   "rubble": 3,
+   "auto": 146,
+   "autoScore": 3735,
+   "plain": 120,
+   "late": 48,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-47",
+   "material": "ingot",
+   "shape": 9,
+   "rubble": 4,
+   "auto": 169,
+   "autoScore": 4164,
+   "plain": 115,
+   "late": 69,
+   "plainScore": 2868,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 1
+   }
+  },
+  {
+   "seed": "job-48",
+   "material": "ingot",
+   "shape": 6,
+   "rubble": 3,
+   "auto": 161,
+   "autoScore": 3975,
+   "plain": 120,
+   "late": 0,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-49",
+   "material": "ingot",
+   "shape": 5,
+   "rubble": 3,
+   "auto": 175,
+   "autoScore": 4511,
+   "plain": 125,
+   "late": 0,
+   "plainScore": 3114,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-50",
+   "material": "plate",
+   "shape": 7,
+   "rubble": 2,
+   "auto": 90,
+   "autoScore": 2585,
+   "plain": 90,
+   "late": 0,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-51",
+   "material": "plate",
+   "shape": 6,
+   "rubble": 3,
+   "auto": 94,
+   "autoScore": 2447,
+   "plain": 90,
+   "late": 18,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-52",
+   "material": "plate",
+   "shape": 5,
+   "rubble": 3,
+   "auto": 94,
+   "autoScore": 2570,
+   "plain": 90,
+   "late": 0,
+   "plainScore": 2274,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-53",
+   "material": "ingot",
+   "shape": 8,
+   "rubble": 2,
+   "auto": 163,
+   "autoScore": 4100,
+   "plain": 120,
+   "late": 24,
+   "plainScore": 2988,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-54",
+   "material": "plate",
+   "shape": 6,
+   "rubble": 4,
+   "auto": 93,
+   "autoScore": 2383,
+   "plain": 90,
+   "late": 0,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-55",
+   "material": "ingot",
+   "shape": 7,
+   "rubble": 2,
+   "auto": 121,
+   "autoScore": 3135,
+   "plain": 120,
+   "late": 0,
+   "plainScore": 2991,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-56",
+   "material": "ingot",
+   "shape": 8,
+   "rubble": 3,
+   "auto": 120,
+   "autoScore": 3148,
+   "plain": 120,
+   "late": 0,
+   "plainScore": 2988,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-57",
+   "material": "plate",
+   "shape": 7,
+   "rubble": 2,
+   "auto": 90,
+   "autoScore": 2311,
+   "plain": 90,
+   "late": 36,
+   "plainScore": 2271,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 0
+   }
+  },
+  {
+   "seed": "job-58",
+   "material": "ingot",
+   "shape": 8,
+   "rubble": 3,
+   "auto": 144,
+   "autoScore": 3564,
+   "plain": 120,
+   "late": 72,
+   "plainScore": 2988,
+   "stars": {
+    "auto": 2,
+    "plain": 2,
+    "late": 1
+   }
+  },
+  {
+   "seed": "job-59",
+   "material": "ingot",
+   "shape": 9,
+   "rubble": 2,
+   "auto": 166,
+   "autoScore": 4292,
+   "plain": 115,
+   "late": 0,
+   "plainScore": 2868,
+   "stars": {
+    "auto": 3,
+    "plain": 2,
+    "late": 0
+   }
+  }
+ ]
+}

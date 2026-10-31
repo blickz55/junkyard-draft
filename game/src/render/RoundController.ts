@@ -6,7 +6,7 @@
  * the layout except through act(). The one invariant the 0.2.0 review found broken lives here: once a round
  * starts, nothing edits the layout until the next build phase.
  */
-import { apply, newRun, replay as replayRun, RunError, type Action, type RoundRecord, type RunState } from '../sim/run';
+import { apply, copyLayout, newRun, replay as replayRun, RunError, type Action, type RoundRecord, type RunState } from '../sim/run';
 import { t } from '../content/strings';
 import { createSim, step, type SimState } from '../sim/sim';
 import { RULES } from '../sim/rules';
@@ -65,8 +65,11 @@ export class RoundController {
   readonly replayRounds: number[] | null;
   /** set when a saved run could not be resumed (the UI shows it once) */
   resumeNotice: string | null = null;
-  private redoStack: Action[] = [];
+  /** undone edits, newest last; each entry is what one Undo removed (a swap is several actions) */
+  private redoStack: Action[][] = [];
   private redoing = false;
+  /** how many actions the edit ending at this length of the action list took: undo takes the whole group */
+  private readonly groups = new Map<number, number>();
 
   constructor(
     data: ControllerInit,
@@ -140,6 +143,19 @@ export class RoundController {
   pick(i: number): boolean {
     return this.run.phase === 'draft' && this.act({ t: 'pick', i });
   }
+  /** Apply several actions as one edit: all of them or none, and one Undo reverses them. */
+  actAll(actions: Action[]): boolean {
+    if (actions.length === 1) return this.act(actions[0]);
+    const before = this.run.actions.slice();
+    for (const a of actions)
+      if (!this.act(a)) {
+        this.run = replayRun(this.run.seed, before, RULES_VERSION);
+        this.hooks.onStateChange?.(null);
+        return false;
+      }
+    this.groups.set(this.run.actions.length, actions.length);
+    return true;
+  }
 
   // ---------- undo / redo (build phase only; the replay stays a flat list of final actions) ----------
   canUndo(): boolean {
@@ -151,8 +167,10 @@ export class RoundController {
   /** Remove the last layout edit of this build phase (never across a run); false when there is nothing to undo. */
   undo(): boolean {
     if (!this.canUndo()) return false;
-    const u = undoEdit(this.run);
+    const n = this.run.actions.length;
+    const u = undoEdit(this.run, this.groups.get(n) ?? 1);
     if (!u) return false;
+    this.groups.delete(n);
     this.run = u.state;
     this.redoStack.push(u.undone);
     this.persist();
@@ -164,7 +182,7 @@ export class RoundController {
     if (!this.canRedo()) return false;
     const a = this.redoStack.pop()!;
     this.redoing = true;
-    const ok = this.act(a);
+    const ok = this.actAll(a);
     this.redoing = false;
     if (!ok) {
       this.redoStack.length = 0;
@@ -182,8 +200,7 @@ export class RoundController {
   startRun(byPlayback = false): boolean {
     if (this.replayQueue && !byPlayback) return false; // while watching, only the replay advances the phase (review F09)
     if (!this.canStartRun()) return false;
-    const layout = { width: this.run.layout.width, height: this.run.layout.height, machines: this.run.layout.machines.map((m) => ({ ...m })) };
-    this.sim = createSim(layout);
+    this.sim = createSim(copyLayout(this.run.layout));
     this.acc = 0;
     this.mode = 'running';
     this.hooks.onRunStart?.();

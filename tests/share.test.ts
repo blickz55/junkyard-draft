@@ -22,12 +22,12 @@ test('share grid (PLAN-v1 0.4.3): glyph thresholds at their boundaries, six glyp
 test('share text: spoiler-free by default — label, score, glyph line, standing, no URL, no per-round dollars, no layout data', () => {
   const local = shareText(base);
   assert.equal(local, 'Junkyard Draft · Daily 2026-10-25 · $1234\n░▒▓▓▒▒\nscore on this device, not yet checked');
-  assert.doesNotMatch(local, /https?:|rounds \$|verified board/);
+  assert.doesNotMatch(local, /https?:|shifts \$|verified board/);
   assert.doesNotMatch(local, /hopper|conveyor|crusher|furnace|splitter|press|dock|\bdir\b|\d,\d/i, 'no layout data of any kind');
   const verifiedRank = shareText({ ...base, player: 'jon', rank: { n: 3, of: 17 } });
   assert.match(verifiedRank, /\n#3 of 17 on the board as jon$/, 'under five games the rank is the standing');
   const verifiedPct = shareText({ ...base, player: 'jon', rank: { n: 3, of: 17 }, percentile: 61, n: 38 });
-  assert.match(verifiedPct, /\nbetter than 61 % of 38 checked games as jon$/, 'five or more games: better-than beats rank');
+  assert.match(verifiedPct, /\nbetter than 61 % of 38 games as jon$/, 'five or more games: better-than beats rank');
   assert.equal(standingText({ rank: { n: 1, of: 1 }, percentile: 0, n: 1 }), '#1 of 1 on the board', 'a population of one never says "better than 0 %"');
   assert.equal(standingText({ rank: null }), '');
   assert.equal(rankText({ n: null, of: 100 }), 'not in the top 100 of the board');
@@ -62,7 +62,7 @@ test('share text: days played and the opt-in permalink append lines; the detaile
   const withLink = shareText({ ...base, permalink: 'https://example.test/?scene=game&seed=daily-2026-10-25' });
   assert.match(withLink, /\nhttps:\/\/example\.test\/\?scene=game&seed=daily-2026-10-25$/);
   const detailed = shareText({ ...base, variant: 'detailed', player: 'jon', rank: { n: 3, of: 17 } });
-  assert.match(detailed, /\nrounds \$38 · \$120 · \$300 · \$300 · \$238 · \$238\n/);
+  assert.match(detailed, /\nshifts \$38 · \$120 · \$300 · \$300 · \$238 · \$238\n/);
   assert.match(detailed, /\nchecked by the Junkyard Draft server(\n|$)/);
   assert.doesNotMatch(
     shareText({ ...base, variant: 'detailed' }),

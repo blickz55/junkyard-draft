@@ -29,13 +29,13 @@ export function machineFrame(
     case 'crusher':
       return { key: busy && sim.tick % 2 === 1 ? 'm-crusher-1' : 'm-crusher' };
     case 'furnace':
-      return { tint: busy ? 0xffd9a0 : 0xffffff };
+      return { key: busy ? 'm-furnace-1' : 'm-furnace' };
     case 'press':
       return { key: busy ? (held!.hold >= 2 ? 'm-press-1' : 'm-press-2') : 'm-press', tint: !busy && (sim.pressStore[cell] ?? 0) > 0 ? 0xcfe3ff : 0xffffff };
     case 'hopper':
       return { scale: sim.tick % RULES.hopperPeriod === 0 && phase < 0.3 ? 1.05 : 1 };
     case 'splitter':
-      return { angleOffset: (sim.splitterToggle[cell] ?? 0) === 0 ? -4 : 4 };
+      return { key: (sim.splitterToggle[cell] ?? 0) === 0 ? 'm-splitter' : 'm-splitter-1' };
     default:
       return {};
   }
@@ -70,6 +70,13 @@ export interface TickDigest {
 }
 
 /** Sort a tick's events for the renderer; `ships` and `jammed` are reused containers (cleared here) so the hot path allocates little. */
+const RUBBLE_PILES = 4;
+/** The junk pile on a rubble cell, picked and turned by the cell index, so a yard always looks the same. */
+export function rubbleFrame(cell: number): { key: string; quarter: number } {
+  const h = Math.imul(cell + 7, 0x9e3779b1) >>> 24;
+  return { key: `rubble-${h % RUBBLE_PILES}`, quarter: (h >> 2) & 3 };
+}
+
 export function digestTick(evs: readonly SimEvent[], marked: { has(cell: number): boolean }, ships: Map<number, number>, jammed: Set<number>): TickDigest {
   ships.clear();
   jammed.clear();

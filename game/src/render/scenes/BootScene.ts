@@ -4,21 +4,17 @@ import { generateTextures } from '../textures';
 import { queueArt, buildArtAtlas } from '../atlas';
 import { fetchChallenge } from '../challenge';
 import { sanitizeSeed } from '../../sim/run';
-import { audio } from '../audio';
-import { IMPACTS, IMPACT_FILES } from '../samples';
 
-/** Boot: load the authored SVG art, pack it into one atlas, generate anything missing procedurally, then start. */
+/** Boot: load the sprite sheet, cut it into the shared atlas, generate anything missing procedurally, then start. */
 export class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
   }
   preload() {
     queueArt(this);
-    for (const k of IMPACTS) this.load.binary(`sfx:${k}`, IMPACT_FILES[k]);
   }
   create() {
     buildArtAtlas(this);
-    for (const k of IMPACTS) audio.samples.provide(k, this.cache.binary.has(`sfx:${k}`) ? (this.cache.binary.get(`sfx:${k}`) as ArrayBuffer) : null);
     generateTextures(this); // fills any key the atlas could not provide (and the tiny UI dots)
     const params = new URLSearchParams(location.search);
     const challenge = params.get('challenge');

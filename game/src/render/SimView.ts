@@ -5,15 +5,18 @@
  */
 import Phaser from 'phaser';
 import type { RunState } from '../sim/run';
-import type { Machine, SimEvent } from '../sim/types';
+import type { Layout, Machine, SimEvent } from '../sim/types';
 import { cellIndex, type SimState } from '../sim/sim';
 import { RULES } from '../sim/rules';
 import { BELT_FRAMES, CELL, itemTexture, machineTexture } from './textures';
-import { baseScale, fit, setArt } from './atlas';
+import { artStatus, baseScale, fit, setArt } from './atlas';
 import { P } from './palette';
 import { prefs } from './prefs';
 import type { MachineView } from './InputController';
-import { digestTick, itemPose, machineFrame, transformColour, type TickDigest } from './simframes';
+import { digestTick, rubbleFrame, itemPose, machineFrame, transformColour, type TickDigest } from './simframes';
+import { beltShape, type BeltShape } from './placement';
+
+/** how many junk piles the sheet holds (rubble-0 …) */
 
 /** What the input controller holds: the machine in hand follows the cursor, the dragged one follows the pointer. */
 export interface Hand {
@@ -26,6 +29,8 @@ export class SimView {
   readonly views = new Map<number, MachineView>();
   private itemSprites = new Map<number, Phaser.GameObjects.Image>();
   private jamMarks = new Map<number, Phaser.GameObjects.Image>();
+  /** how each conveyor draws right now, by machine id */
+  private readonly belts = new Map<number, BeltShape>();
   private beltFrame = 0;
   /** reused per frame / per tick to avoid allocating sets in the hot path */
   private readonly aliveIds = new Set<number>();
@@ -53,6 +58,17 @@ export class SimView {
     this.views.clear();
     this.itemSprites.clear();
     this.jamMarks.clear();
+    this.belts.clear();
+  }
+  /** What lies on the yard before anything is built: a junk pile on each rubble cell, picked and turned by the cell index, so a yard always looks the same. */
+  drawYard(layout: Layout) {
+    for (const cell of layout.rubble ?? []) {
+      const { key, quarter } = rubbleFrame(cell);
+      const { x, y } = this.centerOfCell(cell);
+      fit(this.scene.add.image(x, y, key))
+        .setAngle(quarter * 90)
+        .setDepth(1);
+    }
   }
   centerOfCell(cell: number) {
     const x = cell % RULES.gridWidth,
@@ -61,6 +77,14 @@ export class SimView {
   }
 
   // ---------- machines ----------
+  /** A conveyor fed from one side draws as a corner; a left turn is the right turn mirrored. The procedural look has no corner, so without the sheet it stays straight. */
+  private shapeBelt(v: MachineView, shape: BeltShape) {
+    if (!artStatus.built || (this.belts.get(v.m.id) ?? 'straight') === shape) return;
+    this.belts.set(v.m.id, shape);
+    const bent = shape !== 'straight';
+    setArt(v.img, bent ? 'm-conveyor-bend' : 'm-conveyor').setFlipY(shape === 'left');
+    setArt(v.belt!, bent ? 'belt-bend-0' : 'belt-0').setFlipY(shape === 'left');
+  }
   private makeView(m: Machine): MachineView {
     const c = this.scene.add.container(0, 0).setDepth(2);
     const img = fit(this.scene.add.image(CELL / 2, CELL / 2, machineTexture(m.kind)));
@@ -101,6 +125,7 @@ export class SimView {
       }
       v.img.setAngle(m.dir * 90);
       v.belt?.setAngle(m.dir * 90);
+      if (v.belt) this.shapeBelt(v, inBin ? 'straight' : beltShape(run.layout, m));
       v.c.setDepth(held ? 10 : 2);
       v.c.setAlpha(held ? 0.85 : inBin ? 0.95 : 1);
     };
@@ -116,6 +141,7 @@ export class SimView {
       if (!alive.has(id)) {
         v.c.destroy();
         this.views.delete(id);
+        this.belts.delete(id);
       }
     return alive;
   }
@@ -135,9 +161,10 @@ export class SimView {
   animate(sim: SimState, phase: number, delta: number, speed: number, time: number) {
     this.beltFrame = (this.beltFrame + delta * speed * 0.012 * (BELT_FRAMES / 3)) % BELT_FRAMES; // same cycle time as the old 3 frames, finer steps
     const bf = `belt-${Math.floor(this.beltFrame)}`;
+    const bendFrame = `belt-bend-${Math.floor(this.beltFrame)}`;
     for (const v of this.views.values()) {
       if (v.inBin || prefs.reducedMotion) continue; // reduced motion: belts stay on frame 0, machines do not wobble
-      if (v.belt) setArt(v.belt, bf);
+      if (v.belt) setArt(v.belt, (this.belts.get(v.m.id) ?? 'straight') === 'straight' ? bf : bendFrame);
       const f = machineFrame(v.m.kind, sim, cellIndex(v.m.x, v.m.y, RULES.gridWidth), phase);
       if (f.key && v.img.texture.key !== f.key) setArt(v.img, f.key);
       if (f.tint != null) v.img.setTint(f.tint);
@@ -166,7 +193,7 @@ export class SimView {
       if (!alive.has(id)) {
         this.itemSprites.delete(id);
         if (prefs.reducedMotion) s.destroy();
-        else this.scene.tweens.add({ targets: s, scale: 1.6, alpha: 0, duration: 200, onComplete: () => s.destroy() });
+        else this.scene.tweens.add({ targets: s, scale: 1.6 * baseScale(s.texture.key), alpha: 0, duration: 200, onComplete: () => s.destroy() });
       }
   }
   /** A tick's events as effects: transform flashes, press sparks, jam marks kept in step, the dock's pulse; the digest comes back for sounds, pops and the stall monitor. */
@@ -175,8 +202,11 @@ export class SimView {
     if (!prefs.reducedMotion) {
       for (const tr of d.transforms) {
         const c = this.centerOfCell(tr.cell);
-        const flash = this.scene.add.circle(c.x, c.y, 16, transformColour(tr.to), 0.6).setDepth(3);
-        this.scene.tweens.add({ targets: flash, scale: 2, alpha: 0, duration: 300, onComplete: () => flash.destroy() });
+        const flash = fit(this.scene.add.image(c.x, c.y, 'fx-glow'), 0.7)
+          .setTint(transformColour(tr.to))
+          .setDepth(3)
+          .setBlendMode(Phaser.BlendModes.ADD);
+        this.scene.tweens.add({ targets: flash, scale: 1.3 * baseScale('fx-glow'), alpha: 0, duration: 300, onComplete: () => flash.destroy() });
       }
       for (const cell of d.absorbs) {
         const c = this.centerOfCell(cell);
@@ -218,7 +248,7 @@ export class SimView {
       fit(v.img)
         .setTint(0xffffff)
         .setAngle(v.m.dir * 90);
-      if (v.img.texture.key !== machineTexture(v.m.kind)) setArt(v.img, machineTexture(v.m.kind));
+      if (v.m.kind !== 'conveyor' && v.img.texture.key !== machineTexture(v.m.kind)) setArt(v.img, machineTexture(v.m.kind)); // a conveyor's frame is its shape, set in sync
     }
     if (!prefs.reducedMotion)
       for (const v of this.views.values())

@@ -1,8 +1,11 @@
 import { Rng } from './rng';
 import { RULES } from './rules';
 import { runLayout, validateLayout } from './sim';
-import type { Dir, Layout, Machine, MachineKind, RunResult } from './types';
+import type { Dir, Layout, Machine, MachineKind, Material, RunResult } from './types';
 import { RULES_VERSION } from './types';
+import { isTutorialSeed, JOB_MACHINE, starsFor, TUTORIAL_SEED, yardFor, type Job } from './yard';
+
+export { isTutorialSeed, TUTORIAL_SEED };
 
 export type Phase = 'draft' | 'build' | 'result' | 'finished';
 
@@ -35,6 +38,8 @@ export interface RunState {
   round: number;
   phase: Phase;
   layout: Layout;
+  /** what this yard is paid to deliver; null on a classic yard (rules v4) */
+  job: Job | null;
   bin: Machine[];
   offers: MachineKind[];
   picks: MachineKind[];
@@ -52,23 +57,25 @@ export interface RunState {
 }
 
 /**
- * Tutorial seeds (PLAN-v1 0.3.4): `tutorial-*` constrains the first three drafts to one machine each so each round
- * teaches one rule (crusher orientation, furnace chaining, splitter + side-load merge); rounds 4-6 are an ordinary
- * draft from the seed's own stream. The bin starts with spare conveyors for the merge. Every other seed is byte-identical
- * to before (snapshot-tested), so this is not a rules change.
+ * The lesson (`tutorial-*`, rules v4): shift 1 has no pick (the first job is to close the gap in the belt with the conveyor on
+ * the shelf), shifts 2 and 3 offer one machine each so each teaches one thing, shift 4 is the first real choice of three.
+ * Later rounds are an ordinary draft from the seed's own stream.
  */
-export const TUTORIAL_SEED = 'tutorial-1';
-export const isTutorialSeed = (seed: string): boolean => /^tutorial-/.test(seed);
-export const TUTORIAL_OFFERS: readonly (readonly MachineKind[])[] = [['crusher'], ['furnace'], ['splitter']];
-export const TUTORIAL_SPARE_CONVEYORS = 3;
+export const TUTORIAL_OFFERS: Readonly<Record<number, readonly MachineKind[]>> = { 1: [], 2: ['crusher'], 3: ['furnace'], 4: ['conveyor', 'tuner', 'hopper'] };
 
+/** The parts a draft must include (rules v4): the crusher in the first draft, the job's own machine in the second, so the job can always be started. */
+function guaranteed(seed: string, round: number): MachineKind[] {
+  if (round === 1) return ['crusher'];
+  const job = yardFor(seed).job;
+  return round === 2 && job ? [JOB_MACHINE[job.material]] : [];
+}
 export function draftOffers(seed: string, round: number): MachineKind[] {
-  if (isTutorialSeed(seed) && round >= 1 && round <= TUTORIAL_OFFERS.length) return TUTORIAL_OFFERS[round - 1].slice();
-  return offersFrom(new Rng(`${seed}:draft:${round}`), round, round === 1);
+  if (isTutorialSeed(seed) && TUTORIAL_OFFERS[round]) return TUTORIAL_OFFERS[round].slice();
+  return offersFrom(new Rng(`${seed}:draft:${round}`), round, guaranteed(seed, round));
 }
 /** The offers a reroll buys: a purpose-specific stream, so buying one can never change a later round's draft; no crusher guarantee. */
 export function rerollOffers(seed: string, round: number): MachineKind[] {
-  return offersFrom(new Rng(`${seed}:draft:${round}:reroll:1`), round, false);
+  return offersFrom(new Rng(`${seed}:draft:${round}:reroll:1`), round, []);
 }
 /** Why a reroll is not allowed right now, or null when it is. */
 export function canReroll(s: Pick<RunState, 'phase' | 'seed' | 'round' | 'rerolledRound' | 'score'>): string | null {
@@ -78,9 +85,8 @@ export function canReroll(s: Pick<RunState, 'phase' | 'seed' | 'round' | 'reroll
   if (s.score < RULES.rerollCost) return `cannot afford a reroll ($${RULES.rerollCost})`;
   return null;
 }
-function offersFrom(rng: Rng, round: number, guaranteeCrusher: boolean): MachineKind[] {
-  const offers: MachineKind[] = [];
-  if (guaranteeCrusher) offers.push('crusher'); // first useful upgrade is always reachable
+function offersFrom(rng: Rng, round: number, must: readonly MachineKind[]): MachineKind[] {
+  const offers: MachineKind[] = [...must];
   const weights = { ...RULES.draftWeights } as Record<MachineKind, number>;
   for (const k of Object.keys(weights) as MachineKind[]) if (weights[k] <= 0 || (RULES.offerFromRound[k] ?? 1) > round) delete weights[k]; // experimental kinds are never offered; tiered kinds not before their round
   let guard = 0;
@@ -91,7 +97,7 @@ function offersFrom(rng: Rng, round: number, guaranteeCrusher: boolean): Machine
   // late-round guarantee (0.9.6 candidate; inert while RULES.lateOfferGuarantee.rounds is empty): a draft with none of the guaranteed kinds swaps its last card for one of them
   const late = RULES.lateOfferGuarantee;
   if (late.rounds.includes(round) && !offers.some((k) => late.kinds.includes(k))) offers[offers.length - 1] = late.kinds[rng.int(late.kinds.length)];
-  // deterministic shuffle so the forced crusher is not always first
+  // deterministic shuffle so a guaranteed card is not always first
   for (let i = offers.length - 1; i > 0; i--) {
     const j = rng.int(i + 1);
     [offers[i], offers[j]] = [offers[j], offers[i]];
@@ -99,11 +105,22 @@ function offersFrom(rng: Rng, round: number, guaranteeCrusher: boolean): Machine
   return offers;
 }
 
-export function starterLayout(): { layout: Layout; nextId: number } {
+/** The layout a yard opens on, with its machines numbered from 1. */
+export function starterLayout(seed = 'classic-yard'): { layout: Layout; nextId: number } {
+  const yard = yardFor(seed);
   let id = 1;
-  const machines: Machine[] = RULES.starter.map((m) => ({ id: id++, kind: m.kind, x: m.x, y: m.y, dir: m.dir }));
-  return { layout: { width: RULES.gridWidth, height: RULES.gridHeight, machines }, nextId: id };
+  const machines: Machine[] = yard.machines.map((m) => ({ id: id++, kind: m.kind, x: m.x, y: m.y, dir: m.dir }));
+  const layout: Layout = { width: RULES.gridWidth, height: RULES.gridHeight, machines };
+  if (yard.rubble.length) layout.rubble = yard.rubble;
+  if (yard.job) layout.premium = yard.job.material;
+  return { layout, nextId: id };
 }
+/** A copy of a layout that shares no machine with it: what a shift runs on and what a round records. */
+export const copyLayout = (l: Layout): Layout => ({ ...l, machines: l.machines.map((m) => ({ ...m })) });
+/** Units of a material this run has shipped so far. */
+export const shippedTotal = (s: Pick<RunState, 'rounds'>, mat: Material): number => s.rounds.reduce((n, r) => n + r.result.shipped[mat], 0);
+/** Stars this run has earned on its job so far (0 on a classic yard). */
+export const runStars = (s: Pick<RunState, 'rounds' | 'job'>): 0 | 1 | 2 | 3 => (s.job ? starsFor(s.job, shippedTotal(s, s.job.material)) : 0);
 
 export class RunError extends Error {}
 
@@ -118,13 +135,15 @@ export function sanitizeSeed(raw: string | null | undefined, fallback = 'junkyar
 
 export function newRun(seed: string): RunState {
   if (!isValidSeed(seed)) throw new RunError('bad seed');
-  const { layout, nextId } = starterLayout();
+  const { layout, nextId } = starterLayout(seed);
+  const yard = yardFor(seed);
   const s: RunState = {
     rulesVersion: RULES_VERSION,
     seed,
     round: 1,
-    phase: 'draft',
+    phase: yard.firstPhase,
     layout,
+    job: yard.job,
     bin: [],
     offers: draftOffers(seed, 1),
     picks: [],
@@ -136,7 +155,7 @@ export function newRun(seed: string): RunState {
     nextId,
     actions: [],
   };
-  if (isTutorialSeed(seed)) for (let i = 0; i < TUTORIAL_SPARE_CONVEYORS; i++) s.bin.push({ id: s.nextId++, kind: 'conveyor', x: -1, y: -1, dir: 0 });
+  for (const kind of yard.shelf) s.bin.push({ id: s.nextId++, kind, x: -1, y: -1, dir: 0 });
   return s;
 }
 
@@ -208,6 +227,7 @@ export function apply(s: RunState, a: Action): RunState {
       const { m, where } = findMachine(s, a.id);
       const occupant = s.layout.machines.find((o) => o.x === a.x && o.y === a.y && o.id !== a.id);
       if (occupant) throw new RunError('cell occupied');
+      if (s.layout.rubble?.includes(a.y * s.layout.width + a.x)) throw new RunError('cell blocked by rubble');
       if (where === 'bin') {
         s.bin.splice(s.bin.indexOf(m), 1);
         s.layout.machines.push(m);
@@ -247,7 +267,7 @@ export function apply(s: RunState, a: Action): RunState {
       if (s.phase !== 'build') throw new RunError('not building');
       const errs = validateLayout(s.layout);
       if (errs.length) throw new RunError(errs.join('; '));
-      const layout: Layout = { width: s.layout.width, height: s.layout.height, machines: s.layout.machines.map((m) => ({ ...m })) };
+      const layout = copyLayout(s.layout);
       const result = runLayout(layout);
       s.rounds.push({ round: s.round, earned: result.earned, layout, result });
       s.score += result.earned;

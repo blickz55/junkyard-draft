@@ -26,6 +26,8 @@ const MIME = {
   '.png': 'image/png',
   '.json': 'application/json',
   '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
 };
 // Front server: serves game/index.html (rewritten) and game/public, proxies bundle + live-reload to esbuild.

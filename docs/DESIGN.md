@@ -1,17 +1,34 @@
-# Junkyard Draft — design (rules v2)
+# Junkyard Draft — design (rules v4)
 
 ## Pitch
-Draft salvaged machines, arrange them in a small workshop, run a short production simulation, and ship scrap as valuable products. Six rounds, one cumulative score, instant retry. A full run takes about 5–8 minutes.
+Every yard is a job: ship 160 ingots for the harbor bridge. Keep one salvaged part a shift, drop it on the belt, watch the line run. Six shifts, three stars for the job, money for the board. A full run takes about 5–8 minutes.
+
+## Decision: every yard is a job (rules v4, the owner's playtest, 2026-10-31)
+
+The owner played and asked "what's the goal, what's the point?". **What changed, and why:**
+
+- **A job and three stars.** Each yard's seed names a material, ingots or plates, and three marks (`RULES.job.stars`). The job's material sells for `RULES.job.price` ($24) on that yard, so the job and the leaderboard pull the same way: stars never add money, shipping the job's goods simply pays best. The plain recipe (hopper, crusher, job machine, dock) earns exactly two stars on every yard in the study (`tools/job-study.ts`, `docs/baselines/0.11/job-study-v4.json`: 60 yards × 120 tries, plain line 2 stars on all 60); the third needs a widened line. Point of the game in one line: stars, then Sal's mark, then the top of today's board.
+- **Real yards.** A yard's seed now also generates its belt (straight, bend or zigzag), its junk piles and two spare conveyors on the shelf (`game/src/sim/yard.ts`). "Random Yard always produces the same board" was literally true before: the starter never used the seed. The `classic-*` namespace keeps the old fixed starter for the tests and old recordings.
+- **Junk piles.** `layout.rubble` cells refuse any machine; the line goes around them. They make yards differ without adding a rule to learn.
+- **The first draft always offers the Crusher, the second the job's machine** (`guaranteed()` in `run.ts`), so a job can always be started.
+- **The lesson** (`tutorial-1`) opens on a build with a gap in the belt: close it, start, then one machine a shift, then the first real choice (`docs/UX-STANDARD.md`; `tests/walkthrough-e2e.test.mjs` plays it touching only what is lit).
+- **Corners** need no machine: a conveyor fed only from its side draws as a corner (`render/placement.ts`, `beltShape`), presentation only, it was always legal.
+- **Stars in the world:** the verifier derives `stars` from the replay and stamps the entry (additive, protocol 2); boards and share text show them. **Ranks** (Scrap Picker to Scrap King) add up each yard's best stars on this device only (`content/ranks.ts`): never a claim about other players.
+
+**An owner decision this overrides:** production roadmap §1 said no contracts ("depth systems: none of them"). A job is a contract in everything but name. The owner's playtest note asked for an end goal defined at the start ("build the X, find the X"), which the roadmap's decision did not foresee; the job is one sentence, no new rule to learn beyond the junk piles, and nothing about it needs reading to play. §1 and §3.5 carry a note.
+
+**What the owner's other notes became, all without touching rules:** tap anything to see what it does, in any phase (`ui/Inspector.ts`); one instruction at a time with what to touch lit (`render/guide.ts`); last shift's advice pinned through the pick and the build; drop on the belt swaps, one Undo reverses it (`render/placement.ts`, `RoundController.actAll`); a Menu and a Home instead of "Title"; Pick ONE said out loud and shown by the cards that leave.
 
 ## Loop
-1. **Draft** — three seeded offers; pick one (round 1 always includes a Crusher so the first upgrade is reachable in the first minute).
+
+1. **Draft** — three seeded offers; pick one (shift 1 always includes a Crusher, shift 2 the job's machine, so the job can always be started).
 2. **Build** — drag parts from the bin onto an 8×6 grid; R / right-click rotates; drop onto the bin to remove. Everything can be rearranged every round. Keyboard-only: arrow keys move a cursor (first press reveals it on the selected machine), Enter places the next bin part or picks up / drops a machine, Tab cycles bin parts into the hand, R rotates, Delete returns to the bin, Esc drops / deselects / hides the cursor.
 3. **Run** — 80 fixed ticks. Items move one cell per tick; processing machines hold items for a fixed number of ticks.
 4. **Result** — money earned, what shipped, and diagnostics (blocked hopper, jammed machines, items stuck in transit).
 5. Repeat for 6 rounds → final score = sum of round earnings → retry same seed / random / daily.
 
 ## Starter workshop
-Hopper → Conveyor ×3 → Dock in row 3. Ships raw scrap for $1 each (38 per round).
+A seed's own yard: hopper, a generated belt, a dock, junk piles, two spare conveyors on the shelf. The `classic-*` seeds keep the old fixed one: Hopper → Conveyor ×3 → Dock in row 3, shipping raw scrap for $1 each (38 per shift).
 
 ## Machines
 | Machine | Input | Output | Behaviour |

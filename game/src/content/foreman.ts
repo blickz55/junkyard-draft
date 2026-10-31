@@ -1,8 +1,8 @@
 /**
  * The foreman (production roadmap 0.9.1, text only): Sal's lines, keyed by situation, three to five variants each in the
  * string table (`foreman.<situation>.<n>`), chosen from the UTC date so everyone hears the same line on the same day and
- * the next day brings another. Teaching situations (the lesson, a refusal, the bottleneck cases, the first pick) stay
- * when the player chooses "lessons only"; the rest is flavour and goes quiet. The character sheet is docs/FOREMAN.md.
+ * the next day brings another. All of this is flavour: the instructions in a game are the coach's (render/guide.ts), and
+ * the player can turn Sal to quiet. The character sheet is docs/FOREMAN.md.
  */
 import { hashSeed } from '../sim/rng';
 import { STRINGS, t, type StringKey, type Params } from './strings';
@@ -12,21 +12,6 @@ export type Situation =
   | 'welcome'
   | 'dailyOpen'
   | 'dailyFinal'
-  | 'firstDraft'
-  | 'lesson1'
-  | 'lesson2'
-  | 'lesson3'
-  | 'lesson4'
-  | 'lesson5'
-  | 'lesson6'
-  | 'refused'
-  | 'bottleneckDisconnected'
-  | 'bottleneckDeadEnd'
-  | 'bottleneckSlag'
-  | 'bottleneckSaturated'
-  | 'bottleneckMerge'
-  | 'bottleneckStarved'
-  | 'bottleneckBalanced'
   | 'roundGood'
   | 'roundFlat'
   | 'resultsTop'
@@ -45,21 +30,6 @@ export const SITUATIONS: readonly Situation[] = [
   'welcome',
   'dailyOpen',
   'dailyFinal',
-  'firstDraft',
-  'lesson1',
-  'lesson2',
-  'lesson3',
-  'lesson4',
-  'lesson5',
-  'lesson6',
-  'refused',
-  'bottleneckDisconnected',
-  'bottleneckDeadEnd',
-  'bottleneckSlag',
-  'bottleneckSaturated',
-  'bottleneckMerge',
-  'bottleneckStarved',
-  'bottleneckBalanced',
   'roundGood',
   'roundFlat',
   'resultsTop',
@@ -74,24 +44,6 @@ export const SITUATIONS: readonly Situation[] = [
   'firstShare',
   'firstCrew',
 ];
-/** Situations that teach: kept under "lessons only". */
-export const TEACHING: ReadonlySet<Situation> = new Set<Situation>([
-  'firstDraft',
-  'lesson1',
-  'lesson2',
-  'lesson3',
-  'lesson4',
-  'lesson5',
-  'lesson6',
-  'refused',
-  'bottleneckDisconnected',
-  'bottleneckDeadEnd',
-  'bottleneckSlag',
-  'bottleneckSaturated',
-  'bottleneckMerge',
-  'bottleneckStarved',
-  'bottleneckBalanced',
-]);
 
 export const foremanName = (): string => t('foreman.name');
 
@@ -120,9 +72,9 @@ export function foremanLine(situation: Situation, params: Params = {}, day = day
 export type Chatter = 'full' | 'less';
 export const chatter = (): Chatter => loadSettings().chatter;
 
-/** The line, or '' when the player chose "lessons only" and the situation is flavour. */
+/** The line, or '' when the player turned Sal to quiet. */
 export function foremanSays(situation: Situation, params: Params = {}, day = dayOf()): string {
-  if (chatter() === 'less' && !TEACHING.has(situation)) return '';
+  if (chatter() === 'less') return '';
   return foremanLine(situation, params, day);
 }
 

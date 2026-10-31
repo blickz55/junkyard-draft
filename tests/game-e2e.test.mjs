@@ -17,6 +17,7 @@ const { newRun, apply } = await import('../game/src/sim/run.ts');
 const { exportReplay } = await import('../game/src/sim/replay.ts');
 const { dailySeed } = await import('../game/src/sim/daily.ts');
 const { RULES } = await import('../game/src/sim/rules.ts');
+const { dropOnLine } = await import('./e2e/line.ts');
 const V = String(RULES_VERSION); // records are partitioned by rules version (PLAN-v2 0.5.0)
 
 const f = await fixture({
@@ -59,11 +60,7 @@ const crusherRun = (seed) => {
   for (let r = 1; r <= RULES.rounds; r++) {
     const ci = s.offers.indexOf('crusher');
     apply(s, { t: 'pick', i: ci >= 0 ? ci : 0 });
-    if (r === 1) {
-      const cv = s.layout.machines.find((m) => m.x === 2 && m.y === 2);
-      apply(s, { t: 'unplace', id: cv.id });
-      apply(s, { t: 'place', id: s.bin[0].id, x: 2, y: 2, dir: 0 });
-    }
+    if (r === 1) dropOnLine(s, 'crusher');
     apply(s, { t: 'run' });
     apply(s, { t: 'next' });
   }
@@ -76,6 +73,25 @@ const verify = (run, player, headers = {}) =>
     body: JSON.stringify(player ? { replay: exportReplay(run), player } : { replay: exportReplay(run) }),
   });
 
+/** Open the Settings dialog on the home screen; close it and wait for the screen that follows. */
+const openSettings = async (p = page) => {
+  await p.getByTestId('settings').click();
+  await p.waitForSelector('[data-testid=settings-dialog]', { timeout: 5000 });
+};
+/** The links behind More on the home screen. */
+const openMore = async (p = page) => {
+  await p.getByTestId('more').click();
+  await p.waitForSelector('[data-testid=more-dialog]', { timeout: 5000 });
+};
+/** The ways to share behind one line on the results. */
+const openShare = async () => {
+  await page.locator('[data-testid=share-more] summary').click();
+};
+const closeSettings = async (p = page) => {
+  await p.getByTestId('settings-close').click();
+  await p.jd.noDialog('settings-dialog');
+  await p.jd.frames(3);
+};
 // shared across the scenarios (each one leaves the page where the next expects it)
 let board, sub, dinfo, identity, plantedSave, groupCode, buddyToken, bsub, shared, detailed, kbConv;
 
@@ -91,7 +107,9 @@ test('boot: damaged storage shapes fall back, the telemetry toggle records conse
   await page.reload();
   await title();
   assert.deepEqual(page.errors, [], 'damaged storage shapes produced no page errors');
+  await openSettings();
   assert.equal(await page.getByTestId('textscale').textContent(), '100%', 'an invalid text scale falls back to 100%');
+  await closeSettings();
   await page.evaluate(() => {
     localStorage.removeItem('jd.bests.v1');
     localStorage.removeItem('jd.bests.v2');
@@ -101,30 +119,26 @@ test('boot: damaged storage shapes fall back, the telemetry toggle records conse
   });
   // player name for the verified board (set here so the results screen does not prompt)
   await page.evaluate(() => localStorage.setItem('jd.player', 'e2e player'));
-  // opt_in_funnel_events (PLAN-v1 0.3.7): off by default; the title toggle turns it on and says so
-  assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.settings.v1') || '{}')).telemetry ?? false, false, 'telemetry is off by default');
-  assert.equal(await page.getByTestId('telemetry').textContent(), 'Share stats: Off');
+  // play data (the owner's decision, 2026-10-31): on until the player turns it off; the Settings switch says so
+  await openSettings();
+  assert.equal(await page.getByTestId('telemetry').textContent(), 'Share play data: On');
+  await page.getByTestId('telemetry').click();
+  await when(() => JSON.parse(localStorage.getItem('jd.settings.v1') || '{}').telemetry === false);
+  assert.equal(await page.getByTestId('telemetry').textContent(), 'Share play data: Off');
+  assert.equal(await page.evaluate(() => localStorage.getItem('jd.telemetry.v1')), null, 'off deletes the install id and the queue');
   await page.getByTestId('telemetry').click();
   await when(() => JSON.parse(localStorage.getItem('jd.settings.v1') || '{}').telemetry === true);
-  assert.equal(await page.getByTestId('telemetry').textContent(), 'Share stats: On');
-  assert.match(
-    await page.evaluate(() => localStorage.getItem('jd.telemetry.v1') || ''),
-    /"installId":"[0-9a-f]{32}"/,
-    'a random install id exists only after consent',
-  );
+  assert.match(await page.evaluate(() => localStorage.getItem('jd.telemetry.v1') || ''), /"installId":"[0-9a-f]{32}"/, 'on again: a new random install id');
+  await closeSettings();
 });
 
-test('first draft: the hint names the card; a key picks it', { timeout: 60000 }, async () => {
-  await page.goto(f.gameUrl('scene=game&seed=e2e-seed'));
+test('first draft: the coach says pick one; a key picks it', { timeout: 60000 }, async () => {
+  await page.goto(f.gameUrl('scene=game&seed=classic-e2e-seed'));
   await draft();
   const st0 = await api('state');
   assert.equal(st0.round, 1);
   assert.ok(st0.offers.includes('crusher'), 'round 1 offers a crusher');
-  assert.match(
-    await api('hint'),
-    /First pick: Crusher \(card [123]\) — it turns \$1 scrap into \$3 shards/,
-    'the first draft says which card to take and why (0.9.3)',
-  );
+  assert.match(await api('hint'), /^Pick ONE part\. The other two go back on the truck\.$/);
   await page.keyboard.press(['Digit1', 'Digit2', 'Digit3'][st0.offers.indexOf('crusher')]);
   await when(() => window.__jd.phase() === 'build');
   const st = await api('state');
@@ -133,36 +147,40 @@ test('first draft: the hint names the card; a key picks it', { timeout: 60000 },
 });
 
 test(
-  'pointer drag: a refused drop toasts at the cell and outlives two seconds, the flow overlay shows the belt, R and right-click rotate',
+  'pointer drag: a part dropped on the belt swaps in, a refusal toasts at the cell and outlives two seconds, the flow overlay shows the belt, R and right-click rotate',
   { timeout: 60000 },
   async () => {
-    // real drag: bin slot 0 → cell (2,2) which holds a conveyor → rejected (occupied), stays in bin
+    // real drag: the crusher lands on the belt piece at (2,2) and takes its place; the belt piece goes to the shelf (docs/UX-STANDARD.md: the obvious move works)
     await drag(binSlotCenter(0), cellCenter(2, 2));
-    let st = await api('state');
-    assert.equal(st.bin.length, 1, 'occupied cell rejected the drop');
-    {
-      const toast = await api('toast');
-      assert.ok(
-        toast && toast.kind === 'refusal' && /^Cell occupied/.test(toast.text) && toast.x === 2 && toast.y === 2,
-        `a refused drop explains why in a toast at the cell (0.9.3): ${JSON.stringify(toast)}`,
-      );
-    }
-    assert.doesNotMatch(await api('hint'), /^Cell occupied/, 'the hint strip keeps its own hint');
-    await settle(2500, 'the toast must outlive the old two-second hint takeover: it goes with the next action, not with time');
-    assert.match((await api('toast'))?.text ?? '', /^Cell occupied/, 'the toast is still there after 2.5 s');
+    const st = await api('state');
+    assert.deepEqual(
+      st.bin.map((m) => m.kind),
+      ['conveyor'],
+      'the belt piece went to the shelf',
+    );
+    const crusher = st.layout.machines.find((m) => m.kind === 'crusher');
+    assert.ok(crusher && crusher.x === 2 && crusher.y === 2 && crusher.dir === 0, 'the crusher took its place, facing the way the line runs');
     {
       const flow = await api('flow');
       assert.ok(flow.visible && flow.links >= 3, `the flow overlay shows the starter belt's links in the build phase: ${JSON.stringify(flow)}`);
     }
-    // move the conveyor at (2,2) into the bin, then drop the crusher there
-    await drag(cellCenter(2, 2), shelfPoint);
+    // a refusal says why at the place it happened and stays until the next action, not on a timer
+    assert.equal(await api('act', { t: 'place', id: st.bin[0].id, x: 2, y: 2, dir: 0 }), false, 'the rules still refuse an occupied spot');
+    {
+      const toast = await api('toast');
+      assert.ok(toast && toast.kind === 'refusal' && /^Something is already there/.test(toast.text) && toast.x === 2 && toast.y === 2, JSON.stringify(toast));
+    }
+    assert.doesNotMatch(await api('hint'), /^Something is already there/, 'the coach keeps its own instruction');
+    await settle(2500, 'the toast must outlive the old two-second hint takeover: it goes with the next action, not with time');
+    assert.match((await api('toast'))?.text ?? '', /^Something is already there/, 'the toast is still there after 2.5 s');
+    assert.ok(
+      (await api('act', { t: 'rotate', id: crusher.id })) &&
+        (await api('act', { t: 'rotate', id: crusher.id })) &&
+        (await api('act', { t: 'rotate', id: crusher.id })) &&
+        (await api('act', { t: 'rotate', id: crusher.id })),
+      'four turns: back where it was',
+    );
     assert.equal(await api('toast'), null, 'the next action clears the toast');
-    st = await api('state');
-    assert.equal(st.bin.length, 2, 'conveyor returned to bin');
-    await drag(binSlotCenter(st.bin.findIndex((m) => m.kind === 'crusher')), cellCenter(2, 2));
-    st = await api('state');
-    const crusher = st.layout.machines.find((m) => m.kind === 'crusher');
-    assert.ok(crusher && crusher.x === 2 && crusher.y === 2, 'crusher placed by drag');
     // rotate with R (selected after drag), once more with a right-click (a deliberate press and release, as a hand does it), then R twice more to face east again
     const crusherDir = () => page.evaluate(() => window.__jd.state().layout.machines.find((m) => m.kind === 'crusher').dir);
     const rotatedFrom = (d) => when((dd) => window.__jd.state().layout.machines.find((m) => m.kind === 'crusher').dir !== dd, d, 5000);
@@ -241,15 +259,24 @@ test(
     await frames();
     await page.keyboard.press('Enter');
     await frames();
-    assert.equal((await cur()).held, kbConv.id, 'dropping onto the occupied crusher cell is refused and the part stays in hand');
-    assert.match((await api('toast'))?.text ?? '', /^Cell occupied/, 'keyboard refusal shows the reason in a toast at the cursor');
+    st = await api('state');
+    assert.equal(st.layout.machines.find((mm) => mm.id === kbConv.id).y, 2, 'dropped on the crusher, the two swap places');
+    assert.equal(st.layout.machines.find((mm) => mm.kind === 'crusher').y, 3);
+    assert.equal((await cur()).held, null);
+    await page.keyboard.press('Control+z');
+    await when(() => window.__jd.state().layout.machines.find((mm) => mm.kind === 'crusher').y === 2, null, 5000);
+    await frames(3);
+    assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id).y, 3, 'one undo takes the whole swap back');
     await page.keyboard.press('ArrowDown');
     await frames();
+    await page.keyboard.press('Enter');
+    await frames();
+    assert.equal((await cur()).held, kbConv.id, 'picked up again');
     await page.keyboard.press('ArrowRight');
     await frames();
     {
       const w = await api('toast');
-      assert.ok(w && w.kind === 'warning' && /feeding/.test(w.text), `a legal but unfed spot warns in a toast instead of refusing: ${JSON.stringify(w)}`);
+      assert.ok(w && w.kind === 'warning' && /Nothing feeds/.test(w.text), `a legal but unfed spot warns in a toast instead of refusing: ${JSON.stringify(w)}`);
     }
     await shot('e2e-ghost-arrows');
     await page.keyboard.press('Enter');
@@ -264,10 +291,8 @@ test(
     assert.equal(st.bin.length, 1, 'Delete sent the machine under the cursor back to the bin');
     assert.ok(!st.layout.machines.some((mm) => mm.x === 3 && mm.y === 3));
     await page.keyboard.press('Escape');
-    await frames(); // first Esc clears the selection
-    await page.keyboard.press('Escape');
     await frames();
-    assert.equal((await cur()).visible, false, 'Escape hides the cursor');
+    assert.equal((await cur()).visible, false, 'Escape hides the cursor (Delete already let the machine go)');
     await shot('e2e-keyboard');
   },
 );
@@ -307,15 +332,15 @@ test(
       assert.equal((await api('stall')).tick, t0 + 3, 'three steps advance exactly three ticks');
       assert.match(
         await page.getByTestId('paused-veil').textContent(),
-        new RegExp(`second ${t0 + 3} / 80`),
+        new RegExp(`Second ${t0 + 3} of 80`),
         "the veil shows the tick as a second of the yard's clock",
       );
       await page.keyboard.press('Period');
       await when((t) => window.__jd.stall().tick === t, t0 + 4);
       assert.equal(await api('mode'), 'paused', 'the . key steps one tick and stays paused');
     }
+    await frames(3); // a frame boundary between the . key and Esc: the harness can press faster than a hand, and both keys land in one Phaser update otherwise
     await page.keyboard.press('Escape');
-    await frames(); // a frame boundary between the . key and Esc: the harness can press faster than a hand, and both keys land in one Phaser update otherwise
     await mode('running');
     assert.equal((await api('flow')).visible, false, 'no flow overlay while the shift runs');
     await api('finishRun');
@@ -336,27 +361,26 @@ test(
     await title();
     assert.ok(await page.evaluate(() => !!localStorage.getItem('jd.save.v1')), 'run saved to localStorage');
     // today's verified board on the title screen (verifier spawned by this file; no entries for today yet)
-    await textMatches('daily-board', /No checked scores yet today/);
+    await textMatches('daily-board', /No scores yet today/);
     // accessibility settings: reduced motion and text size persist, re-render the title, and apply in-game
     const settings = () => page.evaluate(() => JSON.parse(localStorage.getItem('jd.settings.v1') || '{}'));
-    const titleShows = (tid, text) =>
-      page.waitForFunction(
-        ({ tid, text }) => window.__jdGame.scene.isActive('Title') && document.querySelector(`[data-testid=${tid}]`)?.textContent === text,
-        { tid, text },
-        { timeout: 8000 },
-      );
+    await openSettings();
     await page.getByTestId('motion').click();
-    await titleShows('motion', 'Reduced');
+    await textMatches('motion', /^Reduced$/);
     assert.equal((await settings()).reducedMotion, true, 'reduced motion persisted');
     await page.getByTestId('textscale').click();
-    await titleShows('textscale', '115%');
+    await textMatches('textscale', /^115%$/);
     assert.equal((await settings()).textScale, 1.15, 'text size persisted');
     assert.equal((await settings()).reducedMotion, true, 'text size change kept the motion setting');
-    const howtoPx = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('[data-testid=howto-1]')).fontSize));
-    assert.ok(Math.abs(howtoPx - 15 * 1.15) < 0.6, `labels scale with text size (15px × 1.15 ≈ ${howtoPx.toFixed(2)}px)`);
+    await closeSettings();
+    await overlaySynced();
+    const linePx = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('[data-testid=today-line]')).fontSize));
+    assert.ok(Math.abs(linePx - 13 * 1.15) < 0.6, `labels scale with text size (13px × 1.15 ≈ ${linePx.toFixed(2)}px)`);
+    await openSettings();
     await page.getByTestId('textscale').click();
-    await titleShows('textscale', '130%');
-    // the text-size change restarts the Title scene; under load the overlay can lag the canvas for a frame or two, so measure only once
+    await textMatches('textscale', /^130%$/);
+    await closeSettings();
+    // the text-size change restarts the home scene; under load the overlay can lag the canvas for a frame or two, so measure only once
     // the overlay box equals the canvas box and its scale variable matches (every element is measured against the overlay)
     await overlaySynced();
     await frames(2);
@@ -369,10 +393,8 @@ test(
         return { id: el.dataset.testid, inside: r.left >= ui.left - 1 && r.right <= ui.right + 1 && r.top >= ui.top - 1 && r.bottom <= ui.bottom + 1 };
       });
       return {
-        howto5: g('howto-5'),
         note: g('continue-note'),
         daily: g('daily'),
-        strip: g('daily-strip'),
         ui,
         outside: all.filter((a) => !a.inside).map((a) => a.id),
         scrollH: document.querySelector('#ui .jd-screen').scrollHeight,
@@ -383,15 +405,13 @@ test(
       titleLayout.note.bottom <= titleLayout.daily.top + 1,
       `continue note (${titleLayout.note.bottom}) clears the buttons below (${titleLayout.daily.top})`,
     );
-    assert.ok(
-      titleLayout.howto5.bottom <= titleLayout.strip.top + 1,
-      `how-to panel text (${titleLayout.howto5.bottom}) clears the daily strip (${titleLayout.strip.top})`,
-    );
     assert.deepEqual(titleLayout.outside, [], 'every control stays inside the overlay at 130 %');
     assert.ok(titleLayout.scrollH <= titleLayout.clientH + 1, `the title does not need to scroll at 130 % (${titleLayout.scrollH} vs ${titleLayout.clientH})`);
+    await openSettings();
     await page.getByTestId('textscale').click();
-    await titleShows('textscale', '100%');
+    await textMatches('textscale', /^100%$/);
     assert.equal((await settings()).textScale, 1);
+    await closeSettings();
     await page.keyboard.press('Enter'); // continue
     await when(() => !!window.__jd && window.__jd.phase() === 'result');
     const st = await api('state');
@@ -408,8 +428,10 @@ test(
     let lastBottleneck = '';
     for (let r = 2; r <= 6; r++) {
       await when((rr) => window.__jd.phase() === 'draft' && window.__jd.state().round === rr, r);
-      if (r === 3) assert.equal(await api('hint'), `Last round: ${lastBottleneck}`, "the draft hint repeats the previous round's bottleneck line");
+      if (r === 3)
+        assert.ok((await page.getByTestId('last-shift').textContent()).includes(lastBottleneck), "the last shift's advice stays on screen through the pick");
       await api('pick', 0);
+      if (r === 3) assert.ok((await page.getByTestId('last-shift').textContent()).includes(lastBottleneck), 'and through the build');
       if (r === 2) {
         const before = (await api('state')).score;
         const binPart = (await api('state')).bin.find((m) => m.x < 0);
@@ -444,7 +466,7 @@ test(
       const bottleneck = await page.getByTestId('bottleneck').textContent();
       assert.match(
         bottleneck,
-        /^(The (hopper|conveyor|crusher|furnace|press|splitter) at \d,\d |Supply held the line|Nothing held the line|Nothing reached a dock)/,
+        /^(The (hopper|conveyor|crusher|furnace|press|splitter) (held|is a dead end|was stuck)|This conveyor held|Not enough scrap|Nothing held you back|Nothing reached a dock)/,
         `round ${r} bottleneck line: ${bottleneck}`,
       );
       if (r === 2) lastBottleneck = bottleneck;
@@ -461,7 +483,7 @@ test(
     const completed = (await api('state')).score; // the Game scene's run object holds the finished run
     const bests = await page.evaluate((v) => JSON.parse(localStorage.getItem('jd.bests.v2')).byVersion[v], V);
     assert.equal(bests.overall?.score, completed, 'personal_best_equals_completed_score (overall)');
-    assert.equal(bests.bySeed['e2e-seed']?.score, completed, 'personal_best_equals_completed_score (seed)');
+    assert.equal(bests.bySeed['classic-e2e-seed']?.score, completed, 'personal_best_equals_completed_score (seed)');
     assert.equal(bests.runs, 1);
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), null, 'save cleared after finishing');
   },
@@ -472,9 +494,9 @@ test(
   { timeout: 200000 },
   async () => {
     await page.getByTestId('submit').click();
-    await textMatches('status', /^Checked: \$\d+ — #1 of 1 on the board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\./);
+    await textMatches('status', /^Checked: \$\d+\. You are #1 of 1 on the board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\./);
     // histogram_first (PLAN-v1 0.4.1): the only verified run is highlighted and the text says so without inventing a population
-    await textMatches('percentile', /^1 checked game so far · you are #1$/, 10000);
+    await textMatches('percentile', /^1 game so far · you are #1$/, 10000);
     // the board re-renders after the submission; on a loaded runner the bins can land a frame after the percentile text (CI on 083c883 read 0 bins)
     await when(() => document.querySelectorAll('[data-testid=histogram] .jd-hist-bin').length >= 1, null, 10000);
     const hist = await page.evaluate(() => ({
@@ -488,13 +510,13 @@ test(
     const parT0 = Date.now();
     board = await until(
       async () => {
-        const b = await vjson('/board?seed=e2e-seed');
+        const b = await vjson('/board?seed=classic-e2e-seed');
         return typeof b.botPar === 'number' ? b : null;
       },
-      { timeout: 120000, every: 1000, what: 'the bot par for e2e-seed' },
+      { timeout: 120000, every: 1000, what: 'the bot par for classic-e2e-seed' },
     );
-    console.log(`bot par for e2e-seed arrived after ${((Date.now() - parT0) / 1000).toFixed(1)} s`);
-    await textMatches('bot-par', /^The foreman's mark: \$\d+ · what our own player reaches/, 30000);
+    console.log(`bot par for classic-e2e-seed arrived after ${((Date.now() - parT0) / 1000).toFixed(1)} s`);
+    await textMatches('bot-par', /^Sal's mark: \$\d+\. A target to beat/, 30000);
     assert.ok(board.botPar > 0, 'the board carries a numeric bot par');
     assert.equal(board.entries.length, 1, 'one verified entry');
     assert.match(
@@ -512,21 +534,17 @@ test(
     assert.equal(identity.playerId, board.entries[0].playerId, 'the page cached the player id the verifier confirmed');
     assert.equal(`${identity.name}#${identity.tag}`, board.entries[0].player, 'the claimed name and tag are cached on the device');
     assert.equal(typeof board.entries[0].finalMachines, 'number', 'the verifier derived the tie-break field');
-    assert.match(
-      await page.evaluate(() => document.querySelector('[data-testid=tie-rule]')?.textContent ?? ''),
-      /^Equal scores: fewer machines in round 6/,
-      'the tie rule is printed under the board (PLAN-v2 0.5.5)',
-    );
+    assert.equal(await page.locator('[data-testid=tie-rule]').count(), 0, 'the tie rule speaks only when two scores tie; the fair play page always has it');
     // the results card (production roadmap 0.9.2): the standing sentence leads, then the money, then the deltas; round bars, the board and the Play / Share / Watch rows follow in that order
-    await textMatches('headline', /^Rank 1 of 1 checked game on this yard$/, 10000);
-    assert.match(await page.getByTestId('delta-par').textContent(), /^(\+\$\d+ over|−\$\d+ under|exactly) the foreman's mark$/, "the foreman's mark delta");
+    await textMatches('headline', /^#1 of 1 game on this yard$/, 10000);
+    assert.match(await page.getByTestId('delta-par').textContent(), /^(\+\$\d+ over|−\$\d+ under|exactly) Sal's mark$/, "Sal's mark delta");
     assert.equal(await page.getByTestId('delta-best').textContent(), 'your first game on this yard');
     const order = await page.evaluate(() =>
-      ['headline', 'score', 'deltas', 'round-bars', 'board', 'actions-play', 'actions-share', 'actions-watch']
+      ['score', 'headline', 'deltas', 'actions-play', 'round-bars', 'board', 'actions-share', 'actions-watch']
         .map((id) => document.querySelector(`[data-testid=${id}]`))
         .map((el, i, arr) => !!el && (i === 0 || (arr[i - 1].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0)),
     );
-    assert.deepEqual(order, Array(8).fill(true), 'the card reads headline, money, deltas, round bars, board, Play, Share, Watch');
+    assert.deepEqual(order, Array(8).fill(true), 'the card reads money, standing, deltas, what to do next, shift bars, the board, Share, Watch');
     for (const [w, hh] of [
       [390, 844],
       [1920, 1080],
@@ -550,19 +568,20 @@ test(
     // spoiler_free_share (PLAN-v1 0.4.3): label · score, six glyphs, the standing, days played; no per-round dollars, no layout; the link (0.9.2)
     assert.match(
       shared,
-      /^Junkyard Draft · yard e2e-seed · \$\d+\n[░▒▓█]{6}\n#1 of 1 on the board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\n1 day played\nhttp:\/\/127\.0\.0\.1:\d+\/\?challenge=[0-9a-f]+(&verifier=[^\n]+)?$/,
+      /^Junkyard Draft · yard classic-e2e-seed · \$\d+\n[░▒▓█]{6}\n#1 of 1 on the board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\n1 day played\nhttp:\/\/127\.0\.0\.1:\d+\/\?challenge=[0-9a-f]+(&verifier=[^\n]+)?$/,
       `default share text (0.9.2: the "Beat this" link of the checked game by default): ${JSON.stringify(shared)}`,
     );
-    assert.doesNotMatch(shared, /rounds \$|hopper|conveyor|crusher|seed=/);
+    assert.doesNotMatch(shared, /shifts \$|hopper|conveyor|crusher|seed=/);
     await dismissCopyDialog();
+    await openShare();
     await page.getByTestId('share-link').check();
     await page.getByTestId('share-detailed').click();
-    await when(() => /rounds \$/.test(window.__jdGame.scene.getScene('Results').lastShareText), null, 5000);
+    await when(() => /shifts \$/.test(window.__jdGame.scene.getScene('Results').lastShareText), null, 5000);
     detailed = await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText);
     assert.match(
       detailed,
       new RegExp(
-        `\\nrounds \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+\\nchecked by the Junkyard Draft server(\\nbadges: [^\\n]+)?\\n1 day played\\nhttp:\\/\\/127\\.0\\.0\\.1:\\d+\\/\\?challenge=[0-9a-f]+(&verifier=[^\\n]+)?$`,
+        `\\nshifts \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+ · \\$\\d+\\nchecked by the Junkyard Draft server(\\nbadges: [^\\n]+)?\\n1 day played\\nhttp:\\/\\/127\\.0\\.0\\.1:\\d+\\/\\?challenge=[0-9a-f]+(&verifier=[^\\n]+)?$`,
       ),
       `detailed share text with link: ${JSON.stringify(detailed)}`,
     );
@@ -586,7 +605,7 @@ test(
     else assert.equal(badgeLine, undefined, 'no badges, no line');
     assert.doesNotMatch(shared, /badges/, 'the spoiler-free grid never lists badges');
     const subs = await page.evaluate((v) => JSON.parse(localStorage.getItem('jd.submissions.v2')).byVersion[v], V);
-    assert.equal(subs['e2e-seed'].replayHash, board.entries[0].replayHash, 'submission recorded locally by replay hash');
+    assert.equal(subs['classic-e2e-seed'].replayHash, board.entries[0].replayHash, 'submission recorded locally by replay hash');
   },
 );
 
@@ -600,9 +619,9 @@ test('exports: the share card, the loop clip and the GIF say checked for this ch
   );
   assert.deepEqual([card.width, card.height], [1200, 630]);
   assert.ok(card.size > 10_000, `card has bytes (${card.size})`);
-  assert.match(card.filename, /^junkyard-e2e-seed-\$\d+-card\.png$/);
+  assert.match(card.filename, /^junkyard-classic-e2e-seed-\$\d+-card\.png$/);
   assert.match(card.footer, /^junkyard draft · checked · build /);
-  assert.match(card.standing, /^(#1 of 1 on the board|1 checked game)/);
+  assert.match(card.standing, /^#1 of 1 on the board/);
   assert.deepEqual(card.extras, [], 'no group, no medal, no challenge, no link: nothing invented');
   // loop_clip_exports (PLAN-v1 0.4.2): the best round is re-simulated and recorded live in Chromium; the clip is non-empty, at least 3 s, and takes under 10 s to make
   const clip = await page.evaluate(() =>
@@ -615,7 +634,7 @@ test('exports: the share card, the loop clip and the GIF say checked for this ch
   assert.ok(clip.ms >= 3000, `clip recorded for at least 3 s (${clip.ms} ms)`);
   assert.ok(clip.elapsedMs <= 15000, `export finished in under 15 s (${clip.elapsedMs} ms)`); // 3 s of real-time capture plus encoding; a loaded 4-vCPU runner took 10.1 s (083c883)
   assert.match(clip.mime, /^video\/(webm|mp4)/);
-  assert.match(clip.filename, /^junkyard-e2e-seed-\$\d+-r\d\.(webm|mp4)$/);
+  assert.match(clip.filename, /^junkyard-classic-e2e-seed-\$\d+-r\d\.(webm|mp4)$/);
   assert.ok(clip.frames >= 60 && clip.width >= 624 && clip.height >= 536, `frames ${clip.frames}, ${clip.width}x${clip.height}`);
   assert.equal(await page.evaluate(() => document.querySelector('[data-testid=export-clip]')?.disabled), false, 'the export button is usable again');
   assert.equal(clip.footer, 'junkyard draft · checked recording', 'this run was accepted by the verifier above, so its clip may say so (review F10)');
@@ -633,19 +652,19 @@ test('exports: the share card, the loop clip and the GIF say checked for this ch
   assert.ok(gif.colours > 8 && gif.colours <= 256, `palette of ${gif.colours} colours`);
   assert.ok(gif.width >= 624 && gif.height >= 536, `${gif.width}x${gif.height}`);
   assert.ok(gif.elapsedMs <= 15000, `GIF drawn and encoded in under 15 s (${gif.elapsedMs} ms)`);
-  assert.match(gif.filename, /^junkyard-e2e-seed-\$\d+-r\d\.gif$/);
+  assert.match(gif.filename, /^junkyard-classic-e2e-seed-\$\d+-r\d\.gif$/);
   assert.equal(await page.evaluate(() => document.querySelector('[data-testid=export-gif]')?.disabled), false, 'the GIF button is usable again');
   assert.equal(gif.footer, 'junkyard draft · checked recording');
   // 0.10.6: the GIF is the final layout, and its strip names the yard, the score and the checked hash's first eight characters
   assert.equal(gif.round, 6, 'the final layout by default');
-  assert.match(gif.strip, /e2e-seed · \$\d+ · [0-9a-f]{8}$/, `the strip: ${gif.strip}`);
+  assert.match(gif.strip, /classic-e2e-seed · \$\d+ · [0-9a-f]{8}$/, `the strip: ${gif.strip}`);
   const hasShareSheet = await page.evaluate(() => typeof navigator.share === 'function');
   assert.equal(await page.locator('[data-testid=share-native]').count(), hasShareSheet ? 1 : 0, 'the share-sheet button only where the browser has one');
 });
 
 test('provenance: a different, unsubmitted attempt on the same yard claims no standing and its exports say local', { timeout: 90000 }, async () => {
   // results_provenance (review F11): a different, unsubmitted attempt on the same seed shows no rank for itself, names the earlier verified attempt as a different one, and its exports say local
-  await page.evaluate(() => window.__jdGame.scene.start('Game', { seed: 'e2e-seed', fresh: true }));
+  await page.evaluate(() => window.__jdGame.scene.start('Game', { seed: 'classic-e2e-seed', fresh: true }));
   await when(() => !!window.__jd && window.__jd.phase() === 'draft' && window.__jd.state().round === 1 && window.__jd.state().rounds.length === 0);
   await playThrough();
   await results();
@@ -656,7 +675,7 @@ test('provenance: a different, unsubmitted attempt on the same yard claims no st
     mine: document.querySelectorAll('[data-testid=histogram] .jd-hist-mine').length,
     verifiedHash: window.__jdGame.scene.getScene('Results').verifiedHash,
   }));
-  assert.match(prov.prior ?? '', /^This device's checked game on this yard: \$\d+ \(a different attempt/, JSON.stringify(prov));
+  assert.match(prov.prior ?? '', /^Your checked game on this yard: \$\d+\. This one counts only once it is on the board\.$/, JSON.stringify(prov));
   assert.doesNotMatch(prov.pct ?? '', /you are #|Better than/, 'no standing is claimed for an unverified attempt');
   assert.equal(prov.mine, 0, 'no bin is highlighted as this run');
   assert.equal(prov.verifiedHash, null);
@@ -705,8 +724,8 @@ test(
       orig: document.querySelector('[data-testid=replay-original]')?.textContent,
       stop: document.querySelector('[data-testid=stop]')?.textContent,
     }));
-    assert.match(sideTexts.orig || '', /^Original game: \$\d+ this round · \$\d+ after round 1 · \$\d+ final$/);
-    assert.equal(sideTexts.stop, 'Stop watching (Esc)');
+    assert.match(sideTexts.orig || '', /^Their game: \$\d+ this shift · \$\d+ after shift 1 · \$\d+ final$/);
+    assert.equal(sideTexts.stop, 'Stop watching');
     for (let r = 1; r <= 6; r++) {
       await mode('running');
       await api('finishRun'); // playback uses the real run loop; skip the animation of each round
@@ -735,26 +754,26 @@ test(
         window.__jd.state().round === 3 &&
         window.__jd.state().rounds.length === 2,
     );
-    assert.match(await page.getByTestId('hud-seed').textContent(), /^yard e2e-seed · a try from e2e player(#[A-Z2-9]{4})? after round 2 · practice$/);
+    assert.match(await page.getByTestId('hud-seed').textContent(), /^Yard classic-e2e-seed · a try from e2e player(#[A-Z2-9]{4})? after shift 2 · practice$/);
     assert.equal(await page.locator('[data-testid=replay-banner]').count(), 0, 'a fork is live play, not playback');
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), plantedSave, "a fork never becomes the player's save");
     await playThrough(4);
     await results();
     assert.match(
       await page.getByTestId('results-subtitle').textContent(),
-      /a try from e2e player(#[A-Z2-9]{4})? after round 2 · practice \(never submitted, not your own best\)/,
+      /a try from e2e player(#[A-Z2-9]{4})? after shift 2 · practice \(a try: doesn't go on the board\)/,
     );
     assert.equal(await page.locator('[data-testid=submit]').count(), 0, 'no submit control on a fork');
     assert.equal(await page.locator('[data-testid=export]').count(), 0);
     assert.equal(await page.locator('[data-testid=download]').count(), 0);
     assert.match(await page.getByTestId('fork-best').textContent(), /^New best for this try: \$\d+$/);
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.bests.v2')), bestsBefore, 'a fork never touches the local bests');
-    assert.ok(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.forkbests.v1')))['e2e-seed'], 'fork bests live in their own bucket');
+    assert.ok(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.forkbests.v1')))['classic-e2e-seed'], 'fork bests live in their own bucket');
     await page.getByTestId('share').click();
     await when(() => !!window.__jdGame.scene.getScene('Results').lastShareText, null, 5000);
     assert.match(
       await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText),
-      /\na try from e2e player(#[A-Z2-9]{4})?'s game, from round 3 · not a ranked score\n/,
+      /\na try from e2e player(#[A-Z2-9]{4})?'s game, from shift 3 · not on the board\n/,
     );
     await dismissCopyDialog();
     // Esc stops a watched replay mid-run and returns to the title (instead of pausing)
@@ -791,8 +810,8 @@ test(
     // reveal gate (PLAN-v3 0.6.6): before this device has a verified entry for the open daily, the best replay is not watchable (button and endpoint); afterwards it is
     await page.goto(f.gameUrl());
     await page.waitForSelector('[data-testid=daily-watch][disabled]', { timeout: 15000 });
-    assert.equal(await page.getByTestId('daily-watch').textContent(), 'Watch #1 (after you submit)');
-    assert.match(await page.getByTestId('daily-watch').getAttribute('title'), /open after you submit a checked game/);
+    assert.equal(await page.getByTestId('daily-watch').textContent(), 'Watch #1 (once your score is in)');
+    assert.match(await page.getByTestId('daily-watch').getAttribute('title'), /open once your score is on the board/);
     const gated = await fetch(`${VURL}/replay?hash=${sub.entry.replayHash}`);
     assert.equal(gated.status, 403);
     assert.match((await gated.json()).error, /revealed after you submit/);
@@ -804,10 +823,10 @@ test(
     await page.goto(f.gameUrl());
     await when(() => {
       const t = document.querySelector('[data-testid=daily-board]')?.textContent || '';
-      return /^You: #1 of 1 \(\$\d+\)/.test(t) && /1\. \$\d+ e2e player/.test(t);
+      return /^You: #1 of 1, \$\d+/.test(t) && /1\. \$\d+ e2e player/.test(t);
     });
-    assert.match(await page.getByTestId('daily-mode').textContent(), /^ranked · provisional · closes in \d+ (h|min)$/);
-    assert.equal(await page.getByTestId('daily-seed').textContent(), `yard ${dinfo.seed}`);
+    assert.match(await page.getByTestId('daily-mode').textContent(), /^open · \d+ (hour|hours|minute|minutes) left$/);
+    assert.equal(await page.getByTestId('today-card').getAttribute('data-seed'), dinfo.seed);
     await page.waitForSelector('[data-testid=daily-watch]:not([disabled])', { timeout: 10000 });
     assert.equal(await page.getByTestId('daily-watch').textContent(), 'Watch #1', 'with a verified entry for the day on this device the replay opens up');
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.daily.v1'))).seed, dinfo.seed, 'the minted seed is cached for the day');
@@ -854,18 +873,19 @@ test(
       arch.days.every((x) => x.frozenAt && x.n === 0),
       JSON.stringify(arch.days),
     );
+    await openMore();
     await page.getByTestId('archive').click();
     await when(
       (d) => [...document.querySelectorAll('[data-testid=archive-row]')].some((r) => r.dataset.date === d && /final/.test(r.textContent)),
       twoBack,
       10000,
     );
-    assert.match(await page.getByTestId('archive-row').first().textContent(), /^\d{1,2} [A-Z][a-z]{2} \d{4} · final · 0 checked games/);
+    assert.match(await page.getByTestId('archive-row').first().textContent(), /^\d{1,2} [A-Z][a-z]{2} \d{4} · final · 0 games/);
     assert.equal(arch.days[0].medals, null, 'fewer than five runs: no medals on the day');
     assert.equal(await page.locator('[data-testid=archive-medals]').count(), 0, 'the client draws medals only when the server sent thresholds (PLAN-v3 0.6.4)');
     await page.getByTestId('archive-play').first().click();
     await when((seed) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, old.seed);
-    assert.equal(await page.getByTestId('hud-seed').textContent(), `yard ${old.seed} · archived daily (practice)`);
+    assert.match(await page.getByTestId('hud-seed').textContent(), /^The yard of .+ · past day, practice$/);
     // weekly seed (PLAN-v4 0.7.5): the strip's Weekly button names the open week from the spawned verifier; clicking it plays the minted weekly seed; a run on it lands on /weekly and never on /daily
     const winfo = await vjson('/weekly');
     assert.equal(winfo.ok, true);
@@ -874,11 +894,11 @@ test(
     assert.ok(winfo.previous && winfo.previous.week, 'the previous week is minted alongside for the commitment chain');
     await page.goto(f.gameUrl());
     await page.waitForSelector('[data-testid=weekly]:not([disabled])', { timeout: 15000 });
-    assert.match(await page.getByTestId('weekly').textContent(), new RegExp(`^Weekly ${winfo.week.slice(5)} · closes in \\d+ (d|h|min)$`));
-    assert.match(await page.getByTestId('weekly').getAttribute('title'), new RegExp(winfo.seed));
+    assert.match(await page.getByTestId('weekly').textContent(), /^This week's yard: \d+ (day|days|hour|hours|minute|minutes) left$/);
+    assert.equal(await page.getByTestId('weekly').getAttribute('data-seed'), winfo.seed);
     await page.getByTestId('weekly').click();
     await when((seed) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, winfo.seed);
-    assert.equal(await page.getByTestId('hud-seed').textContent(), `yard ${winfo.seed} · this week's yard`);
+    assert.equal(await page.getByTestId('hud-seed').textContent(), `The week's yard (${winfo.week.slice(5)})`);
     const wsub = await verify(crusherRun(winfo.seed), 'weekly player');
     assert.equal(wsub.ok, true, wsub.error);
     assert.equal(wsub.recorded, true);
@@ -904,11 +924,12 @@ test(
     assert.equal(warch.days[0].date, twoBack, 'the newest daily still comes first');
     await page.goto(f.gameUrl());
     await title();
+    await openMore();
     await page.getByTestId('archive').click();
     await when(
       (w) =>
         [...document.querySelectorAll('[data-testid=archive-row]')].some(
-          (r) => r.dataset.kind === 'weekly' && r.textContent.startsWith(`Week ${w} · final · 0 checked games`),
+          (r) => r.dataset.kind === 'weekly' && r.textContent.startsWith(`Week ${w} · final · 0 games`),
         ),
       winfo.previous.week,
       10000,
@@ -934,7 +955,7 @@ test(
     await when((seed) => window.__jdGame && window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, dinfo.seed);
     assert.match(
       await page.getByTestId('challenge-line').textContent(),
-      new RegExp(`^Challenge vs e2e player: \\$${entry.rounds[0]} in round 1 · their total after this round \\$${entry.rounds[0]} · you so far \\$0$`),
+      new RegExp(`^Beat e2e player: they made \\$${entry.rounds[0]} in shift 1, \\$${entry.rounds[0]} so far\\. You have \\$0\\.$`),
     );
     await playThrough();
     await results();
@@ -946,8 +967,9 @@ test(
       ),
       cr,
     );
+    await openShare();
     await page.getByTestId('share-detailed').click();
-    await when(() => /rounds \$/.test(window.__jdGame.scene.getScene('Results').lastShareText), null, 5000);
+    await when(() => /shifts \$/.test(window.__jdGame.scene.getScene('Results').lastShareText), null, 5000);
     assert.match(
       await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText),
       new RegExp(`\\n(beat|short of|tied) e2e player's \\$${sub.score}`),
@@ -986,10 +1008,12 @@ test(
       const p2 = await f.page();
       await p2.goto(f.gameUrl());
       await p2.jd.title();
+      await openSettings(p2);
       await p2.getByTestId('player').click();
       await p2.getByTestId('dialog-input').fill('Buddy');
       await p2.keyboard.press('Enter');
-      await p2.jd.textMatches('player', /^Player: Buddy#/, 10000);
+      await p2.jd.textMatches('player', /^Buddy#/, 10000);
+      await closeSettings(p2);
       await p2.getByTestId('groups').click();
       await p2.waitForSelector('[data-testid=group-join-code]', { timeout: 10000 });
       await p2.getByTestId('group-join-code').fill(groupCode);
@@ -1019,16 +1043,16 @@ test(
     assert.equal((await fetch(`${VURL}/daily?group=${groupCode}`)).status, 401, "a group board needs a member's token");
     // this device's locally recorded submission on the daily is the anonymous one planted above (the local record keeps the higher score), so the group view honestly says 'beyond the top 2'
     await page.reload();
-    await textMatches('daily-board', /^You: (#\d of 2|beyond the top 2) \(\$\d+\)/);
+    await textMatches('daily-board', /^You: (#\d of 2|beyond the top 2), \$\d+/);
     assert.match(await page.getByTestId('daily-mode').textContent(), /· crew Lunch Crew$/);
     await page.getByTestId('groups').click();
     await page.waitForSelector('[data-testid=group-use-everyone]', { timeout: 10000 });
     await page.getByTestId('group-use-everyone').click();
     await page.getByTestId('groups-close').click();
-    await textMatches('daily-board', /^You: (#\d of 3|beyond the top 3) \(\$\d+\)/);
+    await textMatches('daily-board', /^You: (#\d of 3|beyond the top 3), \$\d+/);
     await page.goto(f.gameUrl());
     await title();
-    assert.match(await page.getByTestId('player').textContent(), /^Player: e2e player#[2-9A-HJKMNP-TV-Z]{4}$/);
+    assert.match(await page.getByTestId('player-name').textContent(), /^e2e player#[2-9A-HJKMNP-TV-Z]{4}$/);
   },
 );
 
@@ -1040,7 +1064,7 @@ test(
     const strip = async () => {
       await page.goto(f.gameUrl());
       await textMatches('daily-board', /\d\. \$\d+ /);
-      return page.getByTestId('daily-board').textContent();
+      return page.getByTestId('daily-board').innerText();
     };
     assert.match(await strip(), /\$\d+ Buddy#[2-9A-HJKMNP-TV-Z]{4}/, 'Buddy is named on the strip before the report');
     const bearer = { Authorization: `Bearer ${identity.token}`, 'Content-Type': 'application/json' };
@@ -1088,7 +1112,7 @@ test('keep-best per player: a better run replaces the entry, an equal one is che
     [6, 5],
   ];
   const mk = (extra, twist = false) => {
-    const s = newRun('kb-e2e');
+    const s = newRun('classic-kb-e2e');
     for (let r = 1; r <= RULES.rounds; r++) {
       apply(s, { t: 'pick', i: 0 });
       if (r === RULES.rounds) for (let k = 0; k < extra; k++) apply(s, { t: 'place', id: s.bin[k].id, x: park[k][0], y: park[k][1], dir: 0 });
@@ -1110,7 +1134,7 @@ test('keep-best per player: a better run replaces the entry, an equal one is che
   const equal = await verify(mk(0, true), null, bearer);
   assert.equal(equal.ok, true);
   assert.equal(equal.recorded, false, 'an equal run is verified but not recorded');
-  const kb = await vjson('/board?seed=kb-e2e');
+  const kb = await vjson('/board?seed=classic-kb-e2e');
   assert.equal(kb.entries.length, 1, 'one entry per player per seed');
   assert.equal(kb.entries[0].replayHash, better.entry.replayHash);
 });
@@ -1124,10 +1148,10 @@ test(
     // the title's button plays the minted seed, and the HUD names it (PLAN-v3 0.6.1)
     await page.getByTestId('daily').click();
     await when((seed) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, dinfo.seed);
-    assert.equal(await page.getByTestId('hud-seed').textContent(), `yard ${dinfo.seed} · today's challenge`);
+    assert.equal(await page.getByTestId('hud-seed').textContent(), "Today's yard");
     // large_text_layout_fits (HUD): a maximum-length seed at 130 % keeps round, score and local-best on the canvas
     await page.evaluate(() => localStorage.setItem('jd.settings.v1', JSON.stringify({ volume: 0.7, muted: false, reducedMotion: true, textScale: 1.3 })));
-    await page.goto(f.gameUrl(`scene=game&seed=${'m'.repeat(64)}`));
+    await page.goto(f.gameUrl(`scene=game&seed=classic-${'m'.repeat(56)}`));
     await draft();
     const hud = await page.evaluate(() => {
       const q = (n) => document.querySelector('[data-testid=' + n + ']');
@@ -1137,38 +1161,37 @@ test(
         seedTruncated: seed.scrollWidth > seed.clientWidth + 1 && getComputedStyle(seed).textOverflow === 'ellipsis',
         seedText: seed.textContent,
         scoreRight: r(q('hud-score').parentElement).right,
-        titleLeft: r(q('title')).left,
+        muteLeft: r(q('mute')).left,
         roundRight: r(q('hud-round')).right,
         scoreLeft: r(q('hud-score')).left,
         uiRight: document.getElementById('ui').getBoundingClientRect().right,
         state: window.__jd.state().seed.length,
       };
     });
-    assert.equal(hud.state, 64, 'the full 64-character seed is the run seed');
+    assert.equal(hud.state, 64, 'the full 64-character name is the run seed');
     assert.ok(
-      hud.seedTruncated && hud.seedText.includes('m'.repeat(64)),
+      hud.seedTruncated && hud.seedText.includes('m'.repeat(56)),
       'the HUD shortens the seed label visually (ellipsis) while keeping the full seed in the text',
     );
     assert.ok(
-      hud.scoreRight <= hud.titleLeft && hud.roundRight <= hud.scoreLeft && hud.scoreRight <= hud.uiRight,
-      `HUD fits: round→${hud.roundRight} score→${hud.scoreLeft}..${hud.scoreRight} title button at ${hud.titleLeft}`,
+      hud.scoreRight <= hud.muteLeft && hud.roundRight <= hud.scoreLeft && hud.scoreRight <= hud.uiRight,
+      `HUD fits: round→${hud.roundRight} score→${hud.scoreLeft}..${hud.scoreRight} sound button at ${hud.muteLeft}`,
     );
     await page.evaluate(() => localStorage.removeItem('jd.settings.v1'));
     // funnel events reached the test verifier: steps counted per install, nothing identifying stored
     assert.equal(await api('flushTelemetry'), true, 'the queued events were accepted by the verifier');
     const funnel = await vjson('/funnel');
     const step = (n) => funnel.steps.find((s) => s.name === n)?.installs;
+    assert.ok(funnel.installs >= 1 && step('app_start') === funnel.installs, 'play data is on by default, so every browser context in this file counts');
     assert.deepEqual(
       {
-        installs: funnel.installs,
-        app_start: step('app_start'),
         pick: step('first_draft_pick'),
         attempt: step('first_place_attempt'),
         run: step('first_run_start'),
         complete: step('first_run_complete'),
         game: step('game_complete'),
       },
-      { installs: 1, app_start: 1, pick: 1, attempt: 1, run: 1, complete: 1, game: 1 },
+      { pick: 1, attempt: 1, run: 1, complete: 1, game: 1 },
       `funnel: ${JSON.stringify(funnel)}`,
     );
     assert.ok(
@@ -1176,7 +1199,7 @@ test(
       `event counts: ${JSON.stringify(funnel.counts)}`,
     );
     const eventsText = fs.readFileSync(path.join(f.verifier.dataDir, 'events.jsonl'), 'utf8');
-    assert.ok(!eventsText.includes('e2e-seed') && !eventsText.includes('other-seed'), 'no seed string reached the verifier');
+    assert.ok(!eventsText.includes('classic-e2e-seed') && !eventsText.includes('other-seed'), 'no seed string reached the verifier');
     assert.ok(!eventsText.includes('127.0.0.1'), 'no client address was stored');
     assert.deepEqual(page.errors, [], 'no page errors across the session');
   },
@@ -1199,10 +1222,10 @@ test(
     await page.waitForSelector('[data-testid=record-dialog]', { timeout: 5000 });
     const days = await page.getByTestId('record-days').textContent();
     assert.match(days, /1 day played/, days);
-    assert.match(days, /1 checked daily · 1 in a row now · longest chain 1/, "the challenge run on today's daily was checked from the results screen");
+    assert.match(days, /1 checked day · 1 in a row now · longest run 1/, "the challenge run on today's daily was checked from the results screen");
     const bars = await page.locator('[data-testid=record-bar]').count();
     assert.ok(bars >= 1, `the standing of each checked game on this device is a bar (${bars})`);
-    assert.match(await page.getByTestId('record-trend').textContent(), /checked games? · the latest/);
+    assert.match(await page.getByTestId('record-trend').textContent(), /games? · the latest/);
     assert.match(await page.getByTestId('record-medals').textContent(), /No medal yet/);
     assert.match(await page.getByTestId('record-bests').textContent(), /Best \$\d+ on yard /);
     assert.equal(await page.locator('[data-testid=record-kind-crusher]').count(), 1, 'the crusher drafted in round 1 is counted');

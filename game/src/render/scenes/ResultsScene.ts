@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import { fitScreen } from '../viewport';
 import type { RunState } from '../../sim/run';
-import { P } from '../palette';
 import { audio } from '../audio';
-import { clearSave, recordBest, recordDayPlayed, recordForkBest, recordKinds, recordRun } from '../storage';
+import { clearSave, recordBest, recordDayPlayed, recordForkBest, recordKinds, recordRun, recordStars } from '../storage';
+import { runStars } from '../../sim/run';
 import type { Challenge } from '../challenge';
 import { makeCard, saveCard, type CardInput } from '../card';
 import type { Rank } from '../share';
@@ -169,18 +169,19 @@ export class ResultsScene extends Phaser.Scene {
     this.run = run;
     this.verifiedHash = null;
     this.hashPromise = null;
-    this.cameras.main.setBackgroundColor(P.bg);
     fitScreen(this);
     const fork = !!run.forkedFrom; // PLAN-v4 0.7.3: a fork is practice: it never touches the save, the bests or the days played
     if (!data.replayed && !fork) clearSave(); // a watched replay is someone else's run: the player's own unfinished save stays untouched
     const rec = data.replayed || fork ? { newOverall: false, newSeed: false, prevSeedBest: null } : recordBest(run.seed, run.score);
     const forkRec = fork ? recordForkBest(run.seed, run.score) : { newFork: false };
+    const stars = !data.replayed && !fork && run.job ? recordStars(run.seed, runStars(run)) : undefined; // rules v4: the career rank counts each yard's best
     if (!data.replayed && !fork) {
       recordDayPlayed();
       recordRun(run.seed, run.score);
       recordKinds(run.picks); // 0.9.7: machines drafted, for the record page
     } // 0.8.7: the device's own history per seed, shown on the results board when the verifier is away
-    audio.roundEnd(true);
+    if (!data.replayed && run.job && runStars(run) === 3) audio.jobDone();
+    else audio.roundEnd(true);
     this.lastRank = null;
     this.lastPlayer = '';
     this.lastShareText = '';
@@ -195,6 +196,7 @@ export class ResultsScene extends Phaser.Scene {
       newOverall: rec.newOverall,
       newSeed: rec.newSeed,
       prevSeedBest: rec.prevSeedBest,
+      stars,
       challenge: data.challenge,
       replayHash: data.replayHash,
       replayPlayer: data.replayPlayer,

@@ -51,7 +51,27 @@ test('validateEvent is total (review F01): any JSON shape for name, props or at 
   assert.equal(typeof batch, 'string');
 });
 
-test('telemetry: off by default — nothing is queued, stored or sent; on — install id, consent event, batches, dedup, no seeds; off again forgets everything', async () => {
+test("telemetry: on by default with an install id made on first use; a browser asking not to be tracked starts off, and the player's own choice beats both", () => {
+  store.clear();
+  const nav = globalThis.navigator as unknown as { globalPrivacyControl?: boolean };
+  assert.equal(telemetry.enabled, true, 'nobody chose: on');
+  assert.equal(telemetry.installId, null, 'nothing stored until something is tracked');
+  telemetry.track('app_start');
+  assert.match(telemetry.installId ?? '', /^[0-9a-f]{32}$/);
+  telemetry.setEnabled(false);
+  store.clear();
+  nav.globalPrivacyControl = true;
+  assert.equal(telemetry.enabled, false, 'Global Privacy Control: off until the player says otherwise');
+  assert.equal(telemetry.track('app_start'), false);
+  telemetry.setEnabled(true);
+  assert.equal(telemetry.enabled, true, 'an explicit yes wins');
+  telemetry.setEnabled(false);
+  delete nav.globalPrivacyControl;
+  assert.equal(telemetry.enabled, false, 'an explicit no sticks');
+  store.clear();
+});
+
+test('telemetry: switched off nothing is queued, stored or sent; on — install id, consent event, batches, dedup, no seeds; off again forgets everything', async () => {
   const sent: { url: string; body: { installId: string; consent: boolean; events: { name: string; props: Record<string, unknown> }[] } }[] = [];
   let accept = true;
   telemetry.configure({
@@ -62,6 +82,7 @@ test('telemetry: off by default — nothing is queued, stored or sent; on — in
       return true;
     },
   });
+  telemetry.setEnabled(false);
   assert.equal(telemetry.enabled, false);
   assert.equal(telemetry.track('app_start'), false, 'disabled: nothing is recorded');
   assert.equal(store.has('jd.telemetry.v1'), false, 'disabled: no install state exists');

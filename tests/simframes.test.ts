@@ -13,20 +13,20 @@ const sim = (o: { itemAt?: Record<number, Item>; pressStore?: Record<number, num
   tick: o.tick ?? 0,
 });
 
-test('machine frames: crusher jaws on odd ticks while holding, furnace glow, press ram and store tint, hopper beat, splitter tilt, nothing for the rest', () => {
+test('machine frames: crusher jaws on odd ticks while holding, furnace glow, press ram and store tint, hopper beat, splitter flap, nothing for the rest', () => {
   const held = item({ hold: 2 });
   assert.deepEqual(machineFrame('crusher', sim({ itemAt: { 3: held }, tick: 1 }), 3, 0), { key: 'm-crusher-1' });
   assert.deepEqual(machineFrame('crusher', sim({ itemAt: { 3: held }, tick: 2 }), 3, 0), { key: 'm-crusher' }, 'even tick: jaws open');
   assert.deepEqual(machineFrame('crusher', sim({ tick: 1 }), 3, 0), { key: 'm-crusher' }, 'idle: still, so a jam stays visible');
-  assert.deepEqual(machineFrame('furnace', sim({ itemAt: { 3: held } }), 3, 0), { tint: 0xffd9a0 });
-  assert.deepEqual(machineFrame('furnace', sim({}), 3, 0), { tint: 0xffffff });
+  assert.deepEqual(machineFrame('furnace', sim({ itemAt: { 3: held } }), 3, 0), { key: 'm-furnace-1' });
+  assert.deepEqual(machineFrame('furnace', sim({}), 3, 0), { key: 'm-furnace' });
   assert.deepEqual(machineFrame('press', sim({ itemAt: { 3: item({ hold: 2 }) } }), 3, 0), { key: 'm-press-1', tint: 0xffffff });
   assert.deepEqual(machineFrame('press', sim({ itemAt: { 3: item({ hold: 1 }) } }), 3, 0), { key: 'm-press-2', tint: 0xffffff });
   assert.deepEqual(machineFrame('press', sim({ pressStore: { 3: 1 } }), 3, 0), { key: 'm-press', tint: 0xcfe3ff }, 'a stored shard tints the idle press');
   assert.deepEqual(machineFrame('hopper', sim({ tick: RULES.hopperPeriod }), 0, 0.1), { scale: 1.05 });
   assert.deepEqual(machineFrame('hopper', sim({ tick: RULES.hopperPeriod }), 0, 0.5), { scale: 1 });
-  assert.deepEqual(machineFrame('splitter', sim({ splitterToggle: { 3: 1 } }), 3, 0), { angleOffset: 4 });
-  assert.deepEqual(machineFrame('splitter', sim({}), 3, 0), { angleOffset: -4 });
+  assert.deepEqual(machineFrame('splitter', sim({ splitterToggle: { 3: 1 } }), 3, 0), { key: 'm-splitter-1' }, 'the next item goes south');
+  assert.deepEqual(machineFrame('splitter', sim({}), 3, 0), { key: 'm-splitter' });
   assert.deepEqual(machineFrame('conveyor', sim({}), 3, 0), {});
   assert.deepEqual(machineFrame('dock', sim({}), 3, 0), {});
 });

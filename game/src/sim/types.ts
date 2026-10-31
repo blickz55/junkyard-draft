@@ -2,7 +2,8 @@
 
 /** v2 (2026-10-25): Plate Press machine + plate material; conveyor draft weight 34 → 30. */
 /** v3 (rules-v3 branch): Tuner machine (adjacent processors hold one tick less) offered from round 3 through the tier table; Sieve exists as an experimental, never-offered kind. */
-export const RULES_VERSION = 3; // rules-v3 branch (PLAN-v2): bumped on the first semantic change; v2 replays and saves are refused from here on
+/** v4 (owner playtest, 2026-10-31): the seed builds the yard (belt shape, rubble, job, shelf), the job's product sells for the job's price, the job's machine is guaranteed in shift 2, the lesson opens with a broken belt. */
+export const RULES_VERSION = 4; // bumped on every semantic change; older replays and saves are refused from here on
 
 export type MachineKind = 'hopper' | 'conveyor' | 'splitter' | 'crusher' | 'furnace' | 'press' | 'dock' | 'sieve' | 'tuner';
 export type Material = 'scrap' | 'shards' | 'plate' | 'ingot' | 'slag';
@@ -34,6 +35,10 @@ export interface Layout {
   width: number;
   height: number;
   machines: Machine[];
+  /** cell indices nothing can be built on (rules v4; absent means none) */
+  rubble?: readonly number[];
+  /** the job's product: it sells for RULES.job.price on this layout (rules v4; absent means none) */
+  premium?: Material;
 }
 
 /** `absorb`: a press took a shard into its store (the item ceases to exist; the next shard becomes a plate). */

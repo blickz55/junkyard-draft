@@ -1,10 +1,13 @@
 import { DIR_DX, DIR_DY, isProcessor, leftOf, opposite, rightOf, RULES, transform, type ProcessorKind } from './rules';
+import { priceOf } from './yard';
 import type { CellStats, Dir, Item, Layout, Machine, Material, RunResult, SimEvent } from './types';
 
 export interface SimState {
   tick: number;
   width: number;
   height: number;
+  /** the layout's prices (the job's product pays its premium, rules v4) */
+  premium?: Material;
   grid: (Machine | undefined)[];
   items: Item[];
   itemAt: (Item | undefined)[];
@@ -32,6 +35,7 @@ export function validateLayout(layout: Layout): string[] {
     if (m.x < 0 || m.y < 0 || m.x >= layout.width || m.y >= layout.height) errs.push(`machine ${m.id} out of bounds`);
     const c = cellIndex(m.x, m.y, layout.width);
     if (seen.has(c)) errs.push(`cell ${m.x},${m.y} occupied twice`);
+    if (layout.rubble?.includes(c)) errs.push(`cell ${m.x},${m.y} blocked by rubble`);
     seen.add(c);
   }
   return errs;
@@ -45,6 +49,7 @@ export function createSim(layout: Layout): SimState {
     tick: 0,
     width: layout.width,
     height: layout.height,
+    premium: layout.premium,
     grid,
     items: [],
     itemAt: new Array(n).fill(undefined),
@@ -158,7 +163,7 @@ function tryAdvance(s: SimState, item: Item): boolean {
     if (tm.kind === 'dock') {
       s.itemAt[cell] = undefined;
       s.items.splice(s.items.indexOf(item), 1);
-      const value = RULES.value[item.mat];
+      const value = priceOf(s, item.mat);
       s.earned += value;
       s.shipped[item.mat]++;
       const st = stats(s, target);
@@ -228,7 +233,7 @@ export function step(s: SimState): SimEvent[] {
         if (isProcessor(tm.kind)) enterProcessor(s, tm.kind, target, item);
       } else if (target >= 0 && s.grid[target]?.kind === 'dock' && accepts(s, target, m.dir)) {
         // hopper feeding straight into a dock: sells raw scrap immediately
-        const value = RULES.value.scrap;
+        const value = priceOf(s, 'scrap');
         s.earned += value;
         s.shipped.scrap++;
         s.spawned++;

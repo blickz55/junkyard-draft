@@ -6,6 +6,7 @@
  * Exit 0 on success, 1 on any failed check, 2 on usage.
  */
 import { apply, newRun } from '../game/src/sim/run';
+import { dropOnLine } from '../tests/e2e/line';
 import { exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
 import { randomBytes } from 'node:crypto';
@@ -28,11 +29,7 @@ function finishedRun(s: string) {
   for (let r = 1; r <= RULES.rounds; r++) {
     const i = run.offers.indexOf('crusher');
     apply(run, { t: 'pick', i: i >= 0 ? i : 0 });
-    if (r === 1) {
-      const conv = run.layout.machines.find((m) => m.x === 2 && m.y === 2)!;
-      apply(run, { t: 'unplace', id: conv.id });
-      apply(run, { t: 'place', id: run.bin[0].id, x: 2, y: 2, dir: 0 });
-    }
+    if (r === 1) dropOnLine(run, 'crusher');
     apply(run, { t: 'run' });
     apply(run, { t: 'next' });
   }

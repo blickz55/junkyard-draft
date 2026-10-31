@@ -5,6 +5,21 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.10 Phone, production roadmap)
 
+### The owner's first playtest — 2026-10-31 (rules v4, protocol 2: additive)
+Twelve notes from the owner's first real play, all taken. Old recordings and saves stop working on purpose (rules v4); the v3 golden corpus is kept under `tests/golden/archive/v3/`.
+- **Every yard is a job.** "Ship 160 ingots" with three stars, stated on a job card at the start, on a bar in the HUD with star marks, with a moment when a mark is passed, and on the results with exactly what the next star would have taken ("14 ingots short of ★★★"). The job's goods pay $24 on that yard, so the job and the leaderboard pull the same way. Stars show on boards and in share text; each yard's best stars add up to a rank on this device, Scrap Picker to Scrap King.
+- **Yards are different now.** A yard's name generates its belt, junk piles and two spare conveyors; "Random Yard" used to open the same board every time. The `classic-*` names keep the old starter.
+- **Tap anything.** Any machine, shelf part or junk pile says what it does, what goes in, what comes out and what it did last shift, in every phase. A drag during the pick is told why not.
+- **One instruction at a time.** Sal's card says the one thing to do now, and what to touch lights up: a card, a shelf slot, a spot, a button. Pick, Build, Run show where you are. Last shift's advice stays on screen through the pick and the build, with Show me.
+- **The obvious move works.** A part dropped on the belt takes its place, the belt piece goes to the shelf, and it faces the way the line runs. Dragging one machine onto another swaps them; one Undo takes it back. Conveyors turn corners by themselves. A second tap on a machine turns it.
+- **Pick ONE is said and shown.** The coach says it, the other two cards leave the screen, and a card the job needs wears a badge.
+- **A new lesson.** Close a gap in the belt, start the shift, then one machine a shift, then the first real choice, and a way on at the end. Skip the lesson is always on screen. A test plays it touching only what is lit, by mouse and by thumb.
+- **A Menu and a Home.** "Title" is gone: Menu in a game (keep playing, how to play, sound, skip the lesson, save and go home) and a Home with one primary action, today's job, your rank and today's board. Settings have their own dialog.
+- **A written standard.** `docs/UX-STANDARD.md` is the bar for words and interaction. The banned-word lint now fails on round, title screen, submit, grid, cell, import and the rest, and every player-facing string was rewritten to it. The panel's picture faces the way the machine faces (it stayed unrotated after a turn).
+- **New art.** A hand-authored sprite sheet with materials, corner belts, junk piles, ground, a hero picture and bundled fonts (`docs/ART.md`).
+- **New sound.** Every sound is a recipe rendered in the browser: wood, felt and soft metal instead of square waves, and shipped goods play a gentle melody from the shift's scale (`docs/SOUND.md`). The ears on this were not ours: measured, not heard.
+- **Play data is on by default**, off with one switch in Settings; a browser sending Global Privacy Control or Do Not Track starts with it off. The privacy notice says so.
+
 ### 0.10.6 share surfaces for phones — 2026-10-30 (no rules change, protocol 2)
 - **"Share…" on the results, first in the Share row wherever the browser has a share sheet** (phones; desktop Chrome and Edge on Windows too): the sheet gets the spoiler-free grid with the "beat this" link as the text and, where the sheet takes a picture, the 1200×630 card as a PNG. A cancelled sheet says nothing; a failed one says why. Copy share text, the detailed variant and the card download stay for everyone else.
 - **The GIF is the final layout**, looping at 4× as before, and its strip now names the yard, the score and, for a checked run, the first eight characters of the recording's hash beside the wordmark; an unchecked run's strip carries no hash. Still under 2 MB (the roadmap allows 4).

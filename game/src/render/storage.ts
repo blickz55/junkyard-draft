@@ -32,6 +32,7 @@ const K = {
   standings: 'jd.standings.v1',
   medals: 'jd.medals.v1',
   kinds: 'jd.kinds.v1',
+  stars: 'jd.stars.v1',
 };
 /**
  * Score records are partitioned by rules version (PLAN-v2 0.5.0): `jd.bests.v2` / `jd.submissions.v2` hold
@@ -43,7 +44,7 @@ const K = {
 
 export type RenderQuality = 'auto' | 'high' | 'low';
 /** renderQuality: 'auto' until the first run measures frame times at high resolution, then 'high' or 'low' (DPR 1); the title button sets it too. */
-/** telemetry: opt-in anonymous funnel events (PLAN-v1 0.3.7); false until the player turns it on */
+/** telemetry: the player's choice on anonymous play data: true, false, or null while they have not chosen (on, unless the browser asks not to be tracked; render/telemetry.ts) */
 /** per-bus levels 0..1 (DOSSIER-v1 0.4.9) */
 export interface Buses {
   ui: number;
@@ -56,7 +57,7 @@ export interface Settings {
   reducedMotion: boolean;
   textScale: number;
   renderQuality: RenderQuality;
-  telemetry: boolean;
+  telemetry: boolean | null;
   buses: Buses;
   reducedAudio: boolean;
   /** the foreman (0.9.1): every line, or the teaching lines only */ chatter: 'full' | 'less';
@@ -103,7 +104,7 @@ export function validateSettings(raw: unknown, fallback: Settings): Settings {
     reducedMotion: typeof raw.reducedMotion === 'boolean' ? raw.reducedMotion : fallback.reducedMotion,
     textScale: isFiniteNum(raw.textScale) && TEXT_SCALES.has(raw.textScale) ? raw.textScale : fallback.textScale,
     renderQuality: raw.renderQuality === 'high' || raw.renderQuality === 'low' || raw.renderQuality === 'auto' ? raw.renderQuality : fallback.renderQuality,
-    telemetry: raw.telemetry === true, // anything but an explicit true is off
+    telemetry: raw.telemetry === true ? true : raw.telemetry === false ? false : null,
     buses: (() => {
       const b = isObj(raw.buses) ? raw.buses : {};
       const lvl = (k: keyof Buses) => (isFiniteNum(b[k]) ? Math.min(1, Math.max(0, b[k] as number)) : fallback.buses[k]);
@@ -231,7 +232,7 @@ export const loadSettings = (): Settings =>
     reducedMotion: systemReducedMotion(),
     textScale: 1,
     renderQuality: 'auto',
-    telemetry: false,
+    telemetry: null,
     buses: { ui: 1, factory: 1, music: 1 },
     reducedAudio: false,
     chatter: 'full',
@@ -643,6 +644,24 @@ export function recordMedal(seed: string, medal: MedalName, score: number, versi
   writeByVersion(K.medals, version, kept);
   return kept;
 }
+// ---------- stars (rules v4): the best stars of each yard; their sum is the career rank (content/ranks.ts), local only ----------
+export const loadStars = (version: number = RULES_VERSION): Record<string, number> => {
+  const all = readRaw(K.stars) as Record<string, Record<string, number>> | null;
+  const mine = all && typeof all === 'object' ? all[String(version)] : null;
+  return mine && typeof mine === 'object' ? mine : {};
+};
+export const totalStars = (version: number = RULES_VERSION): number => Object.values(loadStars(version)).reduce((a, b) => a + (Number(b) || 0), 0);
+/** Keep the best stars of a yard; returns the total before and after, so a new rank can be announced. */
+export function recordStars(seed: string, stars: number, version: number = RULES_VERSION): { before: number; after: number } {
+  const before = totalStars(version);
+  const mine = loadStars(version);
+  if (stars > (mine[seed] ?? 0)) {
+    const all = (readRaw(K.stars) as Record<string, Record<string, number>> | null) ?? {};
+    write(K.stars, { ...all, [String(version)]: { ...mine, [seed]: stars } });
+  }
+  return { before, after: totalStars(version) };
+}
+
 export type KindCounts = Partial<Record<MachineKind, number>>;
 export const loadKinds = (version: number = RULES_VERSION): KindCounts => {
   const raw = readRaw(K.kinds);

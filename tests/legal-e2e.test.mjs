@@ -9,16 +9,13 @@ import { fixture, SHOTS } from './e2e/fixture.mjs';
 
 const { apply, newRun } = await import('../game/src/sim/run.ts');
 const { exportReplay } = await import('../game/src/sim/replay.ts');
+const { dropOnLine } = await import('./e2e/line.ts');
 const { RULES } = await import('../game/src/sim/rules.ts');
 function finishedRun(seed) {
   const s = newRun(seed);
   for (let r = 1; r <= RULES.rounds; r++) {
     apply(s, { t: 'pick', i: s.offers.indexOf('crusher') >= 0 ? s.offers.indexOf('crusher') : 0 });
-    if (r === 1) {
-      const conv = s.layout.machines.find((m) => m.x === 2 && m.y === 2);
-      apply(s, { t: 'unplace', id: conv.id });
-      apply(s, { t: 'place', id: s.bin[0].id, x: 2, y: 2, dir: 0 });
-    }
+    if (r === 1) dropOnLine(s, 'crusher');
     apply(s, { t: 'run' });
     apply(s, { t: 'next' });
   }
@@ -45,14 +42,10 @@ test('the legal pages are served next to the game: a heading, no script, a way b
   assert.equal((await fetch(`${URL}/legal.json`)).status, 200, 'the bundled source is served too');
 });
 
-test('the Privacy & data panel opens from the consent note on the title with its three tabs', { timeout: 60000 }, async () => {
+test('the Privacy panel opens from the home footer with its three tabs', { timeout: 60000 }, async () => {
   await page.goto(f.gameUrl());
   await title();
-  assert.equal(
-    await page.evaluate(() => document.querySelector('[data-testid=telemetry-note]')?.contains(document.querySelector('[data-testid=privacy]'))),
-    true,
-    'the privacy link is part of the statistics note',
-  );
+  await page.getByTestId('more').click();
   await page.getByTestId('privacy').click();
   await page.waitForSelector('[data-testid=privacy-dialog]');
   assert.match(await page.getByTestId('legal-summary').textContent(), /no accounts, no e-mail sign-up, no cookies/);
@@ -70,10 +63,14 @@ test('the Privacy & data panel opens from the consent note on the title with its
 
 test('download my data: a JSON file with the entry and its recording, never the key', { timeout: 60000 }, async () => {
   // claim a name through the player dialog, then a verified run under that key (submitted from here with the page's own token)
+  await page.getByTestId('settings').click();
   await page.getByTestId('player').click();
   await page.getByTestId('dialog-input').fill('Legal Tester');
   await page.getByTestId('dialog-ok').click();
-  await textMatches('player', /^Player: Legal Tester#/, 10000);
+  await textMatches('player', /^Legal Tester#/, 10000);
+  await page.getByTestId('settings-close').click();
+  await noDialog('settings-dialog');
+  await page.jd.frames(3);
   token = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.identity.v1')).token);
   daily = await f.verifier.json('/daily');
   sub = await f.verifier.json('/verify', {
@@ -83,6 +80,7 @@ test('download my data: a JSON file with the entry and its recording, never the 
   });
   assert.equal(sub.ok, true, JSON.stringify(sub));
   assert.equal(sub.recorded, true);
+  await page.getByTestId('more').click();
   await page.getByTestId('privacy').click();
   await page.waitForSelector('[data-testid=data-export]');
   assert.match(await page.getByTestId('data-status').textContent(), /^You are Legal Tester#/);
@@ -126,13 +124,13 @@ test('delete my data: the confirmation, then the verifier forgets and the device
   await page.screenshot({ path: path.join(SHOTS, `legal-deleted-${Date.now()}.png`) });
   await page.keyboard.press('Escape');
   await noDialog('privacy-dialog');
-  assert.equal(await page.getByTestId('player').textContent(), 'Set player name…', 'the title shows no player after the deletion');
+  await textMatches('player-name', /^Choose a name$/, 10000);
 });
 
 test('the results screen carries the link too', { timeout: 90000 }, async () => {
   // a quick run through the dev hooks; a local name so the results screen does not prompt
   await page.evaluate(() => localStorage.setItem('jd.player', 'Legal Tester'));
-  await page.goto(f.gameUrl('scene=game&seed=legal-e2e-seed'));
+  await page.goto(f.gameUrl('scene=game&seed=classic-legal-e2e-seed'));
   await draft();
   for (let r = 1; r <= 6; r++) {
     await when((rr) => window.__jd.phase() === 'draft' && window.__jd.state().round === rr, r);

@@ -13,6 +13,7 @@ import Phaser from 'phaser';
 import type { Action, RunState } from '../sim/run';
 import type { Machine } from '../sim/types';
 import { DIR_DX, DIR_DY, RULES } from '../sim/rules';
+import { dropActions, smartFacing } from './placement';
 import { inputTravelDirs, outputDirs } from '../sim/advice';
 import { explainRunError, placementWarning } from '../content/advice';
 import type { Mode } from './RoundController';
@@ -20,6 +21,7 @@ import { CELL } from './textures';
 import { fit, setArt } from './atlas';
 import { audio } from './audio';
 import { ui } from '../ui/dom';
+import { t } from '../content/strings';
 import { BIN_Y, GRID_W, GRID_X, GRID_Y } from './layout';
 import { DPR } from './dpr';
 import { CONTROLS, LONG_PRESS_MS, TAP_SLOP_PX, type ControlId } from '../content/controls';
@@ -31,6 +33,8 @@ export interface MachineView {
   m: Machine;
   inBin: boolean;
 }
+/** What a tap on the yard landed on. */
+export type Inspected = { kind: 'machine'; id: number } | { kind: 'rubble'; x: number; y: number } | { kind: 'ground'; x: number; y: number };
 export type ToastKind = 'refusal' | 'warning';
 export interface Toast {
   text: string;
@@ -47,6 +51,10 @@ export interface InputHost {
   /** a recording is being watched */ readonly watching: boolean;
   readonly tipsOpen: boolean;
   act(a: Action): boolean;
+  /** several actions as one edit: all or none, one Undo reverses them */
+  actAll(actions: Action[]): boolean;
+  /** the player asked what this is: a machine, a junk pile or open ground (every phase) */
+  inspect(target: Inspected | null): void;
   syncMachines(): void;
   renderSide(): void;
   startRun(): void;
@@ -56,6 +64,7 @@ export interface InputHost {
   stopReplay(): void;
   closeTips(): void;
   pick(i: number): void;
+  openMenu(): void;
   undo(): void;
   redo(): void;
   setToast(toast: Toast | null): void;
@@ -132,6 +141,7 @@ export class InputController {
       if (this.mode !== 'build' || this.host.playback) return;
       const v = obj.getData('view') as MachineView;
       if (!v) return;
+      if (this.run.phase !== 'build') return; // a click asks what it is (tap); a real drag gets told why not (drag, below)
       this.heldId = null;
       this.updateCursor();
       this.clearToast();
@@ -143,6 +153,11 @@ export class InputController {
       this.host.renderSide();
     });
     input.on('drag', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image, dx: number, dy: number) => {
+      if (this.mode === 'build' && this.run.phase === 'draft' && !this.host.playback && p.getDistance() > TAP_SLOP_PX * DPR) {
+        const m = (obj.getData('view') as MachineView | undefined)?.m;
+        if (m && this.lastReject !== t('advice.pickFirst')) this.showReject(t('advice.pickFirst'), this.toCell(p) ?? { x: m.x, y: m.y });
+        return;
+      }
       const v = this.dragging;
       if (!v || obj !== v.img) return;
       if (this.mode !== 'build') {
@@ -152,14 +167,14 @@ export class InputController {
       v.c.setPosition(dx - CELL / 2, dy - CELL / 2);
       const cell = toCell(p);
       if (cell) {
-        const occ = this.run.layout.machines.find((m) => m.x === cell.x && m.y === cell.y && m.id !== v.m.id);
+        // a machine standing there swaps out, so only a junk pile is a no
+        const blocked = !!this.run.layout.rubble?.includes(cell.y * RULES.gridWidth + cell.x);
         const { px, py } = this.host.cellXY(cell.x, cell.y);
-        setArt(this.hover, occ ? 'tile-bad' : 'tile-ok')
+        setArt(this.hover, blocked ? 'tile-bad' : 'tile-ok')
           .setPosition(px, py)
           .setVisible(true);
-        if (occ) {
-          this.hideGhost();
-        } else this.showGhost(v.m, cell.x, cell.y);
+        if (blocked) this.hideGhost();
+        else this.showGhost(this.facingAt(v.m, cell.x, cell.y), cell.x, cell.y);
       } else {
         this.hover.setVisible(false);
         this.hideGhost();
@@ -180,25 +195,22 @@ export class InputController {
       const cell = toCell(p);
       const inBinArea = p.worldY >= BIN_Y && p.worldY <= BIN_Y + 110 && p.worldX >= GRID_X && p.worldX <= GRID_X + GRID_W;
       if (cell) {
-        const ok = this.host.act({ t: 'place', id: v.m.id, x: cell.x, y: cell.y, dir: v.m.dir });
-        if (ok) audio.place();
-        else {
-          audio.invalid();
-          this.flashBad(cell.x, cell.y);
-        }
+        this.dropAt(v.m, cell.x, cell.y);
       } else if (inBinArea && !v.inBin) {
-        this.host.act({ t: 'unplace', id: v.m.id });
+        if (this.host.act({ t: 'unplace', id: v.m.id })) this.selectedId = null;
         audio.place();
       }
       this.host.syncMachines();
     });
     input.on('gameobjectdown', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.GameObject) => {
       const v = (obj as Phaser.GameObjects.Image).getData?.('view') as MachineView | undefined;
-      if (!v || this.mode !== 'build') return;
-      this.selectedId = v.m.id;
-      this.updateSelection();
-      this.host.renderSide();
-      if (p.rightButtonDown()) this.rotateSelected();
+      if (!v || this.mode !== 'build' || this.run.phase !== 'build') return;
+      if (p.rightButtonDown()) {
+        this.selectedId = v.m.id;
+        this.updateSelection();
+        this.host.renderSide();
+        this.rotateSelected();
+      }
     });
     // taps and fingers (0.10.1)
     input.on('pointerdown', (p: Phaser.Input.Pointer) => {
@@ -339,43 +351,78 @@ export class InputController {
     this.updateCursor();
   }
 
+  // ---------- the obvious move ----------
+  /** The machine as it would stand at a spot: a shelf part takes the facing the drop will give it. */
+  private facingAt(m: Machine, x: number, y: number): Machine {
+    if (m.x >= 0) return m;
+    return { ...m, dir: smartFacing(this.run.layout, m.kind, x, y, m.dir, this.occupantAt(x, y)?.id) };
+  }
+  /** Put a machine at a cell the way a person means it: a part on the belt goes in the belt, whatever stood there steps aside, the part faces the way the line runs. */
+  dropAt(m: Machine, x: number, y: number): boolean {
+    if (this.run.layout.rubble?.includes(y * RULES.gridWidth + x)) {
+      audio.invalid();
+      this.flashBad(x, y);
+      this.showReject(explainRunError('cell blocked by rubble'), { x, y });
+      return false;
+    }
+    const acts = dropActions(this.run, m, x, y);
+    if (!acts.length) return false;
+    const ok = this.host.actAll(acts);
+    if (ok) {
+      if (acts.length > 1) audio.swap();
+      else audio.place();
+    } else {
+      audio.invalid();
+      this.flashBad(x, y);
+    }
+    return ok;
+  }
+
   // ---------- taps (0.10.1) ----------
   private toCell(p: Phaser.Input.Pointer) {
     const x = Math.floor((p.worldX - GRID_X) / CELL),
       y = Math.floor((p.worldY - GRID_Y) / CELL); // world coordinates: the camera is zoomed and scrolled
     return x >= 0 && y >= 0 && x < RULES.gridWidth && y < RULES.gridHeight ? { x, y } : null;
   }
-  /** A tap: a shelf part goes in (or out of) hand, the part in hand is placed on an empty cell, a machine is selected, empty yard clears the selection. */
+  /**
+   * A tap. Any time: the piece tapped says what it does. While building: a shelf part goes in or out of hand, the part in hand
+   * lands where you tap (swapping with what stood there), a machine is selected, the selected machine turns on a second tap,
+   * empty yard lets go.
+   */
   private tap(p: Phaser.Input.Pointer) {
-    if (this.mode !== 'build' || this.host.playback) return;
     const hit = this.scene.input
       .hitTestPointer(p)
       .map((o) => (o as Phaser.GameObjects.Image).getData?.('view') as MachineView | undefined)
       .find((v) => !!v);
     const cell = this.toCell(p);
-    if (hit) {
-      if (hit.inBin) {
-        this.heldId = this.heldId === hit.m.id ? null : hit.m.id;
-        this.selectedId = hit.m.id;
-        this.cursor = null;
-        audio.click();
-      } else if (this.heldId != null && this.heldId !== hit.m.id) {
-        audio.invalid();
-        this.flashBad(hit.m.x, hit.m.y);
-        this.showReject(explainRunError('cell occupied'), { x: hit.m.x, y: hit.m.y });
+    const rubble = cell && this.run.layout.rubble?.includes(cell.y * RULES.gridWidth + cell.x) ? cell : null;
+    const building = this.mode === 'build' && this.run.phase === 'build' && !this.host.playback;
+    if (!building) {
+      this.host.inspect(hit ? { kind: 'machine', id: hit.m.id } : rubble ? { kind: 'rubble', ...rubble } : null);
+      return;
+    }
+    const selected = this.machineById(this.selectedId);
+    const held = this.machineById(this.heldId) ?? (selected && selected.x < 0 ? selected : undefined); // a part selected on the shelf is in hand
+    if (hit?.inBin) {
+      this.heldId = this.heldId === hit.m.id ? null : hit.m.id;
+      this.selectedId = hit.m.id;
+      this.cursor = null;
+      audio.click();
+    } else if (held && cell) {
+      this.heldId = null;
+      if (this.dropAt(held, cell.x, cell.y)) this.selectedId = held.id;
+      else this.heldId = held.id;
+    } else if (hit) {
+      if (this.selectedId === hit.m.id) {
+        this.rotateSelected();
         return;
-      } else {
-        this.selectedId = hit.m.id;
-        this.heldId = null;
       }
+      this.selectedId = hit.m.id;
+      audio.click();
+    } else if (rubble) {
+      this.host.inspect({ kind: 'rubble', ...rubble });
+      return;
     } else if (cell) {
-      if (this.heldId != null) {
-        this.cursor = cell; // place through the keyboard path (its feedback and sounds), then hide the cursor again
-        this.keyEnter();
-        this.cursor = null;
-        this.updateCursor();
-        return;
-      }
       this.selectedId = null;
     } else return;
     this.clearToast('warning');
@@ -400,7 +447,7 @@ export class InputController {
     this.host.setToast(null);
   }
   /** Ghost of the machine in hand at a cell: input (blue) and output (amber) arrows on the cell edges, plus a warning toast if it would not work as drawn. */
-  showGhost(m: Machine, cx: number, cy: number) {
+  showGhost(m: Machine, cx: number, cy: number, quiet = false) {
     const g = this.ghostGfx;
     g.clear();
     const { px, py } = this.host.cellXY(cx, cy);
@@ -421,6 +468,7 @@ export class InputController {
     };
     for (const t of inputTravelDirs(m.kind, m.dir)) arrow(t, false, 0x6fb4ff);
     for (const o of outputDirs(m.kind, m.dir)) arrow(o, true, 0xffb347);
+    if (quiet) return;
     const warn = cx >= 0 ? placementWarning(this.run.layout, m.kind, cx, cy, m.dir, m.id) : null;
     if (warn) this.showToast({ text: warn, kind: 'warning', x: cx, y: cy });
     else this.clearToast('warning');
@@ -453,6 +501,8 @@ export class InputController {
     }
     const { px, py } = slot >= 0 ? this.host.binSlotXY(slot) : this.host.cellXY(m.x, m.y); // a selected shelf part wears the frame on its slot (0.10.1)
     this.selection.setPosition(px, py).setVisible(true);
+    // what goes in and what comes out, on the machine itself, for as long as it is selected (docs/UX-STANDARD.md: everything can be asked about)
+    if (slot < 0 && !this.dragging && this.heldId == null) this.showGhost(m, m.x, m.y, true);
   }
   /** First arrow press reveals the cursor (on the selected machine, else top-left) without moving it. */
   private moveCursor(dx: number, dy: number) {
@@ -478,12 +528,11 @@ export class InputController {
     const { px, py } = this.host.cellXY(this.cursor.x, this.cursor.y);
     this.cursorImg.setPosition(px, py).setVisible(true);
     if (this.heldId != null) {
-      const occ = this.occupantAt(this.cursor.x, this.cursor.y);
-      setArt(this.hover, occ && occ.id !== this.heldId ? 'tile-bad' : 'tile-ok')
+      setArt(this.hover, this.run.layout.rubble?.includes(this.cursor.y * RULES.gridWidth + this.cursor.x) ? 'tile-bad' : 'tile-ok')
         .setPosition(px, py)
         .setVisible(true);
       const held = this.machineById(this.heldId);
-      if (held && !(occ && occ.id !== held.id)) this.showGhost(held, this.cursor.x, this.cursor.y);
+      if (held) this.showGhost(this.facingAt(held, this.cursor.x, this.cursor.y), this.cursor.x, this.cursor.y);
       else this.hideGhost();
     } else if (!this.dragging) {
       this.hover.setVisible(false);
@@ -503,19 +552,13 @@ export class InputController {
     if (held) {
       if (held.x === x && held.y === y) {
         this.heldId = null;
-      } else if (occupant) {
-        audio.invalid();
-        this.flashBad(x, y);
-        this.showReject(explainRunError('cell occupied'), { x, y });
-        return;
-      } else if (this.host.act({ t: 'place', id: held.id, x, y, dir: held.dir })) {
-        audio.place();
-        this.heldId = null;
-        this.selectedId = held.id;
       } else {
-        audio.invalid();
-        this.flashBad(x, y);
-        return;
+        this.heldId = null;
+        if (!this.dropAt(held, x, y)) {
+          this.heldId = held.id;
+          return;
+        }
+        this.selectedId = held.id;
       }
     } else if (occupant) {
       this.heldId = occupant.id;
@@ -523,14 +566,8 @@ export class InputController {
       audio.click();
     } else if (this.run.bin.length) {
       const part = this.run.bin[0];
-      if (this.host.act({ t: 'place', id: part.id, x, y, dir: part.dir })) {
-        audio.place();
-        this.selectedId = part.id;
-      } else {
-        audio.invalid();
-        this.flashBad(x, y);
-        return;
-      }
+      if (!this.dropAt(part, x, y)) return;
+      this.selectedId = part.id;
     } else {
       audio.invalid();
       return;
@@ -557,7 +594,10 @@ export class InputController {
       this.machineById(this.heldId) ?? (this.cursor ? this.occupantAt(this.cursor.x, this.cursor.y) : undefined) ?? this.machineById(this.selectedId);
     if (!target) return;
     this.heldId = null;
-    if (target.x >= 0 && this.host.act({ t: 'unplace', id: target.id })) audio.place();
+    if (target.x >= 0 && this.host.act({ t: 'unplace', id: target.id })) {
+      this.selectedId = null;
+      audio.place();
+    }
     this.host.syncMachines();
     this.host.renderSide();
   }
@@ -576,7 +616,11 @@ export class InputController {
       this.host.renderSide();
       return;
     }
-    this.cursor = null;
-    this.updateCursor();
+    if (this.cursor) {
+      this.cursor = null;
+      this.updateCursor();
+      return;
+    }
+    this.host.openMenu(); // nothing left to let go of: Esc is the way out
   }
 }

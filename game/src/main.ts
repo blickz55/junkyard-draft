@@ -4,7 +4,6 @@ import { TitleScene } from './render/scenes/TitleScene';
 import { GameScene } from './render/scenes/GameScene';
 import { ResultsScene } from './render/scenes/ResultsScene';
 import { viewport, containerSize } from './render/viewport';
-import { P } from './render/palette';
 import { devEnabled } from './render/devapi';
 import { DPR } from './render/dpr';
 import { telemetry } from './render/telemetry';
@@ -49,7 +48,7 @@ const game = new Phaser.Game({
   parent: 'game',
   width: Math.round(initial.w * DPR),
   height: Math.round(initial.h * DPR),
-  backgroundColor: P.bg,
+  transparent: true, // the ground behind the board is CSS on #game (ui/dom.ts): a static picture costs the canvas nothing per frame
   scale: { mode: Phaser.Scale.NONE, zoom: 1 / DPR, autoCenter: Phaser.Scale.NO_CENTER },
   render: { antialias: true, pixelArt: false, roundPixels: false },
   fps: { target: 60, forceSetTimeOut: false },

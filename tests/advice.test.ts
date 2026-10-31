@@ -9,7 +9,7 @@ const mk = (id: number, kind: MachineKind, x: number, y: number, dir: Dir = 0): 
 const lay = (...machines: Machine[]): Layout => ({ width: 8, height: 6, machines });
 
 test('every RunError from apply maps to a non-empty player string', () => {
-  const s = newRun('advice');
+  const s = newRun('classic-advice');
   const cases: Action[] = [
     { t: 'place', id: 1, x: 0, y: 0, dir: 0 }, // not building
     { t: 'pick', i: 3 } as Action, // malformed
@@ -43,8 +43,9 @@ test('every RunError from apply maps to a non-empty player string', () => {
   }
   assert.ok(msgs.length >= 8);
   for (const m of msgs) assert.ok(explainRunError(m).length > 10, m);
-  assert.match(explainRunError('cell occupied'), /^Cell occupied/);
-  assert.match(explainRunError('out of bounds'), /Outside the grid/);
+  assert.match(explainRunError('cell occupied'), /^Something is already there/);
+  assert.match(explainRunError('out of bounds'), /outside the yard/);
+  assert.match(explainRunError('cell blocked by rubble'), /junk pile/);
   assert.ok(explainRunError('action limit reached for this run: x').length > 0);
   assert.ok(explainRunError('something new').length > 0);
 });
@@ -52,13 +53,13 @@ test('every RunError from apply maps to a non-empty player string', () => {
 test('crusher beside a hopper warns (behind only); fed in line it does not', () => {
   const hopper = mk(1, 'hopper', 1, 2, 0);
   const warn = placementWarning(lay(hopper), 'crusher', 1, 3, 0, 50);
-  assert.match(warn ?? '', /behind only/);
+  assert.match(warn ?? '', /only takes things from behind/);
   assert.equal(placementWarning(lay(hopper), 'crusher', 2, 2, 0, 50), null);
-  assert.match(placementWarning(lay(hopper), 'crusher', 2, 2, 1, 50) ?? '', /behind only/);
+  assert.match(placementWarning(lay(hopper), 'crusher', 2, 2, 1, 50) ?? '', /only takes things from behind/);
   assert.match(placementWarning(lay(), 'crusher', 3, 3, 0, 50) ?? '', /nothing feeds/);
-  assert.match(placementWarning(lay(mk(2, 'hopper', 1, 2, 3)), 'crusher', 2, 2, 0, 50) ?? '', /does not point into it/);
-  assert.match(placementWarning(lay(hopper), 'crusher', 7, 3, 0, 50) ?? '', /^Crusher takes items/);
-  assert.match(placementWarning(lay(mk(2, 'conveyor', 6, 3, 0)), 'crusher', 7, 3, 0, 50) ?? '', /off the grid/);
+  assert.match(placementWarning(lay(mk(2, 'hopper', 1, 2, 3)), 'crusher', 2, 2, 0, 50) ?? '', /points elsewhere/);
+  assert.match(placementWarning(lay(hopper), 'crusher', 7, 3, 0, 50) ?? '', /^Crusher only takes things/);
+  assert.match(placementWarning(lay(mk(2, 'conveyor', 6, 3, 0)), 'crusher', 7, 3, 0, 50) ?? '', /out of the yard/);
 });
 
 test('tuner (rules v3): warns when no processor touches it, silent beside a crusher, furnace or press; takes and gives nothing', () => {
@@ -71,10 +72,14 @@ test('tuner (rules v3): warns when no processor touches it, silent beside a crus
       { id: 3, kind: 'dock' as const, x: 3, y: 2, dir: 0 as const },
     ],
   };
-  assert.match(placementWarning(layout, 'tuner', 5, 5, 0, 9) ?? '', /nothing here to tune/);
+  assert.match(placementWarning(layout, 'tuner', 5, 5, 0, 9) ?? '', /only helps a Crusher, Furnace or Press right next to it/);
   assert.equal(placementWarning(layout, 'tuner', 2, 1, 0, 9), null, 'above the furnace');
   assert.equal(placementWarning(layout, 'tuner', 2, 3, 0, 9), null, 'below the furnace');
-  assert.match(placementWarning(layout, 'tuner', 1, 1, 0, 9) ?? '', /nothing here to tune/, 'above a hopper is not a processor');
+  assert.match(
+    placementWarning(layout, 'tuner', 1, 1, 0, 9) ?? '',
+    /only helps a Crusher, Furnace or Press right next to it/,
+    'above a hopper is not a processor',
+  );
   assert.deepEqual(inputTravelDirs('tuner', 0), []);
   assert.deepEqual(outputDirs('tuner', 0), []);
 });

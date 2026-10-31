@@ -160,7 +160,7 @@ test('0.8.7 flush: verified runs are recorded and removed with their rank, a ref
   const line = describeOutcomes(out);
   assert.match(
     line,
-    /^Your saved game on flush-ok is checked: \$123 · #2 of 2 as Pat#AAAA\. your saved game on flush-bad was refused \(did not reproduce\) and is no longer kept\. your saved game on flush-late is checked \(\$77\) but that day's board had already closed, so it is not ranked\.$/,
+    /^Your saved game on flush-ok is checked: \$123 · #2 of 2 as Pat#AAAA\. your saved game on flush-bad was not accepted \(did not reproduce\) and is no longer kept\. your saved game on flush-late is checked \(\$77\), but that day's board had already closed\.$/,
   );
   // offline: everything stays
   storage.savePending(mk('flush-off', '2030-03-05T00:00:00Z'));
@@ -172,7 +172,7 @@ test('0.8.7 flush: verified runs are recorded and removed with their rank, a ref
     ['offline'],
   );
   assert.equal(storage.loadPending().length, 1, 'kept for the next load');
-  assert.match(describeOutcomes(off), /^Still offline; your saved game on flush-off is kept until the game opens with a connection\.$/);
+  assert.match(describeOutcomes(off), /^Still offline. Your saved game on flush-off waits until you reconnect.$/);
   assert.equal(describeOutcomes([]), '');
 });
 

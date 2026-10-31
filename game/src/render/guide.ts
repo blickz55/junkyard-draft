@@ -1,147 +1,176 @@
 /**
- * The onboarding guide (production roadmap 0.9.4, extracted from GameScene): a pure function of the run state to the hint
- * strip's text, the lesson step it is on, the Tips demo it can show, and which of the foreman's situations fits. Nothing
- * here touches the DOM or Phaser; the scene renders what comes back. The lesson's checks read the real layout (fed-ness via
- * placementWarning, flow via a short real simulation), as PLAN-v1 0.3.4 asked: one guidance surface, never a modal.
+ * The coach (docs/UX-STANDARD.md, rules v4; extracted from GameScene in 0.9.4): a pure function of the run to the one thing
+ * to do right now, plus what to touch. Nothing here touches the DOM or Phaser; the scene shows the words and the panel lights
+ * the spots. The lesson's checks read the real layout (fed-ness via placementWarning, flow via a short real simulation), and
+ * the lesson walks the actual belt, so a player who built it differently is still told something true.
  */
 import type { RunState } from '../sim/run';
-import type { Dir, Machine, Material } from '../sim/types';
-import { DIR_DX, DIR_DY, leftOf, rightOf, RULES } from '../sim/rules';
-import { inputTravelDirs } from '../sim/advice';
+import type { Machine, MachineKind, Material } from '../sim/types';
+import { DIR_DX, DIR_DY, RULES } from '../sim/rules';
+import { TUTORIAL_GAP } from '../sim/yard';
+import { outputDirs } from '../sim/advice';
 import { runLayout } from '../sim/sim';
-import { analyseRound, type Bottleneck } from '../sim/bottleneck';
-import { t } from '../content/strings';
+import { t, type StringKey } from '../content/strings';
 import { money } from '../content/format';
 import { machineName } from '../content/machines';
-import { placementWarning } from '../content/advice';
-import { bottleneckLine } from '../content/bottleneck';
-import { recommendFirstPick } from '../content/firstpick';
-import type { Situation } from '../content/foreman';
+import { nextNeeded } from '../content/job';
+import { flowLinks } from './FlowOverlay';
+import { beltShape } from './placement';
 
-/** One step of the lesson: the text, the funnel step (1 pick crusher, 2 place it, 3 run it, 4 furnace, 5 splitter, 6 free draft) and the demo to show. */
+/** Something to touch: a card, a shelf slot, a spot in the yard, or a button. */
+export type Spot =
+  | { kind: 'offer'; i: number }
+  | { kind: 'shelf'; i: number }
+  | { kind: 'cell'; x: number; y: number; /** one of several places it could go */ soft?: boolean }
+  | { kind: 'run' }
+  | { kind: 'next' };
+
+/** One step of the lesson: the instruction, the funnel step and what to touch. */
 export interface LessonStep {
   text: string;
   step: number;
-  demo?: string;
+  spots: Spot[];
 }
 export interface GuideContext {
   tutorial: boolean;
-  onboarded: boolean;
-  /** watching a recording: no advice, no first pick */ watching: boolean;
+  /** a finger rather than a mouse: tap wording */ touch: boolean;
+  /** watching a recording: no advice */ watching: boolean;
+  /** build | running | paused | summary, from the scene */ mode: string;
+  /** the machine selected right now */ selected?: number | null;
   resumeNotice?: string | null;
 }
 export interface Guidance {
   text: string;
-  demo?: string;
+  spots: Spot[];
   /** lesson step on screen, 0 outside the lesson */ step: number;
-  /** the foreman's situation for this moment, or null to leave his line as it is */ foreman: Situation | null;
 }
 
-/** The tutorial seed's lesson, one rule per round, checked against the layout. Round 3 comes in three short steps (0.9.3). */
-export function lessonStep(run: RunState): LessonStep {
-  const r = run;
-  const L = r.layout;
-  const find = (k: Machine['kind']) => L.machines.find((m) => m.kind === k);
+/** Parts that go in the line, on a belt piece. */
+const BELT_PARTS: readonly MachineKind[] = ['crusher', 'furnace', 'press', 'splitter'];
+/** The lesson ends with this shift's result. */
+export const LESSON_LAST_SHIFT = 4;
+
+/** The machines of the line in the order things travel, from the first hopper. */
+function lineFromHopper(run: RunState): Machine[] {
+  const L = run.layout;
   const at = (x: number, y: number) => L.machines.find((m) => m.x === x && m.y === y);
-  const fed = (m: Machine) => placementWarning(L, m.kind, m.x, m.y, m.dir, m.id) == null;
-  const $ = (m: Material) => money(RULES.value[m]);
+  const out: Machine[] = [];
+  let m = L.machines.find((q) => q.kind === 'hopper');
+  while (m && !out.includes(m)) {
+    out.push(m);
+    const d = outputDirs(m.kind, m.dir)[0];
+    if (d == null) break;
+    m = at(m.x + DIR_DX[d], m.y + DIR_DY[d]);
+  }
+  return out;
+}
+/** The first straight belt piece after a machine of this kind on the line (after the hopper when `after` is not on it). */
+function beltAfter(run: RunState, after: MachineKind): { x: number; y: number } | null {
+  const line = lineFromHopper(run);
+  const from = Math.max(
+    0,
+    line.findIndex((m) => m.kind === after),
+  );
+  const m = line.slice(from + 1).find((q) => q.kind === 'conveyor' && beltShape(run.layout, q) === 'straight');
+  return m ? { x: m.x, y: m.y } : null;
+}
+const reaches = (run: RunState, mat?: Material): boolean => {
+  const flow = runLayout(run.layout, 40);
+  return mat ? flow.shipped[mat] > 0 : Object.values(flow.shipped).some((n) => n > 0);
+};
+
+/** Drop this shelf part on the lit belt piece. */
+function dropStep(run: RunState, kind: MachineKind, after: MachineKind, step: number, touch: boolean): LessonStep {
+  const i = run.bin.findIndex((m) => m.kind === kind);
+  const cell = beltAfter(run, after);
+  const key = kind === 'crusher' ? (touch ? 'lesson.dropCrusherTouch' : 'lesson.dropCrusher') : touch ? 'lesson.dropFurnaceTouch' : 'lesson.dropFurnace';
+  return { step, text: t(key), spots: [{ kind: 'shelf', i }, ...(cell ? [{ kind: 'cell' as const, ...cell }] : [])] };
+}
+
+/** The lesson, one thing per shift, checked against the real line. */
+export function lessonStep(run: RunState, touch = false): LessonStep {
+  const r = run;
+  const find = (k: MachineKind) => r.layout.machines.find((m) => m.kind === k);
+  const start = { kind: 'run' } as const;
+  if (r.phase === 'result') {
+    const after =
+      r.round === 1
+        ? t('lesson.after1', { scrap: money(RULES.value.scrap) })
+        : r.round === 2
+          ? t('lesson.after2')
+          : r.round === 3
+            ? t('lesson.after3')
+            : t('hint.summary');
+    return { step: r.round * 3, text: after, spots: [{ kind: 'next' }] };
+  }
   if (r.round === 1) {
-    if (r.phase === 'draft') return { step: 1, text: t('lesson.1draft', { scrap: $('scrap'), shards: $('shards') }) };
-    const crusher = find('crusher');
-    if (!crusher) return { step: 2, text: t('lesson.1place') };
-    return fed(crusher) ? { step: 3, text: t('lesson.1fed', { shards: $('shards') }) } : { step: 3, text: t('lesson.1unfed') };
+    const gap = r.layout.machines.find((m) => m.x === TUTORIAL_GAP.x && m.y === TUTORIAL_GAP.y);
+    if (!gap)
+      return {
+        step: 1,
+        text: t(touch ? 'lesson.gapTouch' : 'lesson.gap'),
+        spots: [
+          { kind: 'shelf', i: 0 },
+          { kind: 'cell', ...TUTORIAL_GAP },
+        ],
+      };
+    if (!reaches(r)) return { step: 2, text: t('lesson.turn'), spots: [{ kind: 'cell', x: gap.x, y: gap.y }] };
+    return { step: 2, text: t('lesson.start1'), spots: [start] };
   }
   if (r.round === 2) {
-    if (r.phase === 'draft') return { step: 4, text: t('lesson.2draft', { ingot: $('ingot'), slag: $('slag') }) };
-    const furnace = find('furnace');
+    if (r.phase === 'draft') return { step: 4, text: t('lesson.pickCrusher'), spots: [{ kind: 'offer', i: 0 }] };
     const crusher = find('crusher');
-    if (!furnace) return { step: 4, text: t('lesson.2place') };
-    if (crusher && furnace.y === crusher.y && furnace.x < crusher.x) return { step: 4, text: t('lesson.2order') };
-    return fed(furnace) ? { step: 4, text: t('lesson.2fed', { ingot: $('ingot') }) } : { step: 4, text: t('lesson.2unfed') };
+    if (!crusher) return dropStep(r, 'crusher', 'hopper', 5, touch);
+    if (!reaches(r, 'shards')) return { step: 5, text: t('lesson.turn'), spots: [{ kind: 'cell', x: crusher.x, y: crusher.y }] };
+    return { step: 5, text: t('lesson.start2', { shards: money(RULES.value.shards) }), spots: [start] };
   }
   if (r.round === 3) {
-    if (r.phase === 'draft') return { step: 5, text: t('lesson.3draft'), demo: 'splitter' };
-    const splitter = find('splitter');
-    if (!splitter) return { step: 5, text: t('lesson.3place'), demo: 'splitter' };
-    // a branch is back on the belt when: a conveyor on the output cell, a conveyor where it points, and that one points into something that takes it
-    const joined = (out: Dir) => {
-      const a = at(splitter.x + DIR_DX[out], splitter.y + DIR_DY[out]);
-      if (!a || a.kind !== 'conveyor') return false;
-      const b = at(a.x + DIR_DX[a.dir], a.y + DIR_DY[a.dir]);
-      if (!b || b.kind !== 'conveyor') return false;
-      const c = at(b.x + DIR_DX[b.dir], b.y + DIR_DY[b.dir]);
-      return !!c && inputTravelDirs(c.kind, c.dir).includes(b.dir);
+    if (r.phase === 'draft') return { step: 7, text: t('lesson.pickFurnace'), spots: [{ kind: 'offer', i: 0 }] };
+    const furnace = find('furnace');
+    if (!furnace) return dropStep(r, 'furnace', 'crusher', 8, touch);
+    const line = lineFromHopper(r);
+    if (line.indexOf(furnace) >= 0 && line.indexOf(furnace) < line.findIndex((m) => m.kind === 'crusher'))
+      return { step: 8, text: t('lesson.order'), spots: [{ kind: 'cell', x: furnace.x, y: furnace.y }] };
+    if (!reaches(r, 'ingot')) return { step: 8, text: t('lesson.turn'), spots: [{ kind: 'cell', x: furnace.x, y: furnace.y }] };
+    return { step: 8, text: t('lesson.start3', { price: money(RULES.job.price) }), spots: [start] };
+  }
+  if (r.phase === 'draft') return { step: 10, text: t('lesson.choice'), spots: r.offers.map((_, i) => ({ kind: 'offer' as const, i })) };
+  return { step: 10, text: t('lesson.free'), spots: [start] };
+}
+
+/** The coach outside the lesson: the pick, the build, the shift, the summary, each one instruction. */
+function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[] } {
+  if (ctx.mode === 'running' || ctx.mode === 'paused') return { text: ctx.watching ? t('hint.watching') : t('coach.running'), spots: [] };
+  if (r.phase === 'result') return { text: t(r.round >= RULES.rounds ? 'hint.summaryFinal' : 'hint.summary'), spots: [{ kind: 'next' }] };
+  if (r.phase === 'draft') {
+    const wanted = nextNeeded(r);
+    return { text: wanted && r.offers.includes(wanted) ? t('coach.pickNeed', { name: machineName(wanted) }) : t('coach.pick'), spots: [] };
+  }
+  // the part just picked waits on the shelf (spare parts never hold the coach up: the picked part has the newest id in the game)
+  const newest = Math.max(0, ...r.layout.machines.map((m) => m.id), ...r.bin.map((m) => m.id));
+  const i = r.picks.length ? r.bin.findIndex((m) => m.id === newest) : -1;
+  if (i >= 0) {
+    const kind = r.bin[i].kind;
+    const belt = BELT_PARTS.includes(kind);
+    const key = kind === 'tuner' ? 'coach.placeTuner' : belt ? 'coach.place' : 'coach.placeYard';
+    const how = ctx.touch ? (ctx.selected === newest ? 'Selected' : 'Touch') : '';
+    const homes = belt ? lineFromHopper(r).filter((m) => m.kind === 'conveyor' && beltShape(r.layout, m) === 'straight') : [];
+    return {
+      text: t(`${key}${how}` as StringKey, { name: machineName(kind) }),
+      spots: [{ kind: 'shelf', i }, ...homes.map((m) => ({ kind: 'cell' as const, x: m.x, y: m.y, soft: true }))],
     };
-    if (!joined(leftOf(splitter.dir))) return { step: 5, text: t('lesson.3top'), demo: 'sideload' };
-    if (!joined(rightOf(splitter.dir))) return { step: 5, text: t('lesson.3bottom'), demo: 'sideload' };
-    const flow = runLayout(L, 40);
-    if (flow.shipped.ingot > 0) return { step: 5, text: t('lesson.3flow', { sell: money(RULES.sellValue) }), demo: 'sideload' };
-    return { step: 5, text: t('lesson.3noflow'), demo: 'sideload' };
   }
-  return { step: 6, text: t('lesson.done', { sell: money(RULES.sellValue) }) };
+  if (flowLinks(r.layout).some((l) => !l.ok)) return { text: t('coach.broken'), spots: [] };
+  return { text: t('coach.ready'), spots: [{ kind: 'run' }] };
 }
 
-/** Which of the foreman's openers fits a round's bottleneck (0.9.1). */
-export function situationFor(b: Bottleneck): Situation {
-  return b.kind === 'disconnected'
-    ? 'bottleneckDisconnected'
-    : b.kind === 'dead-end'
-      ? 'bottleneckDeadEnd'
-      : b.kind === 'slag'
-        ? 'bottleneckSlag'
-        : b.kind === 'saturated'
-          ? b.machine?.kind === 'conveyor'
-            ? 'bottleneckMerge'
-            : 'bottleneckSaturated'
-          : b.kind === 'starved'
-            ? 'bottleneckStarved'
-            : 'bottleneckBalanced';
-}
-
-/** The idle hints, rotated by round and machine count so the strip is never blank. */
-export function idleTip(run: RunState): string {
-  const tips = [
-    t('hint.tip1'),
-    t('hint.tip2'),
-    t('hint.tip3'),
-    t('hint.tip4'),
-    t('hint.tip5'),
-    t('hint.tip6', { shards: money(RULES.value.shards), plate: money(RULES.value.plate) }),
-  ];
-  return tips[(run.round + run.layout.machines.length) % tips.length];
-}
-
-/**
- * The hint strip for a build or draft moment: the lesson in the tutorial; the first draft's pick (after the newcomer's
- * pointer to the lesson); a resume notice when there is one; after a round, the last round's bottleneck (and the foreman's
- * opener for it); else an idle tip. The foreman's situation comes back separately so the scene can leave his line alone.
- */
+/** What the coach says now. A resume notice comes first, once; the lesson runs its own script. */
 export function hintFor(run: RunState, ctx: GuideContext): Guidance {
-  const r = run;
-  let text = '';
-  let demo: string | undefined;
-  let step = 0;
-  let foreman: Situation | null = null;
-  if (ctx.tutorial) {
-    const s = lessonStep(r);
-    text = s.text;
-    demo = s.demo;
-    step = s.step;
-  } else if (r.round === 1 && r.phase === 'draft' && !ctx.watching) {
-    // 0.9.3: the first draft says which card to take and why
-    const rec = recommendFirstPick(r.offers);
-    const pick = rec ? t('hint.firstPick', { n: rec.index + 1, name: machineName(rec.kind), why: rec.why }) : '';
-    text = ctx.onboarded ? pick : `${t('hint.newHere')} ${pick}`.trim();
+  if (ctx.resumeNotice) return { text: ctx.resumeNotice, spots: [], step: 0 };
+  if (ctx.watching) return { text: t('hint.watching'), spots: [], step: 0 };
+  if (ctx.tutorial && ctx.mode !== 'running' && ctx.mode !== 'paused') {
+    const s = lessonStep(run, ctx.touch);
+    return { text: s.text, spots: s.spots, step: s.step };
   }
-  if (ctx.resumeNotice) text = ctx.resumeNotice;
-  if (!text && r.phase === 'draft' && r.rounds.length && !ctx.watching) {
-    // 0.8.8: the last round's bottleneck line is the draft's hint
-    const last = r.rounds[r.rounds.length - 1];
-    const b = analyseRound(last.layout, last.result, r.round);
-    text = t('hint.lastRound', { line: bottleneckLine(b) });
-    foreman = situationFor(b);
-  } else if (r.phase === 'draft' && !r.rounds.length && !ctx.watching) foreman = ctx.tutorial ? 'lesson1' : 'firstDraft';
-  else if (ctx.tutorial && r.phase === 'draft' && r.round < 4) foreman = `lesson${r.round}` as Situation; // the lesson ends after round 3 (the scene then leaves the tutorial)
-  if (!text) text = idleTip(r);
-  return { text, demo, step, foreman };
+  return { ...coach(run, ctx), step: 0 };
 }

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144"><defs><filter id="concrete" filterUnits="userSpaceOnUse" x="0" y="0" width="144" height="144" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.0075" numOctaves="4" seed="8" result="n"/>
+    <feColorMatrix in="n" type="matrix" values="1.4 0 0 0 -0.2  1.4 0 0 0 -0.2  1.4 0 0 0 -0.2  0 0 0 0 1" result="g"/>
+    <feComponentTransfer in="g">
+      <feFuncR type="table" tableValues="0.262 0.3 0.338 0.366 0.394"/>
+      <feFuncG type="table" tableValues="0.238 0.272 0.305 0.331 0.357"/>
+      <feFuncB type="table" tableValues="0.208 0.235 0.263 0.285 0.308"/>
+    </feComponentTransfer>
+  </filter><filter id="dirt" filterUnits="userSpaceOnUse" x="0" y="0" width="144" height="144" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.0058 0.0072" numOctaves="7" seed="31" result="n"/>
+    <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.255  0 0 0 0 0.190  0 0 0 0 0.130  9 0 0 0 -4.9"/>
+  </filter><filter id="dust" filterUnits="userSpaceOnUse" x="0" y="0" width="144" height="144" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.0042 0.0062" numOctaves="6" seed="52" result="n"/>
+    <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.56  0 0 0 0 0.47  0 0 0 0 0.35  3.5 0 0 0 -1.9"/>
+  </filter><filter id="rough" filterUnits="userSpaceOnUse" x="0" y="0" width="144" height="144" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="3" seed="5" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="4.5" xChannelSelector="R" yChannelSelector="G"/>
+  </filter><filter id="spill" filterUnits="userSpaceOnUse" x="0" y="0" width="144" height="144" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="4" seed="12" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="34" xChannelSelector="R" yChannelSelector="G" result="d"/>
+    <feGaussianBlur in="d" stdDeviation="1.1"/>
+  </filter><filter id="worn" filterUnits="userSpaceOnUse" x="0" y="0" width="144" height="144" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.09" numOctaves="4" seed="21" result="n"/>
+    <feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  4.5 0 0 0 -1.75" result="m"/>
+    <feComposite in="SourceGraphic" in2="m" operator="in"/>
+  </filter><filter id="relief" filterUnits="userSpaceOnUse" x="0" y="0" width="144" height="144" color-interpolation-filters="sRGB">
+    <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0.33 0.33 0.33 0 0" result="sketch"/>
+    <feGaussianBlur in="sketch" stdDeviation="0.7" result="cut"/>
+    <feTurbulence type="fractalNoise" baseFrequency="0.055" numOctaves="4" seed="4" result="bump"/>
+    <feComposite in="cut" in2="bump" operator="arithmetic" k2="0.62" k3="0.38" result="h"/>
+    <feDiffuseLighting in="h" surfaceScale="3.8" diffuseConstant="1.22" lighting-color="#fff8ee"><feDistantLight azimuth="235" elevation="54"/></feDiffuseLighting>
+  </filter></defs><rect width="144" height="144" fill="#000" filter="url(#concrete)"/><rect x="0" y="0" width="144" height="144" fill="#000" opacity="0.01"/><rect width="144" height="144" fill="#000" filter="url(#dust)" opacity=".42"/><rect width="144" height="144" fill="#000" filter="url(#dirt)" opacity=".66"/><g stroke="#e7c35a" opacity=".5" filter="url(#worn)"><path d="M30 11H11V30" fill="none" stroke-width="3.4"/><path d="M114 11H133V30" fill="none" stroke-width="3.4"/><path d="M30 133H11V114" fill="none" stroke-width="3.4"/><path d="M114 133H133V114" fill="none" stroke-width="3.4"/></g><g style="mix-blend-mode:multiply"><g filter="url(#relief)"><rect width="144" height="144" fill="#fff"/></g></g><rect x="0.75" y="0.75" width="142.5" height="142.5" fill="none" stroke="#0b0806" stroke-width="1.8" opacity=".7"/></svg>

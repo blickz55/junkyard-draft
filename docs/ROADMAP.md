@@ -85,6 +85,23 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] Commit the CI perf baseline to `docs/baselines/ci/perf-ci.json` from the perf workflow's artifact to arm the strict gate (0.8.4, session 50)
 - [x] ⚑ First green run of `ci.yml` on GitHub: 091a60d (run 40986558629, 2026-10-30); the image job builds, smokes and (0.8.4) pushes on tags
 
+## M14 — the owner's first playtest (2026-10-31, rules v4, protocol 2 additive)
+
+The owner's twelve notes, all taken: `CHANGELOG.md` and the session block in `docs/STATUS.md` say what became of each.
+
+- [x] A goal at the start: every yard is a job with three stars (`game/src/sim/yard.ts`, `ui/JobCard.ts`, the job bar in the HUD, `content/job.ts`, `content/ranks.ts`), calibrated by `tools/job-study.ts` (`docs/baselines/0.11/job-study-v4.json`); overrides the roadmap's "no contracts", recorded in `docs/DESIGN.md`
+- [x] Real yards from the seed: belts, junk piles, spare conveyors (the Random Yard bug); `classic-*` keeps the old starter
+- [x] Tap anything in any phase (`ui/Inspector.ts`); the panel faces the way the machine faces
+- [x] Conveyors turn corners by themselves; a drop on the belt swaps in, facing the line; one Undo reverses a swap (`render/placement.ts`, `RoundController.actAll`)
+- [x] One instruction at a time, with what to touch lit; last shift's advice pinned (`render/guide.ts`, the coach in `ui/GamePanel.ts`)
+- [x] The lesson rebuilt; `tests/walkthrough-e2e.test.mjs` plays it touching only what is lit, by mouse and by thumb
+- [x] Menu and Home instead of "Title", Settings in a dialog, the results simplified; `docs/UX-STANDARD.md` and the extended banned words
+- [x] New art (`docs/ART.md`), bundled fonts, new sound (`docs/SOUND.md`)
+- [x] Play data on by default, Global Privacy Control respected, the privacy notice updated
+- [ ] ⚑ The owner's ears on the sound (`docs/SOUND.md`, Settings → Sound test) and the owner's eyes on the art
+- [ ] ⚑ The EU/UK question on play data on by default (a stored install id may need consent there; see STATUS)
+- [ ] ⚑ A stranger plays the lesson with no help (`docs/UX-STANDARD.md`, last line)
+
 ## M13 — production roadmap v0.10 Phone (`docs/PRODUCTION-ROADMAP.md` §5; routine items done, the owner's ⚑ open)
 - [x] v0.10 exit criteria reviewed on 541f3ea (STATUS: "v0.10 Phone — milestone review"): the PWA installs, the bundle is under budget, three engines verify, push is built and tested; ⚑ the three-phone device run (0.10.5) and the VAPID keys stay the owner's
 - [x] 0.10.0 responsive layout: `render/viewport.ts` (the canvas sizes to its container), `render/layout.ts` (`fitBoard`, `boardCameraCenter`), the CSS-grid shell in `ui/GamePanel.ts` (laptop, portrait phone with the bottom sheet, portrait tablet, short landscape), device-class text sizes and 44 px touch targets in `ui/dom.ts`; `tests/layout-e2e.test.mjs` (the matrix at 130 %, six viewports) and `tests/layout.test.ts` · [ ] ⚑ the owner reviews the screenshots per viewport (`.control-room/screenshots/layout-*.png`)

@@ -113,3 +113,10 @@ export async function fetchWeekly(verifierUrl: string, timeoutMs = 2500): Promis
 }
 /** The seed "Today's challenge" plays right now: the minted one when known, else practice. */
 export const todaySeed = (): string => cachedDaily()?.seed ?? practiceSeed();
+/** The yard to open for "play today": our server's when it has one, otherwise today's practice yard. */
+export async function todaysYard(verifierUrl: string): Promise<string> {
+  const known = cachedDaily();
+  if (known) return known.seed;
+  const d = await fetchDaily(verifierUrl);
+  return d ? d.seed : practiceSeed();
+}
