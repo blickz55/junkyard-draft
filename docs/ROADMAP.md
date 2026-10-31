@@ -85,6 +85,12 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] Commit the CI perf baseline to `docs/baselines/ci/perf-ci.json` from the perf workflow's artifact to arm the strict gate (0.8.4, session 50)
 - [x] ⚑ First green run of `ci.yml` on GitHub: 091a60d (run 40986558629, 2026-10-30); the image job builds, smokes and (0.8.4) pushes on tags
 
+## M15 — production roadmap v0.11 Say something (`docs/PRODUCTION-ROADMAP.md` §5)
+
+- [x] 0.11.0 The community store: `server/community.ts` on `node:sqlite`, the fifteen tables, migrations up and down (`server/migrations/`, numbered SQL modules rather than loose .sql files, so the verifier stays one file), `/health` reports the size, `tools/backup.ts` snapshots the database and the restore drill checks it, a page of a 100k-post thread under 20 ms (`tests/community.test.ts`)
+- [ ] 0.11.1 Email link (⚑ the provider)
+- [ ] 0.11.2 The moderation pipeline (⚑ the policy)
+
 ## M14 — the owner's first playtest (2026-10-31, rules v4, protocol 2 additive)
 
 The owner's twelve notes, all taken: `CHANGELOG.md` and the session block in `docs/STATUS.md` say what became of each.

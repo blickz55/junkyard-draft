@@ -83,6 +83,7 @@ import { decodeReplay, canonicalReplayJson, type ReplayFile } from '../game/src/
 import { replay as replayRun, runStars, type RunState } from '../game/src/sim/run';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { PushStore, PushError, validateHour, validateSubscription } from './push';
+import { COMMUNITY_DB, CommunityStore } from './community';
 import { isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
 import { mintSeed, mintWeeklySeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS, base32Lower } from './mint';
 import { isWeekId, isWeeklySeed, weeklyIdOf, weeklyWindow, currentWeekId, nextWeekId, prevWeekId, isoWeekId } from '../game/src/sim/weekly';
@@ -2075,6 +2076,8 @@ export interface ServerOptions {
   events?: EventStore | null;
   /** push subscriptions for the daily reminder (0.10.4); absent, or present without VAPID keys, the push routes answer 503 */
   push?: PushStore | null;
+  /** the community database (0.11.0); absent, /health says null and the deletion and export routes leave it out */
+  community?: CommunityStore | null;
   /** POST /events limit per client IP per minute (default 30) */
   eventsRateLimit?: number;
   /** POST /verify limit per player id per minute when a bearer is present (default 2) */
@@ -2177,6 +2180,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const rl = opts.rateLimit === null ? null : new RateLimiter(opts.rateLimit?.limit ?? 60, opts.rateLimit?.windowMs ?? 60_000, opts.now);
   const events = opts.events ?? null;
   const push = opts.push ?? null;
+  const community = opts.community ?? null;
   const par = opts.par ?? null;
   const verify = opts.verify ?? null;
   const withPar = (seed: string) => {
@@ -2279,6 +2283,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           entriesAllVersions: verifier.sizeAllVersions,
           cold: { days: verifier.cold.dayCount, replays: verifier.cold.replayCount },
           push: push ? { enabled: push.enabled, subscriptions: push.count, ...push.stats } : null,
+          community: community?.health() ?? null,
           ...(opts.announcer?.enabled ? { discord: opts.announcer.stats } : {}),
           uptimeSec: Math.round((Date.now() - started) / 1000),
           ...verifier.health,
@@ -2555,7 +2560,11 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       if (url.pathname === '/me/export' && req.method === 'GET') {
         // 0.8.6: the access right; the read limiter above applies
         if (!bearerId) return json(401, { ok: false, error: 'token required' });
-        return json(200, { ok: true, ...verifier.exportPlayer(bearerId, new Date((opts.now ?? Date.now)())) });
+        return json(200, {
+          ok: true,
+          ...verifier.exportPlayer(bearerId, new Date((opts.now ?? Date.now)())),
+          community: community?.exportPlayer(bearerId) ?? {},
+        });
       }
       if (url.pathname === '/me' && req.method === 'DELETE') {
         if (!bearerId) return json(401, { ok: false, error: 'token required' });
@@ -2566,7 +2575,14 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         try {
           const r = verifier.deletePlayer(bearerId);
           const pushRemoved = push?.unsubscribePlayer(bearerId) ?? 0; // 0.10.4: the reminder goes with the player
-          return json(200, { ok: true, anonymisedEntries: r.entries, coldReplaysDropped: r.coldReplays, pushSubscriptionsRemoved: pushRemoved });
+          const communityRows = community?.forget(bearerId) ?? 0; // 0.11.0: every row that names the player
+          return json(200, {
+            ok: true,
+            anonymisedEntries: r.entries,
+            coldReplaysDropped: r.coldReplays,
+            pushSubscriptionsRemoved: pushRemoved,
+            communityRowsRemoved: communityRows,
+          });
         } catch (e) {
           if (e instanceof StorageError) return json(503, { ok: false, error: 'storage unavailable; try again' }, { 'Retry-After': '5' });
           return json(500, { ok: false, error: 'internal error' });
@@ -2988,6 +3004,9 @@ if (isMain) {
     setInterval(() => {
       push.tick().catch((e) => console.error(`push tick failed: ${(e as Error).message}`));
     }, 60_000).unref();
+  // the community database (0.11.0): next to the board, migrated here, so a bad migration stops the start instead of half-running
+  const community = new CommunityStore(process.env.COMMUNITY_DB || path.join(path.dirname(file), COMMUNITY_DB));
+  console.log(`community store: schema ${community.version} of ${community.migrations.length} (${community.file})`);
   const server = createServer(verifier, {
     rateLimit: { limit, windowMs: 60_000 },
     playerRateLimit,
@@ -2998,6 +3017,7 @@ if (isMain) {
     log: process.env.VERIFIER_LOG === '0' ? null : undefined,
     events,
     push,
+    community,
     par,
     verify,
     announcer,
@@ -3008,5 +3028,11 @@ if (isMain) {
       `replay verifier v${VERSION} → http://${host}:${port}/  (board: ${file}, events: ${events.file}, rules v${RULES_VERSION}, ${limit} submissions/min/IP, ${playerRateLimit}/min/player, CORS ${corsOrigin}${trustProxy ? ', trusting the rightmost X-Forwarded-For hop / X-Real-IP' : ''})`,
     ),
   );
-  installShutdown(server, { announcer, after: () => verify?.close() }); // 0.8.1: SIGTERM/SIGINT stop accepting, finish in-flight requests and queued announcements, exit 0 (hard stop after 10 s)
+  installShutdown(server, {
+    announcer,
+    after: () => {
+      verify?.close();
+      community.close();
+    },
+  }); // 0.8.1: SIGTERM/SIGINT stop accepting, finish in-flight requests and queued announcements, exit 0 (hard stop after 10 s)
 }

@@ -1,7 +1,7 @@
 # Replay verifier (server/)
 
 The trusted side of scoring: it re-simulates submitted replays with the same rules as the client and
-keeps only verified scores. One Node process, a JSON file for storage, no database.
+keeps only verified scores. One Node process and one bundled file. The board is a JSON file; the social layer is one SQLite file next to it (below).
 
 ## Endpoints
 Protocol level 2 (PLAN-v3 §1, reported by `/health`): identity is additive. A client may send `Authorization: Bearer <32 hex>` (its random device token; the server only ever uses `player_id = SHA-256(token)` and never stores or logs the token; the game sends it only to https or loopback verifiers). Anonymous submissions keep working exactly as before and legacy entries are never claimable.
@@ -24,19 +24,21 @@ Protocol level 2 (PLAN-v3 §1, reported by `/health`): identity is additive. A c
 | GET | `/archive?from=&to=&limit=30` | closed days newest first (PLAN-v3 0.6.2): `{ ok, days: [{ date, key, kind: 'daily' | 'weekly', seed, closesAt, frozenAt, n, botPar, medals, top: top five entries }], nextTo }` (0.7.5: a weekly sorts by the Friday it opened and comes before that day's daily; `key` is its week id); `medals` (0.6.4) = `{ n, bronze, silver, gold }` set once at freeze from the final board as the 50th/80th/95th nearest-rank percentiles (`threshold(p) = sorted[ceil(p/100·n) − 1]`, ties earn the medal), or `null` below 5 runs; `/daily` carries the same field after freeze and `/histogram` returns it for a frozen daily seed; `nextTo` is the next older date to pass as `to` for the following page (null at the end); `from`/`to` must be `YYYY-MM-DD` (400); limit ≤ 100 |
 | GET | `/histogram?seed=…&hash=…` (also `/board`, `/daily`: `botPar`) | verified score distribution for a seed: `{ n, step, bins[{from,to,count}], mine{score,rank,bin,percentile}?, around[] }` — the player's own entry located by replay hash, never by name |
 | GET | `/replay?hash=…` (+ optional bearer) | the stored actions of a **verified** entry `{ ok, hash, seed, player, score, rulesVersion, actions, verifiedAt }` (404 otherwise). **Reveal gate (0.6.6):** on an open minted daily, 403 `{ reason: 'reveal-gate', error, closesAt }` unless the bearer's player has a verified entry on that seed; closed days, ordinary and practice seeds are never gated |
-| GET | `/health` | `{ ok, version, rulesVersion, protocol, entries, entriesAllVersions, uptimeSec }` |
+| GET | `/health` | `{ ok, version, rulesVersion, protocol, entries, entriesAllVersions, uptimeSec, community: { bytes, schema, accounts, threads, posts } | null, … }` |
 | POST | `/events` `{ installId, consent: true, events[] }` | opt-in funnel events (PLAN-v1 0.3.7): only the fixed vocabulary in `game/src/telemetry/events.ts`, consent explicit, ≤ 100 events, 30 req/min/IP; appended to `events.jsonl` with a daily-salted IP hash (422 rejected, 429 limited, 503 storage) |
 | GET | `/funnel` | unique installs per first-session step and event counts (what `npm run funnel` prints from the file) |
 | GET | `/push/vapid` | the daily reminder's VAPID public key (production roadmap 0.10.4); 503 unless the verifier runs with `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` |
 | POST | `/push/subscribe` `{ subscription: { endpoint, keys: { p256dh, auth } }, hourUtc }` (+ optional bearer) | store the browser's push subscription with the UTC hour (0–23) for one message a day, "The yard is open"; upsert by endpoint; the bearer's player id is kept so `DELETE /me` removes it; 422 on a malformed subscription or hour, 507 when the store is full (50 000); the write limiter applies; `{ ok, hourUtc, subscriptions }` |
 | POST | `/push/unsubscribe` `{ endpoint }` | remove the row; `{ ok, removed }`. A subscription the push service answers 404 or 410 for, or that fails five days running, is dropped by the sender; `/health` reports `push: { enabled, subscriptions, sent, removed, failed }` |
 
+**The community store (0.11.0)** is `community.db` next to the board (`COMMUNITY_DB` to move it), on Node's built-in `node:sqlite`, so it adds no dependency (`better-sqlite3` only if the built-in proves unstable, recorded here). Node marks the module experimental and prints one warning at start. Migrations are numbered SQL modules in `server/migrations/`, compiled into the bundle: a new one is a new file and a line in `index.ts`, an applied one never changes, and each must only add, because a database newer than the code runs as it is. `DELETE /me` and `/me/export` run on `PLAYER_COLUMNS`; `tests/community.test.ts` walks the schema to hold that list complete. With the verifier stopped, `node --import tsx tools/community.ts <data-dir> status` reads a directory and `down <version>` reverses migrations. Free text reaches this store only through the moderation pipeline (0.11.2).
+
 **Runtime dependency (the first, by the production roadmap's rule 6): `web-push`** builds the VAPID-signed, aes128gcm-encrypted request the push services require (RFC 8291 / 8292); writing that by hand is more risk than the dependency. The verifier posts the request itself (`server/push.ts`), one message a day per subscription at its hour (a 60 s timer), never anything else until the social notifications (0.11.7). Keys: `npx web-push generate-vapid-keys`, kept with the other secrets; `VAPID_SUBJECT` is the contact address (`mailto:`). Rows live in `push.json` next to the board (`PUSH_FILE` overrides).
 
 ## Run
 ```
 npm run verifier                       # dev: tsx, 127.0.0.1:4400, board in server/data/board.json
-npm run verifier:build                 # esbuild → server/dist/verify.mjs (single file, Node ≥ 20, no tsx)
+npm run verifier:build                 # esbuild → server/dist/verify.mjs (single file, Node ≥ 24 for `node:sqlite`, no tsx)
 node server/dist/verify.mjs --host 0.0.0.0 --port 4400 --data-dir /data --cors-origin https://your.site --rate-limit 60
 ```
 Bot par (PLAN-v1 0.4.5): the first request about a seed starts the shipped autoplayer in a worker thread (5 searches × 40 tries, fixed rng streams, so the same number on every machine); the median is stored as `botPar` and returned by `/board`, `/histogram` and `/daily` (null while computing). `BOT_PAR=0` disables it, `BOT_PAR_CAP_MS` (20000) caps a job; a failed or capped job backs off ten minutes. It is a target labelled as a bot, never an entry.

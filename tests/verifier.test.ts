@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { spawn } from 'node:child_process';
 import { dropOnLine } from './e2e/line';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -390,6 +391,30 @@ test('verifier bundles to a single file that exports the server pieces (what the
   assert.equal(typeof mod.Verifier, 'function');
   assert.equal(typeof mod.RateLimiter, 'function');
   assert.ok(fs.statSync(out).size < 200_000, 'bundle stays small (sim + server only)');
+  // alone in a folder it starts and migrates: nothing has to sit beside it
+  const port = await new Promise<number>((resolve) => {
+    const probe = net.createServer().listen(0, '127.0.0.1', () => {
+      const p = (probe.address() as net.AddressInfo).port;
+      probe.close(() => resolve(p));
+    });
+  });
+  const child = spawn(process.execPath, [out, '--host', '127.0.0.1', '--port', String(port), '--data-dir', path.join(path.dirname(out), 'data')], {
+    env: { ...process.env, BOT_PAR: '0', VERIFIER_LOG: '0', RESIM_INLINE: '1' },
+    stdio: 'ignore',
+  });
+  try {
+    let health: { community?: { schema: number } } | null = null;
+    for (let i = 0; i < 100 && !health; i++) {
+      health = await fetch(`http://127.0.0.1:${port}/health`).then(
+        (r) => r.json() as Promise<{ community?: { schema: number } }>,
+        () => null,
+      );
+      if (!health) await new Promise((r) => setTimeout(r, 100));
+    }
+    assert.equal(health?.community?.schema, 1);
+  } finally {
+    child.kill();
+  }
 });
 
 test('docker layout bundles (review F06): the verifier builds from exactly the paths the Dockerfile copies, minus .dockerignore', async () => {

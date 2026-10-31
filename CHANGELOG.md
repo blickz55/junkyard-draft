@@ -3,7 +3,17 @@
 All notable changes to Junkyard Draft. Dates are UTC. Rules changes bump `RULES_VERSION`, which invalidates
 older replays and saves on purpose.
 
-## Unreleased (v0.10 Phone, production roadmap)
+## Unreleased (v0.11 Say something, production roadmap)
+
+### 0.11.0 the community store — 2026-10-31 (no rules change, protocol 2)
+- **The social layer has somewhere to live.** `server/community.ts` keeps one SQLite file next to the board on Node's built-in `node:sqlite`: accounts, email links, threads, posts, reactions, views, friends, messages, notifications, push subscriptions, reports, moderation actions, divisions, trophies and cosmetics. Nothing a player can reach writes to it yet; the first routes come with their moderation (0.11.2).
+- **Migrations** are numbered SQL modules under `server/migrations/`, compiled in so the verifier stays one file and a build cannot ship without them. Each runs in one transaction at start and is recorded with a hash; a changed one or a gap in the numbers stops the start; a database newer than the code runs as it is, so a rollback to the previous image keeps working. `tools/community.ts` reads where a data directory stands and takes it down.
+- **The right to be forgotten is built in from the first table.** `DELETE /me` and `/me/export` run on one list of the columns that hold a player id, and a test walks the schema so that a new column has to be placed on it.
+- **Backups** take a `VACUUM INTO` snapshot of the database instead of copying a live file, and the restore drill checks its integrity and that the restored service reads the archive's posts. `/health` reports the size, the schema and the counts. A page of a 100k-post thread comes back under 20 ms.
+
+### A first visit on a slow line — 2026-10-31 (no rules change)
+- **Home no longer waits for the art.** On the slow-4G profile the title was taking 4 seconds because the sprite sheet raced the script. Home is DOM and needs no sprites: it now comes up beside the Boot scene at about 2.6 s and the sheet arrives behind it. A tap that gets there first says "Opening the yard…" and goes on by itself; the machine demos wait the same way.
+- **The first visit's script is 291 KiB gzip against the 300 budget.** The bundle had reached 300.1 with the art and the strings. The fairness policy and the legal texts now load on first use as chunks of their own (`ui/panels.ts`), and the service worker caches them with the rest, so they still open offline. `tools/bundle-size.ts` counts the bundle and the chunks it imports statically; `tools/first-interactive.ts` now reads the clock in the page at the first frame the button is there, instead of after the load event.
 
 ### The owner's first playtest — 2026-10-31 (rules v4, protocol 2: additive)
 Twelve notes from the owner's first real play, all taken. Old recordings and saves stop working on purpose (rules v4); the v3 golden corpus is kept under `tests/golden/archive/v3/`.

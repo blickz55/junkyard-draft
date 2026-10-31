@@ -216,7 +216,7 @@ test('0.8.6 GET /me/export lists the player\'s hot and cold entries with their r
     // deletion over HTTP, then the promises hold hot and cold
     const del = await s.call('DELETE', '/me', bear('a'));
     assert.equal(del.status, 200);
-    assert.deepEqual(del.json, { ok: true, anonymisedEntries: 1, coldReplaysDropped: 1, pushSubscriptionsRemoved: 0 });
+    assert.deepEqual(del.json, { ok: true, anonymisedEntries: 1, coldReplaysDropped: 1, pushSubscriptionsRemoved: 0, communityRowsRemoved: 0 });
     const after = (await s.call('GET', '/me/export', bear('a'))).json as unknown as PlayerExport;
     assert.equal(after.player, null);
     assert.deepEqual(after.entries, []);

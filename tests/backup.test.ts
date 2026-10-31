@@ -4,10 +4,12 @@ import { test } from 'node:test';
 import { dropOnLine, straightPieces } from './e2e/line';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { Verifier, EventStore, playerIdFromToken } from '../server/verify';
+import { CommunityStore, inspectDatabase } from '../server/community';
 import { backup, restoreDrill, listDataFiles, isRcloneTarget, archiveNameFor, ROOT } from '../tools/backup-lib';
 import { apply, newRun } from '../game/src/sim/run';
 import { encodeReplay, exportReplay } from '../game/src/sim/replay';
@@ -52,25 +54,29 @@ function fixture() {
   );
   fs.writeFileSync(path.join(dir, 'daily-secret'), 'fixture-secret\n');
   fs.writeFileSync(path.join(dir, '.board-1-2-3.tmp'), '{}');
-  return { dir, v, hot: v.board('hot-seed', 10).length + v.board('mine-seed', 10).length };
+  const community = new CommunityStore(path.join(dir, 'community.db'));
+  const thread = community.threadFor('daily', '2030-03-12');
+  for (let i = 0; i < 40; i++) community.addPost(thread.id, pid, `post ${i}`);
+  return { dir, v, hot: v.board('hot-seed', 10).length + v.board('mine-seed', 10).length, community };
 }
 
 test(
   '0.8.3 backup: the archive holds the board, cold month, index, audit and events with a hash manifest, never the secret or a temp file; local targets prune by count; rclone targets are recognised',
   { skip: !hasTar && 'tar not on PATH' },
   () => {
-    const { dir, hot } = fixture();
+    const { dir, hot, community } = fixture();
+    assert.ok(fs.existsSync(path.join(dir, 'community.db-wal')), 'the database is live, its last posts still in the log');
     assert.deepEqual(
       listDataFiles(dir),
-      ['board.json', 'cold/2030-01.json', 'cold/index.json', 'events.jsonl', 'moderation.jsonl'],
-      'the secret and the temp file are not listed',
+      ['board.json', 'cold/2030-01.json', 'cold/index.json', 'community.db', 'events.jsonl', 'moderation.jsonl'],
+      'the secret, the temp file and the database log are not listed',
     );
     const out = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-bk-out-'));
     const t1 = new Date('2030-03-12T03:17:00Z');
     const r1 = backup(dir, { target: out, keep: 2, now: t1 });
     assert.equal(path.basename(r1.archive), 'jd-backup-20300312T031700Z.tar.gz');
     assert.equal(archiveNameFor(t1), path.basename(r1.archive));
-    assert.equal(r1.files, 5);
+    assert.equal(r1.files, 6);
     assert.ok(r1.bytes > 200 && fs.existsSync(r1.archive));
     assert.deepEqual(r1.pruned, []);
     const listing = spawnSync('tar', ['-tzf', path.basename(r1.archive)], { cwd: out, encoding: 'utf8' })
@@ -78,8 +84,12 @@ test(
       .filter(Boolean)
       .map((l) => l.replace(/\\/g, '/'))
       .sort();
-    assert.deepEqual(listing, ['board.json', 'cold/2030-01.json', 'cold/index.json', 'events.jsonl', 'manifest.json', 'moderation.jsonl']);
+    assert.deepEqual(listing, ['board.json', 'cold/2030-01.json', 'cold/index.json', 'community.db', 'events.jsonl', 'manifest.json', 'moderation.jsonl']);
     assert.ok(!listing.includes('daily-secret') && !listing.some((l) => l.endsWith('.tmp')));
+    const unpacked = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-bk-unpack-'));
+    spawnSync('tar', ['-xzf', path.basename(r1.archive), '-C', unpacked], { cwd: out });
+    assert.equal(inspectDatabase(path.join(unpacked, 'community.db')).posts, 40, 'the snapshot has what the log had');
+    community.close();
     // prune: the third archive removes the oldest
     backup(dir, { target: out, keep: 2, now: new Date('2030-03-13T03:17:00Z') });
     const r3 = backup(dir, { target: out, keep: 2, now: new Date('2030-03-14T03:17:00Z') });
@@ -111,8 +121,10 @@ test(
     const drill = await restoreDrill(r.archive, { sample: 4 });
     assert.deepEqual(drill.problems, [], JSON.stringify(drill, null, 1));
     assert.equal(drill.ok, true);
-    assert.equal(drill.manifestFiles, 5);
+    assert.equal(drill.manifestFiles, 6);
     assert.deepEqual(drill.hashMismatches, []);
+    assert.deepEqual(drill.community, { integrity: 'ok', schema: 1, accounts: 0, threads: 1, posts: 40 });
+    assert.equal((drill.restoredHealth as { community: { posts: number } }).community.posts, 40, 'the restored service reads the database');
     assert.equal(drill.archiveEntries, hot, "the cold day left the hot board; the archive's hot entries are what /health counts");
     assert.equal(drill.restoredEntries, hot);
     assert.equal(drill.sampled.length, 4);
@@ -128,7 +140,19 @@ test(
     assert.equal(
       spawnSync(
         'tar',
-        ['-czf', 'tampered.tar.gz', '-C', work, 'board.json', 'cold/2030-01.json', 'cold/index.json', 'events.jsonl', 'moderation.jsonl', 'manifest.json'],
+        [
+          '-czf',
+          'tampered.tar.gz',
+          '-C',
+          work,
+          'board.json',
+          'cold/2030-01.json',
+          'cold/index.json',
+          'community.db',
+          'events.jsonl',
+          'moderation.jsonl',
+          'manifest.json',
+        ],
         { cwd: out },
       ).status,
       0,
@@ -141,6 +165,24 @@ test(
     const missing = await restoreDrill(path.join(out, 'nope.tar.gz'));
     assert.equal(missing.ok, false);
     assert.match(missing.problems[0], /not found/);
+    // a database damaged before it was archived: the hashes agree, the integrity check does not
+    const broken = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-bk-broken-'));
+    assert.equal(spawnSync('tar', ['-xzf', path.basename(r.archive), '-C', broken], { cwd: out }).status, 0);
+    const dbFile = path.join(broken, 'community.db');
+    const bytes = fs.readFileSync(dbFile);
+    bytes.fill(0xff, 4096 * 2, 4096 * 6);
+    fs.writeFileSync(dbFile, bytes);
+    const manifest = JSON.parse(fs.readFileSync(path.join(broken, 'manifest.json'), 'utf8')) as { files: { path: string; sha256: string }[] };
+    manifest.files.find((f) => f.path === 'community.db')!.sha256 = createHash('sha256').update(bytes).digest('hex');
+    fs.writeFileSync(path.join(broken, 'manifest.json'), JSON.stringify(manifest));
+    assert.equal(spawnSync('tar', ['-czf', 'broken.tar.gz', '-C', broken, ...fs.readdirSync(broken)], { cwd: out }).status, 0);
+    const damaged = await restoreDrill(path.join(out, 'broken.tar.gz'), { sample: 1 });
+    assert.equal(damaged.ok, false);
+    assert.deepEqual(damaged.hashMismatches, []);
+    assert.ok(
+      damaged.problems.some((p) => /integrity|malformed|not a database/.test(p)),
+      damaged.problems.join(' | '),
+    );
   },
 );
 
@@ -156,7 +198,7 @@ test(
     });
     assert.equal(b.status, 0, b.stderr);
     const rep = JSON.parse(b.stdout) as { archive: string; files: number };
-    assert.equal(rep.files, 5);
+    assert.equal(rep.files, 6);
     assert.ok(fs.existsSync(rep.archive));
     const d = spawnSync(process.execPath, ['--import', 'tsx', path.join(ROOT, 'tools', 'restore-drill.ts'), rep.archive, '--sample', '2'], {
       cwd: ROOT,

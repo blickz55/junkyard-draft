@@ -2,7 +2,7 @@
  * Backups and the restore drill (production roadmap 0.8.3). `backup()` archives a verifier data directory (board, cold
  * months, moderation audit, opt-in events, anything else the service writes) into one `jd-backup-<utc>.tar.gz` with a
  * manifest of SHA-256 hashes, never the daily secret and never a half-written temp file, and copies it to a local directory
- * or an rclone remote. `restoreDrill()` unpacks an archive somewhere temporary, checks every hash, starts a verifier on it
+ * or an rclone remote. The community database goes in as a snapshot (0.11.0): a plain copy of a live SQLite file can tear. `restoreDrill()` unpacks an archive somewhere temporary, checks every hash, starts a verifier on it
  * and proves the restored service answers with the archive's counts and serves a sample of its entries. Both need the `tar`
  * on the PATH (GNU tar on Linux, bsdtar on Windows 10+ and macOS). No dependencies.
  */
@@ -13,10 +13,12 @@ import net from 'node:net';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { COMMUNITY_DB, inspectDatabase, snapshotDatabase } from '../server/community';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** Never archived: the daily secret (kept offline by the operator; a leak lets anyone pre-play future days) and temp files of atomic writes. */
-export const EXCLUDED = (name: string): boolean => name === 'daily-secret' || /\.tmp$/.test(name) || /^\.board-.*\.tmp$/.test(name);
+export const EXCLUDED = (name: string): boolean =>
+  name === 'daily-secret' || /\.tmp$/.test(name) || /^\.board-.*\.tmp$/.test(name) || name === `${COMMUNITY_DB}-wal` || name === `${COMMUNITY_DB}-shm`;
 export const BACKUP_PREFIX = 'jd-backup-';
 export interface ManifestFile {
   path: string;
@@ -56,9 +58,10 @@ export function listDataFiles(dir: string): string[] {
   walk('');
   return out.sort();
 }
-export function buildManifest(dataDir: string, now = new Date()): Manifest {
+/** `staged` names the files read from `stage` instead of the data directory: the database snapshot. */
+export function buildManifest(dataDir: string, now = new Date(), stage = dataDir, staged: readonly string[] = []): Manifest {
   const files = listDataFiles(dataDir).map((p) => {
-    const abs = path.join(dataDir, p);
+    const abs = path.join(staged.includes(p) ? stage : dataDir, p);
     return { path: p, bytes: fs.statSync(abs).size, sha256: sha256File(abs) };
   });
   return {
@@ -95,14 +98,17 @@ export interface BackupOptions {
 export function backup(dataDir: string, o: BackupOptions): BackupReport {
   if (!fs.existsSync(path.join(dataDir, 'board.json'))) throw new Error(`${dataDir} has no board.json: not a verifier data directory`);
   const now = o.now ?? new Date();
-  const manifest = buildManifest(dataDir, now);
   const stage = fs.mkdtempSync(path.join(o.tmp ?? os.tmpdir(), 'jd-backup-stage-'));
   try {
+    const staged: string[] = listDataFiles(dataDir).filter((p) => p === COMMUNITY_DB);
+    for (const p of staged) snapshotDatabase(path.join(dataDir, p), path.join(stage, p));
+    const manifest = buildManifest(dataDir, now, stage, staged);
     fs.writeFileSync(path.join(stage, 'manifest.json'), JSON.stringify(manifest, null, 1));
     const name = archiveNameFor(now);
     const archive = path.join(stage, name);
     // two -C groups: the data files from the data directory, the manifest from the stage; excluded names are simply not listed
-    tar(['-czf', name, '-C', path.resolve(dataDir), ...manifest.files.map((f) => f.path), '-C', stage, 'manifest.json'], stage);
+    const fromData = manifest.files.map((f) => f.path).filter((p) => !staged.includes(p));
+    tar(['-czf', name, '-C', path.resolve(dataDir), ...fromData, '-C', stage, ...staged, 'manifest.json'], stage);
     const bytes = fs.statSync(archive).size;
     let pruned: string[] = [];
     if (isRcloneTarget(o.target)) {
@@ -153,6 +159,8 @@ export interface DrillReport {
   archiveEntries: number;
   restoredHealth: Record<string, unknown> | null;
   restoredEntries: number | null;
+  /** the archived community database as read directly, null when the archive has none (0.11.0) */
+  community: ReturnType<typeof inspectDatabase> | null;
   sampled: { hash: string; seed: string; score: number; served: boolean; scoreMatches: boolean }[];
   live: Record<string, unknown> | null;
   liveDelta: { entries: number; players: number } | null;
@@ -185,6 +193,7 @@ export async function restoreDrill(archive: string, o: DrillOptions = {}): Promi
     archiveEntries: 0,
     restoredHealth: null,
     restoredEntries: null,
+    community: null,
     sampled: [],
     live: null,
     liveDelta: null,
@@ -228,6 +237,11 @@ export async function restoreDrill(archive: string, o: DrillOptions = {}): Promi
     const board = loadBoard(fs.readFileSync(path.join(dir, 'board.json'), 'utf8'));
     const current = board.entries.filter((e) => e.rulesVersion === RULES_VERSION);
     report.archiveEntries = current.length;
+    const database = path.join(dir, COMMUNITY_DB);
+    if (fs.existsSync(database)) {
+      report.community = inspectDatabase(database);
+      if (report.community.integrity !== 'ok') problems.push(`the community database fails its integrity check: ${report.community.integrity}`);
+    }
     // a verifier on the restored directory: no par jobs, a throwaway secret (the real one lives offline, never in an archive), quiet log
     const port = await freePort();
     child = spawn(process.execPath, ['--import', 'tsx', path.join(ROOT, 'server', 'verify.ts')], {
@@ -237,6 +251,7 @@ export async function restoreDrill(archive: string, o: DrillOptions = {}): Promi
         PORT: String(port),
         HOST: '127.0.0.1',
         BOARD_FILE: path.join(dir, 'board.json'),
+        COMMUNITY_DB: database,
         BOT_PAR: '0',
         DAILY_SECRET: 'restore-drill',
         VERIFIER_LOG: '0',
@@ -268,6 +283,11 @@ export async function restoreDrill(archive: string, o: DrillOptions = {}): Promi
     report.restoredEntries = typeof health.entries === 'number' ? health.entries : null;
     if (report.restoredEntries !== report.archiveEntries)
       problems.push(`restored service counts ${report.restoredEntries} current entries, the archive holds ${report.archiveEntries}`);
+    const served = health.community as { posts?: number; schema?: number } | null | undefined;
+    if (report.community && (served?.posts !== report.community.posts || (served?.schema ?? 0) < report.community.schema))
+      problems.push(
+        `restored service reports ${served?.posts} posts at schema ${served?.schema}, the archive holds ${report.community.posts} at ${report.community.schema}`,
+      );
     // sample: spread across the board, fetched through /entry (never gated, cold or hot)
     const step = Math.max(1, Math.floor(current.length / Math.max(1, sampleN)));
     for (let i = 0; i < current.length && report.sampled.length < sampleN; i += step) {
