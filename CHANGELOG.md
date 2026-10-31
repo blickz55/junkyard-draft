@@ -5,6 +5,11 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### 0.11.11 divisions at freeze and trophies — 2026-10-31 (no rules change, protocol 3: additive)
+- **A board at your level.** When a day closes, its checked players are split by score into divisions from the Foreman's Table down to the Heap: sixteen at the top when that leaves a real second one, the rest even and around thirty-two, one division under thirty-two players. Each has its own final board, and its top three take medals, so a player at $300 has something to win as well as a player at $3,000. Computed once at the close and stored.
+- **The morning after.** Home says where the day left you ("29 October: #3 of 24 in Foundry 2 🥉") for a week, one tap opens the board, and the result copies for sharing. Medals and days in the top division add up to trophies that never decay, on Your record.
+- An anonymous game has nobody to place. Deleting your data takes your name off a closed division and leaves the place.
+
 ### Sal's mark is back inside its budget — 2026-10-31 (no rules change)
 - Generated yards had taken the autoplayer behind "Sal's mark" to 15 s on a fast machine, past the verifier's 20 s cap on a small server: no daily would have had a mark. A shallower search and three runs instead of five give the same numbers on seven generated yards in about 3 s. A test holds it under the cap.
 

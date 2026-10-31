@@ -35,7 +35,9 @@ import { HIDDEN_LABEL } from '../identity/identity';
 import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWeekly, todaysYard } from '../render/daily';
 import { openArchive } from './ArchivePanel';
 import { openRecord } from './RecordPanel';
-import { openPolicy, openPrivacy } from './panels';
+import { openDivision, openPolicy, openPrivacy } from './panels';
+import { isFresh, latestPlacement } from '../render/divisions';
+import { periodLabel, placeLine } from '../content/division';
 import { reactionLine, type ReactionCounts } from '../content/reactions';
 import { flushPending, describeOutcomes } from '../render/pending';
 import { loadPending } from '../render/storage';
@@ -250,11 +252,23 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   lead.append(todayCard);
 
   // ---- rank and today's board ----
+  // where the last closed day left this player (0.11.11): Home says so for a week, the board is a tap away
+  const divisionBox = h('div', { class: 'jd-division-line', tid: 'division-line', style: 'display:none' });
+  void latestPlacement(verifierUrl).then((p) => {
+    if (!p || !isFresh(p.period) || !divisionBox.isConnected) return;
+    divisionBox.style.display = '';
+    divisionBox.replaceChildren(
+      h('span', {}, t('division.home', { day: periodLabel(p.period), line: placeLine(p) })),
+      btn(t('division.open'), 'division-open', () => openDivision(scene, verifierUrl, p), { small: true }),
+    );
+    ui.refit();
+  });
   const rankCard = h(
     'section',
     { class: 'jd-home-card jd-home-rank', tid: 'rank' },
     h('div', { class: 'jd-rank-line', tid: 'rank-line' }, rankLine(stars)),
     h('div', { class: 'jd-dim', tid: 'rank-next', style: 'font-size:0.8125em' }, rankNext(stars)),
+    divisionBox,
     h(
       'div',
       { style: 'font-size:0.875em; margin-top:0.25em' },

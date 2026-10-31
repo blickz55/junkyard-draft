@@ -117,9 +117,13 @@ export function buildPolicy(): Policy {
       ],
     },
     {
-      title: 'Play statistics (opt-in)',
+      title: 'Divisions and trophies',
+      lines: ['Divisions, medals and trophies are labels over checked games: none of them changes an offer, a rule or a score.'],
+    },
+    {
+      title: 'Play statistics',
       lines: [
-        `Off by default. When on, the game sends only events from a fixed vocabulary (${Object.keys(EVENTS).length} names: ${Object.keys(EVENTS).join(', ')}), never seeds other than daily/tutorial labels, never layouts. Kept ${DEFAULT_EVENTS_RETENTION_DAYS} days.`,
+        `On unless you turn them off, with one switch in Settings; a browser sending Global Privacy Control or Do Not Track starts with them off. The game sends only events from a fixed vocabulary (${Object.keys(EVENTS).length} names: ${Object.keys(EVENTS).join(', ')}), never seeds other than daily/tutorial labels, never layouts. Kept ${DEFAULT_EVENTS_RETENTION_DAYS} days.`,
       ],
     },
     {

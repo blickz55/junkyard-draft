@@ -13,6 +13,7 @@ import {
   loadMedals,
   loadStandings,
   loadWatched,
+  loadTrophies,
   type MedalRecord,
   type Standing,
   type WatchedRecord,
@@ -31,6 +32,8 @@ export interface RecordData {
   kinds: { kind: MachineKind; count: number }[];
   /** the games other players watched most, by players */
   watched: WatchedRecord[];
+  /** medals from divisions and days in the top one, as Home last heard them */
+  trophies: Record<string, number>;
 }
 
 /** Rising, falling or steady: the mean of the latest three standings against the three before them; null under six. */
@@ -66,5 +69,6 @@ export function recordData(now = new Date()): RecordData {
     watched: loadWatched()
       .sort((a, b) => b.players - a.players || b.times - a.times)
       .slice(0, 5),
+    trophies: loadTrophies(),
   };
 }

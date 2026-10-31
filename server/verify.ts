@@ -1428,6 +1428,12 @@ export class Verifier {
       /* the announcer logs its own trouble */
     }
   }
+  /** Told once when a day's board is final (0.11.11): its key and the board, best first. */
+  onFreeze: ((period: string, ranked: readonly BoardEntry[]) => void) | null = null;
+  /** The name a player shows on boards right now, moderation included; 'deleted' for a player who is gone or null. */
+  playerLabel(playerId: string | null, now = new Date()): string {
+    return playerId && this.data.players?.[playerId] ? this.labelOf(playerId, undefined, now) : 'deleted';
+  }
   /** Mark every issued day whose window has closed as frozen at its close time: idempotent, persisted, derived from the clock alone (PLAN-v3 0.6.2). */
   private observeFreeze(now: Date) {
     const ds = this.data.dailies;
@@ -1455,8 +1461,13 @@ export class Verifier {
       this.data = d;
     }
     for (const r of frozenNow) {
-      const n = this.rank(r.seed).length;
-      if (n) this.announce({ kind: 'freeze', record: r, n, top: this.board(r.seed, 3) });
+      const ranked = this.rank(r.seed);
+      if (ranked.length) this.announce({ kind: 'freeze', record: r, n: ranked.length, top: this.board(r.seed, 3) });
+      try {
+        this.onFreeze?.(recordKey(r), ranked);
+      } catch (e) {
+        console.error(`divisions for ${recordKey(r)} failed: ${(e as Error).message}`); // the board is final either way
+      }
     } // a day nobody played is not news
   }
   dailyRecord(date: string, now = new Date()): DailyRecord | null {
@@ -2196,6 +2207,13 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const events = opts.events ?? null;
   const push = opts.push ?? null;
   const community = opts.community ?? null;
+  // divisions at freeze (0.11.11): the final board's players, one row each; an anonymous entry has nobody to place
+  if (community)
+    verifier.onFreeze = (period, ranked) =>
+      void community.closeDay(
+        period,
+        ranked.flatMap((e) => (e.playerId ? [{ playerId: e.playerId, score: e.score }] : [])),
+      );
   /** Reaction counts on a board's rows (0.11.3): a run nobody reacted to carries no field. */
   const withReactions = <T extends { replayHash: string }>(entries: T[]): T[] => {
     if (!community || !entries.length) return entries;
@@ -2589,6 +2607,36 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           }),
         );
         return;
+      }
+      if (url.pathname === '/me/divisions' && req.method === 'GET') {
+        // 0.11.11: where this player finished lately, and the trophies that never decay
+        if (!bearerId) return json(401, { ok: false, error: 'token required' });
+        if (!community) return json(503, { ok: false, error: 'divisions are not enabled on this verifier' });
+        return json(200, {
+          ok: true,
+          divisions: community.divisionsOf(bearerId, clampInt(url.searchParams.get('limit'), 7, 50)),
+          trophies: community.trophiesOf(bearerId),
+        });
+      }
+      if (url.pathname === '/division' && req.method === 'GET') {
+        // 0.11.11: one division's final board; a closed day's board is public, as the day's own is
+        if (!community) return json(503, { ok: false, error: 'divisions are not enabled on this verifier' });
+        const now = new Date((opts.now ?? Date.now)());
+        const period = (url.searchParams.get('period') || '').slice(0, 16);
+        const rows = community.divisionBoard(period, clampInt(url.searchParams.get('division'), 0, 10_000, 0));
+        if (!rows.length) return json(404, { ok: false, error: 'no such division' });
+        return json(200, {
+          ok: true,
+          period,
+          name: rows[0].name,
+          rows: rows.map(({ playerId, place, score, medal }) => ({
+            place,
+            score,
+            medal,
+            player: verifier.playerLabel(playerId, now),
+            you: !!bearerId && playerId === bearerId,
+          })),
+        });
       }
       if (url.pathname === '/me/export' && req.method === 'GET') {
         // 0.8.6: the access right; the read limiter above applies

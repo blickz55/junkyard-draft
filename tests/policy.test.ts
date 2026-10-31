@@ -25,7 +25,7 @@ test('policy (PLAN-v3 0.6.5): the committed policy.json and POLICY.md are exactl
   assert.equal(committed.rules.rerollCost, 40);
   assert.deepEqual(
     committed.sections.map((s) => s.title),
-    ['Rules', 'Verification', 'The daily', 'Medals', 'Identity and your data', 'Play statistics (opt-in)', 'Abuse limits'],
+    ['Rules', 'Verification', 'The daily', 'Medals', 'Identity and your data', 'Divisions and trophies', 'Play statistics', 'Abuse limits'],
   );
   assert.ok(committed.sections.every((s) => s.lines.length > 0 && s.lines.every((l) => l.length > 20)));
   assert.deepEqual(buildPolicy(), p, 'deterministic');

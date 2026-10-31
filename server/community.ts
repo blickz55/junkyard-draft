@@ -13,6 +13,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import type { DatabaseSync, StatementSync } from 'node:sqlite';
 import { MIGRATIONS } from './migrations';
+import { divisionSizes, placeDivisions, type DivisionMedal } from '../game/src/daily/divisions';
 
 /** On first use: a static import prints Node's ExperimentalWarning in every tool and test that touches server/verify.ts. */
 const sqlite = () => process.getBuiltinModule('node:sqlite');
@@ -84,6 +85,15 @@ export interface Post {
   state: PostState;
   editedAt: number | null;
   createdAt: number;
+}
+export interface DivisionRow {
+  period: string;
+  division: number;
+  name: string;
+  place: number;
+  size: number;
+  score: number;
+  medal: DivisionMedal | null;
 }
 export interface CommunityCounts {
   accounts: number;
@@ -282,6 +292,65 @@ export class CommunityStore {
       times: number;
       players: number;
     };
+  }
+
+  /**
+   * A day's divisions, computed once when it closes (0.11.11). `ranked` is the final board, one row per player, best first.
+   * Medals and a place in a top division add to trophies that never decay, and each player gets one line for the inbox.
+   * Returns the placements written: 0 for a day already closed, or a day nobody played.
+   */
+  closeDay(period: string, ranked: readonly { playerId: string; score: number }[]): number {
+    return this.transaction(() => {
+      if (this.sql('SELECT 1 FROM divisions WHERE period = ? LIMIT 1').get(period)) return 0;
+      const at = this.now();
+      const placed = placeDivisions(ranked);
+      const several = divisionSizes(ranked.length).length > 1;
+      const trophy = (playerId: string, kind: string) =>
+        this.sql(
+          'INSERT INTO trophies (player_id, kind, count, last_at) VALUES (?, ?, 1, ?) ON CONFLICT (player_id, kind) DO UPDATE SET count = count + 1, last_at = excluded.last_at',
+        ).run(playerId, kind, at);
+      for (const p of placed) {
+        const { playerId, score } = p.player;
+        this.sql('INSERT INTO divisions (period, division, name, player_id, place, score, medal) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+          period,
+          p.division,
+          p.key,
+          playerId,
+          p.place,
+          score,
+          p.medal,
+        );
+        if (p.medal) trophy(playerId, `medal-${p.medal}`);
+        if (several && p.division === 0) trophy(playerId, 'top-division');
+        this.sql("INSERT INTO notifications (player_id, kind, payload, created_at) VALUES (?, 'division', ?, ?)").run(
+          playerId,
+          JSON.stringify({ period, name: p.key, place: p.place, size: p.size, medal: p.medal }),
+          at,
+        );
+      }
+      return placed.length;
+    });
+  }
+  /** A player's latest placements, newest first. */
+  divisionsOf(playerId: string, limit = 7): DivisionRow[] {
+    return this.sql(
+      'SELECT period, division, name, place, score, medal, (SELECT COUNT(*) FROM divisions o WHERE o.period = d.period AND o.division = d.division) AS size FROM divisions d WHERE player_id = ? ORDER BY id DESC LIMIT ?',
+    )
+      .all(playerId, Math.min(Math.max(1, limit), 50))
+      .map((r) => ({ ...r })) as unknown as DivisionRow[];
+  }
+  /** One division's final board, in order. A forgotten player's row stays with no id. */
+  divisionBoard(period: string, division: number): (Omit<DivisionRow, 'size'> & { playerId: string | null })[] {
+    return (
+      this.sql('SELECT period, division, name, player_id, place, score, medal FROM divisions WHERE period = ? AND division = ? ORDER BY place').all(
+        period,
+        division,
+      ) as unknown as (Omit<DivisionRow, 'size'> & { player_id: string | null })[]
+    ).map(({ player_id, ...r }) => ({ ...r, playerId: player_id }));
+  }
+  trophiesOf(playerId: string): Record<string, number> {
+    const rows = this.sql('SELECT kind, count FROM trophies WHERE player_id = ?').all(playerId) as unknown as { kind: string; count: number }[];
+    return Object.fromEntries(rows.map((r) => [r.kind, r.count]));
   }
 
   /** Everything stored under a player, for `/me/export`. */

@@ -14,7 +14,8 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const ctx = await context({
   ...buildOptions({ root: ROOT, outdir: OUT, dev: true }),
-  banner: { js: 'new EventSource("/esbuild").addEventListener("change", () => location.reload());' },
+  // once a page: every chunk carries the banner, and six open streams use up the browser's connections to this host
+  banner: { js: 'window.__jdLive ||= new EventSource("/esbuild").addEventListener("change", () => location.reload()) ?? true;' },
 });
 await ctx.watch();
 const { host, port: esbPort } = await ctx.serve({ servedir: OUT, host: '127.0.0.1' });

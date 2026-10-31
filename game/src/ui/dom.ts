@@ -192,6 +192,11 @@ const STYLE = `
 #ui .jd-home-more .jd-btn { flex: 1 1 11em; max-width: 20em; min-width: 0; white-space: normal; }
 #ui .jd-home-foot { display: flex; flex-wrap: wrap; gap: 0.2em 1.1em; justify-content: center; font-size: 0.8125em; color: ${CSS.dim}; margin-top: auto; }
 #ui .jd-home-note { font-size: 0.8125em; text-align: center; }
+#ui .jd-division-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4em; margin-top: 0.35em; font-size: 0.875em; }
+#ui .jd-division-rows { max-height: 55vh; overflow: auto; font-size: 0.875em; margin-top: 0.4em; }
+#ui .jd-division-row { display: flex; gap: 0.6em; padding: 0.15em 0; }
+#ui .jd-division-row > :first-child { width: 2.6em; flex: 0 0 auto; }
+#ui .jd-division-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 #ui .jd-rank-line { font-family: var(--jd-display); font-weight: 700; font-size: 1.5em; line-height: 1.1; color: ${CSS.gold}; }
 #ui .jd-board-lines { font-size: 0.8125em; }
 #ui .jd-board-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -306,6 +311,10 @@ class UiLayer {
     if (!root) return;
     root.style.setProperty('--text-scale', String(prefs.textScale));
     root.classList.toggle('jd-reduced-motion', prefs.reducedMotion);
+    this.fit();
+  }
+  /** Fit again after a screen grew by itself: something that arrived from the server. */
+  refit() {
     this.fit();
   }
   /**

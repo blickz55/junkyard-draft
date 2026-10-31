@@ -34,6 +34,7 @@ const K = {
   kinds: 'jd.kinds.v1',
   stars: 'jd.stars.v1',
   watched: 'jd.watched.v1',
+  trophies: 'jd.trophies.v1',
 };
 /**
  * Score records are partitioned by rules version (PLAN-v2 0.5.0): `jd.bests.v2` / `jd.submissions.v2` hold
@@ -628,6 +629,13 @@ export function recordStanding(s: Standing, version: number = RULES_VERSION): St
   writeByVersion(K.standings, version, kept);
   return kept;
 }
+/** The trophies this device last heard about (0.11.11). They belong to the player, not to a rules version, and never decay. */
+export function loadTrophies(): Record<string, number> {
+  const raw = readRaw(K.trophies);
+  return isObj(raw) ? Object.fromEntries(Object.entries(raw).filter((e): e is [string, number] => isFiniteNum(e[1]))) : {};
+}
+export const recordTrophies = (trophies: Record<string, number>) => write(K.trophies, trophies);
+
 /** Who watched a checked game of this device (0.11.4), as last learnt on its results. */
 export interface WatchedRecord {
   seed: string;

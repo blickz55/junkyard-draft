@@ -1,6 +1,6 @@
 /**
- * The fairness policy and the legal texts are long and rarely opened, so they load on first use as chunks of their own instead
- * of weighing on every first visit. The service worker caches the chunks with the rest of the build, so they still open offline.
+ * The fairness policy, the legal texts and a division's board are long or rarely opened, so they load on first use as chunks of
+ * their own instead of weighing on every first visit. The service worker caches the chunks with the rest of the build, so they still open offline.
  */
 import type Phaser from 'phaser';
 import { alertText } from './dom';
@@ -20,4 +20,10 @@ export const openPrivacy = (...args: Parameters<typeof import('./PrivacyPanel').
     args[0],
     () => import('./PrivacyPanel'),
     (m) => m.openPrivacy(...args),
+  );
+export const openDivision = (...args: Parameters<typeof import('./DivisionPanel').openDivision>) =>
+  opening(
+    args[0],
+    () => import('./DivisionPanel'),
+    (m) => m.openDivision(...args),
   );

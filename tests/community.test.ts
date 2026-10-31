@@ -20,6 +20,7 @@ import {
 } from '../server/community';
 import { createServer, playerIdFromToken, REACT_RATE_LIMIT, Verifier } from '../server/verify';
 import { REACTIONS, isReaction, reactionLine, reactionTotal } from '../game/src/content/reactions';
+import { DIVISION_MAX, DIVISION_MIN, DIVISION_TIERS, divisionKey, divisionSizes, placeDivisions } from '../game/src/daily/divisions';
 import { t, type StringKey } from '../game/src/content/strings';
 import { apply, newRun } from '../game/src/sim/run';
 import { encodeReplay, exportReplay } from '../game/src/sim/replay';
@@ -43,10 +44,10 @@ const TABLES = [
   'cosmetics',
 ];
 /** A finished game on a seed, enough for the verifier to take it. */
-function playedRun(seed: string) {
+function playedRun(seed: string, pick = 0) {
   const s = newRun(seed);
   for (let r = 1; r <= RULES.rounds; r++) {
-    apply(s, { t: 'pick', i: 0 });
+    apply(s, { t: 'pick', i: Math.min(pick, s.offers.length - 1) });
     apply(s, { t: 'run' });
     apply(s, { t: 'next' });
   }
@@ -504,5 +505,162 @@ test("the routes count a watch: by a device with a key, not by the run's own pla
     server.closeAllConnections();
     await new Promise<void>((r) => server.close(() => r()));
     community.close();
+  }
+});
+
+test('divisions: sizes for 5, 17, 64, 65 and 1,000 players; the top is sixteen when that leaves a real second one, the rest even, all within 16 to 64', () => {
+  assert.deepEqual(divisionSizes(0), []);
+  assert.deepEqual(divisionSizes(5), [5], 'under sixteen: one division');
+  assert.deepEqual(divisionSizes(17), [17], 'sixteen would leave one player alone');
+  assert.deepEqual(divisionSizes(31), [31]);
+  assert.deepEqual(divisionSizes(32), [16, 16]);
+  assert.deepEqual(divisionSizes(64), [16, 24, 24]);
+  assert.deepEqual(divisionSizes(65), [16, 25, 24]);
+  const big = divisionSizes(1000);
+  assert.equal(big[0], 16);
+  assert.equal(
+    big.reduce((a, b) => a + b, 0),
+    1000,
+  );
+  assert.equal(new Set(big.slice(1)).size, 2, 'even: two neighbouring sizes at most');
+  for (let n = 32; n <= 3000; n += 7) {
+    const sizes = divisionSizes(n);
+    assert.equal(
+      sizes.reduce((a, b) => a + b, 0),
+      n,
+    );
+    for (const size of sizes) assert.ok(size >= DIVISION_MIN && size <= DIVISION_MAX, `${n}: ${sizes.join(' ')}`);
+    assert.ok(Math.max(...sizes.slice(1)) - Math.min(...sizes.slice(1)) <= 1);
+  }
+});
+
+test('division names run down the yard: one tier each while they last, then numbered, every name once', () => {
+  assert.deepEqual(
+    [0, 1, 2].map((i) => divisionKey(i, 3).key),
+    ['table', 'dockside', 'foundry'],
+  );
+  const many = Array.from({ length: 31 }, (_, i) => divisionKey(i, 31));
+  assert.equal(many[0].key, 'table-1');
+  assert.equal(many[30].tier, 'heap');
+  assert.equal(new Set(many.map((d) => d.key)).size, 31);
+  assert.deepEqual(
+    DIVISION_TIERS.filter((t) => many.some((d) => d.tier === t)),
+    [...DIVISION_TIERS],
+    'every tier is used',
+  );
+  for (const d of many) assert.ok(d.number! >= 1);
+  const placed = placeDivisions(Array.from({ length: 40 }, (_, i) => i));
+  assert.deepEqual(
+    placed.slice(0, 4).map((p) => [p.player, p.division, p.place, p.medal]),
+    [
+      [0, 0, 1, 'gold'],
+      [1, 0, 2, 'silver'],
+      [2, 0, 3, 'bronze'],
+      [3, 0, 4, null],
+    ],
+  );
+  assert.deepEqual(((p) => [p.key, p.place, p.size, p.medal])(placed[16]), ['dockside', 1, 24, 'gold'], 'the first of the next division has its own medal');
+});
+
+test('closing a day: computed once, trophies add up and never decay, one line each for the inbox, nothing for an empty day', () => {
+  const s = open();
+  const players = (n: number) => Array.from({ length: n }, (_, i) => ({ playerId: `p${i}`, score: 1000 - i }));
+  assert.equal(s.closeDay('2030-01-09', []), 0);
+  assert.equal(s.closeDay('2030-01-10', players(40)), 40);
+  assert.equal(s.closeDay('2030-01-10', players(40)), 0, 'once');
+  assert.equal(s.closeDay('2030-01-11', players(3)), 3);
+  assert.deepEqual(s.trophiesOf('p0'), { 'medal-gold': 2, 'top-division': 1 }, 'a one-division day has no top division');
+  assert.deepEqual(s.trophiesOf('p16'), { 'medal-gold': 1 });
+  assert.deepEqual(s.trophiesOf('p39'), {});
+  const mine = s.divisionsOf('p17');
+  assert.deepEqual(mine, [{ period: '2030-01-10', division: 1, name: 'dockside', place: 2, score: 983, medal: 'silver', size: 24 }]);
+  assert.deepEqual(
+    s.divisionsOf('p0').map((d) => d.period),
+    ['2030-01-11', '2030-01-10'],
+    'newest first',
+  );
+  assert.equal(s.divisionBoard('2030-01-10', 1).length, 24);
+  assert.deepEqual(s.divisionBoard('2030-01-10', 9), []);
+  const lines = db(s).prepare("SELECT payload FROM notifications WHERE kind = 'division' AND player_id = 'p17'").all() as { payload: string }[];
+  assert.deepEqual(
+    lines.map((l) => JSON.parse(l.payload)),
+    [{ period: '2030-01-10', name: 'dockside', place: 2, size: 24, medal: 'silver' }],
+  );
+  s.forget('p17');
+  assert.equal(s.divisionBoard('2030-01-10', 1)[1].playerId, null, 'the place stays, the name goes');
+  assert.deepEqual(s.trophiesOf('p17'), {});
+  s.close();
+});
+
+test('the morning after: the day closes by the clock and no sooner, the player finds their division and the board, and a restart does not count it twice', async () => {
+  let now = Date.parse('2030-03-12T10:00:00Z');
+  const dir = tempDir();
+  const verifier = new Verifier(path.join(dir, 'board.json'), { dailySecret: 'fixture-secret' });
+  const community = open(dir, { now: () => now });
+  const server = createServer(verifier, { log: null, community, now: () => now });
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const token = 'a'.repeat(32),
+    second = 'b'.repeat(32);
+  const bearer = (t: string) => ({ headers: { Authorization: `Bearer ${t}` } });
+  interface Mine {
+    divisions: { period: string; name: string; size: number; place: number; medal: string }[];
+    trophies: object;
+  }
+  interface Rows {
+    name: string;
+    rows: { place: number; player: string; you: boolean }[];
+  }
+  const json = async <T>(p: string, init?: RequestInit) => (await (await fetch(`${base}${p}`, init)).json()) as T;
+  try {
+    const { seed } = await json<{ seed: string }>('/daily');
+    const date = new Date(now);
+    assert.ok(verifier.claim(playerIdFromToken(token)!, 'First', date).ok && verifier.claim(playerIdFromToken(second)!, 'Second', date).ok);
+    assert.ok(verifier.submit(encodeReplay(exportReplay(playedRun(seed, 1))), 'x', playerIdFromToken(token), date).recorded);
+    assert.ok(verifier.submit(encodeReplay(exportReplay(playedRun(seed, 2))), 'x', playerIdFromToken(second), date).recorded);
+    assert.ok(verifier.submit(encodeReplay(exportReplay(playedRun(seed, 0))), 'anon', null, date).recorded);
+    assert.deepEqual((await json<Mine>('/me/divisions', bearer(token))).divisions, [], 'the day is still open');
+    now = Date.parse('2030-03-14T00:00:01Z'); // 48 h after the day began
+    await json('/daily');
+    const me = await json<Mine>('/me/divisions', bearer(token));
+    assert.equal(me.divisions.length, 1);
+    const row = me.divisions[0];
+    assert.deepEqual([row.period, row.name, row.size], ['2030-03-12', 'table', 2], 'two named players; the anonymous entry has nobody to place');
+    assert.equal(row.medal, row.place === 1 ? 'gold' : 'silver');
+    assert.equal(Object.keys(me.trophies).length, 1);
+    const board = await json<Rows>('/division?period=2030-03-12&division=0', bearer(token));
+    assert.equal(board.name, 'table');
+    assert.equal(board.rows.length, 2);
+    assert.deepEqual(
+      board.rows.map((r) => r.place),
+      [1, 2],
+    );
+    assert.equal(board.rows.filter((r) => r.you).length, 1);
+    assert.ok(board.rows.every((r) => /^(First|Second)#/.test(r.player)));
+    assert.equal((await fetch(`${base}/division?period=2030-03-12&division=4`)).status, 404);
+    assert.equal((await fetch(`${base}/me/divisions`)).status, 401);
+    const again = new Verifier(path.join(dir, 'board.json'), { dailySecret: 'fixture-secret' });
+    again.onFreeze = () => assert.fail('a frozen day does not close twice');
+    again.dailyRecord('2030-03-12', new Date(now));
+    await fetch(`${base}/me`, { method: 'DELETE', ...bearer(token) });
+    const after = await json<Rows>('/division?period=2030-03-12&division=0');
+    assert.ok(
+      after.rows.some((r) => r.player === 'deleted'),
+      'the place stays, the name goes',
+    );
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((r) => server.close(() => r()));
+    community.close();
+  }
+  const plain = createServer(verifier, { log: null });
+  await new Promise<void>((r) => plain.listen(0, '127.0.0.1', r));
+  try {
+    const url = `http://127.0.0.1:${(plain.address() as AddressInfo).port}`;
+    assert.equal((await fetch(`${url}/division?period=x`)).status, 503);
+    assert.equal((await fetch(`${url}/me/divisions`, bearer(second))).status, 503);
+  } finally {
+    plain.closeAllConnections();
+    await new Promise<void>((r) => plain.close(() => r()));
   }
 });

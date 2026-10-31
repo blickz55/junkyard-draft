@@ -10,6 +10,7 @@ import { t } from '../content/strings';
 import { money, int, utcDate } from '../content/format';
 import { yardLabel } from '../content/yard';
 import { machineName } from '../content/machines';
+import { trophyLine } from '../content/division';
 
 const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
 
@@ -126,7 +127,9 @@ export function recordSections(d: RecordData): HTMLElement[] {
         ...d.watched.map((w) => line(t('record.watchedRow', { yard: yardLabel(w.seed), score: money(w.score), times: w.times, players: w.players }))),
       )
     : null;
-  return [days, trend, medals, bests, ...(watched ? [watched] : []), kinds];
+  const earned = trophyLine(d.trophies);
+  const trophies = earned ? section('record-trophies', t('record.trophiesHead'), line(earned, 'jd-amber')) : null;
+  return [days, trend, medals, ...(trophies ? [trophies] : []), bests, ...(watched ? [watched] : []), kinds];
 }
 
 export function openRecord(scene: Phaser.Scene): void {

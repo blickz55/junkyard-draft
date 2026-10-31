@@ -181,9 +181,15 @@
       ]
     },
     {
-      "title": "Play statistics (opt-in)",
+      "title": "Divisions and trophies",
       "lines": [
-        "Off by default. When on, the game sends only events from a fixed vocabulary (25 names: app_start, consent_set, tutorial_step_start, tutorial_step_complete, first_draft_pick, first_place_attempt, first_place_rejected, first_rotate, undo_used, reroll_used, first_run_start, first_run_complete, round_complete, game_complete, second_game_start, daily_start, daily_submit_result, share_copied, clip_exported, histogram_around_me_opened, challenge_opened, fork_started, tip_opened, settings_changed, session_end), never seeds other than daily/tutorial labels, never layouts. Kept 7 days."
+        "Divisions, medals and trophies are labels over checked games: none of them changes an offer, a rule or a score."
+      ]
+    },
+    {
+      "title": "Play statistics",
+      "lines": [
+        "On unless you turn them off, with one switch in Settings; a browser sending Global Privacy Control or Do Not Track starts with them off. The game sends only events from a fixed vocabulary (25 names: app_start, consent_set, tutorial_step_start, tutorial_step_complete, first_draft_pick, first_place_attempt, first_place_rejected, first_rotate, undo_used, reroll_used, first_run_start, first_run_complete, round_complete, game_complete, second_game_start, daily_start, daily_submit_result, share_copied, clip_exported, histogram_around_me_opened, challenge_opened, fork_started, tip_opened, settings_changed, session_end), never seeds other than daily/tutorial labels, never layouts. Kept 7 days."
       ]
     },
     {
