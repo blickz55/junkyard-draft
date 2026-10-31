@@ -37,6 +37,10 @@ import { todaySeed, revealGate, todayUTC } from '../render/daily';
 import { shiftUtcDate } from '../daily/streak';
 import { medalFor, medalsLine, type Medals } from '../daily/medals';
 import { openPolicy, openPrivacy } from './panels';
+import { reactionLine, reactionTotal, type ReactionCounts } from '../content/reactions';
+import { loadReactions } from '../render/reactions';
+import { reactionBar } from './ReactionBar';
+import { recordWatched } from '../render/storage';
 import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
 import { groupHeaders, groupParam, loadGroup } from '../render/groups';
 import { forkLabel } from '../content/fork';
@@ -181,6 +185,7 @@ export function mountResults(
         newRank ? t('rank.up', { rank: rankFor(o.stars.after).name }) : [rankLine(o.stars.after), rankNext(o.stars.after)].filter(Boolean).join(' · '),
       )
     : null;
+  const social = h('div', { class: 'jd-dim', tid: 'results-social', style: 'font-size:0.8125em; margin-top:0.25em' });
   const header = h(
     'div',
     { style: 'text-align:center' },
@@ -188,6 +193,8 @@ export function mountResults(
     h('div', { class: 'jd-gold jd-pop jd-results-score', tid: 'score' }, money(run.score)),
     headline,
     rankBlock,
+    social,
+    o.replayed && o.replayHash ? reactionBar(verifierUrl, o.replayHash) : null,
     deltas,
     h(
       'div',
@@ -344,6 +351,20 @@ export function mountResults(
     status.className = `jd-results-status ${cls}`;
   };
 
+  /** What other players made of this checked game: the reactions (0.11.3) and who watched it (0.11.4), nothing until someone has. */
+  const showReactions = async (hash: string) => {
+    const r = await loadReactions(verifierUrl, hash);
+    if (!r) return;
+    const n = reactionTotal(r.reactions);
+    social.textContent = [
+      n ? `${t('reaction.total', { n })} ${reactionLine(r.reactions)}` : '',
+      r.seen.players ? t('reaction.watched', { times: r.seen.times, players: r.seen.players }) : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    if (r.seen.players) recordWatched({ seed: run.seed, score: run.score, times: r.seen.times, players: r.seen.players, at: new Date().toISOString() });
+  };
+
   /** Everyone today, first (PLAN-v1 0.4.1): where this game sits among real checked games; with fewer than five, the entries that exist and never an invented population. */
   let histGen = 0;
   const loadHistogram = async (attempt = 0) => {
@@ -353,6 +374,7 @@ export function mountResults(
       // standing is shown only for THIS game's recording: a submission made on this screen, or a stored one with the same identity
       if (!scene.verifiedHash && (await scene.matchesStoredSubmission())) scene.verifiedHash = loadSubmissions()[run.seed]?.replayHash ?? null;
       const mine = scene.verifiedHash ?? undefined;
+      if (mine) void showReactions(mine);
       const prior = !mine ? loadSubmissions()[run.seed] : undefined;
       const hres = await fetch(
         `${verifierUrl}/histogram?seed=${encodeURIComponent(run.seed)}${mine ? `&hash=${encodeURIComponent(mine)}` : ''}${groupParam(verifierUrl)}`,
@@ -533,7 +555,16 @@ export function mountResults(
         headers: groupHeaders(verifierUrl),
       });
       const body = (await res.json()) as {
-        entries: { player: string; score: number; verifiedAt: string; replayHash: string; replayAvailable?: boolean; stars?: number; finalMachines?: number }[];
+        entries: {
+          player: string;
+          score: number;
+          verifiedAt: string;
+          replayHash: string;
+          replayAvailable?: boolean;
+          stars?: number;
+          finalMachines?: number;
+          reactions?: ReactionCounts;
+        }[];
         tieBreak?: string;
       };
       if (!body.entries.length) entriesBox.append(h('div', { class: 'jd-mono jd-dim jd-board-note', style: 'font-size:0.75em' }, t('results.noScores')));
@@ -554,7 +585,7 @@ export function mountResults(
                 .catch((err: Error) => setStatus(err.message, 'jd-red'));
             },
           },
-          `${t('results.entry', { n: i + 1, score: money(e.score), player: e.player })}${e.stars ? ` ${starMarks(e.stars)}` : ''}${e.replayAvailable ? t('results.entryWatch') : ''}`,
+          `${t('results.entry', { n: i + 1, score: money(e.score), player: e.player })}${e.stars ? ` ${starMarks(e.stars)}` : ''}${e.reactions ? ` ${reactionLine(e.reactions)}` : ''}${e.replayAvailable ? t('results.entryWatch') : ''}`,
         );
         const dare = btn(
           t('results.beatThis'),
@@ -981,7 +1012,7 @@ export function mountResults(
     header,
     group(
       'actions-play',
-      fork ? null : submitBtn,
+      fork || o.replayed ? null : submitBtn,
       retryBtn,
       shareNativeBtn ?? shareBtn,
       btn(t('common.titleScreen'), 'home', () => scene.scene.start('Title')),

@@ -36,6 +36,8 @@ import { machineName, machineBlurb, materialName } from '../content/machines';
 import { jobLine, jobRecipe, jobTarget, materialMany, missingForJob, nextNeeded, paceOf, starMarks } from '../content/job';
 import { yardLabel } from '../content/yard';
 import { recipeRow } from './JobCard';
+import { reactionBar } from './ReactionBar';
+import { verifierUrl as resolveVerifierUrl } from '../render/config';
 
 export type PanelMode = 'build' | 'running' | 'paused' | 'summary';
 
@@ -45,6 +47,8 @@ export interface PanelState {
   mode: PanelMode;
   speed: number;
   replayLabel: string | null;
+  /** the recording's hash when it came from the board (0.11.3): the reactions need it */
+  replayHash: string | null;
   replayRounds: number[] | null;
   playbackPending: boolean;
   /** the challenge being played, if any (PLAN-v4 0.7.1) */
@@ -127,6 +131,7 @@ export class GamePanel {
   private key = '';
   /** whether the last rendered state was recording playback (the summary overlay offers a try then, PLAN-v4 0.7.3) */
   private replayMode = false;
+  private reactions: { hash: string; bar: HTMLElement } | null = null;
   private progress: HTMLElement | null = null;
   private earned: HTMLElement | null = null;
   private lastEarned = -1;
@@ -570,6 +575,10 @@ export class GamePanel {
         ),
       );
       this.side.append(h('div', { class: 'jd-blue', style: 'font-size:0.75em; margin-top:0.3em; overflow-wrap:anywhere' }, s.replayLabel));
+      if (s.replayHash) {
+        if (this.reactions?.hash !== s.replayHash) this.reactions = { hash: s.replayHash, bar: reactionBar(resolveVerifierUrl(), s.replayHash) };
+        this.side.append(this.reactions.bar); // one bar for the whole recording: the panel redraws, the counts stay
+      }
     }
     this.side.append(this.legend());
   }

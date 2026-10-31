@@ -239,6 +239,15 @@ const STYLE = `
 #ui .jd-btn:focus-visible, #ui input:focus-visible, #ui .jd-entry:focus-visible { outline: 3px solid #d6f0ff; outline-offset: 2px; }
 #ui input[type=range] { accent-color: ${CSS.amber}; width: 12em; }
 #ui .jd-select { font: inherit; font-size: 0.8125em; background: #1a1612; color: ${CSS.text}; border: 1px solid #3f382d; border-radius: 0.2em; padding: 0.35em 0.5em; }
+#ui .jd-reactions { margin-top: 0.5em; font-size: 0.875em; }
+#ui .jd-reaction-head { font-size: 0.8125em; margin-bottom: 0.25em; }
+#ui .jd-reaction-row { display: flex; flex-wrap: wrap; gap: 0.3em; }
+#ui .jd-reaction { font: inherit; display: inline-flex; align-items: center; gap: 0.25em; min-width: 2.6em; min-height: 2.6em; padding: 0 0.45em; justify-content: center; cursor: pointer; color: ${CSS.text}; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 0.5em; }
+#ui .jd-reaction:hover { background: rgba(255, 255, 255, 0.12); }
+#ui .jd-reaction.on { border-color: ${CSS.amber}; background: rgba(240, 168, 48, 0.2); }
+#ui .jd-reaction:focus-visible { outline: 3px solid #d6f0ff; outline-offset: 2px; }
+#ui .jd-reaction-note { font-size: 0.8125em; }
+#ui .jd-results .jd-reaction-row { justify-content: center; }
 #ui .jd-entry { font: inherit; font-family: ${MONO}; font-size: 0.75em; background: none; border: 0; color: ${CSS.text}; text-align: left; padding: 0.1em 0; cursor: pointer; }
 #ui .jd-entry:hover { color: ${CSS.blue}; }
 #ui .jd-entry:disabled { cursor: default; color: ${CSS.text}; }

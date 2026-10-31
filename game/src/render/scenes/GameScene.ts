@@ -606,6 +606,7 @@ export class GameScene extends Phaser.Scene {
       mode: this.mode,
       speed: this.speed,
       replayLabel: this.replayLabel,
+      replayHash: this.replayOrigin?.hash ?? null,
       replayRounds: this.replayRounds,
       playbackPending: !!this.replayQueue,
       challenge: this.challenge,

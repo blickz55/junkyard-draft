@@ -90,6 +90,8 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] 0.11.0 The community store: `server/community.ts` on `node:sqlite`, the fifteen tables, migrations up and down (`server/migrations/`, numbered SQL modules rather than loose .sql files, so the verifier stays one file), `/health` reports the size, `tools/backup.ts` snapshots the database and the restore drill checks it, a page of a 100k-post thread under 20 ms (`tests/community.test.ts`)
 - [ ] 0.11.1 Email link (⚑ the provider)
 - [ ] 0.11.2 The moderation pipeline (⚑ the policy)
+- [x] 0.11.3 Reactions on runs: the eight, one per player per run (`tests/community.test.ts`), counts on board rows, the results and the recording (`tests/social-e2e.test.mjs`), one unread line per run for the owner; protocol 3
+- [x] 0.11.4 Seen-by counts: the same viewer twice counts once (`tests/community.test.ts`), "watched 14 times by 9 players" on the results and Your record
 
 ## M14 — the owner's first playtest (2026-10-31, rules v4, protocol 2 additive)
 

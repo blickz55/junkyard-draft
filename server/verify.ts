@@ -84,6 +84,7 @@ import { replay as replayRun, runStars, type RunState } from '../game/src/sim/ru
 import { RULES_VERSION } from '../game/src/sim/types';
 import { PushStore, PushError, validateHour, validateSubscription } from './push';
 import { COMMUNITY_DB, CommunityStore } from './community';
+import { isReaction } from '../game/src/content/reactions';
 import { isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
 import { mintSeed, mintWeeklySeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS, base32Lower } from './mint';
 import { isWeekId, isWeeklySeed, weeklyIdOf, weeklyWindow, currentWeekId, nextWeekId, prevWeekId, isoWeekId } from '../game/src/sim/weekly';
@@ -102,7 +103,7 @@ import pkg from '../package.json' with { type: 'json' };
 import { tagFor, labelFor, normaliseName, nameProblem, TOKEN_HEX, REPORT_REASONS, HIDDEN_LABEL, type ReportReason } from '../game/src/identity/identity';
 
 /** Protocol level of this server's HTTP surface (PLAN-v3 §1): 2 adds identity (bearer tokens, /identity, DELETE /me, keep-best per player); GET /me/export (0.8.6) only grows it. */
-export const PROTOCOL = 2;
+export const PROTOCOL = 3; // 0.11.3: additive, a client one release behind keeps working
 export const RENAME_COOLDOWN_MS = 24 * 60 * 60_000;
 /** A claimed identity: the player id is the SHA-256 of a device token the server never stores. */
 export interface Player {
@@ -284,6 +285,7 @@ const GROUP_CODE = /^[a-z2-7]{8}$/;
 // name moderation (PLAN-v4 0.7.7)
 export { REPORT_REASONS, HIDDEN_LABEL, type ReportReason };
 /** reports per minute per player; reporters kept per target; how often a report may hide the same name before a moderator has to act first */
+export const REACT_RATE_LIMIT = 30; // per player per minute (0.11.3)
 export const REPORT_RATE_LIMIT = 5,
   MAX_REPORTERS_PER_TARGET = 50,
   MAX_HIDES_PER_NAME = 2;
@@ -1314,6 +1316,13 @@ export class Verifier {
         })();
     return { hash, ...r, player: player ?? r.player };
   }
+  /** Whose run this is (0.11.3), for what the run's owner is told; null for an anonymous entry or an unknown hash. */
+  ownerOf(hash: string): string | null {
+    const hot = this.data.entries.find((x) => x.replayHash === hash);
+    if (hot) return hot.playerId ?? null;
+    const date = this.cold.dateOfReplay(hash);
+    return (date && this.cold.day(date)?.entries.find((x) => x.replayHash === hash)?.playerId) || null;
+  }
   /** A verified entry for a challenge link (PLAN-v4 0.7.1): earnings and standing, never actions. Hot first, then cold (by kept replay, or by seed when given). */
   entry(
     hash: string,
@@ -1559,12 +1568,18 @@ export class Verifier {
 }
 
 // ---------- bot par: the autoplayer as a day-one target ----------
-export const PAR_RUNS = 5;
+export const PAR_RUNS = 3;
 export const PAR_TRIES = 40;
+/**
+ * A shallow search: on a job yard the mark comes from the recipe line and a widened one, so the wide search costs four times the
+ * time for the same number (on seven generated yards, reach 8/4 with five runs and 2/1 with three gave identical marks). At the
+ * old depth a generated yard took 15 s on a fast machine and passed the 20 s cap on a small server, and no daily would have had one.
+ */
+export const PAR_REACH = { final: 2, pick: 1 };
 /** Median autoplayer score over PAR_RUNS independent searches (fixed rng streams, so identical on every machine). Synchronous: run it in a worker. */
 export function computeParSync(seed: string, runs = PAR_RUNS, tries = PAR_TRIES): number {
   const scores: number[] = [];
-  for (let k = 0; k < runs; k++) scores.push(playSeed(seed, new Rng(`${seed}:par:${k}`), tries).report.score);
+  for (let k = 0; k < runs; k++) scores.push(playSeed(seed, new Rng(`${seed}:par:${k}`), tries, { reach: PAR_REACH }).report.score);
   scores.sort((a, b) => a - b);
   return scores[Math.floor(scores.length / 2)];
 }
@@ -2181,6 +2196,12 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const events = opts.events ?? null;
   const push = opts.push ?? null;
   const community = opts.community ?? null;
+  /** Reaction counts on a board's rows (0.11.3): a run nobody reacted to carries no field. */
+  const withReactions = <T extends { replayHash: string }>(entries: T[]): T[] => {
+    if (!community || !entries.length) return entries;
+    const counts = community.reactionsOn(entries.map((e) => e.replayHash));
+    return entries.map((e) => (counts.has(e.replayHash) ? { ...e, reactions: counts.get(e.replayHash) } : e));
+  };
   const par = opts.par ?? null;
   const verify = opts.verify ?? null;
   const withPar = (seed: string) => {
@@ -2192,6 +2213,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const irl = new RateLimiter(IDENTITY_RATE_LIMIT, 60_000, opts.now); // per-player identity calls
   const grl = new RateLimiter(GROUP_RATE_LIMIT, 60_000, opts.now); // per-player group calls (PLAN-v4 0.7.2)
   const rrl = new RateLimiter(REPORT_RATE_LIMIT, 60_000, opts.now); // per-player reports (PLAN-v4 0.7.7)
+  const reactRl = new RateLimiter(REACT_RATE_LIMIT, 60_000, opts.now); // per-player reactions (0.11.3)
   const readRl = opts.readRateLimit === null ? null : new RateLimiter(opts.readRateLimit ?? DEFAULT_READ_RATE_LIMIT, 60_000, opts.now); // per-address reads (0.8.1)
   const writeRl = opts.writeRateLimit === null ? null : new RateLimiter(opts.writeRateLimit ?? DEFAULT_WRITE_RATE_LIMIT, 60_000, opts.now); // per-address writes (0.8.1)
   const logSalt = randomBytes(16).toString('hex');
@@ -2317,6 +2339,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         if (req.headers.authorization && !bearer) return json(401, { ok: false, error: 'bad token' });
         const gate = verifier.revealGate(r.seed, bearer, new Date((opts.now ?? Date.now)()));
         if (gate) return json(403, { ok: false, reason: 'reveal-gate', ...gate });
+        if (community && bearer && verifier.ownerOf(r.hash) !== bearer) community.sawRun(r.hash, bearer); // 0.11.4: a device with a key, never the run's own player
         return json(200, { ok: true, ...r });
       }
       // group scope (PLAN-v4 0.7.2): ?group=<code> needs the bearer of a member; one refusal for unknown codes and non-members so codes cannot be probed
@@ -2348,7 +2371,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
                 }
               : { ok: false, error: `the daily for ${dateQ} has not opened yet (dailies open at 00:00 UTC)`, today: utcDate(now) },
           );
-        return json(200, { ok: true, ...d, group: gs.group, botPar: withPar(d.seed), tieBreak: TIE_BREAK });
+        return json(200, { ok: true, ...d, entries: withReactions(d.entries), group: gs.group, botPar: withPar(d.seed), tieBreak: TIE_BREAK });
       }
       if (req.method === 'GET' && url.pathname === '/entry') {
         // challenge links (PLAN-v4 0.7.1): earnings, never actions
@@ -2360,7 +2383,15 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         if (!e) return json(404, { ok: false, error: 'no verified entry with that hash' });
         if (!e.rounds)
           return json(404, { ok: false, reason: 'no-rounds', error: 'that entry has no per-round earnings (verified before 0.7.1 without a stored replay)' });
-        return json(200, { ok: true, ...e });
+        const viewer = playerIdFromToken(bearerOf(req));
+        return json(200, {
+          ok: true,
+          ...e,
+          reactions: community?.reactionsOn([e.replayHash]).get(e.replayHash) ?? {},
+          mine: viewer ? (community?.reactionOf(e.replayHash, viewer) ?? null) : null,
+          own: !!viewer && verifier.ownerOf(e.replayHash) === viewer,
+          seen: community?.seenBy(e.replayHash) ?? { times: 0, players: 0 },
+        });
       }
       if (req.method === 'GET' && url.pathname === '/weekly') {
         // PLAN-v4 0.7.5: mirrors /daily by ISO week
@@ -2381,7 +2412,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
                 }
               : { ok: false, error: `the weekly ${weekQ} has not opened yet (weeklies open Friday 18:00 UTC)`, currentWeek: currentWeekId(now) },
           );
-        return json(200, { ok: true, ...w, group: gs.group, botPar: withPar(w.seed), tieBreak: TIE_BREAK });
+        return json(200, { ok: true, ...w, entries: withReactions(w.entries), group: gs.group, botPar: withPar(w.seed), tieBreak: TIE_BREAK });
       }
       if (req.method === 'GET' && url.pathname === '/archive') {
         const now = new Date((opts.now ?? Date.now)());
@@ -2421,7 +2452,9 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         return json(200, {
           seed,
           verified: true,
-          entries: verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT), gs.members, new Date((opts.now ?? Date.now)())),
+          entries: withReactions(
+            verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT), gs.members, new Date((opts.now ?? Date.now)())),
+          ),
           group: gs.group,
           botPar: withPar(seed),
           tieBreak: TIE_BREAK,
@@ -2642,6 +2675,58 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
             }
           }),
         );
+        return;
+      }
+      if (req.method === 'POST' && url.pathname === '/react') {
+        // reactions on runs (0.11.3): the fixed list, counts only, one per player per run; the device key is enough, no name and no account
+        if (!community) {
+          req.resume();
+          return json(503, { ok: false, error: 'reactions are not enabled on this verifier' });
+        }
+        if (!bearerId) {
+          req.resume();
+          return json(401, { ok: false, error: 'token required' });
+        }
+        const r = reactRl.take(bearerId);
+        if (!r.ok) {
+          req.resume();
+          return json(429, { ok: false, error: 'rate limited' }, { 'Retry-After': String(r.retryAfterSec) });
+        }
+        {
+          const w = writeLimited();
+          if (w != null) {
+            req.resume();
+            return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) });
+          }
+        }
+        let body = '';
+        req.on('data', (c) => {
+          body += c;
+          if (body.length > 1024) {
+            json(413, { ok: false, error: 'too large', code: 'too-large' });
+            req.destroy();
+          }
+        });
+        req.on('end', () => {
+          let p: { hash?: unknown; emote?: unknown };
+          try {
+            p = JSON.parse(body) as typeof p;
+          } catch {
+            return json(400, { ok: false, error: 'bad json' });
+          }
+          const emote = p.emote ?? null;
+          if (typeof p.hash !== 'string' || (emote !== null && !isReaction(emote)))
+            return json(422, { ok: false, error: 'a run and one of the eight reactions' });
+          const now = new Date((opts.now ?? Date.now)());
+          const e = verifier.entry(p.hash.slice(0, 64), null, now);
+          if (!e) return json(404, { ok: false, error: 'no verified entry with that hash' });
+          const gate = verifier.revealGate(e.seed, bearerId, now);
+          if (gate) return json(403, { ok: false, reason: 'reveal-gate', ...gate }); // a run nobody here may watch yet
+          const owner = verifier.ownerOf(e.replayHash);
+          if (owner === bearerId) return json(422, { ok: false, code: 'own-run', error: 'your own run' });
+          community.react(e.replayHash, bearerId, emote, owner);
+          return json(200, { ok: true, reactions: community.reactionsOn([e.replayHash]).get(e.replayHash) ?? {}, mine: emote });
+        });
         return;
       }
       if (req.method === 'POST' && url.pathname === '/report') {

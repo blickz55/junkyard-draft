@@ -36,6 +36,7 @@ import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWee
 import { openArchive } from './ArchivePanel';
 import { openRecord } from './RecordPanel';
 import { openPolicy, openPrivacy } from './panels';
+import { reactionLine, type ReactionCounts } from '../content/reactions';
 import { flushPending, describeOutcomes } from '../render/pending';
 import { loadPending } from '../render/storage';
 import { openGroups } from './GroupsPanel';
@@ -392,7 +393,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
         seed: string;
         date?: string;
         rulesVersion: number;
-        entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean; stars?: number }[];
+        entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean; stars?: number; reactions?: ReactionCounts }[];
         botPar?: number | null;
         closesAt?: string;
         now?: string;
@@ -411,7 +412,11 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
         if (!(streak === 3 || streak === 7 || streak === 30)) setForeman(foreman, foremanSays(d.final ? 'dailyFinal' : 'dailyOpen'));
         modeSpan.textContent = `${d.final ? t('title.modeRankedFinal') : t('title.modeRankedProvisional', { closes: closesIn(d.closesAt ?? info.closesAt, d.now ?? new Date().toISOString()) })}${groupSel ? t('title.crewSuffix', { name: groupSel.name }) : ''}`; // PLAN-v3 0.6.2: one global deadline, said plainly
         const rows = d.entries.map((e, i) =>
-          h('div', { class: 'jd-board-line' }, `${i + 1}. ${money(e.score)} ${e.player}${e.stars ? ` ${starMarks(e.stars)}` : ''}`),
+          h(
+            'div',
+            { class: 'jd-board-line' },
+            `${i + 1}. ${money(e.score)} ${e.player}${e.stars ? ` ${starMarks(e.stars)}` : ''}${e.reactions ? ` ${reactionLine(e.reactions)}` : ''}`,
+          ),
         );
         line.replaceChildren(...(rows.length ? rows : [t('title.noScores')]));
         line.classList.toggle('jd-dim', !d.entries.length);

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "rulesVersion": 4,
-  "protocol": 2,
+  "protocol": 3,
   "tieBreak": "Equal scores: fewer machines in round 6 first, then the earlier verified submission.",
   "rules": {
     "gridWidth": 8,
@@ -190,7 +190,7 @@
       "title": "Abuse limits",
       "lines": [
         "Submissions: 60 per minute per address and 2 per minute per player; identity calls 5 per minute per player; reports 5 per minute per player; reads 300 and identity, group, report or deletion calls 30 per minute per address; statistics 30 per minute per address; request bodies up to 512 KB; at most 20000 claimed identities (the oldest that never played and sit in no group make room). Limits answer 429 with Retry-After and never record anything.",
-        "Protocol level 2: endpoints only grow; a client one release behind keeps working."
+        "Protocol level 3: endpoints only grow; a client one release behind keeps working."
       ]
     }
   ]

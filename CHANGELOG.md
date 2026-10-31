@@ -5,6 +5,15 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### Sal's mark is back inside its budget — 2026-10-31 (no rules change)
+- Generated yards had taken the autoplayer behind "Sal's mark" to 15 s on a fast machine, past the verifier's 20 s cap on a small server: no daily would have had a mark. A shallower search and three runs instead of five give the same numbers on seven generated yards in about 3 s. A test holds it under the cap.
+
+### 0.11.3 reactions and 0.11.4 watched counts — 2026-10-31 (no rules change, protocol 3: additive)
+- **React to a run.** Eight reactions under a recording, while you watch it and on its results: tap one to leave it, tap another to change it, tap it again to take it back. One per device per run, counts only, nothing to type and nothing to moderate. The device key is enough: no name and no account. A run on an open daily stays closed to reactions until you may watch it, and your own run offers no buttons, only the counts.
+- **See what people made of it.** Board rows show the most used reactions ("🔥 3 👏 1"), on the results and on Home. The results of your checked game say "12 reactions 🔥 8 👏 4 · watched 14 times by 9 players", and Your record keeps the games people watched most. The run's owner gets one unread line per run however many people react, ready for the inbox (0.11.7).
+- A watch counts when a device with a key fetches a recording, never the run's own player, and the same viewer twice is one viewer. The privacy notice names both, and `DELETE /me` and `/me/export` cover them.
+- A recording's results no longer show a greyed-out "Put my score on the board".
+
 ### 0.11.0 the community store — 2026-10-31 (no rules change, protocol 2)
 - **The social layer has somewhere to live.** `server/community.ts` keeps one SQLite file next to the board on Node's built-in `node:sqlite`: accounts, email links, threads, posts, reactions, views, friends, messages, notifications, push subscriptions, reports, moderation actions, divisions, trophies and cosmetics. Nothing a player can reach writes to it yet; the first routes come with their moderation (0.11.2).
 - **Migrations** are numbered SQL modules under `server/migrations/`, compiled in so the verifier stays one file and a build cannot ship without them. Each runs in one transaction at start and is recorded with a hash; a changed one or a gap in the numbers stops the start; a database newer than the code runs as it is, so a rollback to the previous image keeps working. `tools/community.ts` reads where a data directory stands and takes it down.

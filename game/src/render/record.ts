@@ -5,7 +5,18 @@
  */
 import type { MachineKind } from '../sim/types';
 import { longestStreak, streakOf } from '../daily/streak';
-import { loadBests, loadDailyDates, loadDaysPlayed, loadKinds, loadMedals, loadStandings, type MedalRecord, type Standing } from './storage';
+import {
+  loadBests,
+  loadDailyDates,
+  loadDaysPlayed,
+  loadKinds,
+  loadMedals,
+  loadStandings,
+  loadWatched,
+  type MedalRecord,
+  type Standing,
+  type WatchedRecord,
+} from './storage';
 
 export type Trend = 'up' | 'down' | 'flat' | null;
 
@@ -18,6 +29,8 @@ export interface RecordData {
   standings: Standing[];
   trend: Trend;
   kinds: { kind: MachineKind; count: number }[];
+  /** the games other players watched most, by players */
+  watched: WatchedRecord[];
 }
 
 /** Rising, falling or steady: the mean of the latest three standings against the three before them; null under six. */
@@ -50,5 +63,8 @@ export function recordData(now = new Date()): RecordData {
     standings,
     trend: trendOf(standings),
     kinds,
+    watched: loadWatched()
+      .sort((a, b) => b.players - a.players || b.times - a.times)
+      .slice(0, 5),
   };
 }

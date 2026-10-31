@@ -188,6 +188,8 @@ export interface PlayOptions {
   ban?: ReadonlySet<MachineKind>;
   policy?: SearchPolicy;
   rerollPolicy?: RerollPolicy;
+  /** how far an occupant may be moved to make room: in the final search of a shift, and while weighing the offers (default 8 and 4; the studies keep it) */
+  reach?: { final: number; pick: number };
 }
 
 /**
@@ -205,6 +207,7 @@ export function scoreSanityBound(): number {
 export function playSeed(seed: string, rng: Rng, tries = 150, opts: PlayOptions = {}): { report: SeedReport; actions: Action[] } {
   const s: RunState = newRun(seed);
   const policy = opts.policy ?? 'greedy';
+  const reach = opts.reach ?? { final: 8, pick: 4 };
   // on a job yard the hopper and the dock stay where the yard put them: greedy search otherwise shortens the belt for a few sales and strands the recipe
   const pinned: ReadonlySet<number> = new Set(s.job ? s.layout.machines.filter((m) => m.kind === 'hopper' || m.kind === 'dock').map((m) => m.id) : []);
   let flatRounds = 0;
@@ -215,7 +218,7 @@ export function playSeed(seed: string, rng: Rng, tries = 150, opts: PlayOptions 
   while (s.phase !== 'finished') {
     if (s.phase === 'build') {
       // the lesson's first shift has no pick: build with what is on the shelf
-      const r0 = improve(s.layout, s.bin, rng, tries, 8, policy, pinned, s.job);
+      const r0 = improve(s.layout, s.bin, rng, tries, reach.final, policy, pinned, s.job);
       for (const m of s.layout.machines.slice()) apply(s, { t: 'unplace', id: m.id });
       for (const m of r0.layout.machines) apply(s, { t: 'place', id: m.id, x: m.x, y: m.y, dir: m.dir });
       apply(s, { t: 'run' });
@@ -232,7 +235,16 @@ export function playSeed(seed: string, rng: Rng, tries = 150, opts: PlayOptions 
     for (const i of allowed.length ? allowed : s.offers.map((_, i) => i)) {
       const trial = { ...s, layout: clone(s.layout), bin: s.bin.slice() };
       const part: Machine = { id: 9000 + i, kind: s.offers[i], x: -1, y: -1, dir: 0 };
-      const r = improve(trial.layout, [...trial.bin, part], new Rng(`${seed}:${s.round}:${i}`), Math.max(10, Math.floor(tries / 3)), 4, policy, pinned, s.job);
+      const r = improve(
+        trial.layout,
+        [...trial.bin, part],
+        new Rng(`${seed}:${s.round}:${i}`),
+        Math.max(10, Math.floor(tries / 3)),
+        reach.pick,
+        policy,
+        pinned,
+        s.job,
+      );
       if (r.earned > bestVal) {
         bestVal = r.earned;
         bestI = i;
@@ -255,7 +267,7 @@ export function playSeed(seed: string, rng: Rng, tries = 150, opts: PlayOptions 
           [...trial.bin, part],
           new Rng(`${seed}:${s.round}:reroll:${i}`),
           Math.max(10, Math.floor(tries / 3)),
-          4,
+          reach.pick,
           policy,
           pinned,
           s.job,
@@ -268,7 +280,7 @@ export function playSeed(seed: string, rng: Rng, tries = 150, opts: PlayOptions 
     }
     if (bestVal <= baseScore) flatRounds++; // no offer improved the line this round
     apply(s, { t: 'pick', i: bestI });
-    const r = improve(s.layout, s.bin, rng, tries, 8, policy, pinned, s.job);
+    const r = improve(s.layout, s.bin, rng, tries, reach.final, policy, pinned, s.job);
     // translate the found layout into legal actions
     for (const m of s.layout.machines.slice()) apply(s, { t: 'unplace', id: m.id });
     for (const m of r.layout.machines) apply(s, { t: 'place', id: m.id, x: m.x, y: m.y, dir: m.dir });

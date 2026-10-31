@@ -33,6 +33,7 @@ const K = {
   medals: 'jd.medals.v1',
   kinds: 'jd.kinds.v1',
   stars: 'jd.stars.v1',
+  watched: 'jd.watched.v1',
 };
 /**
  * Score records are partitioned by rules version (PLAN-v2 0.5.0): `jd.bests.v2` / `jd.submissions.v2` hold
@@ -625,6 +626,23 @@ export function recordStanding(s: Standing, version: number = RULES_VERSION): St
   list.sort((a, b) => a.at.localeCompare(b.at));
   const kept = list.slice(-STANDINGS_MAX);
   writeByVersion(K.standings, version, kept);
+  return kept;
+}
+/** Who watched a checked game of this device (0.11.4), as last learnt on its results. */
+export interface WatchedRecord {
+  seed: string;
+  score: number;
+  times: number;
+  players: number;
+  at: string;
+}
+const isWatched = (v: unknown): v is WatchedRecord =>
+  isObj(v) && isSeedStr(v.seed) && isFiniteNum(v.score) && isFiniteNum(v.times) && isFiniteNum(v.players) && isStr(v.at);
+export const loadWatched = (version: number = RULES_VERSION): WatchedRecord[] => byVersionList(K.watched, version, isWatched, STANDINGS_MAX);
+/** One line per yard, the latest count replacing it; the oldest beyond the cap falls off. */
+export function recordWatched(w: WatchedRecord, version: number = RULES_VERSION): WatchedRecord[] {
+  const kept = [...loadWatched(version).filter((x) => x.seed !== w.seed), w].slice(-STANDINGS_MAX);
+  writeByVersion(K.watched, version, kept);
   return kept;
 }
 export interface MedalRecord {

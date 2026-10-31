@@ -233,6 +233,57 @@ export class CommunityStore {
     return { posts, next: rows.length > limit ? posts[limit - 1].id : null };
   }
 
+  /**
+   * A player's reaction to a run (0.11.3): one per player per run, a new one replaces it, null takes it back. The run's owner
+   * gets one unread line per run however many people react, never one for their own.
+   */
+  react(hash: string, playerId: string, emote: string | null, ownerId: string | null = null): void {
+    this.transaction(() => {
+      if (emote === null) {
+        this.sql('DELETE FROM reactions WHERE replay_hash = ? AND player_id = ?').run(hash, playerId);
+        return;
+      }
+      const at = this.now();
+      this.sql(
+        'INSERT INTO reactions (replay_hash, player_id, emote, created_at) VALUES (?, ?, ?, ?) ON CONFLICT (replay_hash, player_id) DO UPDATE SET emote = excluded.emote, created_at = excluded.created_at',
+      ).run(hash, playerId, emote, at);
+      if (!ownerId || ownerId === playerId) return;
+      const payload = JSON.stringify({ hash });
+      const unread = this.sql("SELECT 1 FROM notifications WHERE player_id = ? AND kind = 'reactions' AND read_at IS NULL AND payload = ?").get(
+        ownerId,
+        payload,
+      );
+      if (!unread) this.sql("INSERT INTO notifications (player_id, kind, payload, created_at) VALUES (?, 'reactions', ?, ?)").run(ownerId, payload, at);
+    });
+  }
+  /** The counts per emote on each of these runs; a run nobody reacted to is not in the map. */
+  reactionsOn(hashes: readonly string[]): Map<string, Record<string, number>> {
+    const out = new Map<string, Record<string, number>>();
+    const rows = this.sql(
+      'SELECT replay_hash, emote, COUNT(*) AS n FROM reactions WHERE replay_hash IN (SELECT value FROM json_each(?)) GROUP BY replay_hash, emote',
+    ).all(JSON.stringify(hashes)) as unknown as { replay_hash: string; emote: string; n: number }[];
+    for (const r of rows) out.set(r.replay_hash, { ...out.get(r.replay_hash), [r.emote]: r.n });
+    return out;
+  }
+  reactionOf(hash: string, playerId: string): string | null {
+    const r = this.sql('SELECT emote FROM reactions WHERE replay_hash = ? AND player_id = ?').get(hash, playerId) as { emote: string } | undefined;
+    return r?.emote ?? null;
+  }
+
+  /** A player watched a run (0.11.4): the same viewer twice is one viewer who watched twice. */
+  sawRun(hash: string, viewerId: string): void {
+    const at = this.now();
+    this.sql(
+      'INSERT INTO views (replay_hash, viewer_id, first_at, last_at) VALUES (?, ?, ?, ?) ON CONFLICT (replay_hash, viewer_id) DO UPDATE SET times = times + 1, last_at = excluded.last_at',
+    ).run(hash, viewerId, at, at);
+  }
+  seenBy(hash: string): { times: number; players: number } {
+    return this.sql('SELECT COALESCE(SUM(times), 0) AS times, COUNT(*) AS players FROM views WHERE replay_hash = ?').get(hash) as {
+      times: number;
+      players: number;
+    };
+  }
+
   /** Everything stored under a player, for `/me/export`. */
   exportPlayer(playerId: string): Record<string, Record<string, unknown>[]> {
     const out: Record<string, Record<string, unknown>[]> = {};

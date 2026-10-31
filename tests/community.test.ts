@@ -18,7 +18,12 @@ import {
   snapshotDatabase,
   type CommunityOptions,
 } from '../server/community';
-import { createServer, playerIdFromToken, Verifier } from '../server/verify';
+import { createServer, playerIdFromToken, REACT_RATE_LIMIT, Verifier } from '../server/verify';
+import { REACTIONS, isReaction, reactionLine, reactionTotal } from '../game/src/content/reactions';
+import { t, type StringKey } from '../game/src/content/strings';
+import { apply, newRun } from '../game/src/sim/run';
+import { encodeReplay, exportReplay } from '../game/src/sim/replay';
+import { RULES } from '../game/src/sim/rules';
 
 const TABLES = [
   'accounts',
@@ -37,6 +42,16 @@ const TABLES = [
   'trophies',
   'cosmetics',
 ];
+/** A finished game on a seed, enough for the verifier to take it. */
+function playedRun(seed: string) {
+  const s = newRun(seed);
+  for (let r = 1; r <= RULES.rounds; r++) {
+    apply(s, { t: 'pick', i: 0 });
+    apply(s, { t: 'run' });
+    apply(s, { t: 'next' });
+  }
+  return s;
+}
 const tempDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'jd-community-'));
 const open = (dir = tempDir(), o: CommunityOptions = {}) => new CommunityStore(path.join(dir, 'community.db'), o);
 /** The store's connection, for what the store itself has no method for yet. */
@@ -332,5 +347,162 @@ test('the routes: /health reports the store, /me/export carries it, DELETE /me e
   } finally {
     plain.closeAllConnections();
     await new Promise<void>((r) => plain.close(() => r()));
+  }
+});
+
+test('reactions: one per player per run, a new one replaces it, null takes it back; counts per emote per run, and the owner gets one unread line', () => {
+  const s = open();
+  s.react('run-a', 'p1', 'fire', 'owner');
+  s.react('run-a', 'p2', 'fire', 'owner');
+  s.react('run-a', 'p3', 'turtle', 'owner');
+  s.react('run-b', 'p1', 'brain', 'owner');
+  assert.deepEqual(Object.fromEntries(s.reactionsOn(['run-a', 'run-b', 'nobody'])), { 'run-a': { fire: 2, turtle: 1 }, 'run-b': { brain: 1 } });
+  s.react('run-a', 'p1', 'puzzle', 'owner');
+  assert.deepEqual(s.reactionsOn(['run-a']).get('run-a'), { fire: 1, puzzle: 1, turtle: 1 }, 'the same player, a new reaction: still three');
+  assert.equal(s.reactionOf('run-a', 'p1'), 'puzzle');
+  s.react('run-a', 'p1', null, 'owner');
+  assert.equal(s.reactionOf('run-a', 'p1'), null);
+  assert.deepEqual(s.reactionsOn(['run-a']).get('run-a'), { fire: 1, turtle: 1 });
+  assert.deepEqual(s.reactionsOn([]).size, 0);
+  const lines = () =>
+    db(s).prepare("SELECT player_id, payload FROM notifications WHERE kind = 'reactions' ORDER BY id").all() as { player_id: string; payload: string }[];
+  assert.deepEqual(
+    lines().map((l) => [l.player_id, JSON.parse(l.payload).hash]),
+    [
+      ['owner', 'run-a'],
+      ['owner', 'run-b'],
+    ],
+    'a batch per run, not one line per tap',
+  );
+  db(s).prepare('UPDATE notifications SET read_at = 1').run();
+  s.react('run-a', 'p4', 'fire', 'owner');
+  assert.equal(lines().length, 3, 'once read, the next reaction opens a new line');
+  s.react('run-c', 'owner', 'fire', 'owner');
+  s.react('run-d', 'p1', 'fire');
+  assert.equal(lines().length, 3, 'nothing for a reaction of your own or on an anonymous run');
+  s.close();
+});
+
+test('the reaction route: the device key is enough, the list is fixed, the run must exist and be open to you, and a run is not yours to react to', async () => {
+  const dir = tempDir();
+  const verifier = new Verifier(path.join(dir, 'board.json'), { dailySecret: 'fixture-secret' });
+  const community = open(dir);
+  const owner = 'a'.repeat(32),
+    fan = 'b'.repeat(32);
+  const replay = encodeReplay(exportReplay(playedRun('react-yard')));
+  assert.ok(verifier.submit(replay, 'x', playerIdFromToken(owner), new Date()).recorded);
+  const hash = verifier.board('react-yard', 1)[0].replayHash;
+  const server = createServer(verifier, { log: null, community });
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const react = (token: string | null, body: unknown) =>
+    fetch(`${base}/react`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    });
+  try {
+    assert.equal((await react(null, { hash, emote: 'fire' })).status, 401);
+    assert.equal((await react(fan, 'not json')).status, 400);
+    assert.equal((await react(fan, { hash, emote: 'poop' })).status, 422, 'the list is fixed');
+    assert.equal((await react(fan, { hash: 7, emote: 'fire' })).status, 422);
+    assert.equal((await react(fan, { hash: 'f'.repeat(64), emote: 'fire' })).status, 404);
+    const own = await react(owner, { hash, emote: 'fire' });
+    assert.equal(own.status, 422);
+    assert.equal(((await own.json()) as { code: string }).code, 'own-run');
+    const ok = await react(fan, { hash, emote: 'applause' });
+    assert.equal(ok.status, 200);
+    assert.deepEqual(await ok.json(), { ok: true, reactions: { applause: 1 }, mine: 'applause' });
+    const board = (await (await fetch(`${base}/board?seed=react-yard`)).json()) as { entries: { reactions?: object }[] };
+    assert.deepEqual(board.entries[0].reactions, { applause: 1 });
+    const entry = (bearer: string | null) =>
+      fetch(`${base}/entry?hash=${hash}`, { headers: bearer ? { Authorization: `Bearer ${bearer}` } : {} }).then((r) => r.json()) as Promise<{
+        mine: string;
+        own: boolean;
+        reactions: object;
+      }>;
+    assert.deepEqual(((e) => [e.mine, e.own, e.reactions])(await entry(fan)), ['applause', false, { applause: 1 }]);
+    assert.deepEqual(((e) => [e.mine, e.own])(await entry(owner)), [null, true]);
+    assert.deepEqual(((e) => [e.mine, e.own])(await entry(null)), [null, false]);
+    assert.equal(((await (await react(fan, { hash, emote: null })).json()) as { mine: unknown }).mine, null);
+    const empty = (await (await fetch(`${base}/board?seed=react-yard`)).json()) as { entries: object[] };
+    assert.equal('reactions' in empty.entries[0], false, 'no reactions, no field');
+    const big = await react(fan, JSON.stringify({ hash, emote: 'x'.repeat(2000) })).catch(() => null);
+    assert.ok(!big || big.status === 413);
+    for (let i = 0; i < REACT_RATE_LIMIT; i++) await react(fan, { hash, emote: 'fire' });
+    assert.equal((await react(fan, { hash, emote: 'fire' })).status, 429);
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((r) => server.close(() => r()));
+    community.close();
+  }
+  const plain = createServer(verifier, { log: null });
+  await new Promise<void>((r) => plain.listen(0, '127.0.0.1', r));
+  try {
+    const res = await fetch(`http://127.0.0.1:${(plain.address() as AddressInfo).port}/react`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${fan}` },
+      body: '{}',
+    });
+    assert.equal(res.status, 503);
+  } finally {
+    plain.closeAllConnections();
+    await new Promise<void>((r) => plain.close(() => r()));
+  }
+});
+
+test('the words for reactions: the list is eight, every one has a label, the line shows the most used first', () => {
+  assert.equal(REACTIONS.length, 8);
+  for (const { id } of REACTIONS) assert.ok(t(`reaction.${id}` as StringKey).length > 2);
+  assert.equal(isReaction('fire'), true);
+  assert.equal(isReaction('poop'), false);
+  assert.equal(reactionLine({ brain: 1, fire: 3, turtle: 2, puzzle: 1 }), '🔥 3 🐢 2 🧠 1');
+  assert.equal(reactionLine({}), '');
+  assert.equal(reactionTotal({ brain: 1, fire: 3 }), 4);
+});
+
+test('seen by: the same viewer twice counts once, and every watch adds to the times', () => {
+  let now = 1000;
+  const s = open(tempDir(), { now: () => now });
+  assert.deepEqual({ ...s.seenBy('run-a') }, { times: 0, players: 0 });
+  s.sawRun('run-a', 'p1');
+  now = 2000;
+  s.sawRun('run-a', 'p1');
+  s.sawRun('run-a', 'p2');
+  s.sawRun('run-b', 'p1');
+  assert.deepEqual({ ...s.seenBy('run-a') }, { times: 3, players: 2 });
+  assert.deepEqual({ ...s.seenBy('run-b') }, { times: 1, players: 1 });
+  assert.deepEqual(
+    { ...(db(s).prepare("SELECT first_at, last_at FROM views WHERE replay_hash = 'run-a' AND viewer_id = 'p1'").get() as object) },
+    { first_at: 1000, last_at: 2000 },
+  );
+  s.close();
+});
+
+test("the routes count a watch: by a device with a key, not by the run's own player, and not behind the reveal gate", async () => {
+  const dir = tempDir();
+  const verifier = new Verifier(path.join(dir, 'board.json'), { dailySecret: 'fixture-secret' });
+  const community = open(dir);
+  const owner = 'a'.repeat(32),
+    fan = 'b'.repeat(32);
+  assert.ok(verifier.submit(encodeReplay(exportReplay(playedRun('seen-yard'))), 'x', playerIdFromToken(owner), new Date()).recorded);
+  const hash = verifier.board('seen-yard', 1)[0].replayHash;
+  const server = createServer(verifier, { log: null, community });
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const watch = (token?: string) => fetch(`${base}/replay?hash=${hash}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  const seen = async () => ((await (await fetch(`${base}/entry?hash=${hash}`)).json()) as { seen: object }).seen;
+  try {
+    assert.equal((await watch()).status, 200);
+    assert.deepEqual(await seen(), { times: 0, players: 0 }, 'no key, no viewer');
+    await watch(owner);
+    assert.deepEqual(await seen(), { times: 0, players: 0 }, "the run's own player does not count");
+    await watch(fan);
+    await watch(fan);
+    assert.deepEqual(await seen(), { times: 2, players: 1 });
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((r) => server.close(() => r()));
+    community.close();
   }
 });

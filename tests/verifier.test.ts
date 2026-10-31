@@ -27,6 +27,7 @@ import {
   roundsOf,
   type Board,
   type BoardEntry,
+  PROTOCOL,
 } from '../server/verify';
 import { tagFor, nameProblem } from '../game/src/identity/identity';
 import { build as esbuild } from 'esbuild';
@@ -382,6 +383,14 @@ test('http: POST /verify is rate limited per client IP with Retry-After; GETs ar
   assert.equal(clientIp(real, true), '10.5.5.5');
 });
 
+test('the mark on a generated yard is computed off the request path well inside the production cap (rules v4 had taken the wide search to 15 s)', () => {
+  const t0 = performance.now();
+  const par = computeParSync('daily-2030-01-10-abcdefgh');
+  const ms = performance.now() - t0;
+  assert.ok(par > 0);
+  assert.ok(ms < 20_000, `${Math.round(ms)} ms against the default BOT_PAR_CAP_MS`);
+});
+
 test('verifier bundles to a single file that exports the server pieces (what the Docker image runs)', async () => {
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jd-verifier-')), 'verify.mjs');
   // esbuild's JS API: the CLI entry is a native binary on some platforms, which `node bin/esbuild` cannot run
@@ -390,7 +399,10 @@ test('verifier bundles to a single file that exports the server pieces (what the
   assert.equal(typeof mod.createServer, 'function');
   assert.equal(typeof mod.Verifier, 'function');
   assert.equal(typeof mod.RateLimiter, 'function');
-  assert.ok(fs.statSync(out).size < 200_000, 'bundle stays small (sim + server only)');
+  assert.ok(
+    fs.statSync(out).size < 300_000,
+    'bundle stays small (sim + server only: 0.11.0 added the store, v0.11 will add routes, Phaser would be megabytes)',
+  );
   // alone in a folder it starts and migrates: nothing has to sit beside it
   const port = await new Promise<number>((resolve) => {
     const probe = net.createServer().listen(0, '127.0.0.1', () => {
@@ -1169,7 +1181,7 @@ test('http identity: POST/GET /identity, bearer on /verify, DELETE /me, 401 on a
     return { status: r.status, json: (await r.json()) as Record<string, unknown>, retry: r.headers.get('retry-after') };
   };
   try {
-    assert.equal(((await call('GET', '/health', undefined, {})).json as { protocol: number }).protocol, 2);
+    assert.equal(((await call('GET', '/health', undefined, {})).json as { protocol: number }).protocol, PROTOCOL);
     assert.equal((await call('GET', '/identity', undefined, {})).status, 401, 'no bearer');
     assert.equal((await call('GET', '/identity', undefined, { Authorization: 'Bearer nope' })).status, 401, 'malformed bearer');
     const none = await call('GET', '/identity');

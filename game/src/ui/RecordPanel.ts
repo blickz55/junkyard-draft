@@ -118,7 +118,15 @@ export function recordSections(d: RecordData): HTMLElement[] {
         )
       : line(t('record.kindsNone'), 'jd-dim'),
   );
-  return [days, trend, medals, bests, kinds];
+  // who watched this device's checked games, as the results last learnt it
+  const watched = d.watched.length
+    ? section(
+        'record-watched',
+        t('record.watchedHead'),
+        ...d.watched.map((w) => line(t('record.watchedRow', { yard: yardLabel(w.seed), score: money(w.score), times: w.times, players: w.players }))),
+      )
+    : null;
+  return [days, trend, medals, bests, ...(watched ? [watched] : []), kinds];
 }
 
 export function openRecord(scene: Phaser.Scene): void {
