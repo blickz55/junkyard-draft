@@ -216,6 +216,7 @@ const STYLE = `
 #ui .jd-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 1px 0 rgba(0,0,0,0.35); }
 #ui .jd-btn:disabled { opacity: 0.4; cursor: default; }
 #ui .jd-modal { position: absolute; inset: 0; pointer-events: auto; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 20; }
+#ui .jd-opening { font-family: var(--jd-display); font-size: 1.4em; color: var(--jd-text); }
 #ui .jd-dialog { width: min(92%, 34em); display: flex; flex-direction: column; gap: 0.5em; }
 #ui .jd-dialog-label { font-size: 0.8125em; }
 #ui .jd-dialog input, #ui .jd-dialog textarea { font: inherit; font-size: 0.875em; width: 100%; box-sizing: border-box; background: #1a1612; color: ${CSS.text}; border: 1px solid #3f382d; border-radius: 0.2em; padding: 0.4em 0.5em; }

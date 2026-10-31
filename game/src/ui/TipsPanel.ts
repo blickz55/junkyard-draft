@@ -10,7 +10,8 @@ import { tips as allTips, type Tip } from '../content/tips';
 import { createSim, step, cellIndex, type SimState } from '../sim/sim';
 import type { Material } from '../sim/types';
 import { itemTexture, machineTexture } from '../render/textures';
-import { artFrame } from '../render/atlas';
+import { artFrame, artIsReady } from '../render/atlas';
+import { withArt } from './opening';
 import { beltShape } from '../render/placement';
 import { P } from '../render/palette';
 import { loadReadTips, markTipRead } from '../render/storage';
@@ -61,6 +62,7 @@ export class TipsPanel {
   }
 
   open(tipId?: string) {
+    if (!artIsReady()) return withArt(this.scene, () => this.open(tipId)); // the demos draw from the sheet
     if (this.root) {
       if (tipId) this.show(tipId);
       return;

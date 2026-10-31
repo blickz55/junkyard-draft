@@ -91,6 +91,8 @@ export function buildOptions({
     banner: { js: phaserNotice(root) },
     target: ['es2022', 'chrome110', 'firefox110', 'safari16'],
     outdir,
+    splitting: true, // what a first visit never needs loads on first use (ui/panels.ts)
+    chunkNames: 'chunk-[hash]',
     entryNames, // dev: main.js (the dev server proxies it); production: main-[hash].js so the hosted bundle can be cached immutably (0.8.5)
     sourcemap: dev ? 'inline' : false,
     logLevel: 'info',

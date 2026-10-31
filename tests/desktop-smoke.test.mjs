@@ -56,6 +56,11 @@ test(
         timeout: 5000,
       });
       await page.click('[data-testid=dialog-ok]');
+      // a panel in a chunk of its own (ui/panels.ts) loads from file:// too
+      await page.click('[data-testid=more]');
+      await page.click('[data-testid=policy]');
+      await page.waitForFunction(() => !!document.querySelector('[data-testid=policy-dialog]'), null, { timeout: 5000 });
+      await page.click('[data-testid=policy-close]');
       await page.click('[data-testid=more]');
       await page.click('[data-testid=custom]');
       await page.fill('[data-testid=dialog-input]', 'desk-seed');

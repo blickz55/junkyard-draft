@@ -5,6 +5,7 @@
  */
 import type Phaser from 'phaser';
 import { h, btn, ui } from './dom';
+import { withArt } from './opening';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { audio } from '../render/audio';
 import { clearSave, loadSubmissions, recordMedal } from '../render/storage';
@@ -71,7 +72,7 @@ export function openArchive(scene: Phaser.Scene, verifierUrl: string): void {
     close();
     audio.unlock();
     clearSave();
-    scene.scene.start('Game', { seed, fresh: true });
+    withArt(scene, () => scene.scene.start('Game', { seed, fresh: true }));
   };
   fetch(`${verifierUrl}/archive?limit=30`)
     .then((r) => r.json())

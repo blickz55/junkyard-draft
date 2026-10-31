@@ -87,9 +87,13 @@ export async function startVerifier({ port, env = {}, dataDir } = {}) {
     boardFile,
     dataDir,
     json,
-    stop: () => {
-      proc.kill('SIGTERM');
-      fs.rmSync(dataDir, { recursive: true, force: true });
+    stop: async () => {
+      if (proc.exitCode === null) {
+        const gone = new Promise((r) => proc.once('exit', r));
+        proc.kill('SIGTERM');
+        await gone; // Windows: the database's files stay locked until the process has gone
+      }
+      fs.rmSync(dataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     },
   };
 }
@@ -131,7 +135,7 @@ export async function fixture({ verifier = false, verifierEnv = {}, browser: eng
       for (const c of pages.splice(0)) await c.close().catch(() => {});
       await browser.close().catch(() => {});
       server.stop();
-      ver?.stop();
+      await ver?.stop();
     },
   };
   return f;

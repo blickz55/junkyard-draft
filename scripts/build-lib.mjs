@@ -29,7 +29,14 @@ export async function buildDist({ root, dist, verifierUrl = process.env.VERIFIER
     metafile: true,
     logLevel: reports ? 'info' : 'warning',
   });
-  const bundle = path.basename(Object.keys(result.metafile.outputs).find((k) => k.endsWith('.js') && result.metafile.outputs[k].entryPoint) || '');
+  const bundle = path.basename(Object.keys(result.metafile.outputs).find((k) => path.basename(k).startsWith('main-') && k.endsWith('.js')) || '');
+  // what a first visit loads: the bundle and the chunks it imports statically; what it import()s comes on first use
+  const initial = [path.basename(bundle)];
+  for (const f of initial) {
+    const out = Object.entries(result.metafile.outputs).find(([k]) => path.basename(k) === f)?.[1];
+    for (const i of out?.imports ?? [])
+      if (i.kind === 'import-statement' && !i.external && !initial.includes(path.basename(i.path))) initial.push(path.basename(i.path));
+  }
   if (!/^main-[A-Z0-9]{8}.js$/.test(bundle)) throw new Error(`unexpected bundle name ${JSON.stringify(bundle)}`);
   if (reports) {
     const dir = path.join(root, '.control-room', 'reports');
@@ -46,7 +53,7 @@ export async function buildDist({ root, dist, verifierUrl = process.env.VERIFIER
   fs.writeFileSync(path.join(dist, '_headers'), renderHeaders(fs.readFileSync(path.join(root, 'deploy', '_headers'), 'utf8'), { verifierUrl, bundle }));
   fs.writeFileSync(
     path.join(dist, 'build.json'),
-    JSON.stringify({ version: pkg.version, commit, builtAt: new Date().toISOString(), dev: false, verifierUrl, bundle }, null, 2),
+    JSON.stringify({ version: pkg.version, commit, builtAt: new Date().toISOString(), dev: false, verifierUrl, bundle, initial }, null, 2),
   );
   // 0.10.3: the service worker with this build's shell list (everything in dist but the worker itself and the Pages header file)
   const precache = listFiles(dist).filter((p) => p !== 'sw.js' && p !== '_headers');

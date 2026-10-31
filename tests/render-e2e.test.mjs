@@ -2,7 +2,7 @@
 // shared fixture, each in its own browser context): HiDPI canvas with correct pointer mapping, the Canvas renderer completing a
 // round, WebGL context loss and restore, the stall marker, the tips badge and demo, keyboard ownership, DOM dialogs, records
 // partitioned by rules version, the tips dialog at 130 %, the lesson, the overlay tracking the canvas, reduced audio, the reroll
-// button, the sound bank, the ambient bed, a hidden tab going quiet, the art atlas.
+// button, the sound bank, the ambient bed, a hidden tab going quiet, the art atlas, a slow line.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { fixture, cellCenter, binSlotCenter, until } from './e2e/fixture.mjs';
@@ -731,8 +731,9 @@ test(
       )
     ).jsonValue();
     assert.ok(started.root > 130 && started.root < 132, `round 1 root is C3: ${started.root}`);
+    await page.getByTestId('speed-1').click(); // the first gesture of this game: the sounds render from here
+    await until(async () => (await api('audio')).hum.loops === 2, { what: 'the pad and the belt to start once rendered' }); // at 1×: on a slow machine 4× can end the shift first
     await page.getByTestId('speed-4').click();
-    await until(async () => (await api('audio')).hum.loops === 2, { what: 'the pad and the belt to start once rendered' });
     const jammed = await (
       await page.waitForFunction(
         () => {
@@ -1052,5 +1053,48 @@ test(
     expectShapes(await read(), 'after a round');
     assert.deepEqual(page.errors, [], 'no page errors');
     await page.ctx.close();
+  },
+);
+
+test(
+  'a slow line: Home is up before the sprite sheet; a tap says so on the screen and goes on by itself when the sheet arrives',
+  { timeout: 60000 },
+  async () => {
+    const held = async (page) => {
+      let release;
+      const gate = new Promise((r) => (release = r));
+      await page.route('**/art/sheet.webp', async (route) => {
+        await gate;
+        await route.continue();
+      });
+      await page.goto(`${URL}/?dev=1`, { waitUntil: 'commit' }); // the load event waits for the sheet
+      await page.jd.title();
+      await page.getByTestId('daily').waitFor();
+      return release;
+    };
+    const game = await f.page();
+    const release = await held(game);
+    assert.equal(await game.evaluate(() => window.__jdGame.textures.exists('m-press')), false, 'Home is up and the art is not');
+    await game.getByTestId('random').click();
+    await game.getByTestId('opening').waitFor();
+    assert.equal(await game.getByTestId('opening').textContent(), 'Opening the yard…');
+    assert.equal(await game.evaluate(() => window.__jdGame.scene.isActive('Title')), true, 'Home stays until the yard can be drawn');
+    release();
+    await game.jd.draft();
+    assert.equal(await game.getByTestId('opening').count(), 0);
+    assert.equal(await game.evaluate(() => window.__jdGame.textures.exists('m-press')), true);
+    assert.equal(await game.evaluate(() => window.__jdGame.scene.isActive('Boot')), false, 'Boot is done');
+    assert.deepEqual(game.errors, []);
+    await game.ctx.close();
+    const demos = await f.page();
+    const open = await held(demos);
+    await demos.getByTestId('howto').click();
+    await demos.getByTestId('howto-tips').click();
+    await demos.getByTestId('opening').waitFor();
+    open();
+    await demos.getByTestId('tips-panel').waitFor();
+    assert.equal(await demos.getByTestId('opening').count(), 0);
+    assert.deepEqual(demos.errors, []);
+    await demos.ctx.close();
   },
 );

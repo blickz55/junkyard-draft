@@ -1,7 +1,7 @@
 /**
  * The art (docs/ART.md, DOSSIER-v1 §2.3). tools/make-art.mjs renders every frame into one sprite sheet at 144 px a cell,
- * game/public/art/sheet.webp, and writes where each frame sits to render/sheet.ts. At boot the sheet loads once (one request
- * where there used to be 34) and each texture key the scenes use (m-crusher, i-plate, belt-0, tile…) is registered as an alias
+ * game/public/art/sheet.webp, and writes where each frame sits to render/sheet.ts. The sheet loads once behind Home (one request
+ * where there used to be 34; Home is DOM and comes up without it, see whenArt) and each texture key the scenes use (m-crusher, i-plate, belt-0, tile…) is registered as an alias
  * whose single frame points into that shared source, so no scene code changes and the whole factory draws from one texture.
  * If the sheet does not load, every key is generated procedurally as before (textures.ts skips keys that already exist): a
  * broken file degrades to yesterday's look, never to a blank. The atlas holds ART_SCALE = min(DPR, 2) atlas pixels per logical
@@ -43,9 +43,22 @@ export function setArt<T extends Phaser.GameObjects.Image>(img: T, key: string, 
   return fit(img, f);
 }
 
+let artIn = false;
+const waiting: (() => void)[] = [];
+export const artIsReady = () => artIn;
+/** Runs `fn` once the textures exist: at once on any later call, after the sheet on the first screen of a slow line. */
+export function whenArt(fn: () => void) {
+  if (artIn) fn();
+  else waiting.push(fn);
+}
+/** Boot calls this when every texture key exists, from the sheet or from the procedural generator. */
+export function markArtReady() {
+  artIn = true;
+  for (const fn of waiting.splice(0)) fn();
+}
+
 /**
- * Queue the sheet in the Boot scene's preload; a failed load only means the procedural look. index.html has asked for it since the page began, as an
- * image, so an image element picks that download up while the script was still arriving. The desktop app keeps the blob route: a file:// image would taint the canvases.
+ * Queue the sheet in the Boot scene's preload; a failed load only means the procedural look. It loads as an image element. The desktop app keeps the blob route: a file:// image would taint the canvases.
  */
 export function queueArt(scene: Phaser.Scene) {
   if (location.protocol !== 'file:') scene.load.imageLoadType = 'HTMLImageElement';

@@ -7,6 +7,7 @@
 import { verifierUrl as resolveVerifierUrl } from '../render/config';
 import type Phaser from 'phaser';
 import { h, btn, ui, alertText, dialog, promptText, foremanBox, setForeman } from './dom';
+import { withArt } from './opening';
 import { foremanSays } from '../content/foreman';
 import type { TipsPanel } from './TipsPanel';
 import { audio } from '../render/audio';
@@ -34,8 +35,7 @@ import { HIDDEN_LABEL } from '../identity/identity';
 import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWeekly, todaysYard } from '../render/daily';
 import { openArchive } from './ArchivePanel';
 import { openRecord } from './RecordPanel';
-import { openPolicy } from './PolicyPanel';
-import { openPrivacy } from './PrivacyPanel';
+import { openPolicy, openPrivacy } from './panels';
 import { flushPending, describeOutcomes } from '../render/pending';
 import { loadPending } from '../render/storage';
 import { openGroups } from './GroupsPanel';
@@ -59,12 +59,12 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const start = (seed: string, freshRun: boolean) => {
     audio.unlock();
     if (freshRun) clearSave();
-    scene.scene.start('Game', { seed, fresh: freshRun });
+    withArt(scene, () => scene.scene.start('Game', { seed, fresh: freshRun }));
   };
   const continueRun = () => {
     if (save) {
       audio.unlock();
-      scene.scene.start('Game', { seed: save.seed, fresh: false, actions: save.actions });
+      withArt(scene, () => scene.scene.start('Game', { seed: save.seed, fresh: false, actions: save.actions }));
     }
   };
   const restart = () => scene.scene.restart();
@@ -536,7 +536,7 @@ function importRecording(scene: Phaser.Scene) {
         void alertText(scene, t('title.importRejected'), v.error || t('title.importMismatch', { claimed: money(v.claimed), score: money(v.score) }));
         return;
       }
-      scene.scene.start('Game', { seed: r.seed, fresh: true, replay: r.actions });
+      withArt(scene, () => scene.scene.start('Game', { seed: r.seed, fresh: true, replay: r.actions }));
     } catch (e) {
       void alertText(scene, t('title.importUnreadable'), (e as Error).message);
     }

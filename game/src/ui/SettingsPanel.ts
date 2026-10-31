@@ -13,7 +13,7 @@ import { loadSettings, updateSettings } from '../render/storage';
 import { chatter } from '../content/foreman';
 import { t, type StringKey } from '../content/strings';
 import { playerLabel, identityDialog } from './identityDialog';
-import { openPrivacy } from './PrivacyPanel';
+import { openPrivacy } from './panels';
 
 const section = (title: string, ...rows: HTMLElement[]) => h('section', { class: 'jd-set-section' }, h('div', { class: 'jd-head' }, title), ...rows);
 const row = (label: string, ...right: HTMLElement[]) =>

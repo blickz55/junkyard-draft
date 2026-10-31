@@ -12,7 +12,7 @@ const VPORT = await freePort();
 const VURL = `http://127.0.0.1:${VPORT}`;
 let verifier = null;
 after(async () => {
-  verifier?.stop();
+  await verifier?.stop();
   await f.close();
 });
 const page = await f.page();

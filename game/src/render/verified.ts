@@ -2,6 +2,7 @@
 // as a labelled playback. The client never trusts the server's score either: the replay must re-simulate
 // to the stated score here before it plays.
 import Phaser from 'phaser';
+import { withArt } from '../ui/opening';
 import { t } from '../content/strings';
 import { money } from '../content/format';
 import { REPLAY_FORMAT, validateReplayFile, verifyReplay } from '../sim/replay';
@@ -70,5 +71,7 @@ export const replayLabel = (r: Pick<VerifiedReplay, 'player' | 'score'>) => t('r
 
 /** Start playback. Playback never records bests or submits (the Game/Results scenes check `replay`). */
 export function playVerifiedReplay(scene: Phaser.Scene, r: VerifiedReplay) {
-  scene.scene.start('Game', { seed: r.seed, fresh: true, replay: r.actions, replayLabel: replayLabel(r), replayHash: r.hash, replayPlayer: r.player });
+  withArt(scene, () =>
+    scene.scene.start('Game', { seed: r.seed, fresh: true, replay: r.actions, replayLabel: replayLabel(r), replayHash: r.hash, replayPlayer: r.player }),
+  );
 }

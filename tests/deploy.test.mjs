@@ -36,6 +36,7 @@ test('deploy: _headers template renders the CSP header (with frame-ancestors) an
   assert.equal(js['Cache-Control'], 'public, max-age=31536000, immutable');
   assert.ok(js['Content-Security-Policy'], 'the /* rules apply to the bundle too');
   assert.equal(headersFor(rules, '/main-OTHERHSH.js')['Cache-Control'], undefined, "only this build's bundle name is immutable");
+  assert.equal(headersFor(rules, '/chunk-ABCDEFGH.js')['Cache-Control'], 'public, max-age=31536000, immutable', 'chunks carry a content hash too');
   assert.equal(headersFor(rules, '/sfx/hit.wav')['Cache-Control'], 'public, max-age=86400');
   assert.equal(headersFor(rules, '/art/x/y.png')['Cache-Control'], 'public, max-age=86400', '* spans path segments');
   assert.equal(headersFor(rules, '/sw.js')['Cache-Control'], 'no-cache', 'the service worker is revalidated on every check (0.10.3)');
@@ -55,6 +56,7 @@ test('deploy: _headers template renders the CSP header (with frame-ancestors) an
     '/build.json',
     '/policy.json',
     '/main-ABCDEFGH.js',
+    '/chunk-ABCDEFGH.js',
     '/sfx/hit.wav',
     '/art/a.png',
     '/sw.js',
@@ -214,9 +216,13 @@ test(
       assert.match(res.headers.get('content-security-policy'), /frame-ancestors 'none'/);
       assert.equal((await fetch(`${site}/_headers`)).status, 404, 'the header file itself is not served');
     } finally {
-      verifier.kill();
-      server.close();
-      fs.rmSync(scratch, { recursive: true, force: true });
+      if (verifier.exitCode === null) {
+        const gone = new Promise((r) => verifier.once('exit', r));
+        verifier.kill();
+        await gone; // the database's files stay locked until the process has gone
+      }
+      await new Promise((r) => server.close(r));
+      fs.rmSync(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   },
 );

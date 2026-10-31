@@ -3,7 +3,7 @@
 # carry) and __BUNDLE__ (the content-hashed main-<hash>.js of that build). Paths use Cloudflare's syntax: `*` matches
 # anything; every rule whose path matches is applied. Cache-Control is set per path group so no two rules overlap:
 # the page, build.json and policy.json are revalidated on every load (no-cache: still served from cache while a
-# conditional request confirms it); the hashed bundle is immutable for a year (a new build has a new name); the public
+# conditional request confirms it); the hashed bundle and its chunks are immutable for a year (a new build has a new name); the public
 # assets (sounds, art, fonts) for a day.
 /*
   Content-Security-Policy: __CSP__
@@ -27,6 +27,8 @@
 /icons/*
   Cache-Control: public, max-age=86400
 /__BUNDLE__
+  Cache-Control: public, max-age=31536000, immutable
+/chunk-*
   Cache-Control: public, max-age=31536000, immutable
 /sfx/*
   Cache-Control: public, max-age=86400

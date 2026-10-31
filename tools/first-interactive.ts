@@ -45,16 +45,18 @@ async function measureOnce(url: string): Promise<FirstInteractive> {
       bytes += e.encodedDataLength;
       requests++;
     });
-    await page.goto(`${url}/?dev=1`); // the dev API exposes the game object so the Title scene can be seen running
-    await page.waitForFunction(
+    await page.goto(`${url}/?dev=1`, { waitUntil: 'commit' }); // the dev API exposes the game object so the Title scene can be seen running
+    // the clock is read in the page at the first frame the button is there, not after everything else has finished loading
+    const seen = await page.waitForFunction(
       () => {
         const g = (window as unknown as { __jdGame?: { scene: { isActive(k: string): boolean } } }).__jdGame;
-        return !!g && g.scene.isActive('Title') && !!document.querySelector('[data-testid=daily]');
+        return !!g && g.scene.isActive('Title') && !!document.querySelector('[data-testid=daily]') && performance.now();
       },
       null,
       { timeout: 60000 },
     );
-    const firstInteractiveMs = Math.round(await page.evaluate(() => performance.now()));
+    const firstInteractiveMs = Math.round((await seen.jsonValue()) as number);
+    await page.waitForLoadState('load'); // so the transfer below is the whole first visit, the sheet included
     await context.close();
     return { firstInteractiveMs, transferKiB: Math.round(bytes / 1024), requests };
   } finally {

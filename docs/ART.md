@@ -63,7 +63,7 @@ State frames are chosen by `machineFrame` in `render/simframes.ts`. A new frame 
 
 ## At runtime
 
-`render/atlas.ts` loads the sheet once (`index.html` asks for it from the first moment, so it downloads while the script arrives), uses it as the atlas at 2 sheet pixels per logical pixel on a DPR 2 screen under WebGL, makes a canvas of it elsewhere (scaled on a lower ratio so frames blit 1:1; the Canvas renderer draws from a canvas much faster than from a decoded image), and registers every key as an alias into that one texture. If the sheet does not load, `render/textures.ts` draws every key procedurally: the game degrades to the old look, it never blanks.
+`render/atlas.ts` loads the sheet once, behind Home (Home is DOM and needs none of it; the way into a game waits, `ui/opening.ts`), uses it as the atlas at 2 sheet pixels per logical pixel on a DPR 2 screen under WebGL, makes a canvas of it elsewhere (scaled on a lower ratio so frames blit 1:1; the Canvas renderer draws from a canvas much faster than from a decoded image), and registers every key as an alias into that one texture. If the sheet does not load, `render/textures.ts` draws every key procedurally: the game degrades to the old look, it never blanks.
 
 ## Fonts and licences
 
