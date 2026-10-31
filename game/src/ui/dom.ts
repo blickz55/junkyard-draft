@@ -192,6 +192,12 @@ const STYLE = `
 #ui .jd-home-more .jd-btn { flex: 1 1 11em; max-width: 20em; min-width: 0; white-space: normal; }
 #ui .jd-home-foot { display: flex; flex-wrap: wrap; gap: 0.2em 1.1em; justify-content: center; font-size: 0.8125em; color: ${CSS.dim}; margin-top: auto; }
 #ui .jd-home-note { font-size: 0.8125em; text-align: center; }
+#ui .jd-inbox-rows { max-height: 60vh; overflow: auto; margin-top: 0.4em; font-size: 0.875em; min-width: min(30em, 80vw); }
+#ui .jd-inbox-row { display: flex; align-items: center; gap: 0.6em; padding: 0.35em 0; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+#ui .jd-inbox-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+#ui .jd-inbox-day { font-size: 0.8125em; }
+#ui .jd-inbox-row .jd-btn { flex: 0 0 auto; white-space: nowrap; }
+#ui .jd-link.jd-amber { color: ${CSS.amber}; font-weight: 700; }
 #ui .jd-division-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4em; margin-top: 0.35em; font-size: 0.875em; }
 #ui .jd-division-rows { max-height: 55vh; overflow: auto; font-size: 0.875em; margin-top: 0.4em; }
 #ui .jd-division-row { display: flex; gap: 0.6em; padding: 0.15em 0; }

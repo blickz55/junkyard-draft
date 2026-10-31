@@ -83,7 +83,7 @@ import { decodeReplay, canonicalReplayJson, type ReplayFile } from '../game/src/
 import { replay as replayRun, runStars, type RunState } from '../game/src/sim/run';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { PushStore, PushError, validateHour, validateSubscription } from './push';
-import { COMMUNITY_DB, CommunityStore } from './community';
+import { COMMUNITY_DB, CommunityStore, MAX_INBOX_PAGE, type InboxRow } from './community';
 import { isReaction } from '../game/src/content/reactions';
 import { isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
 import { mintSeed, mintWeeklySeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS, base32Lower } from './mint';
@@ -1318,6 +1318,7 @@ export class Verifier {
   }
   /** Whose run this is (0.11.3), for what the run's owner is told; null for an anonymous entry or an unknown hash. */
   ownerOf(hash: string): string | null {
+    // (0.11.7 reads this too: who to tell when a challenge is beaten)
     const hot = this.data.entries.find((x) => x.replayHash === hash);
     if (hot) return hot.playerId ?? null;
     const date = this.cold.dateOfReplay(hash);
@@ -1430,6 +1431,10 @@ export class Verifier {
   }
   /** Told once when a day's board is final (0.11.11): its key and the board, best first. */
   onFreeze: ((period: string, ranked: readonly BoardEntry[]) => void) | null = null;
+  /** Every crew (0.11.7): the day's close tells each what happened. */
+  allGroups(): Group[] {
+    return Object.values(this.data.groups ?? {});
+  }
   /** The name a player shows on boards right now, moderation included; 'deleted' for a player who is gone or null. */
   playerLabel(playerId: string | null, now = new Date()): string {
     return playerId && this.data.players?.[playerId] ? this.labelOf(playerId, undefined, now) : 'deleted';
@@ -2209,11 +2214,33 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const community = opts.community ?? null;
   // divisions at freeze (0.11.11): the final board's players, one row each; an anonymous entry has nobody to place
   if (community)
-    verifier.onFreeze = (period, ranked) =>
-      void community.closeDay(
+    verifier.onFreeze = (period, ranked) => {
+      community.closeDay(
         period,
         ranked.flatMap((e) => (e.playerId ? [{ playerId: e.playerId, score: e.score }] : [])),
       );
+      // the crews (0.11.7): each member who played hears how it went, once two of them did
+      for (const g of verifier.allGroups()) {
+        const rows = ranked.filter((e) => e.playerId && g.playerIds.includes(e.playerId));
+        if (rows.length < 2) continue;
+        rows.forEach((e, i) =>
+          community.notify(e.playerId!, 'crew-day', { period, code: g.code, place: i + 1, size: rows.length, top: rows[0].playerId, score: rows[0].score }),
+        );
+      }
+    };
+  /** What a player reads in the inbox: ids become names at read time, so a rename or a moderation decision follows, and no id leaves the server. */
+  const inboxLine = (r: InboxRow, now: Date): InboxRow | null => {
+    const p = r.payload;
+    if (r.kind === 'reactions') {
+      const e = verifier.entry(String(p.hash), null, now);
+      const reactions = community?.reactionsOn([String(p.hash)]).get(String(p.hash));
+      return e && reactions ? { ...r, payload: { hash: p.hash, seed: e.seed, score: e.score, reactions } } : null;
+    }
+    if (r.kind === 'challenge') return { ...r, payload: { ...p, by: undefined, player: verifier.playerLabel(p.by as string, now) } };
+    if (r.kind === 'crew-day')
+      return { ...r, payload: { ...p, code: undefined, crew: verifier.group(String(p.code))?.name ?? null, top: verifier.playerLabel(p.top as string, now) } };
+    return r;
+  };
   /** Reaction counts on a board's rows (0.11.3): a run nobody reacted to carries no field. */
   const withReactions = <T extends { replayHash: string }>(entries: T[]): T[] => {
     if (!community || !entries.length) return entries;
@@ -2608,6 +2635,22 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         );
         return;
       }
+      if (url.pathname === '/me/inbox' && req.method === 'GET') {
+        // 0.11.7: what happened to this player's runs while they were away
+        if (!bearerId) return json(401, { ok: false, error: 'token required' });
+        if (!community) return json(503, { ok: false, error: 'the inbox is not enabled on this verifier' });
+        const now = new Date((opts.now ?? Date.now)());
+        const { items, unread } = community.inbox(bearerId, clampInt(url.searchParams.get('limit'), 30, MAX_INBOX_PAGE));
+        return json(200, { ok: true, unread, items: items.flatMap((r) => inboxLine(r, now) ?? []) });
+      }
+      if (url.pathname === '/me/inbox/read' && req.method === 'POST') {
+        req.resume();
+        if (!bearerId) return json(401, { ok: false, error: 'token required' });
+        if (!community) return json(503, { ok: false, error: 'the inbox is not enabled on this verifier' });
+        const w = writeLimited();
+        if (w != null) return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) });
+        return json(200, { ok: true, read: community.markRead(bearerId) });
+      }
       if (url.pathname === '/me/divisions' && req.method === 'GET') {
         // 0.11.11: where this player finished lately, and the trophies that never decay
         if (!bearerId) return json(401, { ok: false, error: 'token required' });
@@ -2926,9 +2969,9 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         req.on('end', () =>
           guarded(() => {
             if (res.writableEnded) return;
-            let parsed: { replay: unknown; player?: string };
+            let parsed: { replay: unknown; player?: string; challenge?: unknown };
             try {
-              parsed = JSON.parse(body) as { replay: unknown; player?: string };
+              parsed = JSON.parse(body) as typeof parsed;
             } catch (e) {
               return json(400, { ok: false, error: `bad request: ${(e as Error).message}`, code: 'bad-request' });
             }
@@ -2941,6 +2984,19 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
                 try {
                   const result = verifier.record(prep.replay, prep.replayHash, sim, player, bearerId, new Date((opts.now ?? Date.now)()));
                   if (result.ok && result.entry) par?.request(result.entry.seed);
+                  // a beaten challenge (0.11.7): the challenger hears who did it, once a game
+                  if (result.ok && result.recorded && result.entry && bearerId && typeof parsed.challenge === 'string' && community) {
+                    const beaten = verifier.entry(parsed.challenge.slice(0, 64));
+                    const owner = beaten && verifier.ownerOf(beaten.replayHash);
+                    if (beaten && owner && owner !== bearerId && beaten.seed === result.entry.seed && result.entry.score > beaten.score)
+                      community.notify(owner, 'challenge', {
+                        hash: result.entry.replayHash,
+                        seed: beaten.seed,
+                        score: result.entry.score,
+                        theirs: beaten.score,
+                        by: bearerId,
+                      });
+                  }
                   json(result.ok ? 200 : 422, result);
                 } catch (e) {
                   if (e instanceof StorageError)

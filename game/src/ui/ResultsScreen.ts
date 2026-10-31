@@ -683,7 +683,7 @@ export function mountResults(
           const res = await fetch(`${verifierUrl}/verify`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHeaders(verifierUrl) },
-            body: JSON.stringify({ replay: exportReplay(run, import.meta.env.BUILD), player }),
+            body: JSON.stringify({ replay: exportReplay(run, import.meta.env.BUILD), player, challenge: o.challenge?.hash }),
           });
           body = (await res.json()) as typeof body;
           if (res.status === 503 || res.status === 429) {

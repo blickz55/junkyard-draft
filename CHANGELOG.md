@@ -5,6 +5,10 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### 0.11.7 the inbox, first part — 2026-10-31 (no rules change, protocol 3: additive)
+- **Find out what happened while you were away.** An Inbox link on Home, amber with a number when something is new: reactions on your games (one line per game however many arrive), someone beating your score from your challenge link, with a button to beat it back, your division's result with a button to its board, and your crew's day. Opening it reads it. Read lines go after 60 days. The first part of 0.11.7: replies, moderation outcomes, push per kind and the weekly digest wait for what they depend on.
+- A line this version of the game does not know is left out, so a newer server cannot break an older game. Names are looked up when you read, so a rename or a moderation decision follows, and no player id or crew code reaches the client.
+
 ### 0.11.11 divisions at freeze and trophies — 2026-10-31 (no rules change, protocol 3: additive)
 - **A board at your level.** When a day closes, its checked players are split by score into divisions from the Foreman's Table down to the Heap: sixteen at the top when that leaves a real second one, the rest even and around thirty-two, one division under thirty-two players. Each has its own final board, and its top three take medals, so a player at $300 has something to win as well as a player at $3,000. Computed once at the close and stored.
 - **The morning after.** Home says where the day left you ("29 October: #3 of 24 in Foundry 2 🥉") for a week, one tap opens the board, and the result copies for sharing. Medals and days in the top division add up to trophies that never decay, on Your record.

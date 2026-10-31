@@ -11,6 +11,7 @@ import { spawnSync } from 'node:child_process';
 import {
   COUNTS_TTL_MS,
   CommunityStore,
+  INBOX_READ_DAYS,
   MAX_THREAD_PAGE,
   PLAYER_COLUMNS,
   hashMigrations,
@@ -25,6 +26,7 @@ import { t, type StringKey } from '../game/src/content/strings';
 import { apply, newRun } from '../game/src/sim/run';
 import { encodeReplay, exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
+import { dropOnLine } from './e2e/line';
 
 const TABLES = [
   'accounts',
@@ -48,6 +50,17 @@ function playedRun(seed: string, pick = 0) {
   const s = newRun(seed);
   for (let r = 1; r <= RULES.rounds; r++) {
     apply(s, { t: 'pick', i: Math.min(pick, s.offers.length - 1) });
+    apply(s, { t: 'run' });
+    apply(s, { t: 'next' });
+  }
+  return s;
+}
+/** A game that ships more than `playedRun`: the first shift builds the recipe's first step. */
+function betterRun(seed: string) {
+  const s = newRun(seed);
+  for (let r = 1; r <= RULES.rounds; r++) {
+    apply(s, { t: 'pick', i: Math.max(0, s.offers.indexOf('crusher')) });
+    if (r === 1) dropOnLine(s, 'crusher');
     apply(s, { t: 'run' });
     apply(s, { t: 'next' });
   }
@@ -584,7 +597,7 @@ test('closing a day: computed once, trophies add up and never decay, one line ea
   const lines = db(s).prepare("SELECT payload FROM notifications WHERE kind = 'division' AND player_id = 'p17'").all() as { payload: string }[];
   assert.deepEqual(
     lines.map((l) => JSON.parse(l.payload)),
-    [{ period: '2030-01-10', name: 'dockside', place: 2, size: 24, medal: 'silver' }],
+    [{ period: '2030-01-10', division: 1, name: 'dockside', place: 2, size: 24, score: 983, medal: 'silver' }],
   );
   s.forget('p17');
   assert.equal(s.divisionBoard('2030-01-10', 1)[1].playerId, null, 'the place stays, the name goes');
@@ -659,6 +672,110 @@ test('the morning after: the day closes by the clock and no sooner, the player f
     const url = `http://127.0.0.1:${(plain.address() as AddressInfo).port}`;
     assert.equal((await fetch(`${url}/division?period=x`)).status, 503);
     assert.equal((await fetch(`${url}/me/divisions`, bearer(second))).status, 503);
+  } finally {
+    plain.closeAllConnections();
+    await new Promise<void>((r) => plain.close(() => r()));
+  }
+});
+
+test('the inbox: newest first, the same unread line once, read lines stay a while and then go', () => {
+  let now = Date.parse('2030-01-01T00:00:00Z');
+  const s = open(tempDir(), { now: () => now });
+  s.notify('p', 'division', { period: 'a' });
+  s.notify('p', 'division', { period: 'a' });
+  now += 1000;
+  s.notify('p', 'division', { period: 'b' });
+  s.notify('other', 'division', { period: 'z' });
+  const first = s.inbox('p');
+  assert.equal(first.unread, 2);
+  assert.deepEqual(
+    first.items.map((i) => [i.payload.period, i.read]),
+    [
+      ['b', false],
+      ['a', false],
+    ],
+  );
+  assert.equal(s.inbox('p', 1).items.length, 1);
+  assert.equal(s.inbox('p', 1000).items.length, 2, 'the limit is clamped, not refused');
+  assert.equal(s.markRead('p'), 2);
+  assert.equal(s.inbox('p').unread, 0);
+  assert.equal(s.inbox('other').unread, 1, "someone else's lines stay");
+  s.notify('p', 'division', { period: 'a' });
+  assert.equal(s.inbox('p').items.length, 3, 'once read, the same line can come again');
+  now += (INBOX_READ_DAYS + 1) * 86_400_000;
+  s.markRead('p');
+  assert.equal(s.inbox('p').items.length, 1, 'long-read lines go on the next read');
+  s.close();
+});
+
+test('the inbox over the wire: a reaction, a beaten challenge and a crew day each make one line, with names and no ids', async () => {
+  let now = Date.parse('2030-03-12T10:00:00Z');
+  const dir = tempDir();
+  const verifier = new Verifier(path.join(dir, 'board.json'), { dailySecret: 'fixture-secret' });
+  const community = open(dir, { now: () => now });
+  const server = createServer(verifier, { log: null, community, now: () => now });
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const a = 'a'.repeat(32),
+    b = 'b'.repeat(32);
+  const auth = (t: string) => ({ Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' });
+  const inbox = async (t: string) =>
+    (await (await fetch(`${base}/me/inbox`, { headers: auth(t) })).json()) as { unread: number; items: { kind: string; payload: Record<string, unknown> }[] };
+  const post = (p: string, t: string, body: unknown) => fetch(`${base}${p}`, { method: 'POST', headers: auth(t), body: JSON.stringify(body) });
+  try {
+    const date = new Date(now);
+    const pa = playerIdFromToken(a)!,
+      pb = playerIdFromToken(b)!;
+    assert.ok(verifier.claim(pa, 'Ana', date).ok && verifier.claim(pb, 'Bo', date).ok);
+    const crew = verifier.createGroup(pa, 'Night Shift', date);
+    assert.ok(crew.ok);
+    assert.ok(verifier.joinGroup(pb, crew.group!.code).ok);
+    const { seed } = (await (await fetch(`${base}/daily`)).json()) as { seed: string };
+    const low = encodeReplay(exportReplay(playedRun(seed, 0)));
+    assert.ok(verifier.submit(low, 'x', pa, date).recorded);
+    const challenge = verifier.board(seed, 1)[0];
+    // Bo beats it from the challenge link, and the challenger hears; a lower game, or one with no link, says nothing
+    const better = betterRun(seed);
+    const verified = await post('/verify', b, { replay: exportReplay(better), challenge: challenge.replayHash });
+    const entry = ((await verified.json()) as { entry: { replayHash: string; score: number } }).entry;
+    assert.ok(entry.score > challenge.score);
+    assert.equal((await post('/react', b, { hash: challenge.replayHash, emote: 'fire' })).status, 200);
+    const seen = await inbox(a);
+    assert.equal(seen.unread, 2);
+    assert.deepEqual(seen.items.map((i) => i.kind).sort(), ['challenge', 'reactions']);
+    const line = seen.items.find((i) => i.kind === 'challenge')!;
+    assert.deepEqual(
+      [line.payload.seed, line.payload.theirs, line.payload.score, /^Bo#/.test(String(line.payload.player))],
+      [seed, challenge.score, entry.score, true],
+    );
+    assert.equal('by' in line.payload, false, 'the player id stays on the server');
+    assert.deepEqual(seen.items.find((i) => i.kind === 'reactions')!.payload.reactions, { fire: 1 });
+    assert.equal((await inbox(b)).unread, 0, 'the one who beat it hears nothing');
+    assert.deepEqual(await (await post('/me/inbox/read', a, {})).json(), { ok: true, read: 2 });
+    assert.equal((await inbox(a)).unread, 0);
+    // the day closes: a division line each, and a crew line each
+    now = Date.parse('2030-03-14T00:00:01Z');
+    await fetch(`${base}/daily`);
+    const bo = await inbox(b);
+    assert.deepEqual(bo.items.map((i) => i.kind).sort(), ['crew-day', 'division']);
+    const day = bo.items.find((i) => i.kind === 'crew-day')!.payload;
+    assert.deepEqual([day.crew, day.place, day.size, day.period, day.score], ['Night Shift', 1, 2, '2030-03-12', entry.score]);
+    assert.match(String(day.top), /^Bo#/);
+    assert.equal('code' in day, false, 'a crew code never travels in a line');
+    const unauth = await fetch(`${base}/me/inbox`);
+    assert.equal(unauth.status, 401);
+    assert.equal((await fetch(`${base}/me/inbox/read`, { method: 'POST' })).status, 401);
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((r) => server.close(() => r()));
+    community.close();
+  }
+  const plain = createServer(verifier, { log: null });
+  await new Promise<void>((r) => plain.listen(0, '127.0.0.1', r));
+  try {
+    const url = `http://127.0.0.1:${(plain.address() as AddressInfo).port}`;
+    assert.equal((await fetch(`${url}/me/inbox`, { headers: auth(a) })).status, 503);
+    assert.equal((await fetch(`${url}/me/inbox/read`, { method: 'POST', headers: auth(a) })).status, 503);
   } finally {
     plain.closeAllConnections();
     await new Promise<void>((r) => plain.close(() => r()));

@@ -83,6 +83,13 @@ test('the board shows the counts; the owner sees them on the results, and no but
   assert.equal(board.entries.find((e) => e.player.startsWith('Fan Lou')).reactions, undefined, 'a run nobody reacted to carries no field');
   await owner.getByTestId('home').click();
   await owner.jd.title();
+  // the inbox: the reaction is there, one line, read by opening it
+  await owner.jd.textMatches('inbox', /^Inbox \(1\)$/, 10000);
+  await owner.getByTestId('inbox').click();
+  await owner.jd.textMatches('inbox-reactions', /^1 reaction 👏 1 on your \$\d+ on yard classic-social-yard/, 10000);
+  await owner.jd.textMatches('inbox', /^Inbox$/, 5000);
+  await owner.getByTestId('inbox-close').click();
+  await owner.jd.noDialog('inbox-dialog');
   await play(owner, 'Owner Sam', 0); // the same game: the device knows it for the checked one
   await owner.jd.textMatches('results-social', /^1 reaction 👏 1 · watched 1 time by 1 player$/, 15000);
   const row = await rowOf(owner, 'Owner Sam');
@@ -141,6 +148,64 @@ test('the morning after: Home says where the day left you, the board is a tap aw
   assert.deepEqual(page.errors, []);
 });
 
+test(
+  'the inbox lines: a beaten challenge can be beaten back, a division opens its board, a crew day says who won, and a kind this game does not know says nothing',
+  { timeout: 60000 },
+  async () => {
+    const yesterday = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+    const page = await f.page(
+      {},
+      { init: { fn: () => localStorage.setItem('jd.submissions.v2', JSON.stringify({ byVersion: { 4: { x: { replayHash: 'h', score: 1 } } } })) } },
+    );
+    const items = [
+      { id: 5, kind: 'from-the-future', payload: {}, createdAt: Date.now(), read: false },
+      { id: 4, kind: 'challenge', payload: { hash: 'abc', seed: SEED, score: 500, theirs: 300, player: 'Bo#BBBB' }, createdAt: Date.now(), read: false },
+      {
+        id: 3,
+        kind: 'crew-day',
+        payload: { period: yesterday, crew: 'Night Shift', place: 2, size: 4, top: 'Ana#AAAA', score: 900 },
+        createdAt: Date.now(),
+        read: false,
+      },
+      {
+        id: 2,
+        kind: 'crew-day',
+        payload: { period: yesterday, crew: null, place: 1, size: 4, top: 'You#CCCC', score: 900 },
+        createdAt: Date.now(),
+        read: true,
+      },
+      {
+        id: 1,
+        kind: 'division',
+        payload: { period: yesterday, division: 0, name: 'table', place: 1, size: 16, score: 900, medal: 'gold' },
+        createdAt: Date.now(),
+        read: true,
+      },
+    ];
+    await page.route('**/me/inbox', (r) => r.fulfill({ json: { ok: true, unread: 3, items } }));
+    await page.route('**/me/inbox/read', (r) => r.fulfill({ json: { ok: true, read: 3 } }));
+    await page.route('**/division?*', (r) =>
+      r.fulfill({ json: { ok: true, name: 'table', rows: [{ place: 1, score: 900, medal: 'gold', player: 'You#CCCC', you: true }] } }),
+    );
+    await page.goto(f.gameUrl());
+    await page.jd.title();
+    await page.jd.textMatches('inbox', /^Inbox \(3\)$/, 10000);
+    await page.getByTestId('inbox').click();
+    await page.jd.textMatches('inbox-challenge', /^Bo#BBBB beat your \$300 on yard classic-social-yard with \$500/, 10000);
+    assert.equal(await page.locator('.jd-inbox-row').count(), 4, 'the line this game cannot read is left out');
+    const crew = await page.locator('[data-testid=inbox-crew-day]').allTextContents();
+    assert.match(crew[0], /^Night Shift, .*: Ana#AAAA came first with \$900\. You were #2 of 4\./);
+    assert.match(crew[1], /^Your crew, .*: you came first of 4 with \$900\./);
+    await page.getByTestId('inbox-division-1').click();
+    await page.jd.textMatches('division-head', /^The Foreman's Table · /, 10000);
+    await page.getByTestId('division-close').click();
+    await page.jd.noDialog('division-dialog');
+    await page.getByTestId('inbox-close').click();
+    await page.jd.noDialog('inbox-dialog');
+    assert.deepEqual(page.errors, []);
+  },
+);
+
 test('an old placement stays off Home, and so does a device that never put a game on a board', { timeout: 60000 }, async () => {
   const stale = await f.page(
     {},
@@ -165,4 +230,5 @@ test('an old placement stays off Home, and so does a device that never put a gam
   await fresh.jd.title();
   await fresh.jd.frames(5);
   assert.equal(asked, 0, 'nothing to ask');
+  assert.equal(await fresh.getByTestId('inbox').isVisible(), false, 'no inbox to show either');
 });

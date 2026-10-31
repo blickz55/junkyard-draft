@@ -20,6 +20,9 @@ const sqlite = () => process.getBuiltinModule('node:sqlite');
 
 export const COMMUNITY_DB = 'community.db';
 export const MAX_THREAD_PAGE = 100;
+export const MAX_INBOX_PAGE = 50;
+/** A line stays this long after it was read (0.11.7); an unread one stays until it is. */
+export const INBOX_READ_DAYS = 60;
 /** How long /health may repeat its counts: it is exempt from the read limiter and counting walks an index. */
 export const COUNTS_TTL_MS = 60_000;
 
@@ -94,6 +97,13 @@ export interface DivisionRow {
   size: number;
   score: number;
   medal: DivisionMedal | null;
+}
+export interface InboxRow {
+  id: number;
+  kind: string;
+  payload: Record<string, unknown>;
+  createdAt: number;
+  read: boolean;
 }
 export interface CommunityCounts {
   accounts: number;
@@ -258,12 +268,7 @@ export class CommunityStore {
         'INSERT INTO reactions (replay_hash, player_id, emote, created_at) VALUES (?, ?, ?, ?) ON CONFLICT (replay_hash, player_id) DO UPDATE SET emote = excluded.emote, created_at = excluded.created_at',
       ).run(hash, playerId, emote, at);
       if (!ownerId || ownerId === playerId) return;
-      const payload = JSON.stringify({ hash });
-      const unread = this.sql("SELECT 1 FROM notifications WHERE player_id = ? AND kind = 'reactions' AND read_at IS NULL AND payload = ?").get(
-        ownerId,
-        payload,
-      );
-      if (!unread) this.sql("INSERT INTO notifications (player_id, kind, payload, created_at) VALUES (?, 'reactions', ?, ?)").run(ownerId, payload, at);
+      this.notify(ownerId, 'reactions', { hash });
     });
   }
   /** The counts per emote on each of these runs; a run nobody reacted to is not in the map. */
@@ -324,7 +329,7 @@ export class CommunityStore {
         if (several && p.division === 0) trophy(playerId, 'top-division');
         this.sql("INSERT INTO notifications (player_id, kind, payload, created_at) VALUES (?, 'division', ?, ?)").run(
           playerId,
-          JSON.stringify({ period, name: p.key, place: p.place, size: p.size, medal: p.medal }),
+          JSON.stringify({ period, division: p.division, name: p.key, place: p.place, size: p.size, score, medal: p.medal }),
           at,
         );
       }
@@ -351,6 +356,37 @@ export class CommunityStore {
   trophiesOf(playerId: string): Record<string, number> {
     const rows = this.sql('SELECT kind, count FROM trophies WHERE player_id = ?').all(playerId) as unknown as { kind: string; count: number }[];
     return Object.fromEntries(rows.map((r) => [r.kind, r.count]));
+  }
+
+  /** A line for a player's inbox (0.11.7). The same line while it is unread is one line, so a batch stays a batch. */
+  notify(playerId: string, kind: string, payload: Record<string, unknown>): void {
+    const text = JSON.stringify(payload);
+    if (this.sql('SELECT 1 FROM notifications WHERE player_id = ? AND kind = ? AND read_at IS NULL AND payload = ?').get(playerId, kind, text)) return;
+    this.sql('INSERT INTO notifications (player_id, kind, payload, created_at) VALUES (?, ?, ?, ?)').run(playerId, kind, text, this.now());
+  }
+  /** A player's latest lines, newest first, and how many are unread. */
+  inbox(playerId: string, limit = 30): { items: InboxRow[]; unread: number } {
+    const rows = this.sql('SELECT id, kind, payload, created_at, read_at FROM notifications WHERE player_id = ? ORDER BY id DESC LIMIT ?').all(
+      playerId,
+      Math.min(Math.max(1, limit), MAX_INBOX_PAGE),
+    ) as unknown as { id: number; kind: string; payload: string; created_at: number; read_at: number | null }[];
+    const unread = (this.sql('SELECT COUNT(*) AS n FROM notifications WHERE player_id = ? AND read_at IS NULL').get(playerId) as { n: number }).n;
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        payload: JSON.parse(r.payload) as Record<string, unknown>,
+        createdAt: r.created_at,
+        read: r.read_at !== null,
+      })),
+      unread,
+    };
+  }
+  /** Everything unread is read now; lines read long ago go. Returns how many were unread. */
+  markRead(playerId: string): number {
+    const at = this.now();
+    this.sql('DELETE FROM notifications WHERE player_id = ? AND read_at IS NOT NULL AND read_at < ?').run(playerId, at - INBOX_READ_DAYS * 86_400_000);
+    return Number(this.sql('UPDATE notifications SET read_at = ? WHERE player_id = ? AND read_at IS NULL').run(at, playerId).changes);
   }
 
   /** Everything stored under a player, for `/me/export`. */

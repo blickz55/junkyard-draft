@@ -91,6 +91,7 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [ ] 0.11.1 Email link (⚑ the provider)
 - [ ] 0.11.2 The moderation pipeline (⚑ the policy)
 - [x] 0.11.3 Reactions on runs: the eight, one per player per run (`tests/community.test.ts`), counts on board rows, the results and the recording (`tests/social-e2e.test.mjs`), one unread line per run for the owner; protocol 3
+- [ ] 0.11.7 Inbox and notifications: **in-game inbox done** (reaction batch, challenge beaten, group day closed, division result; `tests/community.test.ts`, `tests/social-e2e.test.mjs`). To come with what they depend on: replies (0.11.5), moderation outcome and appeal result (0.11.2), push per kind (0.11.5), the weekly digest and its one-click unsubscribe (0.11.1)
 - [x] 0.11.11 Divisions at freeze and trophies: `game/src/daily/divisions.ts` pure and tested for 5, 17, 64, 65 and 1,000 players, a fake-clock freeze, Home the morning after (the roadmap's "results card the next day": a past day has no results screen to come back to), the board, the copied result, Your record; the weekly summary waits for the digest (0.11.7)
 - [x] 0.11.4 Seen-by counts: the same viewer twice counts once (`tests/community.test.ts`), "watched 14 times by 9 players" on the results and Your record
 

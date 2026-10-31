@@ -35,7 +35,8 @@ import { HIDDEN_LABEL } from '../identity/identity';
 import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWeekly, todaysYard } from '../render/daily';
 import { openArchive } from './ArchivePanel';
 import { openRecord } from './RecordPanel';
-import { openDivision, openPolicy, openPrivacy } from './panels';
+import { openDivision, openInbox, openPolicy, openPrivacy } from './panels';
+import { hasInbox, loadInbox } from '../render/inbox';
 import { isFresh, latestPlacement } from '../render/divisions';
 import { periodLabel, placeLine } from '../content/division';
 import { reactionLine, type ReactionCounts } from '../content/reactions';
@@ -322,12 +323,29 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     weeklyBtn,
   );
   const link = (text: string, tid: string, onClick: () => void, title?: string) => h('button', { class: 'jd-link', tid, type: 'button', title, onClick }, text);
+  // the inbox (0.11.7): there once this device has a game on a board, amber while something is unread
+  const inboxLink = link(t('home.inbox'), 'inbox', () =>
+    openInbox(scene, verifierUrl, () => {
+      inboxLink.textContent = t('home.inbox');
+      inboxLink.classList.remove('jd-amber');
+    }),
+  );
+  inboxLink.style.display = 'none';
+  if (hasInbox(verifierUrl)) {
+    inboxLink.style.display = '';
+    void loadInbox(verifierUrl).then((inbox) => {
+      if (!inbox?.unread) return;
+      inboxLink.textContent = t('home.inboxUnread', { n: inbox.unread });
+      inboxLink.classList.add('jd-amber');
+    });
+  }
   const footer = h(
     'nav',
     { class: 'jd-home-foot', tid: 'home-foot' },
     link(t('home.howto'), 'howto', () => openHowTo(scene, tips)),
     link(t('title.record'), 'record', () => openRecord(scene), t('title.recordTitle')),
     link(t('title.crews'), 'groups', () => openGroups(scene, verifierUrl, () => scene.scene.restart()), t('title.crewsTitle')),
+    inboxLink,
     link(t('home.more'), 'more', () => {
       const r = pushSupported() ? loadReminder() : null;
       choiceDialog(scene, {
