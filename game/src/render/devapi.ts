@@ -77,6 +77,7 @@ export function installDevApi(scene: GameScene) {
       phase: scene.run.phase,
       score: scene.run.score,
       rerolls: scene.run.rerolls,
+      belts: scene.run.belts,
       rerolledRound: scene.run.rerolledRound,
       offers: scene.run.offers,
       bin: scene.run.bin,

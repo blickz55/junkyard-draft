@@ -527,7 +527,7 @@ test(
     await page.evaluate(() => localStorage.setItem('jd.onboarded.v1', '1'));
     await page.reload();
     await page.jd.title();
-    assert.equal(await page.getByTestId('learn').textContent(), 'Take the lesson again');
+    assert.match(await page.getByTestId('learn').textContent(), /^Lessons \(\d of 3 done\)$/);
     assert.equal(
       await page.evaluate(() => document.querySelector('[data-testid=daily]')?.classList.contains('jd-btn-primary')),
       true,

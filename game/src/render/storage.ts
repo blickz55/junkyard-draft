@@ -20,6 +20,7 @@ const K = {
   bests: 'jd.bests.v2',
   bestsLegacy: 'jd.bests.v1',
   onboarded: 'jd.onboarded.v1',
+  lessons: 'jd.lessons.v1',
   player: 'jd.player',
   submissions: 'jd.submissions.v2',
   submissionsLegacy: 'jd.submissions.v1',
@@ -575,6 +576,22 @@ export const markTipRead = (id: string) => {
   }
 };
 
+/** The lessons finished on this device, by number. */
+export function lessonsDone(): number[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(K.lessons) ?? '[]') as unknown;
+    return Array.isArray(raw) ? raw.filter((n): n is number => typeof n === 'number') : [];
+  } catch {
+    return [];
+  }
+}
+export function recordLesson(n: number): void {
+  try {
+    localStorage.setItem(K.lessons, JSON.stringify([...new Set([...lessonsDone(), n])].sort((x, y) => x - y)));
+  } catch {
+    /* a browser that cannot remember simply offers it again */
+  }
+}
 /** False when storage fails: a browser that cannot remember the flag should see the onboarding, not skip it (0.8.0). */
 export const isOnboarded = () => {
   try {

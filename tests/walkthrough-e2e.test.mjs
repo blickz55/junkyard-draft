@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fixture, SHOTS, settle, cellCenter, binSlotCenter } from './e2e/fixture.mjs';
 import { playSeed } from '../tools/autoplay-lib.ts';
 import { Rng } from '../game/src/sim/rng.ts';
+import { LESSONS } from '../game/src/content/lessons.ts';
 
 const f = await fixture();
 after(() => f.close());
@@ -29,70 +30,126 @@ const ringPoint = async (page, spot) => {
 for (const device of [
   { name: 'mouse', ctx: {}, drag: true },
   { name: 'phone', ctx: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }, drag: false },
-]) {
-  test(`the lesson by ${device.name}, touching only what is lit, reaches the end with a working line`, { timeout: 120000 }, async () => {
-    const page = await f.page(device.ctx);
-    const { api, title, when, frames, settled, drag } = page.jd;
-    await page.goto(f.gameUrl());
-    await title();
-    await page.getByTestId('learn').click();
-    let actions = 0;
-    const steps = [];
-    for (; actions < 40; actions++) {
-      await frames(2);
-      await settled();
-      await page.waitForTimeout(0);
-      if (await page.locator('[data-testid=lesson-done]').count()) break;
-      const l = await lit(page);
-      const hint = await api('hint').catch(() => '');
-      steps.push(hint);
-      if (l.dialog) {
-        await page.getByTestId(l.dialog).click();
-        continue;
-      }
-      if (l.rings.length === 2) {
-        // part and destination: the drag a mouse player makes, the two taps a thumb makes
-        const [from, to] = await Promise.all(l.rings.map((s) => ringPoint(page, s)));
-        if (device.drag) await drag(from, to);
-        else {
-          await page.touchscreen.tap(from.x, from.y);
-          await frames(2);
-          await page.touchscreen.tap(to.x, to.y);
+])
+  for (const lesson of LESSONS)
+    test(`lesson ${lesson.n} by ${device.name}, touching only what is lit, reaches the end with the job done`, { timeout: 180000 }, async () => {
+      const page = await f.page(device.ctx);
+      const { api, title, when, frames, settled, drag } = page.jd;
+      if (lesson.n === 1) {
+        await page.goto(f.gameUrl());
+        await title();
+        await page.getByTestId('learn').click();
+      } else await page.goto(f.gameUrl(`scene=game&seed=${lesson.seed}`));
+      let actions = 0;
+      const steps = [];
+      for (; actions < 60; actions++) {
+        await frames(2);
+        await settled();
+        await page.waitForTimeout(0);
+        if (await page.locator('[data-testid=lesson-done]').count()) break;
+        const l = await lit(page);
+        const hint = await api('hint').catch(() => '');
+        steps.push(hint);
+        if (l.dialog) {
+          await page.getByTestId(l.dialog).click();
+          continue;
         }
-        continue;
+        const tap = async (p) => (device.drag ? page.mouse.click(p.x, p.y) : page.touchscreen.tap(p.x, p.y));
+        if (l.rings.length === 2) {
+          // part and destination: the drag a mouse player makes, the two taps a thumb makes
+          const [from, to] = await Promise.all(l.rings.map((s) => ringPoint(page, s)));
+          if (device.drag) await drag(from, to);
+          else {
+            await tap(from);
+            await frames(2);
+            await tap(to);
+          }
+          continue;
+        }
+        if (l.rings.length === 1) {
+          await tap(await ringPoint(page, l.rings[0]));
+          continue;
+        }
+        assert.ok(l.buttons.length >= 1, `nothing is lit at step ${actions}: "${hint}"`);
+        await page.getByTestId(l.buttons[0]).click();
+        if (l.buttons[0] === 'run') {
+          await when(() => window.__jd.mode() === 'running', null, 5000);
+          await page.getByTestId('skip').click();
+          await when(() => window.__jd.mode() === 'summary', null, 10000);
+        }
       }
-      if (l.rings.length === 1) {
-        const p = await ringPoint(page, l.rings[0]);
-        await page.mouse.click(p.x, p.y);
-        continue;
+      await page.waitForSelector('[data-testid=lesson-done]', { timeout: 5000 });
+      assert.ok(actions < 50, `lesson ${lesson.n} took ${actions} steps`);
+      const st = await api('state');
+      assert.equal(st.round, lesson.shifts.length, 'it ends on its last shift');
+      assert.equal(await page.locator('.jd-job-star.on').count(), 3, 'following the lights finishes the job');
+      assert.deepEqual(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.lessons.v1'))), [lesson.n]);
+      assert.equal(await page.evaluate(() => localStorage.getItem('jd.onboarded.v1')), '1');
+      assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), null, 'a finished lesson is not offered back');
+      await page.screenshot({ path: path.join(SHOTS, `lesson-${lesson.n}-done-${device.name}-${Date.now()}.png`) });
+      for (const line of steps) assert.ok(line.split(/\s+/).length <= 16, `one short instruction at a time: "${line}"`);
+      assert.deepEqual(page.errors, [], 'no page errors');
+      // the ways on: the next lesson first, and today's yard always there
+      const next = LESSONS[lesson.n];
+      assert.equal(await page.locator('[data-testid=lesson-next]').count(), next ? 1 : 0);
+      assert.equal(await page.locator('[data-testid=lesson-daily]').count(), 1);
+      assert.equal(await page.locator('[data-testid=lesson-stay]').count(), 0, 'nothing unguided is left to finish');
+      if (next) {
+        await page.getByTestId('lesson-next').click();
+        await when((seed) => window.__jd?.state().seed === seed, next.seed, 10000);
+        await page.waitForSelector('[data-testid=job-card]');
       }
-      assert.ok(l.buttons.length >= 1, `nothing is lit at step ${actions}: "${hint}"`);
-      await page.getByTestId(l.buttons[0]).click();
-      if (l.buttons[0] === 'run') {
-        await when(() => window.__jd.mode() === 'running', null, 5000);
-        await page.getByTestId('skip').click();
-        await when(() => window.__jd.mode() === 'summary', null, 10000);
-      }
-    }
-    await page.waitForSelector('[data-testid=lesson-done]', { timeout: 5000 });
-    assert.ok(actions < 30, `the lesson took ${actions} steps`);
-    const st = await api('state');
-    assert.equal(st.round, 4, 'the lesson ends after the fourth shift');
-    assert.ok(
-      st.rounds.some((r) => r.shipped.ingot > 0),
-      'following the lights ships ingots',
-    );
-    assert.equal(await page.evaluate(() => localStorage.getItem('jd.onboarded.v1')), '1');
-    await page.screenshot({ path: path.join(SHOTS, `lesson-done-${device.name}-${Date.now()}.png`) });
-    for (const line of steps) assert.ok(line.split(/\s+/).length <= 16, `one short instruction at a time: "${line}"`);
-    assert.deepEqual(page.errors, [], 'no page errors');
-    // the three ways on: stay, and the lesson is over but the game is not
-    await page.getByTestId('lesson-stay').click();
-    await page.jd.noDialog('lesson-done');
-    assert.equal(await page.locator('[data-testid=skip-lesson]').count(), 0, 'no skip button once the lesson is over');
-    await page.ctx.close();
+      await page.ctx.close();
+    });
+
+test('a lesson refuses what it is not asking for, says so at the spot, and the yard stays as it was', { timeout: 60000 }, async () => {
+  const page = await f.page();
+  const { api, draft, drag, when, frames } = page.jd;
+  await page.goto(f.gameUrl('scene=game&seed=tutorial-2'));
+  await draft();
+  await page.getByTestId('job-start').click();
+  await page.jd.noDialog('job-card');
+  assert.equal(await page.getByTestId('offer-1').isDisabled(), true, 'the card it does not want cannot be taken');
+  await api('pick', 1);
+  assert.equal((await api('state')).phase, 'draft');
+  await page.getByTestId('offer-0').click();
+  await page.jd.mode('build');
+  assert.equal(await page.getByTestId('run').isDisabled(), true, 'the shift cannot start with the belt pointing the wrong way');
+  await api('run');
+  assert.equal(await api('mode'), 'build');
+  const before = (await api('state')).layout.machines.length;
+  await drag(await page.jd.at(binSlotCenter(0)), await page.jd.at(cellCenter(6, 0)));
+  await frames(2);
+  await when(() => window.__jd.toast()?.kind === 'refusal', null, 5000);
+  assert.equal((await api('toast')).text, 'Not yet. Use the lit part, on the lit spot.');
+  assert.equal((await api('state')).layout.machines.length, before, 'nothing moved');
+  assert.deepEqual(page.errors, [], 'no page errors');
+  await page.ctx.close();
+});
+
+test('the lessons on Home: progress shows, the next one is first in line, and every one can be taken again', { timeout: 60000 }, async () => {
+  const page = await f.page();
+  const { title, when } = page.jd;
+  await page.goto(f.gameUrl());
+  await page.evaluate(() => {
+    localStorage.setItem('jd.onboarded.v1', '1');
+    localStorage.setItem('jd.lessons.v1', '[1]');
   });
-}
+  await page.reload();
+  await title();
+  assert.equal(await page.getByTestId('learn').textContent(), 'Lessons (1 of 3 done)');
+  await page.getByTestId('learn').click();
+  await page.waitForSelector('[data-testid=lessons-dialog]');
+  assert.equal(await page.getByTestId('lesson-1').textContent(), '1. Your first line ✓');
+  assert.equal(await page.getByTestId('lesson-2').evaluate((e) => e.classList.contains('jd-btn-primary')), true, 'the next one first');
+  await page.getByTestId('lessons-back').click();
+  await page.jd.noDialog('lessons-dialog');
+  await page.getByTestId('learn').click();
+  await page.getByTestId('lesson-3').click();
+  await when(() => window.__jd?.state().seed === 'tutorial-3', null, 10000);
+  await page.waitForSelector('[data-testid=job-card]');
+  await page.ctx.close();
+});
 
 test('the lesson can be left at any moment, from the panel or the menu, and nothing asks twice', { timeout: 60000 }, async () => {
   const page = await f.page();
@@ -193,7 +250,7 @@ test('the lesson can be started over from beside the skip, and it does not ask y
   await page.getByTestId('job-start').click();
   await noDialog('job-card');
   assert.equal(await page.getByTestId('restart-lesson').count(), 0, 'nothing to lose yet');
-  await api('run');
+  await api('act', { t: 'place', id: (await api('state')).bin[0].id, x: 4, y: 1, dir: 1 });
   await page.waitForSelector('[data-testid=restart-lesson]');
   assert.equal(await page.getByTestId('restart-lesson').textContent(), 'Start the lesson over');
   await page.getByTestId('restart-lesson').click();
@@ -227,6 +284,54 @@ test('the name on Home is a control: it asks, the box starts empty, and an empty
   await textMatches('player-note', /^Saved on this device\./, 5000);
   await page.ctx.close();
 });
+
+test(
+  'a belt can be bought while building: it costs what the button says, lands on the shelf, Undo gives the money back and the results say so',
+  { timeout: 60000 },
+  async () => {
+    const page = await f.page();
+    const { api, mode, draft, when, draftRound, results } = page.jd;
+    await page.goto(f.gameUrl('scene=game&seed=classic-buy'));
+    await draft();
+    assert.equal(await page.locator('[data-testid=buy-belt]').count(), 0, 'not in the pick');
+    await api('pick', 0);
+    await mode('build');
+    assert.equal(await page.getByTestId('buy-belt').textContent(), 'Buy a belt: $20');
+    assert.equal(await page.getByTestId('buy-belt').isDisabled(), true, 'nothing earned yet');
+    await api('run');
+    await mode('running');
+    await api('finishRun');
+    await mode('summary');
+    await api('next');
+    await draftRound(2);
+    await api('pick', 0);
+    await mode('build');
+    const before = await api('state');
+    await page.getByTestId('buy-belt').click();
+    await when((n) => window.__jd.state().belts === n, 1, 5000);
+    const st = await api('state');
+    assert.equal(st.score, before.score - 20);
+    assert.equal(st.bin.at(-1).kind, 'conveyor');
+    await page.getByTestId('undo').click();
+    await when(() => window.__jd.state().belts === 0, null, 5000);
+    assert.equal((await api('state')).score, before.score);
+    await page.getByTestId('buy-belt').click();
+    await when(() => window.__jd.state().belts === 1, null, 5000);
+    for (let r = 2; r <= 6; r++) {
+      if (r > 2) await api('pick', 0);
+      await api('run');
+      await mode('running');
+      await api('finishRun');
+      await mode('summary');
+      await api('next');
+      if (r < 6) await draftRound(r + 1);
+    }
+    await results();
+    assert.equal(await page.getByTestId('belts-line').textContent(), '1 belt bought: $20 off your score');
+    assert.deepEqual(page.errors, [], 'no page errors');
+    await page.ctx.close();
+  },
+);
 
 test('a star says nothing the job bar does not: the first two are only stars, the third says the job is done', { timeout: 120000 }, async () => {
   const seed = 'star-e'; // our player reaches all three stars on this yard

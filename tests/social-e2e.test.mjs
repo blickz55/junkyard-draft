@@ -3,6 +3,7 @@
 // offered no buttons on their own run. Divisions (0.11.11): the morning after, Home says where the day left you, the board opens,
 // the result copies, Your record keeps the trophies (the server's side, the clock included, is in tests/community.test.ts).
 import { test, after } from 'node:test';
+import { RULES_VERSION } from '../game/src/sim/types.ts';
 import assert from 'node:assert/strict';
 import { fixture, until } from './e2e/fixture.mjs';
 
@@ -114,7 +115,12 @@ test('the morning after: Home says where the day left you, the board is a tap aw
   const placement = { period: yesterday, division: 1, name: 'foundry-2', place: 3, size: 24, score: 412, medal: 'bronze' };
   const page = await f.page(
     {},
-    { init: { fn: () => localStorage.setItem('jd.submissions.v2', JSON.stringify({ byVersion: { 4: { x: { replayHash: 'h', score: 1 } } } })) } },
+    {
+      init: {
+        fn: (v) => localStorage.setItem('jd.submissions.v2', JSON.stringify({ byVersion: { [v]: { x: { replayHash: 'h', score: 1 } } } })),
+        arg: RULES_VERSION,
+      },
+    },
   );
   await page.route('**/me/divisions*', (r) =>
     r.fulfill({ json: { ok: true, divisions: [placement], trophies: { 'medal-bronze': 2, 'medal-gold': 1, 'top-division': 1 } } }),
@@ -155,7 +161,12 @@ test(
     const yesterday = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
     const page = await f.page(
       {},
-      { init: { fn: () => localStorage.setItem('jd.submissions.v2', JSON.stringify({ byVersion: { 4: { x: { replayHash: 'h', score: 1 } } } })) } },
+      {
+        init: {
+          fn: (v) => localStorage.setItem('jd.submissions.v2', JSON.stringify({ byVersion: { [v]: { x: { replayHash: 'h', score: 1 } } } })),
+          arg: RULES_VERSION,
+        },
+      },
     );
     const items = [
       { id: 5, kind: 'from-the-future', payload: {}, createdAt: Date.now(), read: false },
@@ -209,7 +220,12 @@ test(
 test('an old placement stays off Home, and so does a device that never put a game on a board', { timeout: 60000 }, async () => {
   const stale = await f.page(
     {},
-    { init: { fn: () => localStorage.setItem('jd.submissions.v2', JSON.stringify({ byVersion: { 4: { x: { replayHash: 'h', score: 1 } } } })) } },
+    {
+      init: {
+        fn: (v) => localStorage.setItem('jd.submissions.v2', JSON.stringify({ byVersion: { [v]: { x: { replayHash: 'h', score: 1 } } } })),
+        arg: RULES_VERSION,
+      },
+    },
   );
   await stale.route('**/me/divisions*', (r) =>
     r.fulfill({

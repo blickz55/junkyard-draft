@@ -31,7 +31,8 @@ console.log('FIRST-SESSION FUNNEL (unique installs)');
 const base = f.steps[0]?.installs ?? 0;
 for (const s of f.steps) console.log(`  ${s.name.padEnd(26)} ${String(s.installs).padStart(6)}   ${pct(s.installs, base).padStart(5)} of app_start`);
 console.log('\nTUTORIAL (installs reaching each step)');
-for (let n = 1; n <= 5; n++)
+const lessonSteps = [...new Set(rows.filter((r) => r.name === 'tutorial_step_start').map((r) => r.props.n as number))].sort((a, b) => a - b); // lesson n's steps start at (n - 1) × 100
+for (const n of lessonSteps)
   console.log(
     `  step ${n}: started ${installsWhere('tutorial_step_start', (p) => p.n === n)}, completed ${installsWhere('tutorial_step_complete', (p) => p.n === n)}`,
   );

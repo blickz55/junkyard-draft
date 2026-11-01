@@ -71,6 +71,7 @@ export function buildPolicy(): Policy {
       lines: [
         `Rules version ${RULES_VERSION}. Any change to a rule or tuning value bumps the version; replays and saves from an older version no longer verify or resume, and old verified entries stay in their own archive.`,
         `${RULES.rounds} rounds on an ${RULES.gridWidth}×${RULES.gridHeight} grid, ${RULES.ticksPerRound} ticks per round. Score = total money shipped.`,
+        `Belts: bought one at a time while building, $${RULES.beltCost} each from the running score, refused below it or when the shelf's ${RULES.shelfSlots} slots are full. Conveyors are never offered in the draft. A spare part sells for $${RULES.sellValue}, so buying and selling never pays.`,
         `Reroll: once per round in the draft for $${RULES.rerollCost} from the running score; the new offers come from their own stream, so a reroll never changes a later round.`,
         `Tuner: adjacent crusher, furnace and press work ${RULES.tunerBonus} tick faster; offered from round ${RULES.offerFromRound.tuner ?? 1}.`,
         `Late-round offer guarantee ("lateOfferGuarantee"): ${RULES.lateOfferGuarantee.rounds.length ? `in rounds ${RULES.lateOfferGuarantee.rounds.join(', ')} a draft always carries a ${RULES.lateOfferGuarantee.kinds.join(' or ')}` : 'off: measured in the 0.9.6 study and not shipped; every draft is the plain draw'}.`,

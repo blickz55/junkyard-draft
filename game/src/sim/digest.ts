@@ -95,6 +95,7 @@ export function digestRun(s: RunState): RunDigest {
     sold: s.sold,
     rerolls: s.rerolls,
     rerolledRound: s.rerolledRound,
+    belts: s.belts,
     nextId: s.nextId,
     picks: s.picks,
     offers: s.offers,

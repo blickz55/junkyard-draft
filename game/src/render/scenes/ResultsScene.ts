@@ -5,11 +5,11 @@ import { audio } from '../audio';
 import { clearSave, recordBest, recordDayPlayed, recordForkBest, recordKinds, recordRun, recordStars } from '../storage';
 import { runStars } from '../../sim/run';
 import type { Challenge } from '../challenge';
-import { makeCard, saveCard, type CardInput } from '../card';
+import type { CardInput } from '../card';
 import type { Rank } from '../share';
 import { mountResults } from '../../ui/ResultsScreen';
 import { ui } from '../../ui/dom';
-import { recordClip, renderGif, saveClip, type ClipResult } from '../clip';
+import type { ClipResult } from '../clip';
 import { loadPlayer, loadSubmissions } from '../storage';
 import { canonicalReplayJson } from '../../sim/replay';
 
@@ -29,6 +29,7 @@ export class ResultsScene extends Phaser.Scene {
     null;
   async exportCard(): Promise<NonNullable<ResultsScene['lastCard']>> {
     if (!this.cardInput) throw new Error('results not mounted');
+    const { makeCard, saveCard } = await import('../../ui/lazy'); // the exports load when asked for: a first visit never gets this far
     const card = await makeCard(this.cardInput());
     const savedTo = await saveCard(card);
     this.lastCard = {
@@ -103,6 +104,7 @@ export class ResultsScene extends Phaser.Scene {
     this.exporting = true;
     const t0 = performance.now();
     try {
+      const { recordClip, saveClip } = await import('../../ui/lazy');
       const clip: ClipResult = await recordClip(this.game, this.run, {
         round,
         player: loadPlayer() || undefined,
@@ -135,6 +137,7 @@ export class ResultsScene extends Phaser.Scene {
     this.exporting = true;
     const t0 = performance.now();
     try {
+      const { renderGif, saveClip } = await import('../../ui/lazy');
       const gif = await renderGif(this.game, this.run, {
         round,
         player: loadPlayer() || undefined,

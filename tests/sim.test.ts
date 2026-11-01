@@ -10,6 +10,7 @@ import {
   draftOffers,
   rerollOffers,
   canReroll,
+  canBuyBelt,
   validateAction,
   RunError,
   MAX_REPLAY_ACTIONS,
@@ -19,7 +20,8 @@ import {
   TUTORIAL_SEED,
 } from '../game/src/sim/run';
 import { createHash } from 'node:crypto';
-import { exportReplay, decodeReplay, encodeReplay, verifyReplay, validateReplayFile } from '../game/src/sim/replay';
+import { canonicalAction, exportReplay, decodeReplay, encodeReplay, verifyReplay, validateReplayFile } from '../game/src/sim/replay';
+import { canUndo, undo } from '../game/src/sim/undo';
 import { RULES_VERSION, type Layout, type Machine, type Dir, type MachineKind } from '../game/src/sim/types';
 
 let nid = 100;
@@ -417,9 +419,9 @@ test('round-tiered offers (PLAN-v2 0.5.3): the tuner is never offered before rou
     'the tuner is offered from round 3',
   );
   for (let r = 1; r <= RULES.rounds; r++)
-    for (const k of ['conveyor', 'crusher', 'furnace', 'splitter', 'hopper', 'press', 'dock'])
-      assert.ok(seen[r].has(k), `${k} is offered in round ${r} over 300 seeds`);
+    for (const k of ['crusher', 'furnace', 'splitter', 'hopper', 'press', 'dock']) assert.ok(seen[r].has(k), `${k} is offered in round ${r} over 300 seeds`);
   assert.ok(![...Object.values(seen)].some((s) => s.has('sieve')), 'the experimental sieve is never offered');
+  assert.ok(![...Object.values(seen)].some((s) => s.has('conveyor')), 'belts are bought, never dealt (rules v5)');
   assert.deepEqual(draftOffers('tier-7', 4), draftOffers('tier-7', 4), 'deterministic per (seed, round)');
 });
 
@@ -433,5 +435,39 @@ test('classic yards keep their old drafts: a crusher in round 1, one seed one st
   // the offer stream of a classic seed is pinned: a change here is a rules change
   const h = createHash('sha256');
   for (let i = 0; i < 50; i++) for (let r = 1; r <= 6; r++) h.update(JSON.stringify(draftOffers('classic-snap-' + i, r)));
-  assert.equal(h.digest('hex'), '263ea2a19bb73d7dfd0b602a89fac723689b0601ba7ccb389d30cac26122f0b9');
+  assert.equal(h.digest('hex'), '962ee140fd7a4d6ad50681b5d05eb2084a4fee348ed4786e5b41549e84dd2d5b');
+});
+
+test('buying a belt (rules v5): it comes off the score, lands on the shelf, can be undone and survives a replay; a sale pays less than a purchase', () => {
+  assert.ok(RULES.beltCost > RULES.sellValue, 'buying and selling must never pay');
+  const s = newRun('classic-belts');
+  assert.match(canBuyBelt(s) ?? '', /not building/);
+  apply(s, { t: 'pick', i: 0 });
+  assert.match(canBuyBelt(s) ?? '', /cannot afford/, 'nothing earned yet');
+  assert.throws(() => apply(s, { t: 'buy' }), RunError);
+  apply(s, { t: 'run' });
+  apply(s, { t: 'next' });
+  apply(s, { t: 'pick', i: 0 });
+  const before = { score: s.score, bin: s.bin.length };
+  assert.equal(canBuyBelt(s), null);
+  apply(s, { t: 'buy' });
+  assert.equal(s.score, before.score - RULES.beltCost);
+  assert.equal(s.belts, 1);
+  assert.equal(s.bin.length, before.bin + 1);
+  assert.equal(s.bin[s.bin.length - 1].kind, 'conveyor');
+  assert.equal(canUndo(s), true);
+  const back = undo(s)!.state;
+  assert.equal(back.score, before.score, 'Undo gives the money back');
+  assert.equal(back.belts, 0);
+  apply(s, { t: 'sell', id: s.bin[s.bin.length - 1].id });
+  assert.equal(s.score, before.score - RULES.beltCost + RULES.sellValue);
+  apply(s, { t: 'buy' });
+  const r = replay(s.seed, s.actions, RULES_VERSION);
+  assert.equal(r.score, s.score);
+  assert.equal(r.belts, 2);
+  assert.equal(validateAction({ t: 'buy' }), true);
+  assert.equal(validateAction({ t: 'buy', n: 2 }), false, 'one belt at a time: an extra field is malformed');
+  assert.deepEqual(canonicalAction({ t: 'buy' }), { t: 'buy' });
+  assert.match(canBuyBelt({ ...s, score: 999, bin: Array.from({ length: RULES.shelfSlots }, () => s.bin[0]) }) ?? '', /shelf is full/);
+  assert.match(canBuyBelt({ ...s, phase: 'result' }) ?? '', /not building/);
 });

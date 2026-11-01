@@ -38,6 +38,8 @@
 | Platforms in the 1.0 window | **Phone-friendly web (touch, portrait) + installable web app (PWA).** Steam/desktop and native stores after 1.0. | v0.10 is the phone milestone; the fixed 1120×700 canvas goes. |
 | Tone | **A foreman character.** | Text first (0.9.1), face and lines with the art commission (0.12.2). The foreman opens every daily thread. |
 | Weekly email digest (asked 2026-11-01) | **Dropped for 1.0.** Push and the inbox carry what it would have said. | Policy 3 and the privacy notice stand as written: no address is stored. The only mail the game sends is a sign-in link, so Resend's free plan covers it. The weekly division summary lived in the digest and goes with it. Listed in §10 so it is not lost. |
+| Buying belts (asked 2026-11-01) | **Yes: $20 each while building, out of the score, and conveyors leave the offers.** | Rules v5. Being short of belts was not the puzzle: extra belts added nothing to the autoplayer's score and a belt card was taken once in two games. Every card is now a machine. `docs/DESIGN.md` has the numbers. |
+| The lesson (asked 2026-11-01) | **Three lessons, every step guided, every part placed by hand.** | Rules v5, because lessons are scenario seeds. The lesson no longer ends in free shifts: it ends with its job done. |
 
 ## 2. Where we are: the evaluation digest
 

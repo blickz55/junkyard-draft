@@ -1,19 +1,18 @@
 /**
  * The coach (docs/UX-STANDARD.md, rules v4; extracted from GameScene in 0.9.4): a pure function of the run to the one thing
  * to do right now, plus what to touch. Nothing here touches the DOM or Phaser; the scene shows the words and the panel lights
- * the spots. The lesson's checks read the real layout (fed-ness via placementWarning, flow via a short real simulation), and
- * the lesson walks the actual belt, so a player who built it differently is still told something true.
+ * the spots. A lesson is a script (content/lessons.ts): the first move not done yet is the instruction, and `lessonAllows`
+ * says whether an edit is that move, so a lesson has one way through.
  */
-import type { RunState } from '../sim/run';
-import type { Machine, MachineKind, Material } from '../sim/types';
+import { apply, canBuyBelt, RunError, type Action, type RunState } from '../sim/run';
+import type { Machine, MachineKind } from '../sim/types';
 import { DIR_DX, DIR_DY, RULES } from '../sim/rules';
-import { TUTORIAL_GAP } from '../sim/yard';
 import { outputDirs } from '../sim/advice';
-import { runLayout } from '../sim/sim';
-import { t, type StringKey } from '../content/strings';
+import { hasText, t, type StringKey } from '../content/strings';
 import { money } from '../content/format';
 import { machineName } from '../content/machines';
 import { nextNeeded } from '../content/job';
+import { lessonOf, type About, type Move } from '../content/lessons';
 import { flowLinks } from './FlowOverlay';
 import { beltShape } from './placement';
 
@@ -23,13 +22,16 @@ export type Spot =
   | { kind: 'shelf'; i: number }
   | { kind: 'cell'; x: number; y: number; /** one of several places it could go */ soft?: boolean }
   | { kind: 'run' }
-  | { kind: 'next' };
+  | { kind: 'next' }
+  | { kind: 'buy' }
+  | { kind: 'sell' };
 
-/** One step of the lesson: the instruction, the funnel step and what to touch. */
+/** One step of the lesson: the instruction, the funnel step, what to touch and what the parts in it do. */
 export interface LessonStep {
   text: string;
   step: number;
   spots: Spot[];
+  about?: { kind: MachineKind; text: string }[];
 }
 export interface GuideContext {
   tutorial: boolean;
@@ -43,12 +45,11 @@ export interface Guidance {
   text: string;
   spots: Spot[];
   /** lesson step on screen, 0 outside the lesson */ step: number;
+  /** what the parts in this step do, in the lesson */ about?: { kind: MachineKind; text: string }[];
 }
 
 /** Parts that go in the line, on a belt piece. */
 const BELT_PARTS: readonly MachineKind[] = ['crusher', 'furnace', 'press', 'splitter'];
-/** The lesson ends with this shift's result. */
-export const LESSON_LAST_SHIFT = 4;
 
 /** The machines of the line in the order things travel, from the first hopper. */
 function lineFromHopper(run: RunState): Machine[] {
@@ -64,78 +65,101 @@ function lineFromHopper(run: RunState): Machine[] {
   }
   return out;
 }
-/** The first straight belt piece after a machine of this kind on the line (after the hopper when `after` is not on it). */
-function beltAfter(run: RunState, after: MachineKind): { x: number; y: number } | null {
-  const line = lineFromHopper(run);
-  const from = Math.max(
-    0,
-    line.findIndex((m) => m.kind === after),
-  );
-  const m = line.slice(from + 1).find((q) => q.kind === 'conveyor' && beltShape(run.layout, q) === 'straight');
-  return m ? { x: m.x, y: m.y } : null;
-}
-const reaches = (run: RunState, mat?: Material): boolean => {
-  const flow = runLayout(run.layout, 40);
-  return mat ? flow.shipped[mat] > 0 : Object.values(flow.shipped).some((n) => n > 0);
+/** The numbers a lesson's words use. */
+const WORDS = {
+  scrap: money(RULES.value.scrap),
+  shards: money(RULES.value.shards),
+  slag: money(RULES.value.slag),
+  price: money(RULES.job.price),
+  belt: money(RULES.beltCost),
+  sell: money(RULES.sellValue),
 };
+const say = (key: StringKey, touch: boolean): string => {
+  const twin = `${key}Touch`;
+  return t(touch && hasText(twin) ? twin : key, WORDS);
+};
+const aboutOf = (about: readonly About[] = []) => about.map((a) => ({ kind: a.kind, text: t(a.key, WORDS) }));
 
-/** Drop this shelf part on the lit belt piece. */
-function dropStep(run: RunState, kind: MachineKind, after: MachineKind, step: number, touch: boolean): LessonStep {
-  const i = run.bin.findIndex((m) => m.kind === kind);
-  const cell = beltAfter(run, after);
-  const key = kind === 'crusher' ? (touch ? 'lesson.dropCrusherTouch' : 'lesson.dropCrusher') : touch ? 'lesson.dropFurnaceTouch' : 'lesson.dropFurnace';
-  return { step, text: t(key), spots: [{ kind: 'shelf', i }, ...(cell ? [{ kind: 'cell' as const, ...cell }] : [])] };
+/** Has this move been made? The run is the only memory, so an Undo steps the lesson back by itself. */
+function moveDone(m: Move, r: RunState): boolean {
+  switch (m.do) {
+    case 'place':
+      return r.layout.machines.some((q) => q.kind === m.kind && q.x === m.x && q.y === m.y && q.dir === m.dir);
+    case 'turn':
+      return r.layout.machines.some((q) => q.x === m.x && q.y === m.y && q.dir === m.dir);
+    case 'buy':
+      return r.belts >= m.belts;
+    case 'sell':
+      return r.sold >= m.sold * RULES.sellValue;
+  }
+}
+/** The move on screen; null when the shift is ready to start, or when this is not the build. */
+function nextMove(r: RunState): Move | null {
+  if (r.phase !== 'build') return null;
+  return lessonOf(r.seed).shifts[r.round - 1]?.moves.find((m) => !moveDone(m, r)) ?? null;
+}
+/** Every move of this shift is made: it can start. */
+export const lessonReady = (r: RunState): boolean => r.phase === 'build' && !nextMove(r);
+/** The card a lesson's pick wants; null when there is no pick on screen. */
+export function lessonPick(r: RunState): number | null {
+  const pick = lessonOf(r.seed).shifts[r.round - 1]?.pick;
+  return r.phase === 'draft' && pick ? r.offers.indexOf(pick.kind) : null;
+}
+/** The button the step on screen calls for, beyond the yard. */
+export function lessonWants(r: RunState): 'buy' | 'sell' | null {
+  const m = nextMove(r);
+  return m?.do === 'buy' || m?.do === 'sell' ? m.do : null;
+}
+/** Is this edit the step on screen? Tried on a copy: the run itself is not touched. */
+export function lessonAllows(r: RunState, actions: Action[]): boolean {
+  const move = nextMove(r);
+  if (!move) return false;
+  const copy = structuredClone(r);
+  try {
+    for (const a of actions) apply(copy, a);
+  } catch (e) {
+    if (e instanceof RunError) return false;
+    throw e;
+  }
+  return moveDone(move, copy);
 }
 
-/** The lesson, one thing per shift, checked against the real line. */
-export function lessonStep(run: RunState, touch = false): LessonStep {
+/** The lesson: the first move not done yet, with the part and the spot lit, and what the part does. */
+export function lessonStep(run: RunState, touch = false, selected: number | null = null): LessonStep {
   const r = run;
-  const find = (k: MachineKind) => r.layout.machines.find((m) => m.kind === k);
+  const lesson = lessonOf(r.seed);
+  const shift = lesson.shifts[r.round - 1];
+  const base = (lesson.n - 1) * 100;
+  if (!shift) return { step: base + 99, text: t('hint.summary'), spots: [{ kind: 'next' }] };
   const start = { kind: 'run' } as const;
-  if (r.phase === 'result') {
-    const after =
-      r.round === 1
-        ? t('lesson.after1', { scrap: money(RULES.value.scrap) })
-        : r.round === 2
-          ? t('lesson.after2')
-          : r.round === 3
-            ? t('lesson.after3')
-            : t('hint.summary');
-    return { step: r.round * 3, text: after, spots: [{ kind: 'next' }] };
+  const steps = base + (r.round - 1) * 10;
+  if (r.phase === 'result') return { step: steps + 9, text: t(shift.after, WORDS), spots: [{ kind: 'next' }] };
+  if (r.phase === 'draft') {
+    const i = Math.max(0, lessonPick(r) ?? 0);
+    return { step: steps + 1, text: shift.pick ? say(shift.pick.say, touch) : t('coach.pick'), spots: [{ kind: 'offer', i }] };
   }
-  if (r.round === 1) {
-    const gap = r.layout.machines.find((m) => m.x === TUTORIAL_GAP.x && m.y === TUTORIAL_GAP.y);
-    if (!gap)
-      return {
-        step: 1,
-        text: t(touch ? 'lesson.gapTouch' : 'lesson.gap'),
-        spots: [
-          { kind: 'shelf', i: 0 },
-          { kind: 'cell', ...TUTORIAL_GAP },
-        ],
-      };
-    if (!reaches(r)) return { step: 2, text: t('lesson.turn'), spots: [{ kind: 'cell', x: gap.x, y: gap.y }] };
-    return { step: 2, text: t('lesson.start1'), spots: [start] };
+  const n = shift.moves.findIndex((m) => !moveDone(m, r));
+  if (n < 0) return { step: steps + 8, text: t(shift.start, WORDS), spots: [start] };
+  const m = shift.moves[n];
+  const step = steps + 2 + n;
+  const about = aboutOf(m.about);
+  if (m.do === 'turn') return { step, text: say(m.say, touch), spots: [{ kind: 'cell', x: m.x, y: m.y }], about };
+  if (m.do === 'buy') return { step, text: say(m.say, touch), spots: [{ kind: 'buy' }], about };
+  if (m.do === 'sell') {
+    const i = r.bin.findIndex((q) => q.kind === m.kind);
+    const held = r.bin[i]?.id === selected;
+    return { step, text: t(held ? m.sayTap : m.say, WORDS), spots: held ? [{ kind: 'sell' }] : [{ kind: 'shelf', i }], about };
   }
-  if (r.round === 2) {
-    if (r.phase === 'draft') return { step: 4, text: t('lesson.pickCrusher'), spots: [{ kind: 'offer', i: 0 }] };
-    const crusher = find('crusher');
-    if (!crusher) return dropStep(r, 'crusher', 'hopper', 5, touch);
-    if (!reaches(r, 'shards')) return { step: 5, text: t('lesson.turn'), spots: [{ kind: 'cell', x: crusher.x, y: crusher.y }] };
-    return { step: 5, text: t('lesson.start2', { shards: money(RULES.value.shards) }), spots: [start] };
-  }
-  if (r.round === 3) {
-    if (r.phase === 'draft') return { step: 7, text: t('lesson.pickFurnace'), spots: [{ kind: 'offer', i: 0 }] };
-    const furnace = find('furnace');
-    if (!furnace) return dropStep(r, 'furnace', 'crusher', 8, touch);
-    const line = lineFromHopper(r);
-    if (line.indexOf(furnace) >= 0 && line.indexOf(furnace) < line.findIndex((m) => m.kind === 'crusher'))
-      return { step: 8, text: t('lesson.order'), spots: [{ kind: 'cell', x: furnace.x, y: furnace.y }] };
-    if (!reaches(r, 'ingot')) return { step: 8, text: t('lesson.turn'), spots: [{ kind: 'cell', x: furnace.x, y: furnace.y }] };
-    return { step: 8, text: t('lesson.start3', { price: money(RULES.job.price) }), spots: [start] };
-  }
-  if (r.phase === 'draft') return { step: 10, text: t('lesson.choice'), spots: r.offers.map((_, i) => ({ kind: 'offer' as const, i })) };
-  return { step: 10, text: t('lesson.free'), spots: [start] };
+  const i = r.bin.findIndex((q) => q.kind === m.kind);
+  return {
+    step,
+    text: say(m.say, touch),
+    spots: [
+      { kind: 'shelf', i },
+      { kind: 'cell', x: m.x, y: m.y },
+    ],
+    about,
+  };
 }
 
 /** The coach outside the lesson: the pick, the build, the shift, the summary, each one instruction. */
@@ -161,7 +185,10 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[] } 
       spots: [{ kind: 'shelf', i }, ...homes.map((m) => ({ kind: 'cell' as const, x: m.x, y: m.y, soft: true }))],
     };
   }
-  if (flowLinks(r.layout).some((l) => !l.ok)) return { text: t('coach.broken'), spots: [] };
+  if (flowLinks(r.layout).some((l) => !l.ok)) {
+    const outOfBelts = !r.bin.some((m) => m.kind === 'conveyor') && canBuyBelt(r) === null;
+    return outOfBelts ? { text: t('coach.brokenBuy'), spots: [{ kind: 'buy' }] } : { text: t('coach.broken'), spots: [] };
+  }
   return { text: t('coach.ready'), spots: [{ kind: 'run' }] };
 }
 
@@ -170,8 +197,8 @@ export function hintFor(run: RunState, ctx: GuideContext): Guidance {
   if (ctx.resumeNotice) return { text: ctx.resumeNotice, spots: [], step: 0 };
   if (ctx.watching) return { text: t('hint.watching', { label: ctx.watching }), spots: [], step: 0 };
   if (ctx.tutorial && ctx.mode !== 'running' && ctx.mode !== 'paused') {
-    const s = lessonStep(run, ctx.touch);
-    return { text: s.text, spots: s.spots, step: s.step };
+    const s = lessonStep(run, ctx.touch, ctx.selected ?? null);
+    return { text: s.text, spots: s.spots, step: s.step, about: s.about };
   }
   return { ...coach(run, ctx), step: 0 };
 }

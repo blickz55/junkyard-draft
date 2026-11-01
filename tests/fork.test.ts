@@ -30,9 +30,9 @@ test('fork (PLAN-v4 0.7.3): for every golden replay and every round, the fork eq
       assert.equal(fork.round, n + 1);
       assert.equal(fork.phase, 'draft');
       assert.equal(
-        fork.score - fork.sold + fork.rerolls * RULES.rerollCost,
+        fork.score - fork.sold + fork.rerolls * RULES.rerollCost + fork.belts * RULES.beltCost,
         full.rounds.slice(0, n).reduce((a, r) => a + r.earned, 0),
-        'score after n rounds = earnings − reroll costs + sold parts',
+        'score after n rounds = earnings − reroll costs − belts + sold parts',
       );
       assert.deepEqual(
         fork.rounds.map((r) => r.earned),

@@ -55,6 +55,8 @@ export function canonicalAction(a: Action): Action {
       return { t: 'next' };
     case 'reroll':
       return { t: 'reroll' };
+    case 'buy':
+      return { t: 'buy' };
   }
 }
 

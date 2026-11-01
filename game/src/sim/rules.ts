@@ -3,7 +3,7 @@ import type { Dir, MachineKind, Material } from './types';
 /** Machines that hold an item for a fixed number of ticks (the only keys RULES.process may have). */
 export type ProcessorKind = 'crusher' | 'furnace' | 'press';
 
-/** Tuning constants for rules version 4. Changing any value requires bumping RULES_VERSION. */
+/** Tuning constants for rules version 5. Changing any value requires bumping RULES_VERSION. */
 export const RULES = {
   gridWidth: 8,
   gridHeight: 6,
@@ -20,8 +20,12 @@ export const RULES = {
   sellValue: 10,
   /** Reroll (rules v3, PLAN-v2 0.5.4): once per round during the draft, the three offers are redrawn for this much, paid from the running score (refused below it; never in the tutorial). */
   rerollCost: 40,
-  /** Draft offer weights (relative). */
-  draftWeights: { conveyor: 30, crusher: 18, furnace: 15, splitter: 15, hopper: 10, press: 10, dock: 8, sieve: 0, tuner: 10 } as Record<MachineKind, number>,
+  /** A belt from the shelf (rules v5): bought while building, paid from the running score like new offers, so every belt shows on the board. More than `sellValue`, or buying and selling would pay. */
+  beltCost: 20,
+  /** The slots the shelf has: a belt can only be bought into a free one. */
+  shelfSlots: 7,
+  /** Draft offer weights (relative). Conveyors are bought, not offered (rules v5): one card in five was a belt and it was taken about once in two games. */
+  draftWeights: { conveyor: 0, crusher: 18, furnace: 15, splitter: 15, hopper: 10, press: 10, dock: 8, sieve: 0, tuner: 10 } as Record<MachineKind, number>,
   /** Round-tiered offers (PLAN-v2 0.5.3): a kind listed here is offered only from that round on; everything else from round 1. Seed-fair: depends on (seed, round) only. */
   offerFromRound: { tuner: 3 } as Partial<Record<MachineKind, number>>,
   /**
@@ -54,7 +58,6 @@ export const RULES = {
     price: 24,
     weights: { ingot: 2, plate: 1 } as Record<'ingot' | 'plate', number>,
     stars: { ingot: [50, 100, 160] as readonly [number, number, number], plate: [40, 80, 135] as readonly [number, number, number] },
-    lessonStars: [5, 15, 30] as readonly [number, number, number],
   },
   /** Starter layout machine kinds (the classic yard, rules v1 to v3). */
   starter: [

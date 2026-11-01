@@ -3,8 +3,8 @@
 // mean what they say (the plain recipe earns two, on every yard).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { apply, draftOffers, newRun, runStars, RunError, shippedTotal, TUTORIAL_OFFERS, TUTORIAL_SEED } from '../game/src/sim/run';
-import { isClassicSeed, isTutorialSeed, JOB_MACHINE, priceOf, starsFor, TUTORIAL_GAP, yardFor } from '../game/src/sim/yard';
+import { apply, draftOffers, newRun, runStars, RunError, shippedTotal, TUTORIAL_SEED } from '../game/src/sim/run';
+import { isClassicSeed, isTutorialSeed, JOB_MACHINE, lessonYard, priceOf, starsFor, yardFor } from '../game/src/sim/yard';
 import { RULES } from '../game/src/sim/rules';
 import { runLayout, validateLayout } from '../game/src/sim/sim';
 import { straightPieces } from './e2e/line';
@@ -137,12 +137,11 @@ test('namespaces: the lesson yard has a gap at its bend and one conveyor to clos
   );
   assert.equal(runLayout(s.layout).earned, 0, 'with the gap open nothing reaches the dock');
   const piece = s.bin[0];
-  apply(s, { t: 'place', id: piece.id, x: TUTORIAL_GAP.x, y: TUTORIAL_GAP.y, dir: 1 });
+  apply(s, { t: 'place', id: piece.id, x: 4, y: 1, dir: 1 });
   assert.ok(runLayout(s.layout).shipped.scrap >= 30, 'the conveyor, facing down the belt, closes the gap: fed from its side, it is the corner');
-  assert.deepEqual(TUTORIAL_OFFERS[2], ['crusher']);
-  assert.deepEqual(TUTORIAL_OFFERS[3], ['furnace']);
-  assert.equal(TUTORIAL_OFFERS[4].length, 3, 'shift 4 is the first real choice');
-  assert.deepEqual(RULES.job.lessonStars, s.job!.stars);
+  assert.deepEqual(draftOffers(TUTORIAL_SEED, 2), lessonYard(TUTORIAL_SEED)!.offers[2]);
+  assert.equal(draftOffers(TUTORIAL_SEED, 3)[0], 'furnace');
+  assert.equal(draftOffers(TUTORIAL_SEED, 4).length, 3, 'past its script a lesson yard deals an ordinary draft');
 
   assert.equal(isClassicSeed('classic-x'), true);
   const c = newRun('classic-x');

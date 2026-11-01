@@ -26,6 +26,7 @@ Every screen answers these within three seconds, without scrolling and without r
 8. **Choices say what they cost.** "Pick ONE" says the others are gone. "New offers" says the price on the button.
 9. **Results explain themselves.** A number is always next to what it means: against the job, against your best, against the board.
 10. **Touch first.** Every action works with one thumb. Targets are at least 44 px. Keyboard and mouse are shortcuts, never the only way.
+11. **A lesson has one way through.** Every step names the part, lights the spot and says in plain words what the part does. Nothing else can be touched, and no part of a lesson is left to guess. A part the game offers and no lesson teaches fails the suite.
 
 ## Rules for words
 

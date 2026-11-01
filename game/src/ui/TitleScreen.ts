@@ -20,6 +20,7 @@ import {
   loadSubmissions,
   randomSeed,
   isOnboarded,
+  lessonsDone,
   daysPlayed,
   currentStreak,
   totalStars,
@@ -67,6 +68,7 @@ import { pushSupported, loadReminder } from '../render/push';
 import { openHowTo } from './HowTo';
 import { recipeRow, starRow } from './JobCard';
 import { choiceDialog } from './choice';
+import { LESSONS } from '../content/lessons';
 import { jobFlavour, jobLine, starMarks } from '../content/job';
 import { rankLine, rankNext } from '../content/ranks';
 
@@ -334,6 +336,27 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   };
   const groupSel = loadGroup();
 
+  /** The lessons, the next one first in line. */
+  const chooseLesson = () => {
+    const done = lessonsDone();
+    const next = LESSONS.find((l) => !done.includes(l.n));
+    choiceDialog(scene, {
+      title: t('lessons.title'),
+      tid: 'lessons-dialog',
+      choices: [
+        ...LESSONS.map((l) => ({
+          label: t(done.includes(l.n) ? 'lessons.itemDone' : 'lessons.item', { n: l.n, title: t(l.title) }),
+          tid: `lesson-${l.n}`,
+          primary: l === next,
+          run: () => start(l.seed, true),
+        })),
+        { label: t('lessons.cancel'), tid: 'lessons-back' },
+      ],
+      note: t('lessons.note'),
+      onDismiss: () => {},
+    });
+  };
+
   // ---- other ways to play ----
   const weeklyBtn = btn(
     t('title.weekly'),
@@ -346,7 +369,13 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const more = h(
     'div',
     { class: 'jd-home-more' },
-    fresh && !save ? null : btn(t(fresh ? 'title.learnFresh' : 'title.learn'), 'learn', () => start(TUTORIAL_SEED, true)),
+    fresh && !save
+      ? null
+      : btn(
+          fresh ? t('title.learnFresh') : t('title.learn', { n: lessonsDone().length, total: LESSONS.length }),
+          'learn',
+          fresh ? () => start(TUTORIAL_SEED, true) : chooseLesson,
+        ),
     btn(t('title.random'), 'random', () => start(randomSeed(), true)),
     weeklyBtn,
   );

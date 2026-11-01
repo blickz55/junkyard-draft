@@ -16,6 +16,7 @@ export const EVENTS = {
   first_rotate: [],
   undo_used: [],
   reroll_used: ['n'],
+  belt_bought: ['n'],
   first_run_start: [],
   first_run_complete: ['money'],
   round_complete: ['n'],

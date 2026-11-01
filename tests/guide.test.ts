@@ -2,8 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { apply, newRun, TUTORIAL_SEED, type Action } from '../game/src/sim/run';
-import { TUTORIAL_GAP } from '../game/src/sim/yard';
-import { hintFor, lessonStep, type Guidance } from '../game/src/render/guide';
+import { hintFor, type Guidance } from '../game/src/render/guide';
 import { dropActions, smartFacing } from '../game/src/render/placement';
 
 type Run = ReturnType<typeof newRun>;
@@ -12,83 +11,6 @@ const shelf = (s: Run, k: string) => s.bin.find((m) => m.kind === k)!;
 const doAll = (s: Run, actions: Action[]) => actions.forEach((a) => apply(s, a));
 const drop = (s: Run, kind: string, x: number, y: number) => doAll(s, dropActions(s, shelf(s, kind), x, y));
 const spotKinds = (g: { spots: Guidance['spots'] }) => g.spots.map((p) => p.kind);
-
-test('the lesson: close the gap, start, then one machine a shift, then the first real choice; every step lights what it talks about', () => {
-  const s = newRun(TUTORIAL_SEED);
-  assert.equal(s.phase, 'build', 'the lesson opens on the build: the first thing a player does is touch the belt');
-  let g = lessonStep(s);
-  assert.match(g.text, /gap/);
-  assert.deepEqual(g.spots, [
-    { kind: 'shelf', i: 0 },
-    { kind: 'cell', ...TUTORIAL_GAP },
-  ]);
-  assert.match(lessonStep(s, true).text, /^The belt has a gap\. Tap/, 'a finger reads tap, not drag');
-  // the conveyor dropped in the gap turns the corner by itself
-  drop(s, 'conveyor', TUTORIAL_GAP.x, TUTORIAL_GAP.y);
-  g = lessonStep(s);
-  assert.match(g.text, /Start the shift/);
-  assert.deepEqual(spotKinds(g), ['run']);
-  apply(s, { t: 'run' });
-  g = lessonStep(s);
-  assert.match(g.text, /reached the dock/);
-  assert.deepEqual(spotKinds(g), ['next']);
-  apply(s, { t: 'next' });
-  // shift 2: the crusher
-  g = lessonStep(s);
-  assert.match(g.text, /Pick the Crusher/);
-  assert.deepEqual(g.spots, [{ kind: 'offer', i: 0 }]);
-  apply(s, { t: 'pick', i: 0 });
-  g = lessonStep(s);
-  assert.match(g.text, /lit belt piece/);
-  assert.deepEqual(spotKinds(g), ['shelf', 'cell']);
-  const c = g.spots[1] as { x: number; y: number };
-  drop(s, 'crusher', c.x, c.y);
-  assert.match(lessonStep(s).text, /Shards sell for/);
-  apply(s, { t: 'run' });
-  apply(s, { t: 'next' });
-  // shift 3: the furnace, after the crusher
-  assert.match(lessonStep(s).text, /Pick the Furnace/);
-  apply(s, { t: 'pick', i: 0 });
-  g = lessonStep(s);
-  const f = g.spots[1] as { x: number; y: number };
-  assert.ok(f.x > c.x || f.y > c.y, 'the lit piece is after the crusher');
-  drop(s, 'furnace', f.x, f.y);
-  assert.match(lessonStep(s).text, /Ingots pay/);
-  apply(s, { t: 'run' });
-  assert.ok(s.rounds[2].result.shipped.ingot > 0, 'following the lesson ships ingots');
-  assert.match(lessonStep(s).text, /fill the bar/);
-  apply(s, { t: 'next' });
-  // shift 4: a real choice
-  g = lessonStep(s);
-  assert.match(g.text, /first real choice/);
-  assert.deepEqual(
-    g.spots,
-    s.offers.map((_, i) => ({ kind: 'offer', i })),
-  );
-});
-
-test('the lesson answers a player who did it wrong: a part facing the wrong way, a furnace before the crusher', () => {
-  const s = newRun(TUTORIAL_SEED);
-  apply(s, { t: 'place', id: s.bin[0].id, x: TUTORIAL_GAP.x, y: TUTORIAL_GAP.y, dir: 3 });
-  let g = lessonStep(s);
-  assert.match(g.text, /Tap it to turn it/);
-  assert.deepEqual(g.spots, [{ kind: 'cell', ...TUTORIAL_GAP }]);
-  const gap = () => s.layout.machines.find((m) => m.x === TUTORIAL_GAP.x && m.y === TUTORIAL_GAP.y)!;
-  apply(s, { t: 'rotate', id: gap().id });
-  apply(s, { t: 'rotate', id: gap().id });
-  assert.match(lessonStep(s).text, /Start the shift/);
-  apply(s, { t: 'run' });
-  apply(s, { t: 'next' });
-  apply(s, { t: 'pick', i: 0 });
-  drop(s, 'crusher', 3, 1);
-  apply(s, { t: 'run' });
-  apply(s, { t: 'next' });
-  apply(s, { t: 'pick', i: 0 });
-  drop(s, 'furnace', 2, 1);
-  g = lessonStep(s);
-  assert.match(g.text, /after the Crusher/);
-  assert.deepEqual(g.spots, [{ kind: 'cell', x: 2, y: 1 }]);
-});
 
 test('outside the lesson the coach says one thing per moment and names what the job needs', () => {
   const s = newRun('coach-yard');
@@ -131,7 +53,24 @@ test('a resume notice comes first, once; a watched recording gets no advice', ()
 test('smart facing: a machine dropped in line takes the way the line runs; a conveyor turns toward what takes its load', () => {
   const s = newRun(TUTORIAL_SEED);
   const conv = s.bin[0];
-  assert.equal(smartFacing(s.layout, 'conveyor', TUTORIAL_GAP.x, TUTORIAL_GAP.y, conv.dir), 1, 'the corner points down the line');
+  assert.equal(smartFacing(s.layout, 'conveyor', 4, 1, conv.dir), 1, 'the corner points down the line');
   assert.equal(smartFacing(s.layout, 'crusher', 3, 1, 0, s.layout.machines.find((m) => m.x === 3 && m.y === 1)!.id), 0, 'fed from the west, it faces east');
   assert.equal(smartFacing(s.layout, 'crusher', 8, 4, 2), 2, 'nothing around it: it keeps its facing');
+});
+
+test('a broken line with no belt on the shelf: the coach says a belt can be bought and lights the button; with one on the shelf it does not', () => {
+  const s = newRun('classic-broke');
+  apply(s, { t: 'pick', i: 0 });
+  apply(s, { t: 'sell', id: s.bin[s.bin.length - 1].id });
+  apply(s, { t: 'run' });
+  apply(s, { t: 'next' });
+  apply(s, { t: 'pick', i: 0 });
+  apply(s, { t: 'sell', id: s.bin[s.bin.length - 1].id });
+  const belt = s.layout.machines.filter((m) => m.kind === 'conveyor').at(-1)!;
+  apply(s, { t: 'unplace', id: belt.id });
+  assert.equal(hintFor(s, ctx()).text, 'The red mark shows where the line stops. Fix it, then start.', 'the belt is right there on the shelf');
+  apply(s, { t: 'sell', id: belt.id });
+  const g = hintFor(s, ctx());
+  assert.equal(g.text, 'The red mark shows where the line stops. Out of belts? Buy one.');
+  assert.deepEqual(g.spots, [{ kind: 'buy' }]);
 });

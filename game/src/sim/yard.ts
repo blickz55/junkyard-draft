@@ -5,7 +5,7 @@
  * string, drawn from its own stream (`${seed}:yard`), so a yard is the same for everyone who plays it.
  *
  * Two reserved namespaces (part of the rules, like every scenario namespace):
- *   tutorial-*  the lesson yard: a belt with a gap at its corner, a small job, one conveyor on the shelf, no pick in shift 1
+ *   tutorial-*  the lessons (rules v5): `tutorial-2` and `tutorial-3` are the later ones, and every other name is the first
  *   classic-*   the original yard: the straight belt, no rubble, no job, an empty shelf
  */
 import { Rng } from './rng';
@@ -126,27 +126,76 @@ function jobFor(rng: Rng): Job {
 
 const CLASSIC: Yard = { machines: RULES.starter.map((m) => ({ ...m })), rubble: [], job: null, shelf: [], firstPhase: 'draft' };
 
-/** The lesson's yard: hopper → two conveyors → a gap at the bend → two conveyors → dock; the shelf holds the piece that closes the gap. */
-const TUTORIAL: Yard = {
+/** A lesson's yard, and the cards each of its shifts deals. A lesson that opens on the build has no pick in shift 1. */
+export interface LessonYard extends Yard {
+  offers: Readonly<Record<number, readonly MachineKind[]>>;
+}
+const R: Dir = 0;
+const D: Dir = 1;
+const U: Dir = 3;
+const lessonPart = (kind: MachineKind, x: number, y: number, dir: Dir = R): Omit<Machine, 'id'> => ({ kind, x, y, dir });
+
+/** Lesson 1, the first line: hopper, belt, a gap at the bend, belt, dock. The shelf holds the piece that closes the gap. */
+const LESSON_1: LessonYard = {
   machines: [
-    { kind: 'hopper', x: 1, y: 1, dir: 0 },
-    { kind: 'conveyor', x: 2, y: 1, dir: 0 },
-    { kind: 'conveyor', x: 3, y: 1, dir: 0 },
-    { kind: 'conveyor', x: 4, y: 2, dir: 1 },
-    { kind: 'conveyor', x: 4, y: 3, dir: 1 },
-    { kind: 'dock', x: 4, y: 4, dir: 0 },
+    lessonPart('hopper', 1, 1),
+    lessonPart('conveyor', 2, 1),
+    lessonPart('conveyor', 3, 1),
+    lessonPart('conveyor', 4, 2, D),
+    lessonPart('conveyor', 4, 3, D),
+    lessonPart('dock', 4, 4),
   ],
   rubble: [cell(6, 1), cell(1, 4)],
-  job: { material: 'ingot', stars: RULES.job.lessonStars },
+  job: { material: 'ingot', stars: [5, 10, 20] },
   shelf: ['conveyor'],
   firstPhase: 'build',
+  offers: { 1: [], 2: ['crusher', 'press', 'hopper'], 3: ['furnace', 'tuner', 'dock'] },
 };
-/** The cell the lesson's first part closes. */
-export const TUTORIAL_GAP = { x: 4, y: 1 };
+/** Lesson 2, plates and a second feed: a working crusher line with one belt piece pointing the wrong way, and room below it for a second feed to join. */
+const LESSON_2: LessonYard = {
+  machines: [
+    lessonPart('hopper', 1, 2),
+    lessonPart('crusher', 2, 2),
+    lessonPart('conveyor', 3, 2),
+    lessonPart('conveyor', 4, 2),
+    lessonPart('conveyor', 5, 2, U),
+    lessonPart('dock', 6, 2),
+  ],
+  rubble: [cell(6, 4), cell(1, 0)],
+  job: { material: 'plate', stars: [10, 25, 40] },
+  shelf: ['crusher', 'conveyor'],
+  firstPhase: 'draft',
+  offers: { 1: ['press', 'furnace', 'tuner'], 2: ['hopper', 'splitter', 'dock'] },
+};
+/** Lesson 3, the slowest machine: two feeds pouring into one furnace, with the belt already round it, so the second furnace mirrors the first. */
+const LESSON_3: LessonYard = {
+  machines: [
+    lessonPart('hopper', 0, 2),
+    lessonPart('crusher', 1, 2),
+    lessonPart('conveyor', 2, 2),
+    lessonPart('conveyor', 3, 2, U),
+    lessonPart('conveyor', 3, 1),
+    lessonPart('furnace', 4, 1),
+    lessonPart('conveyor', 5, 1, D),
+    lessonPart('conveyor', 5, 2),
+    lessonPart('dock', 6, 2),
+    lessonPart('crusher', 2, 3, U),
+    lessonPart('hopper', 2, 4, U),
+  ],
+  rubble: [cell(7, 0), cell(0, 5)],
+  job: { material: 'ingot', stars: [30, 80, 150] },
+  shelf: ['furnace'],
+  firstPhase: 'build',
+  offers: { 1: [], 2: ['tuner', 'press', 'hopper'], 3: ['splitter', 'dock', 'crusher'], 4: ['dock', 'hopper', 'press'] },
+};
+const LESSON_SEEDS: Readonly<Record<string, LessonYard>> = { 'tutorial-2': LESSON_2, 'tutorial-3': LESSON_3 };
+/** The lesson a reserved seed opens; null on any other yard. */
+export const lessonYard = (seed: string): LessonYard | null => (isTutorialSeed(seed) ? (LESSON_SEEDS[seed] ?? LESSON_1) : null);
 
 /** The yard a seed opens on. */
 export function yardFor(seed: string): Yard {
-  if (isTutorialSeed(seed)) return TUTORIAL;
+  const lesson = lessonYard(seed);
+  if (lesson) return lesson;
   if (isClassicSeed(seed)) return CLASSIC;
   const rng = new Rng(`${seed}:yard`);
   const p = pathFor(rng);

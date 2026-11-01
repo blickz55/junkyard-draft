@@ -10,8 +10,9 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { apply, newRun, draftOffers, TUTORIAL_SEED, type RunState } from '../game/src/sim/run';
-import { TUTORIAL_GAP } from '../game/src/sim/yard';
+import { apply, newRun, draftOffers, type RunState } from '../game/src/sim/run';
+import { LESSONS } from '../game/src/content/lessons';
+import { playLesson } from './lesson-lib';
 import { dropOnLine } from '../tests/e2e/line';
 import { exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
@@ -124,22 +125,40 @@ corpus.push({
   if (s.rerolls !== 1) throw new Error('golden-reroll: expected one reroll');
   corpus.push({ name: 'golden-reroll', run: s, note: 'crusher at (2,2) in round 1, a reroll (−$' + RULES.rerollCost + ') before the round-2 pick' });
 }
+for (const lesson of LESSONS)
+  corpus.push({
+    name: lesson.seed,
+    run: (() => {
+      const s = playLesson(lesson);
+      apply(s, { t: 'next' }); // past the script the yard deals an ordinary draft, which the rules still pin
+      while (s.phase !== 'finished') {
+        if (s.phase === 'draft') apply(s, { t: 'pick', i: 0 });
+        apply(s, { t: 'run' });
+        apply(s, { t: 'next' });
+      }
+      return s;
+    })(),
+    note: 'a lesson followed move by move, then its shifts played out; scenario semantics are versioned with RULES_VERSION from 0.4.1 on',
+  });
 corpus.push({
-  name: 'tutorial-1',
+  name: 'golden-belts',
   run: (() => {
-    // the lesson: shift 1 closes the gap, shifts 2 and 3 put the crusher and the furnace on the belt, shift 4 takes the first card
-    const s = newRun(TUTORIAL_SEED);
+    const s = newRun('golden-belts');
     for (let r = 1; r <= RULES.rounds; r++) {
-      if (s.phase === 'draft') apply(s, { t: 'pick', i: 0 });
-      if (r === 1) apply(s, { t: 'place', id: s.bin[0].id, x: TUTORIAL_GAP.x, y: TUTORIAL_GAP.y, dir: 1 });
-      if (r === 2) swapIn(s, 2, 1);
-      if (r === 3) swapIn(s, 3, 1);
+      const c = s.offers.indexOf('crusher');
+      apply(s, { t: 'pick', i: c >= 0 ? c : 0 });
+      if (r === 3) {
+        apply(s, { t: 'buy' });
+        apply(s, { t: 'buy' });
+        apply(s, { t: 'sell', id: s.bin[s.bin.length - 1].id });
+      }
       apply(s, { t: 'run' });
       apply(s, { t: 'next' });
     }
+    if (s.belts !== 2) throw new Error('golden-belts: expected two belts bought');
     return s;
   })(),
-  note: 'the lesson (no pick in shift 1, one card in shifts 2 and 3); scenario semantics are versioned with RULES_VERSION from 0.4.1 on',
+  note: 'two belts bought in round 3 and one sold back: the price comes off the score, the sale pays less',
 });
 corpus.push({
   name: 'tutorialish',

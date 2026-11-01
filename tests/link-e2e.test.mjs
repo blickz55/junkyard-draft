@@ -2,6 +2,7 @@
 // gets their name and progress, a new best on one device reaches the other, signing out reaches the other too, and a link does
 // nothing until a person presses Sign in.
 import { test, after } from 'node:test';
+import { RULES_VERSION } from '../game/src/sim/types.ts';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { fixture, freePort } from './e2e/fixture.mjs';
@@ -135,15 +136,15 @@ test('a second device gets the name and the progress', { timeout: 60000 }, async
 });
 
 test('a better game on one device reaches the other; signing out on one reaches the other too', { timeout: 120000 }, async () => {
-  const bestOf = (page) => page.evaluate((seed) => JSON.parse(localStorage.getItem('jd.bests.v2')).byVersion['4'].bySeed[seed].score, SEED);
-  const runs = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('jd.bests.v2')).byVersion['4'].runs);
+  const bestOf = (page) => page.evaluate(([seed, v]) => JSON.parse(localStorage.getItem('jd.bests.v2')).byVersion[v].bySeed[seed].score, [SEED, RULES_VERSION]);
+  const runs = (page) => page.evaluate((v) => JSON.parse(localStorage.getItem('jd.bests.v2')).byVersion[v].runs, RULES_VERSION);
   const before = await runs(first);
-  await second.evaluate(() => {
+  await second.evaluate((v) => {
     const all = JSON.parse(localStorage.getItem('jd.bests.v2'));
-    all.byVersion['4'].bySeed['from-the-phone'] = { score: 4321, at: new Date().toISOString() };
-    all.byVersion['4'].runs += 5;
+    all.byVersion[v].bySeed['from-the-phone'] = { score: 4321, at: new Date().toISOString() };
+    all.byVersion[v].runs += 5;
     localStorage.setItem('jd.bests.v2', JSON.stringify(all));
-  });
+  }, RULES_VERSION);
   await play(second, 1); // the results bring the account level
   await second.waitForResponse((r) => r.url().endsWith('/me/sync') && r.request().method() === 'POST', { timeout: 10000 }).catch(() => null);
   await first.goto(f.gameUrl());

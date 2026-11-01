@@ -5,6 +5,11 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### Rules version 5: belts and lessons — 2026-11-01 (the owner's second playtest; saves and scores from version 4 do not carry over)
+- **Three lessons, and every step is guided.** Each step says which part to take, lights the spot it goes on and says in plain words what it does. Every part in the game is placed by hand in one of them: lesson 1 the first line, lesson 2 plates and a second feed, lesson 3 finding the slowest machine. A lesson ends with its job done, with nothing left to finish alone. Home shows how many you have done, and any of them can be taken again.
+- **Buy a belt, $20, while you build.** It comes off your score, and Undo gives it back. Conveyors are no longer dealt, so every card is a machine.
+- Sal says so when a line is broken and the shelf has no belts.
+
 ### The owner's second playtest — 2026-11-01 (no rules change)
 - **Start over.** Every game can go back to its first shift from the Menu, and the lesson shows the way beside "Skip the lesson". It says what that costs first. It is never just one shift back.
 - **The stars stop stating the obvious.** The first two flash on the yard with no words; the third says "Job done." A star that lands in the last seconds of a shift, or in a skipped shift, now gets its moment and its sound; it used to pass in silence.

@@ -3,7 +3,7 @@ import { RULES } from './rules';
 import { runLayout, validateLayout } from './sim';
 import type { Dir, Layout, Machine, MachineKind, Material, RunResult } from './types';
 import { RULES_VERSION } from './types';
-import { isTutorialSeed, JOB_MACHINE, starsFor, TUTORIAL_SEED, yardFor, type Job } from './yard';
+import { isTutorialSeed, JOB_MACHINE, lessonYard, starsFor, TUTORIAL_SEED, yardFor, type Job } from './yard';
 
 export { isTutorialSeed, TUTORIAL_SEED };
 
@@ -17,7 +17,8 @@ export type Action =
   | { t: 'sell'; id: number }
   | { t: 'run' }
   | { t: 'next' }
-  | { t: 'reroll' };
+  | { t: 'reroll' }
+  | { t: 'buy' };
 
 /** Where a fork came from: the verified replay's hash (null for an imported file), its player label, and the round it continues after. */
 export interface ForkOrigin {
@@ -50,18 +51,13 @@ export interface RunState {
   /** rerolls bought this run (each cost RULES.rerollCost, already deducted from score) and the round of the last one (0 = none) */
   rerolls: number;
   rerolledRound: number;
+  /** belts bought this run (each cost RULES.beltCost, already deducted from score) */
+  belts: number;
   /** set on a practice fork of someone's replay (PLAN-v4 0.7.3): never exported, submitted or recorded as the player's own run; no effect on the simulation */
   forkedFrom?: ForkOrigin;
   nextId: number;
   actions: Action[];
 }
-
-/**
- * The lesson (`tutorial-*`, rules v4): shift 1 has no pick (the first job is to close the gap in the belt with the conveyor on
- * the shelf), shifts 2 and 3 offer one machine each so each teaches one thing, shift 4 is the first real choice of three.
- * Later rounds are an ordinary draft from the seed's own stream.
- */
-export const TUTORIAL_OFFERS: Readonly<Record<number, readonly MachineKind[]>> = { 1: [], 2: ['crusher'], 3: ['furnace'], 4: ['conveyor', 'tuner', 'hopper'] };
 
 /** The parts a draft must include (rules v4): the crusher in the first draft, the job's own machine in the second, so the job can always be started. */
 function guaranteed(seed: string, round: number): MachineKind[] {
@@ -70,7 +66,8 @@ function guaranteed(seed: string, round: number): MachineKind[] {
   return round === 2 && job ? [JOB_MACHINE[job.material]] : [];
 }
 export function draftOffers(seed: string, round: number): MachineKind[] {
-  if (isTutorialSeed(seed) && TUTORIAL_OFFERS[round]) return TUTORIAL_OFFERS[round].slice();
+  const scripted = lessonYard(seed)?.offers[round]; // a lesson deals what it means to teach; shifts past its end are an ordinary draft
+  if (scripted) return scripted.slice();
   return offersFrom(new Rng(`${seed}:draft:${round}`), round, guaranteed(seed, round));
 }
 /** The offers a reroll buys: a purpose-specific stream, so buying one can never change a later round's draft; no crusher guarantee. */
@@ -83,6 +80,13 @@ export function canReroll(s: Pick<RunState, 'phase' | 'seed' | 'round' | 'reroll
   if (isTutorialSeed(s.seed)) return 'no rerolls in the tutorial';
   if (s.rerolledRound === s.round) return 'reroll already used this round';
   if (s.score < RULES.rerollCost) return `cannot afford a reroll ($${RULES.rerollCost})`;
+  return null;
+}
+/** Why a belt cannot be bought right now, or null when it can. */
+export function canBuyBelt(s: Pick<RunState, 'phase' | 'score' | 'bin'>): string | null {
+  if (s.phase !== 'build') return 'not building';
+  if (s.score < RULES.beltCost) return `cannot afford a belt ($${RULES.beltCost})`;
+  if (s.bin.length >= RULES.shelfSlots) return 'the shelf is full';
   return null;
 }
 function offersFrom(rng: Rng, round: number, must: readonly MachineKind[]): MachineKind[] {
@@ -152,6 +156,7 @@ export function newRun(seed: string): RunState {
     sold: 0,
     rerolls: 0,
     rerolledRound: 0,
+    belts: 0,
     nextId,
     actions: [],
   };
@@ -181,7 +186,7 @@ function findMachine(s: RunState, id: number): { m: Machine; where: 'grid' | 'bi
 }
 
 const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
-const ACTION_TYPES = new Set(['pick', 'place', 'rotate', 'unplace', 'sell', 'run', 'next', 'reroll']);
+const ACTION_TYPES = new Set(['pick', 'place', 'rotate', 'unplace', 'sell', 'run', 'next', 'reroll', 'buy']);
 
 /** Structural validation of an action object (replays come from untrusted files). */
 export function validateAction(a: unknown): a is Action {
@@ -200,6 +205,7 @@ export function validateAction(a: unknown): a is Action {
     case 'run':
     case 'next':
     case 'reroll':
+    case 'buy':
       return Object.keys(o).length === 1;
   }
   return false;
@@ -281,6 +287,14 @@ export function apply(s: RunState, a: Action): RunState {
       s.rerolls++;
       s.rerolledRound = s.round;
       s.offers = rerollOffers(s.seed, s.round);
+      break;
+    }
+    case 'buy': {
+      const why = canBuyBelt(s);
+      if (why) throw new RunError(why);
+      s.score -= RULES.beltCost;
+      s.belts++;
+      s.bin.push({ id: s.nextId++, kind: 'conveyor', x: -1, y: -1, dir: 0 });
       break;
     }
     case 'next': {

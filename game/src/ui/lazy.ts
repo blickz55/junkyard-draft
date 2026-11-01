@@ -1,5 +1,7 @@
 /** Everything ui/panels.ts opens: one chunk, loaded the first time any of them is. */
 export { openArchive } from './ArchivePanel';
+export { makeCard, saveCard } from '../render/card';
+export { recordClip, renderGif, saveClip } from '../render/clip';
 export { openDivision } from './DivisionPanel';
 export { openFriends } from './FriendsPanel';
 export { openEmailLink, openLinkLanding } from './EmailLink';

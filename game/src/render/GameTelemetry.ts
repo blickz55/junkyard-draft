@@ -34,6 +34,7 @@ export class GameTelemetry {
           else if (a.t === 'place') track('first_place_attempt');
           else if (a.t === 'rotate') track('first_rotate');
           else if (a.t === 'reroll') track('reroll_used', { n: this.ctx.round() });
+          else if (a.t === 'buy') track('belt_bought', { n: this.ctx.round() });
         }
         hooks.onStateChange?.(a);
       },

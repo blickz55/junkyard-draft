@@ -7,7 +7,7 @@
 import { apply, replay, type Action, type RunState } from './run';
 import { RULES_VERSION } from './types';
 
-export const UNDOABLE: ReadonlySet<Action['t']> = new Set<Action['t']>(['place', 'unplace', 'rotate', 'sell']);
+export const UNDOABLE: ReadonlySet<Action['t']> = new Set<Action['t']>(['place', 'unplace', 'rotate', 'sell', 'buy']);
 
 /** True while building and the last recorded action is a layout edit of this build phase. */
 export function canUndo(s: RunState): boolean {

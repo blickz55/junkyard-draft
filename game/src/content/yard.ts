@@ -6,11 +6,12 @@
 import { dailyDateOf, isMintedDailySeed, isDailySeed } from '../sim/daily';
 import { isWeeklySeed, weeklyIdOf } from '../sim/weekly';
 import { isTutorialSeed } from '../sim/run';
+import { LESSONS, lessonOf } from './lessons';
 import { t } from './strings';
 import { utcDay } from './format';
 
 export function yardLabel(seed: string, now = new Date()): string {
-  if (isTutorialSeed(seed)) return t('common.yardTutorial');
+  if (isTutorialSeed(seed)) return t('common.yardTutorial', { n: lessonOf(seed).n, total: LESSONS.length });
   if (isWeeklySeed(seed)) {
     const id = weeklyIdOf(seed);
     return t('common.yardWeek', { week: id ? id.slice(5) : '?' });

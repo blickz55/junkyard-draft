@@ -40,6 +40,7 @@ export interface ShareInput {
   badges?: string[];
   /** new offers bought (rules v3); the detailed variant shows the deduction so the score reads as production + sales − offers */
   rerolls?: number;
+  belts?: number;
   /** stars earned on the job (rules v4), shown as ★★☆; absent on a yard with no job */
   stars?: number;
 }
@@ -88,6 +89,7 @@ export function shareText(s: ShareInput): string {
   if (s.variant === 'detailed') {
     lines.push(t('share.rounds', { list: s.rounds.map((r) => money(r)).join(' · ') }));
     if (s.rerolls) lines.push(t('share.newOffers', { n: int(s.rerolls), cost: money(s.rerolls * RULES.rerollCost) }));
+    if (s.belts) lines.push(t('share.belts', { n: s.belts, total: money(s.belts * RULES.beltCost) }));
     if (s.rank) lines.push(t('share.checked'));
     if (s.rank && s.badges?.length) lines.push(t('share.badges', { list: s.badges.join(' · ') }));
     if (s.rank && s.medal) lines.push(t('share.medal', { medal: s.medal }));

@@ -13,7 +13,7 @@
  */
 import type Phaser from 'phaser';
 import { h, btn, ui, textureImg } from './dom';
-import { canReroll, type RunState } from '../sim/run';
+import { canBuyBelt, canReroll, type RunState } from '../sim/run';
 import type { Job } from '../sim/yard';
 import { analyseRound } from '../sim/bottleneck';
 import { bottleneckLine } from '../content/bottleneck';
@@ -32,6 +32,7 @@ import { isWeeklySeed, weeklyClosed } from '../sim/weekly';
 import { challengerTotal, type Challenge } from '../render/challenge';
 import type { Spot } from '../render/guide';
 import { t } from '../content/strings';
+import { shiftsOf } from '../content/lessons';
 import { money, int } from '../content/format';
 import { machineName, machineBlurb, materialName } from '../content/machines';
 import { jobLine, jobRecipe, jobTarget, materialMany, materialOf, missingForJob, nextNeeded, paceOf, starMarks, starWords } from '../content/job';
@@ -59,8 +60,14 @@ export interface PanelState {
   selected: Machine | undefined;
   tipsBadge: boolean;
   tipsOpen: boolean;
-  /** the lesson is on: its skip button shows and selling waits */
+  /** the lesson is on: its skip button shows and only what it asks for can be touched */
   lesson: boolean;
+  /** the card the lesson wants, in a lesson's pick */
+  lessonPick: number | null;
+  /** every move of this lesson shift is made */
+  lessonReady: boolean;
+  /** the button the lesson's step calls for */
+  lessonWants: 'buy' | 'sell' | null;
 }
 /** What the panel asks the scene to do. */
 export interface PanelActions {
@@ -77,6 +84,7 @@ export interface PanelActions {
   rotateSelected(): void;
   toBin(id: number): void;
   sell(id: number): void;
+  /** a belt for the shelf, paid from the score (rules v5) */ buyBelt(): void;
   nextRound(): void;
   openMenu(): void;
   skipLesson(): void;
@@ -116,6 +124,7 @@ export class GamePanel {
   /** Sal's card: the one instruction, re-appended at the top of the panel on every render */
   private coachEl: HTMLElement;
   private hintEl: HTMLElement;
+  private aboutEl: HTMLElement;
   private spots: Spot[] = [];
   /** the rings on the board for the lit spots */
   private spotLayer: HTMLElement;
@@ -202,6 +211,7 @@ export class GamePanel {
     this.side = h('div', { class: 'jd-side', tid: 'side' });
     this.hintEl = h('div', { class: 'jd-coach-text', tid: 'hint', role: 'status' }, '');
     this.coachEl = h('div', { class: 'jd-coach', tid: 'coach' }, h('span', { class: 'jd-coach-face' }, t('foreman.name')), this.hintEl);
+    this.aboutEl = h('div', { class: 'jd-about', tid: 'lesson-about' });
     this.gridLayer = h('div', { class: 'jd-gridlayer' });
     this.spotLayer = h('div', { class: 'jd-spotlayer' });
     this.toastEl = h('div', { class: 'jd-toast', tid: 'toast', role: 'status', style: 'display:none' });
@@ -253,7 +263,7 @@ export class GamePanel {
 
   // ---------- HUD ----------
   setHud(run: RunState, total: number, pulse: boolean) {
-    this.hud.round.textContent = t('game.round', { n: run.round, total: RULES.rounds });
+    this.hud.round.textContent = t('game.round', { n: run.round, total: shiftsOf(run.seed) });
     const next = money(total);
     if (this.hud.score.textContent !== next) {
       this.hud.score.textContent = next;
@@ -330,12 +340,26 @@ export class GamePanel {
 
   // ---------- the coach ----------
   /** One instruction and what to touch; the spots light up where they are. */
-  setHint(text: string, spots: Spot[] = []) {
+  setHint(text: string, spots: Spot[] = [], about: { kind: MachineKind; text: string }[] = []) {
     this.hintText = text;
     this.hintEl.textContent = text;
     this.spots = spots;
     this.applySpots();
+    const key = JSON.stringify(about);
+    if (key === this.aboutKey) return;
+    this.aboutKey = key;
+    this.aboutEl.replaceChildren(
+      ...about.map((a) =>
+        h(
+          'div',
+          { class: 'jd-about-row' },
+          textureImg(this.scene.game, machineTexture(a.kind), machineName(a.kind)),
+          h('div', {}, h('b', {}, machineName(a.kind)), h('div', { class: 'jd-dim' }, a.text)),
+        ),
+      ),
+    );
   }
+  private aboutKey = '[]';
   /** Light what the instruction talks about: cards and buttons in place, rings on the yard and the shelf. */
   private applySpots() {
     this.root.querySelectorAll('.jd-spot').forEach((e) => e.classList.remove('jd-spot'));
@@ -349,6 +373,8 @@ export class GamePanel {
       if (s.kind === 'offer') this.mark(`offer-${s.i}`);
       else if (s.kind === 'run') this.mark('run');
       else if (s.kind === 'next') this.mark('next');
+      else if (s.kind === 'buy') this.mark('buy-belt');
+      else if (s.kind === 'sell') this.mark('sell');
       else if (s.kind === 'cell') {
         ring(s.x * CELL, s.y * CELL, `cell:${s.x},${s.y}`, s.soft);
       } else {
@@ -422,6 +448,9 @@ export class GamePanel {
       s.challenge?.hash ?? null,
       s.run.bin.length,
       s.run.layout.machines.map((m) => m.kind).join(),
+      s.lessonPick,
+      s.lessonReady,
+      s.lessonWants,
       s.speed,
       s.replayLabel,
       !!s.replayRounds,
@@ -507,7 +536,7 @@ export class GamePanel {
           small: true,
         });
     const replayBanner = s.replayLabel ? h('span', { class: 'jd-replay-banner jd-blue', tid: 'replay-banner' }, t('game.recordingBanner')) : null;
-    this.side.append(this.steps(s, replayBanner ?? tipsBtn), this.coachEl);
+    this.side.append(this.steps(s, replayBanner ?? tipsBtn), this.coachEl, this.aboutEl);
     if (s.challenge) {
       // PLAN-v4 0.7.1: the challenger's earnings, shift by shift, next to yours
       const c = s.challenge;
@@ -623,12 +652,14 @@ export class GamePanel {
     if (recipe) this.side.append(recipe);
     const need = nextNeeded(r);
     r.offers.forEach((kind, i) => {
+      const off = s.lesson && s.lessonPick !== i; // a lesson deals three and wants one: the others are there to be seen
       const card = h(
         'button',
         {
-          class: `jd-offer${need === kind ? ' jd-offer-need' : ''}`,
+          class: `jd-offer${need === kind && !off ? ' jd-offer-need' : ''}${off ? ' jd-offer-off' : ''}`,
           tid: `offer-${i}`,
           type: 'button',
+          disabled: off,
           onClick: () => {
             if (!s.playbackPending) this.pickOffer(i);
           },
@@ -697,7 +728,7 @@ export class GamePanel {
     if (advice) this.side.append(advice);
     const recipe = this.recipe(r);
     if (recipe) this.side.append(recipe);
-    const sel = s.selected;
+    const sel = s.lesson && s.lessonWants !== 'sell' ? null : s.selected; // in a lesson the card would push the lit button off a phone
     if (sel) {
       const img = textureImg(this.scene.game, machineTexture(sel.kind), machineName(sel.kind));
       img.style.transform = `rotate(${sel.dir * 90}deg)`;
@@ -717,7 +748,7 @@ export class GamePanel {
               btn(t('game.rotate'), 'rotate', () => this.actions.rotateSelected(), { small: true }),
               sel.x >= 0
                 ? btn(t('game.toShelf'), 'tobin', () => this.actions.toBin(sel.id), { small: true })
-                : s.lesson && r.round < 4
+                : s.lesson && s.lessonWants !== 'sell'
                   ? null
                   : btn(t('game.sellFor', { amount: money(RULES.sellValue) }), 'sell', () => this.actions.sell(sel.id), { small: true }),
             ),
@@ -736,7 +767,13 @@ export class GamePanel {
       h(
         'div',
         { class: 'jd-row jd-between', style: 'margin-top:0.5em' },
-        h('span', {}),
+        (s.lesson ? s.lessonWants === 'buy' : !s.playbackPending)
+          ? btn(t('game.buyBelt', { cost: money(RULES.beltCost) }), 'buy-belt', () => this.actions.buyBelt(), {
+              small: true,
+              disabled: canBuyBelt(r) != null,
+              title: t('game.buyBeltTitle'),
+            })
+          : h('span', {}),
         h(
           'div',
           { class: 'jd-row', style: 'gap:0.4em' },
@@ -751,7 +788,7 @@ export class GamePanel {
         { class: 'jd-run-row' }, // sticky at the panel's bottom on a phone: the primary action stays in reach while the panel scrolls (0.10.0)
         h(
           'button',
-          { class: 'jd-btn jd-btn-dark jd-run', tid: 'run', type: 'button', onClick: () => this.actions.startRun() },
+          { class: 'jd-btn jd-btn-dark jd-run', tid: 'run', type: 'button', disabled: s.lesson && !s.lessonReady, onClick: () => this.actions.startRun() },
           t('game.startShift', { n: r.round }),
         ),
       ),
@@ -1081,6 +1118,12 @@ export const GAME_STYLE = `
 #ui .jd-offer { display: flex; align-items: center; gap: 0.75em; width: 100%; text-align: left; font: inherit; color: inherit; background: linear-gradient(180deg, #37302a, #2a241d); border: 2px solid #4a4235; border-radius: 0.6em; padding: 0.5em 0.7em; margin-top: 0.5em; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.35); transition: transform 0.12s ease, border-color 0.12s ease; }
 #ui .jd-offer:hover { border-color: #f0a830; transform: translateY(-1px); }
 #ui .jd-offer-need { border-color: #8f6b2a; }
+#ui .jd-offer-off { opacity: 0.45; cursor: default; }
+#ui .jd-offer-off:hover { border-color: inherit; transform: none; }
+#ui .jd-about { display: flex; flex-direction: column; gap: 0.45em; margin-top: 0.5em; }
+#ui .jd-about:empty { display: none; }
+#ui .jd-about-row { display: flex; gap: 0.6em; align-items: center; font-size: 0.875em; line-height: 1.25; }
+#ui .jd-about-row img { width: 2.6em; height: 2.6em; flex: 0 0 auto; }
 #ui .jd-offer img { width: 3.6em; height: 3.6em; flex: 0 0 auto; }
 #ui .jd-offer-text { flex: 1; min-width: 0; }
 #ui .jd-offer-name { font-family: var(--jd-display); font-weight: 700; font-size: 1.25em; line-height: 1.1; }

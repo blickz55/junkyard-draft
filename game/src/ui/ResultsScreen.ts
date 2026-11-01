@@ -45,7 +45,7 @@ import { recordWatched } from '../render/storage';
 import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
 import { groupHeaders, groupParam, loadGroup } from '../render/groups';
 import { forkLabel } from '../content/fork';
-import { makeCard, type CardInput } from '../render/card';
+import type { CardInput } from '../render/card';
 import { loadForkBests } from '../render/storage';
 import { t } from '../content/strings';
 import { money, int, utcDateTime } from '../content/format';
@@ -331,7 +331,15 @@ export function mountResults(
         { style: 'margin-top:0.35em; font-size:0.875em', tid: 'rerolls-line' },
         t('results.newOffers', { n: run.rerolls, cost: money(RULES.rerollCost), total: money(run.rerolls * RULES.rerollCost) }),
       ),
-    ); // score = production + sales − offers bought
+    ); // score = production + sales − offers bought − belts bought
+  if (run.belts)
+    shippedPanel.append(
+      h(
+        'div',
+        { style: 'margin-top:0.35em; font-size:0.875em', tid: 'belts-line' },
+        t('results.belts', { n: run.belts, total: money(run.belts * RULES.beltCost) }),
+      ),
+    );
   shippedPanel.append(
     h(
       'div',
@@ -884,6 +892,7 @@ export function mountResults(
       permalink: permalink(),
       variant,
       rerolls: run.rerolls,
+      belts: run.belts,
       badges: badgesFor(run, botPar).map((b) => b.title),
     });
   scene.cardInput = () => ({
@@ -935,6 +944,7 @@ export function mountResults(
             const data: ShareData = { title: t('title.name'), text };
             try {
               if (scene.cardInput) {
+                const { makeCard } = await import('./lazy');
                 const card = await makeCard(scene.cardInput());
                 const file = new File([card.blob], card.filename, { type: 'image/png' });
                 if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) data.files = [file];

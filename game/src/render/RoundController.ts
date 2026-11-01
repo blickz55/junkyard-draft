@@ -49,7 +49,7 @@ export interface ControllerHooks {
 }
 
 /** Layout edits are only legal while building; once a round starts the authoritative layout is frozen. */
-const LAYOUT_EDITS: ReadonlySet<Action['t']> = new Set<Action['t']>(['place', 'unplace', 'rotate', 'sell', 'pick']);
+const LAYOUT_EDITS: ReadonlySet<Action['t']> = new Set<Action['t']>(['place', 'unplace', 'rotate', 'sell', 'buy', 'pick']);
 
 export class RoundController {
   run: RunState;

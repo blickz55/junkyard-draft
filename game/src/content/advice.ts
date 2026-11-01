@@ -27,6 +27,7 @@ export function explainRunError(message: string): string {
     return t('advice.cannotAfford', { amount: amt ? money(Number(amt)) : '' });
   }
   if (m.includes('no rerolls in the tutorial')) return t('advice.noOffersInLesson');
+  if (m.includes('the shelf is full')) return t('advice.shelfFull');
   if (m.includes('no machine')) return t('advice.noMachine');
   if (m.includes('malformed') || m.includes('unknown action')) return t('advice.notAllowed');
   return t('advice.other', { message });
