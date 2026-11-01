@@ -51,3 +51,6 @@ deploy/verifier.env
 
 # the vendored Phaser copy for the offline cloud sandbox is no longer in Git (production roadmap 0.9.5); docs/CONTINUE.md says how to restore it
 vendor/
+
+# npm run demo: a throwaway local server
+/.demo/

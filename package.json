@@ -18,6 +18,7 @@
     "policy:check": "node --import tsx tools/make-policy.ts --check",
     "dev:all": "node scripts/dev-all.mjs",
     "control-room": "node control-room/server.mjs",
+    "demo": "node --import tsx tools/demo.ts",
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run test:unit && npm run test:e2e",

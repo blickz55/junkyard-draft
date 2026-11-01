@@ -3,9 +3,13 @@
 import http from 'node:http';
 import { freePort } from './fixture.mjs';
 
-export async function standIns() {
+export async function standIns({ port: fixed, page } = {}) {
   const mails = [];
   const server = http.createServer((req, res) => {
+    if (req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(page?.(mails) ?? '');
+    }
     let raw = '';
     req.on('data', (c) => (raw += c));
     req.on('end', () => {
@@ -35,7 +39,7 @@ export async function standIns() {
       });
     });
   });
-  const port = await freePort();
+  const port = fixed ?? (await freePort());
   await new Promise((r) => server.listen(port, '127.0.0.1', r));
   return {
     mails,
