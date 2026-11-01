@@ -131,6 +131,10 @@ Caddy can serve the game too. Add a second site block to the Caddyfile with `roo
 A tester build needs no server, no domain and no secrets, so it can go out long before the rest of this page. `npm run build:test` writes `dist-test/`: the lessons, today's yard and practice yards, with everything that needs a server out of sight, and `noindex` so search engines stay away. There is no leaderboard, no talk and no record of what testers did, so what you learn comes from what you ask them.
 
     npm run build:test
-    npx wrangler pages deploy dist-test --project-name <project> --branch main
+    cp -r dist-test <an empty folder outside this repository>
+    cd <that folder>
+    npx wrangler@3 pages deploy dist-test --project-name <project> --branch main --commit-dirty=true
+
+Use version 3, and run it outside this repository. Since 2026, version 4 turns `pages project create` into a Workers deployment: it writes `wrangler.jsonc`, adds itself to `package.json` and publishes `dist/` on the account's `workers.dev` address, which also carries the name of the account's other project. A new project is `npx wrangler@3 pages project create <project> --production-branch main`.
 
 A fix goes out the same way and reaches a tester on their next load, because this build has no service worker. The address is unlisted, not protected: anyone who has it can play. Keep it out of this repository, which is public. To take it down, delete the project in the Cloudflare dashboard.

@@ -13,14 +13,17 @@ export const NO_SERVER = 'https://verify.invalid';
 /** Build it into `dist`. Exported for tests/test-edition-e2e.test.mjs. */
 export async function buildTest({ root, dist, reports = false }) {
   const out = await buildDist({ root, dist, verifierUrl: NO_SERVER, reports });
-  fs.appendFileSync(path.join(dist, '_headers'), '/*\n  X-Robots-Tag: noindex\n');
+  // in the page-wide rule that is already there: a second /* rule replaces it on Cloudflare, security headers and all
+  const headers = path.join(dist, '_headers');
+  fs.writeFileSync(headers, fs.readFileSync(headers, 'utf8').replace(/^\/\*\n/m, '/*\n  X-Robots-Tag: noindex\n'));
   fs.writeFileSync(path.join(dist, 'robots.txt'), 'User-agent: *\nDisallow: /\n');
   fs.rmSync(path.join(dist, 'sw.js'), { force: true });
   return out;
 }
 
-if (import.meta.url === `file:///${process.argv[1].replaceAll('\\', '/')}`) {
-  const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const SELF = fileURLToPath(import.meta.url);
+if (path.resolve(process.argv[1] ?? '') === SELF) {
+  const ROOT = path.resolve(path.dirname(SELF), '..');
   const { size, commit, bundle } = await buildTest({ root: ROOT, dist: path.join(ROOT, 'dist-test') });
   console.log(`built dist-test/ (${bundle} ${(size / 1024).toFixed(0)} KiB, commit ${commit})`);
 }

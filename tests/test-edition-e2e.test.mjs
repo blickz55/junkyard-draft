@@ -48,7 +48,9 @@ after(async () => {
 
 test('the build: both sides agree on the address, search engines stay away, and no service worker can keep an old version', () => {
   assert.equal(NO_SERVER, BAKED);
-  assert.match(fs.readFileSync(path.join(dist, '_headers'), 'utf8'), /\/\*\n {2}X-Robots-Tag: noindex\n$/);
+  const headers = fs.readFileSync(path.join(dist, '_headers'), 'utf8');
+  assert.equal(headers.match(/^\/\*$/gm).length, 1, 'one page-wide rule: a second replaces the first on Cloudflare');
+  assert.match(headers, /^\/\*\n {2}X-Robots-Tag: noindex\n {2}Content-Security-Policy: /m);
   assert.match(fs.readFileSync(path.join(dist, 'robots.txt'), 'utf8'), /Disallow: \//);
   assert.equal(fs.existsSync(path.join(dist, 'sw.js')), false);
   assert.equal(JSON.parse(fs.readFileSync(path.join(dist, 'build.json'), 'utf8')).verifierUrl, NO_SERVER);
