@@ -15,6 +15,7 @@ phaserjs/
 # build + deps
 node_modules/
 dist/
+dist-test/
 release/
 
 # control room raw telemetry (summaries live in docs/STATUS.md)

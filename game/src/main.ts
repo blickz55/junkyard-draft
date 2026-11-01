@@ -7,7 +7,8 @@ import { viewport, containerSize } from './render/viewport';
 import { devEnabled } from './render/devapi';
 import { DPR } from './render/dpr';
 import { telemetry } from './render/telemetry';
-import { verifierUrl as resolveVerifierUrl } from './render/config';
+import { useTestWords } from './content/strings';
+import { isTestEdition, verifierUrl as resolveVerifierUrl } from './render/config';
 import { installErrorLog } from './render/errlog';
 import { onStorageFailure } from './render/storage';
 import { showBanner } from './ui/banner';
@@ -56,9 +57,10 @@ const game = new Phaser.Game({
   input: { mouse: { preventDefaultWheel: false } },
 });
 viewport.attach(game, container);
-pwa.register(import.meta.env.DEV); // 0.10.3: the service worker in production (the dev server serves none), the install prompt's capture
+pwa.register(import.meta.env.DEV || isTestEdition()); // 0.10.3: the service worker in production (the dev server serves none), the install prompt's capture
 
 // opt-in funnel events go to the same verifier the boards use; nothing is sent unless the player turned it on
+if (isTestEdition()) useTestWords();
 telemetry.configure({ url: () => resolveVerifierUrl() });
 telemetry.init();
 

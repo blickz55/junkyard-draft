@@ -4,7 +4,7 @@
  * sit beside it; everything else is a quiet line of links, and the settings live in their own dialog. The Phaser TitleScene
  * keeps the tips panel. Every string comes from the table (0.9.0).
  */
-import { verifierUrl as resolveVerifierUrl } from '../render/config';
+import { isTestEdition, verifierUrl as resolveVerifierUrl } from '../render/config';
 import type Phaser from 'phaser';
 import { h, btn, ui, alertText, dialog, promptText, foremanBox, setForeman } from './dom';
 import { withArt } from './opening';
@@ -180,6 +180,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   });
 
   // ---- the top: who you are, the name, Sal ----
+  const testing = isTestEdition(); // a tester build has no server: what needs one stays out of sight
   const streak = currentStreak();
   const foremanText =
     streak === 30 ? foremanSays('streak30') : streak === 7 ? foremanSays('streak7') : streak === 3 ? foremanSays('streak3') : foremanSays('welcome');
@@ -209,7 +210,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
       h(
         'div',
         { class: 'jd-hero-corner' },
-        playerName,
+        testing ? null : playerName,
         btn(t('home.settings'), 'settings', () => openSettings(scene, verifierUrl, restart), { small: true }),
       ),
       foreman,
@@ -377,7 +378,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
           fresh ? () => start(TUTORIAL_SEED, true) : chooseLesson,
         ),
     btn(t('title.random'), 'random', () => start(randomSeed(), true)),
-    weeklyBtn,
+    testing ? null : weeklyBtn,
   );
   const link = (text: string, tid: string, onClick: () => void, title?: string) => h('button', { class: 'jd-link', tid, type: 'button', title, onClick }, text);
   // the inbox (0.11.7): there once this device has a game on a board, amber while something is unread
@@ -407,48 +408,50 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     { class: 'jd-home-foot', tid: 'home-foot' },
     link(t('home.howto'), 'howto', () => openHowTo(scene, tips)),
     link(t('title.record'), 'record', () => openRecord(scene), t('title.recordTitle')),
-    link(t('title.crews'), 'groups', () => openGroups(scene, verifierUrl, () => scene.scene.restart()), t('title.crewsTitle')),
+    testing ? null : link(t('title.crews'), 'groups', () => openGroups(scene, verifierUrl, () => scene.scene.restart()), t('title.crewsTitle')),
     inboxLink,
     talkLink,
     hubLink,
     loadLinked() ? link(t('home.friends'), 'friends', () => openFriends(scene, verifierUrl)) : null,
-    link(t('home.more'), 'more', () => {
-      const r = pushSupported() ? loadReminder() : null;
-      choiceDialog(scene, {
-        title: t('home.more'),
-        tid: 'more-dialog',
-        choices: [
-          { label: t('title.archive'), tid: 'archive', run: () => openArchive(scene, verifierUrl) },
-          ...(pushSupported()
-            ? [
-                {
-                  label: r ? t('title.reminderOn', { time: localHour(r.hourLocal) }) : t('title.reminder'),
-                  tid: 'reminder',
-                  run: () => openReminder(scene, verifierUrl, () => {}),
+    testing
+      ? null
+      : link(t('home.more'), 'more', () => {
+          const r = pushSupported() ? loadReminder() : null;
+          choiceDialog(scene, {
+            title: t('home.more'),
+            tid: 'more-dialog',
+            choices: [
+              { label: t('title.archive'), tid: 'archive', run: () => openArchive(scene, verifierUrl) },
+              ...(pushSupported()
+                ? [
+                    {
+                      label: r ? t('title.reminderOn', { time: localHour(r.hourLocal) }) : t('title.reminder'),
+                      tid: 'reminder',
+                      run: () => openReminder(scene, verifierUrl, () => {}),
+                    },
+                  ]
+                : []),
+              {
+                label: t('title.custom'),
+                tid: 'custom',
+                run: () => {
+                  void promptText(scene, t('title.customTitle'), t('title.customLabel', { max: MAX_SEED_LENGTH }), 'junkyard', MAX_SEED_LENGTH).then((s) => {
+                    if (s && s.trim()) start(sanitizeSeed(s), true);
+                  });
                 },
-              ]
-            : []),
-          {
-            label: t('title.custom'),
-            tid: 'custom',
-            run: () => {
-              void promptText(scene, t('title.customTitle'), t('title.customLabel', { max: MAX_SEED_LENGTH }), 'junkyard', MAX_SEED_LENGTH).then((s) => {
-                if (s && s.trim()) start(sanitizeSeed(s), true);
-              });
-            },
-          },
-          { label: t('title.paint'), tid: 'paint', run: () => openPaint(scene, verifierUrl) },
-          { label: t('title.import'), tid: 'import', run: () => importRecording(scene) },
-          { label: t('title.policy'), tid: 'policy', run: () => openPolicy(scene) },
-          {
-            label: t('title.privacyLink'),
-            tid: 'privacy',
-            run: () => openPrivacy(scene, verifierUrl, 'privacy', () => (playerName.textContent = playerLabel())),
-          },
-        ],
-        onDismiss: () => {},
-      });
-    }),
+              },
+              { label: t('title.paint'), tid: 'paint', run: () => openPaint(scene, verifierUrl) },
+              { label: t('title.import'), tid: 'import', run: () => importRecording(scene) },
+              { label: t('title.policy'), tid: 'policy', run: () => openPolicy(scene) },
+              {
+                label: t('title.privacyLink'),
+                tid: 'privacy',
+                run: () => openPrivacy(scene, verifierUrl, 'privacy', () => (playerName.textContent = playerLabel())),
+              },
+            ],
+            onDismiss: () => {},
+          });
+        }),
   );
 
   // ---- what our server says ----
@@ -478,7 +481,8 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     weeklyBtn.disabled = false;
     weeklyBtn.onclick = () => start(wk.seed, true);
   });
-  fetch(`${url}/daily?limit=5${groupParam(url)}`, { headers: groupHeaders(url) })
+  // a tester build goes straight to the offline path: nobody should wait on a server that is not there
+  (testing ? Promise.reject(new Error('no server')) : fetch(`${url}/daily?limit=5${groupParam(url)}`, { headers: groupHeaders(url) }))
     .then((r) => {
       if (!r.ok && groupSel && (r.status === 401 || r.status === 403)) {
         saveGroup(null);
@@ -614,6 +618,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     'div',
     { class: 'jd-title' },
     hero,
+    testing ? h('div', { class: 'jd-dim jd-home-note', tid: 'test-banner' }, t('test.banner')) : null,
     notices,
     playerNote,
     pendingNote,

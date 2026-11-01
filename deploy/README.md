@@ -125,3 +125,12 @@ Caddy can serve the game too. Add a second site block to the Caddyfile with `roo
 - Moderation: `node --import tsx tools/moderate.ts http://127.0.0.1:4400 list --token "$MODERATION_TOKEN"` on the VPS (the token never leaves it).
 - Health fields for the SQLite trigger (`hotFileBytes`, `lastCommitMs`): `curl -s https://verify.<domain>/health`.
 - Updating Caddy: `docker compose pull caddy && docker compose up -d caddy`.
+
+## A private test link for paid playtests
+
+A tester build needs no server, no domain and no secrets, so it can go out long before the rest of this page. `npm run build:test` writes `dist-test/`: the lessons, today's yard and practice yards, with everything that needs a server out of sight, and `noindex` so search engines stay away. There is no leaderboard, no talk and no record of what testers did, so what you learn comes from what you ask them.
+
+    npm run build:test
+    npx wrangler pages deploy dist-test --project-name <project> --branch main
+
+A fix goes out the same way and reaches a tester on their next load, because this build has no service worker. The address is unlisted, not protected: anyone who has it can play. Keep it out of this repository, which is public. To take it down, delete the project in the Cloudflare dashboard.

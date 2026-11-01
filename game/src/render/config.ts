@@ -18,4 +18,7 @@ export function pickVerifierUrl(search: string, allowed: boolean, baked: string)
   return v.replace(/\/+$/, '');
 }
 export const overrideAllowed = (): boolean => overrideAllowedFor(import.meta.env.DEV, location.hostname);
+/** What a tester build bakes (scripts/build-test.mjs): nothing answers there, so the game's offline paths carry it, and its words say what it is. */
+export const NO_SERVER = 'https://verify.invalid';
+export const isTestEdition = (): boolean => import.meta.env.VERIFIER_URL === NO_SERVER;
 export const verifierUrl = (): string => pickVerifierUrl(location.search, overrideAllowed(), import.meta.env.VERIFIER_URL);

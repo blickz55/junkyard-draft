@@ -167,6 +167,12 @@ export const STRINGS = {
   'title.you': s('You: {rank}, {score}', 'strip line with your standing first'),
   'title.crewUnavailable': s("Your crew's board isn't available. Showing everyone.", 'strip line'),
   'title.offline': s("You're offline, so this is a practice yard. Your games wait here until you reconnect.", 'strip line'),
+  'test.banner': s('Test version. The art and sound are not final. Thanks for trying it.', 'home, tester build'),
+  'test.history': s('{n, plural, one {# game of yours on this yard} other {# games of yours on this yard}}.', 'results, tester build'),
+  'test.noBoard': s('No leaderboard in this test version. Your scores stay on this device.', 'strip line, tester build'),
+  'test.why': s('test version', 'practice reason, tester build'),
+  'test.resultsHead': s("That's the game.", 'results headline, tester build'),
+  'test.resultsStatus': s('This test version has no leaderboard. Your score stays on this device.', 'results status, tester build'),
   'title.offlineWhy': s('offline', 'practice reason'),
   'title.importTitle': s('Open a recording', 'dialog title'),
   'title.importLabel': s('Paste the recording. We check it before it plays.', 'dialog label'),
@@ -1199,6 +1205,17 @@ export { render, type Params };
 export const STRING_KEYS = Object.keys(STRINGS) as (keyof typeof STRINGS)[];
 
 const table: Record<string, Entry> = { ...STRINGS };
+/** A tester build has no server, and "you're offline" would read as a fault: these say what is true there instead. */
+const TEST_WORDS: readonly (readonly [keyof typeof STRINGS, keyof typeof STRINGS])[] = [
+  ['title.offline', 'test.noBoard'],
+  ['title.offlineWhy', 'test.why'],
+  ['results.headOffline', 'test.resultsHead'],
+  ['results.statusOffline', 'test.resultsStatus'],
+  ['results.historyNote', 'test.history'],
+];
+export function useTestWords(): void {
+  for (const [key, words] of TEST_WORDS) table[key] = table[words];
+}
 /** A chunk behind import() brings its own strings (strings-more.ts). */
 export function addStrings(more: Record<string, Entry>): void {
   Object.assign(table, more);

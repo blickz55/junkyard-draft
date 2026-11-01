@@ -8,6 +8,7 @@ import { t } from '../content/strings';
 import { shiftUtcDate } from '../daily/streak';
 import { isWeeklySeed, weeklyClosed } from '../sim/weekly';
 import { loadSubmissions } from './storage';
+import { isTestEdition } from './config';
 
 export interface DailyInfo {
   date: string;
@@ -117,6 +118,7 @@ export const todaySeed = (): string => cachedDaily()?.seed ?? practiceSeed();
 export async function todaysYard(verifierUrl: string): Promise<string> {
   const known = cachedDaily();
   if (known) return known.seed;
+  if (isTestEdition()) return practiceSeed();
   const d = await fetchDaily(verifierUrl);
   return d ? d.seed : practiceSeed();
 }

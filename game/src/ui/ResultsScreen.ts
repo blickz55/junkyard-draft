@@ -1,4 +1,4 @@
-import { verifierUrl as resolveVerifierUrl } from '../render/config';
+import { isTestEdition, verifierUrl as resolveVerifierUrl } from '../render/config';
 /** Results screen as DOM (DOSSIER-v1 0.4.0): score, round bars, what shipped, the checked board, submission and sharing. Every string comes from the table (0.9.0). */
 import type Phaser from 'phaser';
 import { h, btn, ui, textureImg, promptText, showText, foremanBox, setForeman } from './dom';
@@ -583,8 +583,9 @@ export function mountResults(
   };
   const loadBoard = async (keepStatus = false) => {
     entriesBox.replaceChildren();
-    void loadHistogram();
+    if (!testing) void loadHistogram();
     try {
+      if (testing) throw new Error('no server'); // straight to the offline path: nobody waits on a server that is not there
       const res = await fetch(`${verifierUrl}/board?seed=${encodeURIComponent(run.seed)}&limit=5${groupParam(verifierUrl)}`, {
         headers: groupHeaders(verifierUrl),
       });
@@ -725,7 +726,8 @@ export function mountResults(
     return { n: i >= 0 ? i + 1 : null, of: body.entries.length };
   };
   // one primary at a time: the score goes on the board first, then "Play again" takes over
-  const canSubmit = !fork && !o.replayed;
+  const testing = isTestEdition(); // no server, and no address of its own yet: nothing here can be sent anywhere or link anywhere
+  const canSubmit = !fork && !o.replayed && !testing;
   let scoreIsIn = () => {};
   const submitBtn = btn(
     t('results.submit'),
@@ -1092,9 +1094,9 @@ export function mountResults(
     header,
     group(
       'actions-play',
-      fork || o.replayed ? null : submitBtn,
+      canSubmit ? submitBtn : null,
       retryBtn,
-      shareNativeBtn ?? shareBtn,
+      testing ? null : (shareNativeBtn ?? shareBtn),
       btn(t('common.titleScreen'), 'home', () => scene.scene.start('Title')),
     ),
     status,
@@ -1127,13 +1129,15 @@ export function mountResults(
         )
       : null,
     // every other way to share waits behind one line; the quiet links last
-    h(
-      'details',
-      { class: 'jd-more', tid: 'share-more' },
-      h('summary', {}, t('results.shareMore')),
-      group('actions-share', shareNativeBtn ? shareBtn : null, detailedBtn, shareLinkLabel, cardBtn, fork ? null : challengeBtn),
-      group('actions-watch', clipBtn, gifBtn, fork ? null : exportBtn, fork ? null : downloadBtn),
-    ),
+    testing
+      ? null
+      : h(
+          'details',
+          { class: 'jd-more', tid: 'share-more' },
+          h('summary', {}, t('results.shareMore')),
+          group('actions-share', shareNativeBtn ? shareBtn : null, detailedBtn, shareLinkLabel, cardBtn, fork ? null : challengeBtn),
+          group('actions-watch', clipBtn, gifBtn, fork ? null : exportBtn, fork ? null : downloadBtn),
+        ),
     h('p', { class: 'jd-dim', tid: 'results-paint-note', style: 'font-size:0.75em; text-align:center' }, t('results.paintNote')),
     h(
       'nav',

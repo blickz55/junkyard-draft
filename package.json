@@ -20,6 +20,7 @@
     "control-room": "node control-room/server.mjs",
     "demo": "node --import tsx tools/demo.ts",
     "build": "node scripts/build.mjs",
+    "build:test": "node scripts/build-test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run test:unit && npm run test:e2e",
     "sim": "node --import tsx tools/sim-cli.ts",
