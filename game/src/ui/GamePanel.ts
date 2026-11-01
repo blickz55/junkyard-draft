@@ -17,7 +17,7 @@ import { canReroll, type RunState } from '../sim/run';
 import type { Job } from '../sim/yard';
 import { analyseRound } from '../sim/bottleneck';
 import { bottleneckLine } from '../content/bottleneck';
-import type { Machine, Material } from '../sim/types';
+import type { Machine, MachineKind, Material } from '../sim/types';
 import { RULES } from '../sim/rules';
 import { priceOf } from '../sim/yard';
 import { cellIndex } from '../sim/sim';
@@ -25,6 +25,7 @@ import { CELL, machineTexture } from '../render/textures';
 import { GRID_W, GRID_H, BOARD_W, BOARD_H, GRID_X, GRID_Y, binSlotXY } from '../render/layout';
 import { prefs } from '../render/prefs';
 import { audio } from '../render/audio';
+import { cellLine, yardLines } from '../render/mirror';
 import { loadBests } from '../render/storage';
 import { isDailySeed, isMintedDailySeed, dailyDateOf } from '../sim/daily';
 import { isWeeklySeed, weeklyClosed } from '../sim/weekly';
@@ -124,6 +125,9 @@ export class GamePanel {
   private gridLayer: HTMLElement;
   /** a refusal or a warning anchored to a grid cell (production roadmap 0.9.3); it stays until the scene clears it */
   private toastEl: HTMLElement;
+  private mirrorEl: HTMLElement;
+  private cursorEl: HTMLElement;
+  private mirrorText = '';
   /** the card a tap on a piece opens */
   private inspectEl: HTMLElement;
   private inspectRing: HTMLElement | null = null;
@@ -202,7 +206,9 @@ export class GamePanel {
     this.toastEl = h('div', { class: 'jd-toast', tid: 'toast', role: 'status', style: 'display:none' });
     this.inspectEl = h('div', { class: 'jd-inspect', style: 'display:none' });
     this.boardEl = h('div', { class: 'jd-board', tid: 'board-slot' }, this.gridLayer, this.spotLayer, this.toastEl, this.inspectEl);
-    this.root = h('div', { class: 'jd-game' }, hudBar, this.boardEl, this.side);
+    this.mirrorEl = h('ul', { class: 'jd-sr', tid: 'yard-mirror', ariaLabel: t('mirror.head') });
+    this.cursorEl = h('div', { class: 'jd-sr', tid: 'yard-cursor', role: 'status' });
+    this.root = h('div', { class: 'jd-game' }, hudBar, this.boardEl, this.side, this.mirrorEl, this.cursorEl);
     if (!document.getElementById('jd-game-style')) {
       const st = document.createElement('style');
       st.id = 'jd-game-style';
@@ -465,7 +471,23 @@ export class GamePanel {
     return recipeRow(r.job, placed);
   }
   /** Rebuild the side panel if its inputs changed. */
+  /** The yard in words for a screen reader (0.12.4): it changes with the layout, so not during a shift. */
+  private drawMirror(s: PanelState) {
+    if (s.mode === 'running') return;
+    const lines = yardLines(s.run);
+    const text = lines.join('\n');
+    if (text === this.mirrorText) return;
+    this.mirrorText = text;
+    this.mirrorEl.replaceChildren(...lines.map((l) => h('li', {}, l)));
+  }
+  announceCell(run: RunState, x: number, y: number, held: MachineKind | null) {
+    this.cursorEl.textContent = cellLine(run, x, y, held);
+  }
+  focusControls() {
+    this.root.querySelector<HTMLElement>('button:not([disabled])')?.focus();
+  }
   render(s: PanelState) {
+    this.drawMirror(s);
     const key = this.keyOf(s);
     if (key === this.key && this.side.childElementCount > 0) return;
     this.key = key;

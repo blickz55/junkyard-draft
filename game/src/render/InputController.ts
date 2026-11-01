@@ -11,7 +11,8 @@
  */
 import Phaser from 'phaser';
 import type { Action, RunState } from '../sim/run';
-import type { Machine } from '../sim/types';
+import type { Machine, MachineKind } from '../sim/types';
+import { loadKeyMap } from './storage';
 import { DIR_DX, DIR_DY, RULES } from '../sim/rules';
 import { dropActions, smartFacing } from './placement';
 import { inputTravelDirs, outputDirs } from '../sim/advice';
@@ -24,7 +25,7 @@ import { ui } from '../ui/dom';
 import { t } from '../content/strings';
 import { BIN_Y, GRID_W, GRID_X, GRID_Y } from './layout';
 import { DPR } from './dpr';
-import { CONTROLS, LONG_PRESS_MS, TAP_SLOP_PX, type ControlId } from '../content/controls';
+import { boundKey, CONTROLS, LONG_PRESS_MS, TAP_SLOP_PX, type ControlId } from '../content/controls';
 
 export interface MachineView {
   c: Phaser.GameObjects.Container;
@@ -49,6 +50,8 @@ export interface InputHost {
   readonly run: RunState;
   /** a recording is being applied (no edits) */ readonly playback: boolean;
   /** a recording is being watched */ readonly watching: boolean;
+  /** the cursor moved: say where, for a screen reader (0.12.4) */ announce(x: number, y: number, held: MachineKind | null): void;
+  /** a keyboard asks for the buttons (0.12.4) */ focusControls(): void;
   readonly tipsOpen: boolean;
   act(a: Action): boolean;
   /** several actions as one edit: all or none, one Undo reverses them */
@@ -82,7 +85,6 @@ export class InputController {
   selectedId: number | null = null;
   lastReject = '';
   toast: Toast | null = null;
-  private lastShortcutAt = 0;
   /** pointers that took part in a two-finger rotate: their release is not a tap (0.10.1) */
   private readonly multi = new Set<number>();
   private hover!: Phaser.GameObjects.Image;
@@ -243,12 +245,6 @@ export class InputController {
       e?.preventDefault();
       return true;
     };
-    // Phaser queues a modifier+key keydown twice in Chromium (two listeners, differing timeStamps slip past its own bailout); one shortcut per 30 ms
-    const once = (e: KeyboardEvent) => {
-      if (e.timeStamp - this.lastShortcutAt < 30) return false;
-      this.lastShortcutAt = e.timeStamp;
-      return true;
-    };
     // the action table (content/controls.ts): each control's keys call its handler; the Tips panel lists the same table
     const handlers: Record<ControlId, (key: string, e: KeyboardEvent) => void> = {
       pick: (key) => {
@@ -271,13 +267,13 @@ export class InputController {
         if (gridKeys(e)) this.keyDelete();
       },
       undo: (_key, e) => {
-        if (once(e) && gridKeys()) {
+        if (gridKeys()) {
           e.preventDefault();
           this.host.undo();
         }
       },
       redo: (_key, e) => {
-        if (once(e) && gridKeys()) {
+        if (gridKeys()) {
           e.preventDefault();
           this.host.redo();
         }
@@ -303,13 +299,28 @@ export class InputController {
       mute: () => {
         if (gridKeys()) audio.setMuted(!audio.muted);
       },
+      // Tab belongs to the shelf here, so this is how a keyboard reaches the Menu and the rest; pressed again, or Esc, it comes back to the yard (0.12.4)
+      panel: (_key, e) => {
+        if (this.host.tipsOpen || ui.dialogOpen) return;
+        e.preventDefault();
+        if (domFocus()) (document.activeElement as HTMLElement).blur();
+        else this.host.focusControls();
+      },
     };
+    const moved = loadKeyMap(); // the keys a player moved (0.12.4): a handler still hears its own slot
     for (const c of CONTROLS)
-      for (const b of c.keys)
-        kb?.on(`keydown-${b.key}`, (e: KeyboardEvent) => {
-          if (!!b.ctrl !== (e.ctrlKey || e.metaKey) || !!b.shift !== e.shiftKey) return; // a chord binds only its own modifiers
+      for (const b of c.keys) {
+        const bound = boundKey(c, b, moved);
+        // Phaser replays its whole queue on each new event until the frame ends and only knows the last one by sight, so three events in a frame fire
+        // the first again: a quick double tap at 30 frames a second moves a cell too far. An event is heard once, per binding, because two may share a key.
+        const heard = new WeakSet<KeyboardEvent>();
+        kb?.on(`keydown-${bound.key}`, (e: KeyboardEvent) => {
+          if (heard.has(e)) return;
+          heard.add(e);
+          if (!!bound.ctrl !== (e.ctrlKey || e.metaKey) || !!bound.shift !== e.shiftKey) return; // a chord binds only its own modifiers
           handlers[c.id](b.key, e);
         });
+      }
     const onBlur = () => {
       if (this.mode === 'running') this.host.setPaused(true);
     };
@@ -515,6 +526,7 @@ export class InputController {
     }
     if (this.heldId != null) this.host.syncMachines();
     else this.updateCursor();
+    this.host.announce(this.cursor.x, this.cursor.y, this.machineById(this.heldId)?.kind ?? null);
   }
   private updateCursor() {
     if (!this.cursor || this.mode !== 'build') {

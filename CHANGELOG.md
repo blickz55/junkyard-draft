@@ -5,6 +5,12 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### 0.12.4 keys, a yard you can hear, and focus that behaves — 2026-11-01 (no rules change, protocol 3)
+- **Choose your keys.** Settings, Keys: click a key, press the new one. A key already in use says so. One button puts them all back.
+- **The yard reads aloud.** A screen reader now gets every machine, which way it faces and whether it leads anywhere, and the keyboard's cursor says where it is.
+- **Fixed: a quick double tap could count three times** on a slow screen, moving the cursor too far or turning a machine twice.
+- **F6 reaches the buttons from the yard**, which the keyboard could not do before, and comes back. Tab now stays inside every dialog.
+
 ### 0.11.7 hear when someone answers — 2026-11-01 (no rules change, protocol 3: additive)
 - With the daily reminder on, you can also ask to hear when someone answers you in the talk or beats your score. Off until you ask, at most three a day, none at night, and never who or what. The inbox has the rest.
 

@@ -27,6 +27,7 @@ test('controls: ids are unique, every row has its four texts, every bound key is
     ESC: /Esc/,
     PERIOD: /\. key/,
     M: /\bM\b/,
+    F6: /F6/,
   };
   for (const c of CONTROLS) {
     const row = rows.find((r) => r.id === c.id)!;

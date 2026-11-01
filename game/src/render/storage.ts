@@ -5,6 +5,7 @@ import { isValidSeed, validateAction, type Action } from '../sim/run';
 import type { ReplayFile } from '../sim/replay';
 import { RULES_VERSION } from '../sim/types';
 import { dailySeed } from '../sim/daily';
+import type { KeyMap } from '../content/controls';
 import { lookFrom, PLAIN, type Look } from '../content/cosmetics';
 import { normaliseDates, streakOf } from '../daily/streak';
 import { cleanPlayer } from './share';
@@ -37,6 +38,7 @@ const K = {
   watched: 'jd.watched.v1',
   trophies: 'jd.trophies.v1',
   look: 'jd.look.v1',
+  keys: 'jd.keys.v1',
   linked: 'jd.linked.v1',
 };
 /**
@@ -714,6 +716,16 @@ export function loadLook(): Look {
   return isObj(raw) ? lookFrom(Object.values(raw)) : PLAIN;
 }
 export const recordLook = (look: Look) => write(K.look, look);
+
+/** The keys this device moved (0.12.4). A keyboard belongs to the machine in front of you, so they stay out of what signs in with you. */
+export function loadKeyMap(): KeyMap {
+  const raw = readRaw(K.keys);
+  if (!isObj(raw)) return {};
+  return Object.fromEntries(
+    Object.entries(raw).filter((e): e is [string, KeyMap[string]] => isObj(e[1]) && typeof (e[1] as { key?: unknown }).key === 'string'),
+  );
+}
+export const saveKeyMap = (map: KeyMap) => write(K.keys, map);
 
 /** Who watched a checked game of this device (0.11.4), as last learnt on its results. */
 export interface WatchedRecord {

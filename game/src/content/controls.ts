@@ -6,7 +6,8 @@
  */
 import { t, type StringKey } from './strings';
 
-export type ControlId = 'pick' | 'hold' | 'place' | 'move' | 'select' | 'rotate' | 'toShelf' | 'undo' | 'redo' | 'start' | 'pause' | 'step' | 'next' | 'mute';
+export type ControlId =
+  'pick' | 'hold' | 'place' | 'move' | 'select' | 'rotate' | 'toShelf' | 'undo' | 'redo' | 'start' | 'pause' | 'step' | 'next' | 'mute' | 'panel';
 
 /** a Phaser key name (`keydown-<key>`) with the modifiers it needs; a binding without modifiers ignores a chord */
 export interface KeyBinding {
@@ -43,7 +44,63 @@ export const CONTROLS: readonly Control[] = [
   { id: 'step', keys: [{ key: 'PERIOD' }], placement: false },
   { id: 'next', keys: [{ key: 'SPACE' }], placement: false },
   { id: 'mute', keys: [{ key: 'M' }], placement: false },
+  { id: 'panel', keys: [{ key: 'F6' }], placement: false },
 ];
+
+/**
+ * What the player moved (0.12.4), by slot: one key of one action. A handler goes on hearing the slot's own key, so moving one changes what fires
+ * it and nothing else.
+ */
+export type KeyMap = Record<string, KeyBinding>;
+export const slotId = (c: Control, b: KeyBinding) => `${c.id}.${b.ctrl ? 'ctrl+' : ''}${b.shift ? 'shift+' : ''}${b.key}`;
+export const boundKey = (c: Control, b: KeyBinding, map: KeyMap): KeyBinding => map[slotId(c, b)] ?? b;
+
+const KEY_WORDS: Readonly<Record<string, StringKey>> = {
+  SPACE: 'keys.space',
+  ENTER: 'keys.enter',
+  TAB: 'keys.tab',
+  ESC: 'keys.esc',
+  DELETE: 'keys.delete',
+  BACKSPACE: 'keys.backspace',
+  UP: 'keys.up',
+  DOWN: 'keys.down',
+  LEFT: 'keys.left',
+  RIGHT: 'keys.right',
+  INSERT: 'keys.insert',
+  HOME: 'keys.home',
+  END: 'keys.end',
+  PAGE_UP: 'keys.pageUp',
+  PAGE_DOWN: 'keys.pageDown',
+};
+const KEY_MARKS: Readonly<Record<string, string>> = {
+  ZERO: '0',
+  ONE: '1',
+  TWO: '2',
+  THREE: '3',
+  FOUR: '4',
+  FIVE: '5',
+  SIX: '6',
+  SEVEN: '7',
+  EIGHT: '8',
+  NINE: '9',
+  PERIOD: '.',
+  COMMA: ',',
+  MINUS: '-',
+  PLUS: '=',
+  SEMICOLON: ';',
+  FORWARD_SLASH: '/',
+  BACK_SLASH: '\\',
+  QUOTES: "'",
+  BACKTICK: '`',
+  OPEN_BRACKET: '[',
+  CLOSED_BRACKET: ']',
+};
+/** A key as the player reads it. */
+export function keyLabel(b: KeyBinding): string {
+  const name = KEY_WORDS[b.key] ? t(KEY_WORDS[b.key]) : (KEY_MARKS[b.key] ?? b.key);
+  const shifted = b.shift ? t('keys.shift', { key: name }) : name;
+  return b.ctrl ? t('keys.ctrl', { key: shifted }) : shifted;
+}
 
 /** How long a finger rests on a machine before it starts to drag (a shorter touch is a tap). */
 export const LONG_PRESS_MS = 250;
@@ -58,11 +115,17 @@ export interface ControlRow {
   touch: string;
 }
 const key = (id: ControlId, part: 'label' | 'keys' | 'mouse' | 'touch') => `controls.${id}.${part}` as StringKey;
+/** The usual words, until the player moves a key of this action: then the keys themselves, so the page never tells them to press what no longer works. */
+function keysText(c: Control, map: KeyMap): string {
+  if (c.keys.some((b) => map[slotId(c, b)])) return c.keys.map((b) => keyLabel(boundKey(c, b, map))).join(', ');
+  const place = CONTROLS.find((p) => p.id === 'place')!;
+  return t(key(c.id, 'keys'), { enter: keyLabel(boundKey(place, { key: 'ENTER' }, map)) });
+}
 /** The table as the player reads it (built on each call so the pseudo-locale applies). */
-export const controlRows = (): ControlRow[] =>
-  CONTROLS.map((c) => ({ id: c.id, label: t(key(c.id, 'label')), keys: t(key(c.id, 'keys')), mouse: t(key(c.id, 'mouse')), touch: t(key(c.id, 'touch')) }));
+export const controlRows = (map: KeyMap = {}): ControlRow[] =>
+  CONTROLS.map((c) => ({ id: c.id, label: t(key(c.id, 'label')), keys: keysText(c, map), mouse: t(key(c.id, 'mouse')), touch: t(key(c.id, 'touch')) }));
 /** The build panel's keyboard line: the placement actions and their keys. */
-export const keyboardHelpList = (): string =>
+export const keyboardHelpList = (map: KeyMap = {}): string =>
   CONTROLS.filter((c) => c.placement)
-    .map((c) => `${t(key(c.id, 'label'))}: ${t(key(c.id, 'keys'))}`)
+    .map((c) => `${t(key(c.id, 'label'))}: ${keysText(c, map)}`)
     .join(' · ');

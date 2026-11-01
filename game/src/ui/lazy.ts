@@ -1,13 +1,18 @@
 /** Everything ui/panels.ts opens: one chunk, loaded the first time any of them is. */
+export { openArchive } from './ArchivePanel';
 export { openDivision } from './DivisionPanel';
 export { openFriends } from './FriendsPanel';
 export { openEmailLink, openLinkLanding } from './EmailLink';
+export { openGroups } from './GroupsPanel';
 export { openHub } from './HubPanel';
 export { openInbox } from './InboxPanel';
+export { openKeys } from './KeysPanel';
 export { openMessages } from './MessagesPanel';
 export { openPaint } from './PaintPanel';
 export { openPlayerCard } from './PlayerCardPanel';
 export { openPolicy } from './PolicyPanel';
 export { openPrivacy } from './PrivacyPanel';
+export { openRecord } from './RecordPanel';
 export { openReminder } from './ReminderPanel';
+export { openSettings } from './SettingsPanel';
 export { openThread } from './ThreadPanel';

@@ -39,6 +39,30 @@ export interface Attrs {
   onInput?: (e: Event) => void;
 }
 
+const FOCUSABLE = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  'summary',
+  '[tabindex="0"]',
+].join();
+/** Tab goes round a dialog: what lies behind it is dimmed and does not answer, so a keyboard must not wander there (0.12.4). */
+function keepFocusIn(layer: HTMLElement, e: KeyboardEvent) {
+  if (e.key !== 'Tab') return;
+  const all = [...layer.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((x) => x.offsetParent !== null);
+  if (!all.length) return;
+  const first = all[0],
+    last = all[all.length - 1];
+  const at = document.activeElement as HTMLElement | null;
+  const outside = !at || !layer.contains(at);
+  if (outside || (e.shiftKey ? at === first : at === last)) {
+    e.preventDefault();
+    (e.shiftKey ? last : first).focus();
+  }
+}
+
 /** Tiny element builder: h('button', { class: 'jd-btn', tid: 'daily', onClick }, 'Today\'s challenge'). */
 export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...children: Child[]): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
@@ -217,6 +241,7 @@ const STYLE = `
 @media (max-height: 760px) { #ui .jd-home-today .jd-recipe { display: none; } #ui [data-testid=today-job] { min-height: 6.6em; } }
 @media (max-height: 520px) and (orientation: landscape) { #ui [data-testid=today-job] { min-height: 0; } #ui .jd-hero { padding: 0.25em 0.8em; min-height: 0; } #ui .jd-wordmark { font-size: 1.5em; } #ui .jd-tagline, #ui .jd-hero .jd-foreman, #ui .jd-home-today .jd-job-flavour, #ui .jd-home-today .jd-recipe, #ui .jd-home-rank { display: none; } #ui .jd-hero-side { flex: 0 0 auto; } #ui .jd-job-goal { font-size: 1.5em; } }
 @media (max-width: 760px) { #ui .jd-home-main { grid-template-columns: minmax(0, 1fr); } #ui .jd-wordmark { font-size: 2.5em; } #ui .jd-hero { padding: 0.8em 1em; } #ui .jd-hero-side { flex: 1 1 100%; } #ui .jd-hero-corner { justify-content: space-between; } }
+#ui .jd-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 #ui .jd-link { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; pointer-events: auto; }
 #ui .jd-link:focus-visible { outline: 2px solid ${CSS.amber}; outline-offset: 2px; }
 #ui .jd-foreman { display: flex; gap: 0.6em; align-items: baseline; border-left: 3px solid ${CSS.amber}; background: rgba(240, 168, 48, 0.08); padding: 0.3em 0.7em; font-size: 0.875em; }
@@ -392,6 +417,7 @@ class UiLayer {
     if (!this.root) return;
     this.sync();
     this.root.append(el);
+    el.addEventListener('keydown', (e) => keepFocusIn(el, e));
   }
   /** Hide the whole DOM overlay (kept for callers that draw something Phaser-side above the canvas). */
   setHidden(hidden: boolean) {
@@ -494,14 +520,6 @@ export function dialog(scene: Phaser.Scene, o: DialogOptions): Promise<string | 
       } else if (e.key === 'Enter' && (!o.multiline || e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         finish(field.value);
-      } else if (e.key === 'Tab') {
-        // keep focus inside the dialog
-        const f = ([field, ...extras, cancelBtn, okBtn] as (HTMLElement | null)[]).filter((x): x is HTMLElement => x != null);
-        const i = f.indexOf(document.activeElement as HTMLElement);
-        if (i >= 0) {
-          e.preventDefault();
-          f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length]?.focus();
-        }
       }
     });
     ui.layer(scene, layer);

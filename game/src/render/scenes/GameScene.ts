@@ -487,6 +487,8 @@ export class GameScene extends Phaser.Scene {
       actAll: (actions) => this.actAll(actions),
       inspect: (target) => this.inspect(target),
       syncMachines: () => this.syncMachines(),
+      announce: (x, y, held) => this.panel.announceCell(this.run, x, y, held),
+      focusControls: () => this.panel.focusControls(),
       renderSide: () => this.renderSide(),
       startRun: () => this.startRun(),
       nextRound: () => this.nextRound(),

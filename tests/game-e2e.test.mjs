@@ -234,7 +234,7 @@ test(
     assert.deepEqual(await undoBtn(), { undo: 1, redo: 0.4 }, 'Undo enabled after an edit, Redo disabled');
     await page.keyboard.press('Control+z');
     await when((id) => window.__jd.state().layout.machines.find((mm) => mm.id === id)?.dir === 0, kbConv.id, 5000);
-    await frames(3); // the next shortcut must land more than 30 ms after this one: the controller drops a repeated modifier chord
+    await frames(3);
     assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id).dir, 0, 'Ctrl+Z restores the previous facing');
     assert.deepEqual(await undoBtn(), { undo: 1, redo: 1 }, 'Redo enabled after an undo');
     await page.keyboard.press('Control+z');

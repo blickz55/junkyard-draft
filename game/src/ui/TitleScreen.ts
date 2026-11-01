@@ -36,9 +36,22 @@ import { playerLabel } from './identityDialog';
 import { loadIdentity, fetchClaimed, bearerAllowed } from '../render/identity';
 import { HIDDEN_LABEL } from '../identity/identity';
 import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWeekly, todaysYard } from '../render/daily';
-import { openArchive } from './ArchivePanel';
-import { openRecord } from './RecordPanel';
-import { openDivision, openFriends, openHub, openInbox, openLinkLanding, openPaint, openPolicy, openPrivacy, openReminder, openThread } from './panels';
+import {
+  openArchive,
+  openDivision,
+  openFriends,
+  openGroups,
+  openHub,
+  openInbox,
+  openLinkLanding,
+  openPaint,
+  openPolicy,
+  openPrivacy,
+  openRecord,
+  openReminder,
+  openSettings,
+  openThread,
+} from './panels';
 import { syncNow, takeLinkToken } from '../render/link';
 import { hasInbox, loadInbox } from '../render/inbox';
 import { isFresh, latestPlacement } from '../render/divisions';
@@ -46,13 +59,11 @@ import { periodLabel, placeLine } from '../content/division';
 import { reactionLine, type ReactionCounts } from '../content/reactions';
 import { flushPending, describeOutcomes } from '../render/pending';
 import { loadPending } from '../render/storage';
-import { openGroups } from './GroupsPanel';
 import { groupHeaders, groupParam, loadGroup, saveGroup } from '../render/groups';
 import { t } from '../content/strings';
 import { pwa } from '../render/pwa';
 import { money, int, localHour } from '../content/format';
 import { pushSupported, loadReminder } from '../render/push';
-import { openSettings } from './SettingsPanel';
 import { openHowTo } from './HowTo';
 import { recipeRow, starRow } from './JobCard';
 import { choiceDialog } from './choice';

@@ -14,7 +14,7 @@ import { artFrame, artIsReady } from '../render/atlas';
 import { withArt } from './opening';
 import { beltShape } from '../render/placement';
 import { P } from '../render/palette';
-import { loadReadTips, markTipRead } from '../render/storage';
+import { loadKeyMap, loadReadTips, markTipRead } from '../render/storage';
 import { prefs } from '../render/prefs';
 import { telemetry } from '../render/telemetry';
 import { btn, h, ui } from './dom';
@@ -267,7 +267,7 @@ export function controlsTable(): HTMLElement {
     h(
       'tbody',
       {},
-      ...controlRows().map((r) =>
+      ...controlRows(loadKeyMap()).map((r) =>
         h('tr', { tid: `control-${r.id}` }, h('td', { style: 'font-weight:700' }, r.label), h('td', {}, r.keys), h('td', {}, r.mouse), h('td', {}, r.touch)),
       ),
     ),

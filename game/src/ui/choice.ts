@@ -70,12 +70,6 @@ export function choiceDialog(scene: Phaser.Scene, o: ChoiceOptions): () => void 
     if (e.key === 'Escape') {
       e.preventDefault();
       dismiss();
-    } else if (e.key === 'Tab') {
-      const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
-      if (i >= 0) {
-        e.preventDefault();
-        buttons[(i + (e.shiftKey ? -1 : 1) + buttons.length) % buttons.length].focus();
-      }
     }
   });
   ui.layer(scene, layer);

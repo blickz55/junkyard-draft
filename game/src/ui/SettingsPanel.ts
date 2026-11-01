@@ -13,7 +13,7 @@ import { loadSettings, updateSettings } from '../render/storage';
 import { chatter } from '../content/foreman';
 import { t, type StringKey } from '../content/strings';
 import { playerLabel, identityDialog } from './identityDialog';
-import { openEmailLink, openPrivacy } from './panels';
+import { openEmailLink, openKeys, openPrivacy } from './panels';
 import { loadLinked } from '../render/storage';
 
 const section = (title: string, ...rows: HTMLElement[]) => h('section', { class: 'jd-set-section' }, h('div', { class: 'jd-head' }, title), ...rows);
@@ -220,7 +220,16 @@ export function openSettings(scene: Phaser.Scene, verifierUrl: string, restart: 
       row('', quiet),
       soundTest,
     ),
-    section(t('settings.display'), row(t('title.motion'), motionBtn), row(t('title.textSize'), textBtn), row('', qualityBtn)),
+    section(
+      t('settings.display'),
+      row(t('title.motion'), motionBtn),
+      row(t('title.textSize'), textBtn),
+      row('', qualityBtn),
+      row(
+        t('keys.head'),
+        btn(t('keys.open'), 'settings-keys', () => openKeys(scene), { small: true }),
+      ),
+    ),
     section(t('settings.player'), row(t('home.name'), playerBtn), playerNote, row(t('settings.email'), linkBtn), row(t('settings.sal'), chatterBtn)),
     section(
       t('settings.data'),
