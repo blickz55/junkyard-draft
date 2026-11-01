@@ -6,13 +6,22 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DEFAULT_VERIFIER_URL } from '../scripts/esbuild-config.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const EXE = path.join(ROOT, 'release', 'win-unpacked', 'Junkyard Draft.exe');
+// the packaged app talks to the default address: with `npm run demo` up it would claim this test's name in the demo, and its name would come back with a tag
+const answered = await fetch(`${DEFAULT_VERIFIER_URL}/health`, { signal: AbortSignal.timeout(500) }).then(
+  () => true,
+  () => false,
+);
 
 test(
   'packaged desktop app: launches, plays a round, no page errors',
-  { skip: !fs.existsSync(EXE) && 'no packaged build (npm run desktop:pack)', timeout: 90000 },
+  {
+    skip: (!fs.existsSync(EXE) && 'no packaged build (npm run desktop:pack)') || (answered && 'a server answers on the default address (npm run demo?)'),
+    timeout: 90000,
+  },
   async () => {
     const { _electron: electron } = await import('playwright');
     const app = await electron.launch({

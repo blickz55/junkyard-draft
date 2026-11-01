@@ -20,7 +20,7 @@ const MAX_QUEUE = 200;
 const defaultSender: Sender = async (url, body, beacon) => {
   try {
     if (beacon && typeof navigator !== 'undefined' && navigator.sendBeacon) return navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
-    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: beacon });
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }); // a send under way when the page closes still arrives
     return r.ok;
   } catch {
     return false;
@@ -155,6 +155,20 @@ class Telemetry {
     if (seed.startsWith('daily-')) this.track('daily_start');
   }
 
+  private eventsUrl(): string {
+    return `${this.urlProvider().replace(/\/$/, '')}/events`;
+  }
+  /**
+   * The page is going, and a tester who quits never boots it again: what is queued leaves now, even with a send under way (found on the
+   * live link: a send still on its way swallowed everything after it). If they do come back the next boot sends it again, and the store
+   * counts an id once.
+   */
+  private sendOnLeaving() {
+    const st = loadTelemetryState();
+    if (!st.installId || this.queue.length === 0) return;
+    void this.sender(this.eventsUrl(), JSON.stringify({ installId: st.installId, consent: true, events: this.queue.slice(-MAX_BATCH) }), true);
+  }
+
   /** Send the queue as one batch. Keeps the queue on failure (bounded). */
   flush(beacon = false): Promise<boolean> {
     if (this.flushing) return this.flushing;
@@ -162,9 +176,8 @@ class Telemetry {
     if (!this.enabled || !st.installId || this.queue.length === 0) return Promise.resolve(true);
     const events = this.queue.splice(0, MAX_BATCH);
     const body = JSON.stringify({ installId: st.installId, consent: true, events });
-    const url = `${this.urlProvider().replace(/\/$/, '')}/events`;
     const gen = this.generation;
-    this.flushing = this.sender(url, body, beacon).then((ok) => {
+    this.flushing = this.sender(this.eventsUrl(), body, beacon).then((ok) => {
       if (gen !== this.generation) return ok; // consent was withdrawn meanwhile: discard the outcome, restore nothing
       if (ok) this.sent += events.length;
       else this.queue.unshift(...events.slice(0, MAX_QUEUE - this.queue.length));
@@ -175,7 +188,7 @@ class Telemetry {
     return this.flushing;
   }
 
-  /** Call once at boot in the browser: resend what an earlier page left unsent, record app_start, and queue session_end on page hide (sent by the next boot). */
+  /** Call once at boot in the browser: resend what an earlier page left unsent, record app_start, and queue session_end on page hide (sent by the next boot; a tester build sends it then and there). */
   init() {
     this.startedAt = Date.now();
     if (this.enabled) {
@@ -191,7 +204,7 @@ class Telemetry {
       window.addEventListener('pagehide', () => {
         if (!this.enabled) return;
         this.track('session_end', { minutes: Math.round((Date.now() - this.startedAt) / 60000) });
-        if (this.eager) void this.flush(true);
+        if (this.eager) this.sendOnLeaving();
       });
     }
   }

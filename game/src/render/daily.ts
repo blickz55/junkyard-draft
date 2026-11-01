@@ -99,6 +99,7 @@ export interface WeeklyInfo {
 }
 /** This week's minted seed from the verifier; null when unreachable or malformed. */
 export async function fetchWeekly(verifierUrl: string, timeoutMs = 2500): Promise<WeeklyInfo | null> {
+  if (isTestEdition()) return null;
   try {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), timeoutMs);

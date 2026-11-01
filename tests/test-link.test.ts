@@ -225,6 +225,10 @@ test('the report says where a lesson or a game was finished, and has something t
     s.stops.map((x) => x.where),
     ['Finished a game, then left', 'Finished lesson 3, then left', "Today's yard, shift 1"],
   );
+  assert.match(
+    render(summarize([row(LOOKED, 'tutorial_step_start', { n: 2 }, at(0)), row(LOOKED, 'tutorial_step_complete', { n: 2 }, at(1))], [])),
+    /^PLAYTEST: 1 tester,[^]*\(1 tester\)/,
+  );
   const empty = render(summarize([], []));
   assert.match(empty, /^PLAYTEST: 0 testers/);
   assert.match(empty, /WHERE THEY STOPPED\n {2}nobody yet/);

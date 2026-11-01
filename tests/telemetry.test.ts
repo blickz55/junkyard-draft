@@ -223,6 +223,25 @@ test('a tester build (eager) sends within seconds and on leaving: a tester who q
     const last = sends[sends.length - 1];
     assert.equal(last.beacon, true, 'what happened last goes out as the page closes');
     assert.match(last.body, /session_end/);
+
+    // a send that has not been answered must not hold back what the page says last
+    let answer: (ok: boolean) => void = () => {};
+    telemetry.configure({
+      sender: (_url, body, beacon) => {
+        sends.push({ body, beacon });
+        return beacon ? Promise.resolve(true) : new Promise((r) => (answer = r));
+      },
+    });
+    telemetry.track('tip_opened', { id: 'under-way' });
+    void telemetry.flush();
+    telemetry.track('tip_opened', { id: 'after-it' });
+    page.dispatchEvent(new Event('pagehide'));
+    const leaving = sends[sends.length - 1];
+    assert.equal(leaving.beacon, true);
+    assert.match(leaving.body, /after-it/);
+    assert.match(leaving.body, /session_end/);
+    answer(true);
+    await telemetry.flush();
   } finally {
     mock.timers.reset();
     delete (globalThis as unknown as { window?: EventTarget }).window;

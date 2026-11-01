@@ -31,6 +31,8 @@ const db = standInD1();
 let server;
 let url;
 let browser;
+/** While set, the store takes a batch at once and its answer waits: a phone on a slow network with a send under way. */
+let slowAnswers = null;
 /** Woken by every POST: a browser test waits for a condition and never sleeps. */
 const waiting = new Set();
 const arrived = async (done) => {
@@ -49,10 +51,12 @@ before(async () => {
       for await (const chunk of req) body.push(chunk);
       const env = { DB: db, ASSETS: { fetch: async () => new Response('not found', { status: 404 }) } };
       const answer = await worker.fetch(new Request(`http://x${p}`, { method: 'POST', body: Buffer.concat(body) }), env);
-      res.writeHead(answer.status, { 'Content-Type': 'application/json' });
-      res.end(await answer.text());
+      const text = await answer.text();
       for (const wake of waiting) wake();
       waiting.clear();
+      await slowAnswers;
+      res.writeHead(answer.status, { 'Content-Type': 'application/json' });
+      res.end(text);
       return;
     }
     const f = path.join(dist, p === '/' ? 'index.html' : decodeURIComponent(p));
@@ -96,7 +100,11 @@ test(
     const page = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
     const errors = [];
     const sent = [];
+    const nowhere = [];
     page.on('pageerror', (e) => errors.push(String(e)));
+    page.on('request', (r) => {
+      if (new URL(r.url()).hostname === new URL(NO_SERVER).hostname) nowhere.push(r.url());
+    });
     page.on('request', (r) => {
       if (r.method() === 'POST' && new URL(r.url()).pathname === '/verify') sent.push(r.url());
     });
@@ -126,6 +134,7 @@ test(
       assert.equal(await page.locator(`[data-testid=${tid}]`).count(), 0, `${tid} leads nowhere here`);
     assert.equal(await page.getByTestId('retry').evaluate((e) => e.classList.contains('jd-btn-primary')), true, 'playing again is the one thing to do');
     assert.deepEqual(sent, [], 'no game is sent anywhere');
+    assert.deepEqual(nowhere, [], 'nothing asks a server that is not there');
     assert.deepEqual(errors, [], 'no page errors');
     assert.equal(await page.getByTestId('feedback').textContent(), 'Give feedback (1 min)');
     const install = await installOf(page);
@@ -149,7 +158,9 @@ test('the lesson plays from Home in this build, and the job card comes first', {
   await page.context().close();
 });
 
-test('a tester who leaves in the middle of a lesson is on record at the step they left, by the time the page is gone', { timeout: 30000 }, async () => {
+test('a tester who leaves in the middle of a lesson is on record at the step they left, even with a send still under way', { timeout: 30000 }, async () => {
+  let answer;
+  slowAnswers = new Promise((r) => (answer = r));
   const page = await (await browser.newContext(PHONE)).newPage();
   await page.goto(url);
   await page.getByTestId('learn').click();
@@ -158,6 +169,8 @@ test('a tester who leaves in the middle of a lesson is on record at the step the
   const install = await installOf(page);
   await page.goto('about:blank');
   await arrived(() => eventsOf(install).some((e) => e.name === 'session_end'));
+  slowAnswers = null;
+  answer();
   const s = summarize(eventsOf(install), []);
   assert.equal(count(s, 'Started lesson 1'), 1);
   assert.deepEqual(s.stops, [{ where: 'Lesson 1, shift 1: place the conveyor', testers: 1 }]);

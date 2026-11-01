@@ -172,10 +172,11 @@ export function summarize(events: readonly EventRow[], feedback: readonly Feedba
 
 /** The report as plain text. */
 export function render(s: Summary): string {
+  const people = (n: number) => `${n} tester${n === 1 ? '' : 's'}`;
   const pct = (n: number) => (s.testers ? `${Math.round((100 * n) / s.testers)} %` : '-');
   const tally = (t: Record<string, number>) => `yes ${t.yes}, maybe ${t.maybe}, no ${t.no}`;
   const out = [
-    `PLAYTEST: ${s.testers} testers, ${s.answered} answered the survey, about ${s.medianMinutes} minutes of play for the middle tester`,
+    `PLAYTEST: ${people(s.testers)}, ${s.answered} answered the survey, about ${s.medianMinutes} minutes of play for the middle tester`,
     '',
     'HOW FAR THEY GOT',
   ];
@@ -184,7 +185,7 @@ export function render(s: Summary): string {
   for (const x of s.stops) out.push(`  ${String(x.testers).padStart(4)}  ${x.where}`);
   if (!s.stops.length) out.push('  nobody yet');
   out.push('', 'SLOWEST LESSON STEPS (the middle tester)');
-  for (const x of s.slowest) out.push(`  ${String(x.seconds).padStart(4)} s  ${x.step} (${x.testers} testers)`);
+  for (const x of s.slowest) out.push(`  ${String(x.seconds).padStart(4)} s  ${x.step} (${people(x.testers)})`);
   if (!s.slowest.length) out.push('  nothing yet');
   out.push(
     '',
