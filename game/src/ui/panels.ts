@@ -19,6 +19,7 @@ export const openDivision = (...args: Parameters<Panels['openDivision']>) => ope
 export const openInbox = (...args: Parameters<Panels['openInbox']>) => opening(args[0], (m) => m.openInbox(...args));
 export const openThread = (...args: Parameters<Panels['openThread']>) => opening(args[0], (m) => m.openThread(...args));
 export const openHub = (...args: Parameters<Panels['openHub']>) => opening(args[0], (m) => m.openHub(...args));
+export const openPlayerCard = (...args: Parameters<Panels['openPlayerCard']>) => opening(args[0], (m) => m.openPlayerCard(...args));
 export const openFriends = (...args: Parameters<Panels['openFriends']>) => opening(args[0], (m) => m.openFriends(...args));
 export const openMessages = (...args: Parameters<Panels['openMessages']>) => opening(args[0], (m) => m.openMessages(...args));
 export const openEmailLink = (...args: Parameters<Panels['openEmailLink']>) => opening(args[0], (m) => m.openEmailLink(...args));

@@ -5,6 +5,11 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### 0.11.13 profiles — 2026-11-01 (no rules change, protocol 3: additive)
+- **See who you are up against.** Profile on a row of the board, or the name on a post, shows when a player arrived, what they have won and their three best games, with Beat this on each.
+- **Yours to hide.** Show my profile in Privacy & data leaves only your name there, for everyone. Your scores stay on the boards.
+- A game from before you signed in on a device now counts as yours everywhere it should: on your profile, as your own game, and when someone adds you from it.
+
 ### 0.11.10 the community hub — 2026-11-01 (no rules change, protocol 3: additive)
 - **A place to talk beyond the day.** Community on Home opens four categories: Strategies, Show your yard, Help and bugs, Off-shift. They also read as plain web pages, with nothing to install. Past days with a talk are listed there too.
 - **Show a game.** Attach your latest game to a post. On the web page it shows who and how much, with a way into the game.

@@ -1043,6 +1043,8 @@ export const STRINGS = {
   'friends.asked': s('Asked', 'the same button after pressing it'),
   'friends.needName': s('Choose a name first', 'the same button when this device has no name'),
   'results.friendsHere': s('Friends on this yard: {list}', 'under the chart of scores'),
+  'results.profile': s('Profile', 'button on a row of the board: who is this player'),
+  'results.profileTitle': s("See {player}'s profile", 'tooltip'),
   'home.inboxUnread': s('Inbox ({n})', 'home footer, with the number of new lines'),
   'settings.email': s('Email', 'settings row'),
   'link.open': s('Sign in with email', 'settings button'),

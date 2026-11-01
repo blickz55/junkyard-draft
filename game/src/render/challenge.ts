@@ -29,12 +29,12 @@ export function challengeLink(hash: string): string {
   return buildChallengeLink(location.origin, location.pathname, hash, override);
 }
 
-/** Fetch the challenger's entry; null when unknown, offline, or without per-round earnings. */
-export async function fetchChallenge(verifierUrl: string, hash: string, timeoutMs = 4000): Promise<Challenge | null> {
+/** Fetch the challenger's entry; null when unknown, offline, or without per-round earnings. An old game whose recording was not kept is found by its yard. */
+export async function fetchChallenge(verifierUrl: string, hash: string, timeoutMs = 4000, seed?: string): Promise<Challenge | null> {
   try {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), timeoutMs);
-    const res = await fetch(`${verifierUrl}/entry?hash=${encodeURIComponent(hash)}`, { signal: ctl.signal });
+    const res = await fetch(`${verifierUrl}/entry?hash=${encodeURIComponent(hash)}${seed ? `&seed=${encodeURIComponent(seed)}` : ''}`, { signal: ctl.signal });
     clearTimeout(t);
     if (!res.ok) return null;
     const b = (await res.json()) as { ok?: boolean; seed?: string; player?: string; score?: number; rounds?: unknown; replayHash?: string };

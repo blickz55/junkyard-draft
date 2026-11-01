@@ -36,7 +36,7 @@ import { labelFor } from '../identity/identity';
 import { todaySeed, revealGate, todayUTC } from '../render/daily';
 import { shiftUtcDate } from '../daily/streak';
 import { medalFor, medalsLine, type Medals } from '../daily/medals';
-import { openPolicy, openPrivacy, openThread } from './panels';
+import { openPlayerCard, openPolicy, openPrivacy, openThread } from './panels';
 import { reactionLine, reactionTotal, type ReactionCounts } from '../content/reactions';
 import { loadReactions } from '../render/reactions';
 import { friendButton, reactionBar, talkButton } from './ReactionBar';
@@ -588,6 +588,7 @@ export function mountResults(
           stars?: number;
           finalMachines?: number;
           reactions?: ReactionCounts;
+          playerId?: string;
         }[];
         tieBreak?: string;
       };
@@ -624,7 +625,16 @@ export function mountResults(
           { small: true, title: t('results.beatThisTitle', { player: e.player }) },
         );
         dare.style.cssText += 'padding:0 0.4em; font-size:0.65em; line-height:1.3; min-height:0; margin-left:0.4em';
-        entriesBox.append(h('div', { class: 'jd-board-note jd-row', style: 'gap:0; flex-wrap:nowrap' }, entry, dare));
+        const line = h('div', { class: 'jd-board-note jd-row', style: 'gap:0; flex-wrap:nowrap' }, entry, dare);
+        if (e.playerId) {
+          const profile = btn(t('results.profile'), `profile-${i}`, () => openPlayerCard(scene, verifierUrl, { hash: e.replayHash }), {
+            small: true,
+            title: t('results.profileTitle', { player: e.player }),
+          });
+          profile.style.cssText = dare.style.cssText;
+          line.append(profile);
+        }
+        entriesBox.append(line);
       });
       if (body.entries.some((e) => e.replayAvailable))
         entriesBox.append(

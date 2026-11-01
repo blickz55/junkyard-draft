@@ -6,6 +6,7 @@
 import type Phaser from 'phaser';
 import { addStyle, btn, h, ui } from './dom';
 import { choiceDialog } from './choice';
+import { openPlayerCard } from './PlayerCardPanel';
 import { openEmailLink } from './EmailLink';
 import { CSS } from '../render/palette';
 import { periodLabel } from '../content/division';
@@ -194,7 +195,18 @@ export function openThread(scene: Phaser.Scene, verifierUrl: string, key: string
     const row: HTMLElement = h(
       'div',
       { class: 'jd-thread-post', tid: `post-${p.id}` },
-      h('div', { class: 'jd-dim jd-thread-meta' }, `${p.author} · ${when}${p.edited ? ` · ${t('thread.edited')}` : ''}`),
+      h(
+        'div',
+        { class: 'jd-dim jd-thread-meta' },
+        p.card
+          ? h(
+              'button',
+              { class: 'jd-link', type: 'button', tid: `post-profile-${p.id}`, onClick: () => void openPlayerCard(scene, verifierUrl, { postId: p.id }) },
+              p.author,
+            )
+          : p.author,
+        ` · ${when}${p.edited ? ` · ${t('thread.edited')}` : ''}`,
+      ),
       h('div', { class: 'jd-thread-words', tid: `post-body-${p.id}` }, p.body),
       note,
       h('div', { class: 'jd-thread-actions' }, ...actions),

@@ -19,6 +19,12 @@ const UTC_DATE_TIME = new Intl.DateTimeFormat('en-GB', {
 const UTC_DATE = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' });
 const UTC_DAY = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', month: 'long', day: 'numeric' });
 
+const UTC_MONTH = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', month: 'long', year: 'numeric' });
+/** "November 2026" from "2026-11"; the input unchanged when it does not parse. */
+export function utcMonth(month: string): string {
+  const d = new Date(`${month}-01T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? month : UTC_MONTH.format(d);
+}
 const LOCAL_HOUR = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
 /** "9:00 AM": a local hour of the day (the daily reminder's picker, 0.10.4). */
 export const localHour = (hour: number): string => LOCAL_HOUR.format(new Date(2026, 0, 1, hour, 0, 0));

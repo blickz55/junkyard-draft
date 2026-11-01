@@ -1138,6 +1138,16 @@ export class CommunityStore {
   isLinked(playerId: string): boolean {
     return this.emailOf(playerId) !== null;
   }
+  /** Whether a player's card shows only their name (0.11.13). No row means they have not asked for that. */
+  cardPrivate(playerId: string): boolean {
+    return (this.sql('SELECT card_private FROM accounts WHERE player_id = ?').get(playerId) as { card_private: number } | undefined)?.card_private === 1;
+  }
+  /** A player with no email can hide theirs too: the row holds no email_hash, and being linked reads that, not the row. */
+  setCardPrivate(playerId: string, hidden: boolean): void {
+    this.sql(
+      'INSERT INTO accounts (player_id, card_private, created_at) VALUES (?, ?, ?) ON CONFLICT (player_id) DO UPDATE SET card_private = excluded.card_private',
+    ).run(playerId, hidden ? 1 : 0, this.now());
+  }
   hasAccount(playerId: string): boolean {
     return !!this.sql('SELECT 1 FROM accounts WHERE player_id = ?').get(playerId);
   }

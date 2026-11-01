@@ -28,12 +28,22 @@ export interface ColdIndex {
   replays: Record<string, string>;
 }
 
+/** A player's best games: one per yard, highest first, the hash settling a tie so a card always reads the same (0.11.13). */
+export function topGames(entries: BoardEntry[], n = 3): BoardEntry[] {
+  const seen = new Set<string>();
+  return [...entries]
+    .sort((a, b) => b.score - a.score || a.replayHash.localeCompare(b.replayHash))
+    .filter((e) => !seen.has(e.seed) && !!seen.add(e.seed))
+    .slice(0, n);
+}
+
 /** The month file a record key lives in: its date's month, or for a week id (PLAN-v4 0.7.5) the month of the Friday it opened. */
 const monthOf = (key: string) => (isWeekId(key) ? weeklyWindow(key)!.openDate : key).slice(0, 7);
 
 export class ColdStore {
   private index: ColdIndex;
   private cache = new Map<string, ColdMonth>(); // insertion order = LRU order
+  private best: Map<string, BoardEntry[]> | null = null; // built on first use, dropped when a file changes
   constructor(
     readonly dir: string,
     private readonly lruSize = 3,
@@ -105,6 +115,7 @@ export class ColdStore {
   }
   /** Add (or overwrite, idempotently) one day; the month file and the index are rewritten atomically. */
   put(day: ColdDay, key = day.record.date) {
+    this.best = null;
     const date = key,
       m = monthOf(key);
     const month = this.month(date) ?? { days: {} };
@@ -127,6 +138,7 @@ export class ColdStore {
   }
   /** A deleted player's kept replays leave every month file and the index; their entries stay anonymised as "deleted" (production roadmap 0.8.1: the policy's deletion promise now holds cold too). Returns the number of replays dropped. */
   dropPlayer(playerId: string): number {
+    this.best = null;
     let dropped = 0;
     let indexChanged = false;
     for (const f of this.monthFiles()) {
@@ -156,6 +168,20 @@ export class ColdStore {
     }
     if (indexChanged) this.writeJson(path.join(this.dir, 'index.json'), this.index);
     return dropped;
+  }
+  /** A player's best games on closed days (0.11.13). A card is public, so this reads the month files once per change, never once per request. */
+  bestOf(playerId: string, rulesVersion: number): BoardEntry[] {
+    if (!this.best) {
+      const best = new Map<string, BoardEntry[]>();
+      for (const f of this.monthFiles()) {
+        const m = this.readJson<ColdMonth>(path.join(this.dir, f));
+        if (!m || typeof m.days !== 'object') continue;
+        for (const day of Object.values(m.days))
+          for (const e of day.entries) if (e.playerId && e.rulesVersion === rulesVersion) best.set(e.playerId, topGames([...(best.get(e.playerId) ?? []), e]));
+      }
+      this.best = best;
+    }
+    return this.best.get(playerId) ?? [];
   }
   /** A player's entries across every month file with the kept replay when there is one (0.8.6, GET /me/export); ascending by day. */
   entriesOf(playerId: string): { key: string; seed: string; entry: BoardEntry; replay: StoredReplay | null }[] {

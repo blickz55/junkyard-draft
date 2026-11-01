@@ -5,6 +5,7 @@ export { openEmailLink, openLinkLanding } from './EmailLink';
 export { openHub } from './HubPanel';
 export { openInbox } from './InboxPanel';
 export { openMessages } from './MessagesPanel';
+export { openPlayerCard } from './PlayerCardPanel';
 export { openPolicy } from './PolicyPanel';
 export { openPrivacy } from './PrivacyPanel';
 export { openThread } from './ThreadPanel';

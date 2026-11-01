@@ -10,6 +10,7 @@
 import type Phaser from 'phaser';
 import { h, btn, ui, dialog } from './dom';
 import { loadIdentity, exportMyData, deleteMyData, bearerAllowed } from '../render/identity';
+import { cardHidden, setCardHidden } from '../render/playercard';
 import { savePlayer } from '../render/storage';
 import { saveGroup } from '../render/groups';
 import { telemetry } from '../render/telemetry';
@@ -107,6 +108,28 @@ export async function openPrivacy(scene: Phaser.Scene, verifierUrl: string, tab:
     },
     { small: true, disabled: !canTalk, title: t('privacy.exportTitle') },
   );
+  // your profile (0.11.13): off, other players see only your name; the switch shows once the server has said where it stands
+  const profileSlot = h('span', {});
+  const profileBtn = btn(
+    t('privacy.profileOn'),
+    'privacy-profile',
+    () => {
+      const hide = profileBtn.textContent === t('privacy.profileOn');
+      profileBtn.disabled = true;
+      void setCardHidden(verifierUrl, hide).then((done) => {
+        profileBtn.disabled = false;
+        if (done) profileBtn.textContent = t(hide ? 'privacy.profileOff' : 'privacy.profileOn');
+        else status.textContent = t('thread.refused.failed');
+      });
+    },
+    { small: true, title: t('privacy.profileTitle') },
+  );
+  if (canTalk)
+    void cardHidden(verifierUrl).then((hidden) => {
+      if (hidden === null) return;
+      if (hidden) profileBtn.textContent = t('privacy.profileOff');
+      profileSlot.append(profileBtn);
+    });
   const deleteBtn = btn(
     t('privacy.delete'),
     'data-delete',
@@ -133,6 +156,7 @@ export async function openPrivacy(scene: Phaser.Scene, verifierUrl: string, tab:
         }
         savePlayer('');
         saveGroup(null);
+        profileSlot.replaceChildren();
         if (telemetry.enabled) telemetry.setEnabled(false);
         status.classList.remove('jd-red');
         status.textContent = t('privacy.deleted', { n: r.anonymisedEntries, r: r.coldReplaysDropped, days: legalBackupDays(DOCS) });
@@ -148,7 +172,7 @@ export async function openPrivacy(scene: Phaser.Scene, verifierUrl: string, tab:
     { class: 'jd-panel', tid: 'data-rights', style: 'display:flex; flex-direction:column; gap:0.4em; padding:0.5em 0.7em' },
     h('div', { class: 'jd-head' }, t('privacy.yourData')),
     status,
-    h('div', { class: 'jd-row', style: 'gap:0.5em' }, exportBtn, deleteBtn),
+    h('div', { class: 'jd-row', style: 'gap:0.5em' }, exportBtn, deleteBtn, profileSlot),
   );
 
   const box = h(

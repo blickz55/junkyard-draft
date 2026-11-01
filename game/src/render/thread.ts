@@ -5,6 +5,7 @@ import type { ReportReason } from '../identity/identity';
 export interface ThreadPost {
   id: number;
   author: string;
+  /** a profile to open: a deleted player has none */ card?: boolean;
   body: string;
   createdAt: number;
   edited: boolean;

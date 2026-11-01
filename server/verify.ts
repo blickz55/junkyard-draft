@@ -109,7 +109,7 @@ export { Announcer, formatAnnouncement, announceKey, retryAfterMs, type Announce
 export { mintWeeklySeed } from './mint';
 export { currentWeekId, weeklyWindow, isWeeklySeed, weeklyIdOf } from '../game/src/sim/weekly';
 import { medalThresholds, type Medals } from '../game/src/daily/medals';
-import { ColdStore, HOT_DAYS, COLD_REPLAYS_PER_DAY, type ColdDay } from './cold';
+import { topGames, ColdStore, HOT_DAYS, COLD_REPLAYS_PER_DAY, type ColdDay } from './cold';
 import { OPERATOR } from '../game/src/content/operator';
 export { HOT_DAYS, COLD_REPLAYS_PER_DAY, ColdStore } from './cold';
 export { medalThresholds, medalFor, MEDAL_PERCENTILES, MEDAL_MIN_N, type Medals } from '../game/src/daily/medals';
@@ -1610,6 +1610,19 @@ export class Verifier {
       reacted: reacted ? { player: reacted.player, score: reacted.score } : null,
     };
   }
+  /**
+   * What a player's card shows (0.11.13): the month they arrived and their best games, hot and cold, leaving out a game on an open day this viewer may
+   * not watch yet. `ids` is the player and their earlier devices. Null when there is no such player.
+   */
+  cardOf(ids: string[], viewer: string | null, now = new Date()): { joined: string; best: { hash: string; seed: string; score: number }[] } | null {
+    const player = this.data.players?.[ids[0]];
+    if (!player) return null;
+    const owned = new Set(ids);
+    const hot = this.data.entries.filter((e) => !!e.playerId && owned.has(e.playerId) && e.rulesVersion === RULES_VERSION);
+    const cold = ids.flatMap((id) => this.cold.bestOf(id, RULES_VERSION));
+    const best = topGames([...hot, ...cold].filter((e) => !this.revealGate(e.seed, viewer, now)));
+    return { joined: player.createdAt.slice(0, 7), best: best.map((e) => ({ hash: e.replayHash, seed: e.seed, score: e.score })) };
+  }
   /** How these players did on a board, best first, for the friends on a histogram (0.11.8). */
   scoresOn(seed: string, players: ReadonlySet<string>, now = new Date()): { player: string; score: number }[] {
     return this.rank(seed, this.data, players, now)
@@ -2337,7 +2350,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     }
     if (r.kind === 'thread-reply' && p.kind === 'run') {
       const e = verifier.entry(String(p.key), null, now);
-      return e ? { ...r, payload: { ...p, seed: e.seed, score: e.score, player: e.player, own: verifier.ownerOf(e.replayHash) === playerId } } : null;
+      return e ? { ...r, payload: { ...p, seed: e.seed, score: e.score, player: e.player, own: runOwner(e.replayHash) === playerId } } : null;
     }
     if (r.kind === 'crew-day')
       return { ...r, payload: { ...p, code: undefined, crew: verifier.group(String(p.code))?.name ?? null, top: verifier.playerLabel(p.top as string, now) } };
@@ -2373,6 +2386,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     return {
       id: p.id,
       author: verifier.playerLabel(p.authorId, now),
+      card: !!verifier.player(p.authorId ?? ''), // a deleted player has none (0.11.13)
       body: p.body,
       createdAt: p.createdAt,
       edited: p.editedAt !== null,
@@ -2402,6 +2416,11 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const talkOf = (kind: 'daily' | 'weekly' | 'run', key: string) =>
     community && moderation?.enabled ? { talk: { posts: community.findThread(kind, key)?.postCount ?? 0 } } : {};
   /** Whether a viewer can ask this player to be friends: both have signed in, and nothing stands between them yet. */
+  /** Who a run belongs to now: a run from before its device signed in stands for the player that device signed in as. */
+  const runOwner = (hash: string): string | null => {
+    const id = verifier.ownerOf(hash);
+    return id && (community?.playerOfKey(id) ?? id);
+  };
   const canFriend = (viewer: string | null, other: string | null) =>
     !!community && !!viewer && !!other && viewer !== other && community.isLinked(viewer) && community.isLinked(other) && !community.relation(viewer, other);
   /** What a thread is about: a day, a week, one checked game (0.11.6), a hub category or a topic (0.11.10). The reveal gate of a yard covers its thread. */
@@ -2419,7 +2438,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
             kind: 'run' as const,
             seed: e.seed,
             closed: false,
-            owner: verifier.ownerOf(key),
+            owner: runOwner(key),
             run: { player: e.player, score: e.score },
             category: null,
             title: null,
@@ -2451,6 +2470,17 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     game: gameOf(p, now),
   });
   /** Reaction counts on a board's rows (0.11.3): a run nobody reacted to carries no field. */
+  /** Who a card is about (0.11.13): the owner of a checked game, or the author of a post this viewer could read, so a post that is down names nobody. */
+  const cardPlayer = (hash: string | null, postId: number, viewer: string | null, now: Date): string | null => {
+    if (hash) return runOwner(hash.slice(0, 64));
+    const post = Number.isInteger(postId) && postId > 0 ? community?.post(postId) : null;
+    if (!post?.authorId) return null;
+    if (post.authorId === viewer) return viewer;
+    if (post.state !== 'published' && post.state !== 'queued') return null;
+    const thread = community?.threadById(post.threadId);
+    const about = thread ? threadTarget(thread.key, now) : null;
+    return about && !(about.seed && verifier.revealGate(about.seed, viewer, now)) ? post.authorId : null;
+  };
   const withReactions = <T extends { replayHash: string }>(entries: T[]): T[] => {
     if (!community || !entries.length) return entries;
     const counts = community.reactionsOn(entries.map((e) => e.replayHash));
@@ -2628,7 +2658,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         if (req.headers.authorization && !bearer) return json(401, { ok: false, error: 'bad token' });
         const gate = verifier.revealGate(r.seed, bearer, new Date((opts.now ?? Date.now)()));
         if (gate) return json(403, { ok: false, reason: 'reveal-gate', ...gate });
-        if (community && bearer && verifier.ownerOf(r.hash) !== bearer) community.sawRun(r.hash, bearer); // 0.11.4: a device with a key, never the run's own player
+        if (community && bearer && runOwner(r.hash) !== bearer) community.sawRun(r.hash, bearer); // 0.11.4: a device with a key, never the run's own player
         return json(200, { ok: true, ...r });
       }
       // group scope (PLAN-v4 0.7.2): ?group=<code> needs the bearer of a member; one refusal for unknown codes and non-members so codes cannot be probed
@@ -2686,9 +2716,9 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           ...e,
           reactions: community?.reactionsOn([e.replayHash]).get(e.replayHash) ?? {},
           mine: viewer ? (community?.reactionOf(e.replayHash, viewer) ?? null) : null,
-          own: !!viewer && verifier.ownerOf(e.replayHash) === viewer,
+          own: !!viewer && runOwner(e.replayHash) === viewer,
           seen: community?.seenBy(e.replayHash) ?? { times: 0, players: 0 },
-          friendable: canFriend(viewer, verifier.ownerOf(e.replayHash)),
+          friendable: canFriend(viewer, runOwner(e.replayHash)),
           ...talkOf('run', e.replayHash),
         });
       }
@@ -3023,6 +3053,38 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         if (w != null) return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) });
         return json(200, { ok: true, read: community.markRead(bearerId) });
       }
+      if (req.method === 'GET' && url.pathname === '/card') {
+        // a player's card (0.11.13): reached through a game or a post, and a player can show only their name
+        if (!community) return json(503, { ok: false, error: 'the community store is not enabled on this verifier' });
+        const now = new Date((opts.now ?? Date.now)());
+        const other = cardPlayer(url.searchParams.get('hash'), Number(url.searchParams.get('postId')), bearerId, now);
+        const card = other ? verifier.cardOf([other, ...community.deviceKeysOf(other)], bearerId, now) : null;
+        if (!other || !card) return json(404, { ok: false, code: 'no-player', error: 'no such player' });
+        const base = { ok: true, player: verifier.playerLabel(other, now), friendable: canFriend(bearerId, other) };
+        const own = other === bearerId;
+        if (!own && (community.cardPrivate(other) || community.blockedWith(other).has(bearerId ?? ''))) return json(200, { ...base, private: true });
+        return json(200, { ...base, private: false, own, hidden: own && community.cardPrivate(other), trophies: community.trophiesOf(other), ...card });
+      }
+      if (url.pathname === '/me/card') {
+        if (!community || !bearerId) {
+          req.resume();
+          return json(community ? 401 : 503, { ok: false, error: community ? 'token required' : 'the community store is not enabled on this verifier' });
+        }
+        if (req.method === 'GET') return json(200, { ok: true, private: community.cardPrivate(bearerId) });
+        if (req.method !== 'POST') {
+          req.resume();
+          return json(405, { ok: false, error: 'method not allowed' });
+        }
+        const w = writeLimited();
+        if (w != null) {
+          req.resume();
+          return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) });
+        }
+        return withBody(256, (p) => {
+          community.setCardPrivate(bearerId, p.private === true);
+          return json(200, { ok: true, private: p.private === true });
+        });
+      }
       if (url.pathname === '/messages' || url.pathname.startsWith('/messages/')) {
         // direct messages (0.11.9): friends only, and private: nothing reads one unless the player it was sent to reports it
         if (!community || !moderation?.enabled) {
@@ -3147,11 +3209,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
             typeof p.handle === 'string' ? community.friendRows(bearerId).find((x) => friendHandle(bearerId, x.otherId) === p.handle)?.otherId : undefined;
           const other =
             known ??
-            (typeof p.hash === 'string'
-              ? verifier.ownerOf(p.hash.slice(0, 64))
-              : typeof p.postId === 'number'
-                ? (community.post(p.postId)?.authorId ?? null)
-                : null);
+            (typeof p.hash === 'string' ? runOwner(p.hash.slice(0, 64)) : typeof p.postId === 'number' ? (community.post(p.postId)?.authorId ?? null) : null);
           if (!other || other === bearerId) return json(404, { ok: false, code: 'no-player', error: 'no such player' });
           if (action === 'request') {
             const stopped = community.writeBlock(bearerId);
@@ -3340,7 +3398,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           if (!e) return json(404, { ok: false, error: 'no verified entry with that hash' });
           const gate = verifier.revealGate(e.seed, bearerId, now);
           if (gate) return json(403, { ok: false, reason: 'reveal-gate', ...gate }); // a run nobody here may watch yet
-          const owner = verifier.ownerOf(e.replayHash);
+          const owner = runOwner(e.replayHash);
           if (owner === bearerId) return json(422, { ok: false, code: 'own-run', error: 'your own run' });
           community.react(e.replayHash, bearerId, emote, owner);
           return json(200, { ok: true, reactions: community.reactionsOn([e.replayHash]).get(e.replayHash) ?? {}, mine: emote });
@@ -3837,7 +3895,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
                   // a beaten challenge (0.11.7): the challenger hears who did it, once a game
                   if (result.ok && result.recorded && result.entry && bearerId && typeof parsed.challenge === 'string' && community) {
                     const beaten = verifier.entry(parsed.challenge.slice(0, 64));
-                    const owner = beaten && verifier.ownerOf(beaten.replayHash);
+                    const owner = beaten && runOwner(beaten.replayHash);
                     if (beaten && owner && owner !== bearerId && beaten.seed === result.entry.seed && result.entry.score > beaten.score)
                       community.notify(owner, 'challenge', {
                         hash: result.entry.replayHash,

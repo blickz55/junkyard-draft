@@ -212,6 +212,13 @@
       ]
     },
     {
+      "title": "Your profile",
+      "lines": [
+        "Your profile shows your name, the month you arrived, your trophies and your three best games, one per yard. It opens from a game on a board, a comment or a post, so there is no list of players, and a game on an open day stays off it until the day has closed or the person looking has played that yard.",
+        "Show my profile in Privacy & data leaves only your name there, whoever looks. Someone you blocked, or who blocked you, sees the same, so a block is not announced. Your scores stay on the boards, because scores are public."
+      ]
+    },
+    {
       "title": "Divisions and trophies",
       "lines": [
         "Divisions, medals and trophies are labels over checked games: none of them changes an offer, a rule or a score."
