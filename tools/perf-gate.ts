@@ -2,11 +2,13 @@
  * Performance regression gate: compares a perf.ts JSON report against a committed baseline.
  *   node --import tsx tools/perf-gate.ts <report.json> <baseline.json> [--tolerance 0.25] [--dropped-slack 0.05] [--strict] [--p95 <ms>]
  * Exit 1 when any sample whose label exists in the baseline regresses:
- *   - scriptMsPerFrame above baseline × (1 + tolerance), or
+ *   - script time above baseline × (1 + tolerance), or
  *   - dropped frames above the baseline's drop RATE applied to this run's frame count, plus droppedSlack × frames (so a
  *     software-rendered CI runner that always drops some frames still gates on a *higher share* of drops than its own
  *     baseline, and a run that happened to render more frames than the baseline is not failed for dropping them at the
  *     same rate; 0.8.4 armed the gate with a baseline whose WebGL sample dropped every one of its 34 frames).
+ * When both sides carry `calibrationMs` (a fixed workload timed in the page) script time is the whole run's divided by it, so hosts of different
+ * speeds compare: per frame would not, because a slow host draws fewer frames at a fixed game speed and each one does more. Without it, per frame as before.
  * Samples with no baseline label are reported, never failed by the baseline rules; `--p95 <ms>` (production roadmap 0.10.2,
  * preset D) is an absolute budget every sample in the report must meet, baseline or not. The comparison is a pure function (tested).
  */
@@ -19,7 +21,12 @@ export interface GateSample {
   scriptMsPerFrame: number | null;
   /** frame time p95 in ms (perf.ts reports it; the absolute budget reads it) */
   p95?: number;
+  /** how long the fixed workload took on this host */
+  calibrationMs?: number;
 }
+/** The run's script time in units of the host's own speed; null when the sample has no yardstick. */
+export const scriptLoad = (s: GateSample): number | null =>
+  s.scriptMsPerFrame != null && s.calibrationMs ? +((s.scriptMsPerFrame * s.frames) / s.calibrationMs).toFixed(2) : null;
 export interface GateReport {
   samples: GateSample[];
 }
@@ -61,7 +68,12 @@ export function compare(report: GateReport, baseline: GateReport, opts: GateOpti
     const base = baseline.samples.find((b) => b.label === sample.label) ?? null;
     const reasons: string[] = [];
     if (base) {
-      if (sample.scriptMsPerFrame != null && base.scriptMsPerFrame != null && sample.scriptMsPerFrame > base.scriptMsPerFrame * (1 + tolerance)) {
+      const load = scriptLoad(sample),
+        baseLoad = scriptLoad(base);
+      if (load != null && baseLoad != null) {
+        if (load > baseLoad * (1 + tolerance))
+          reasons.push(`script load ${load} > ${(baseLoad * (1 + tolerance)).toFixed(2)} (baseline ${baseLoad} + ${Math.round(tolerance * 100)} %)`);
+      } else if (sample.scriptMsPerFrame != null && base.scriptMsPerFrame != null && sample.scriptMsPerFrame > base.scriptMsPerFrame * (1 + tolerance)) {
         reasons.push(
           `scriptMsPerFrame ${sample.scriptMsPerFrame} > ${(base.scriptMsPerFrame * (1 + tolerance)).toFixed(2)} (baseline ${base.scriptMsPerFrame} + ${Math.round(tolerance * 100)} %)`,
         );
@@ -107,7 +119,7 @@ if (isMain) {
   for (const v of verdicts) {
     const base = v.baseline;
     console.log(
-      `${v.ok ? 'PASS' : 'FAIL'} ${v.label}: script ${v.sample.scriptMsPerFrame ?? '-'} ms (baseline ${base?.scriptMsPerFrame ?? 'none'}), dropped ${v.sample.dropped}/${v.sample.frames} (baseline ${base?.dropped ?? 'none'}), p95 ${v.sample.p95 ?? '-'} ms${v.reasons.length ? '\n  ' + v.reasons.join('\n  ') : ''}`,
+      `${v.ok ? 'PASS' : 'FAIL'} ${v.label}: script ${v.sample.scriptMsPerFrame ?? '-'} ms (baseline ${base?.scriptMsPerFrame ?? 'none'}), load ${scriptLoad(v.sample) ?? '-'} (baseline ${(base && scriptLoad(base)) ?? 'none'}), dropped ${v.sample.dropped}/${v.sample.frames} (baseline ${base?.dropped ?? 'none'}), p95 ${v.sample.p95 ?? '-'} ms${v.reasons.length ? '\n  ' + v.reasons.join('\n  ') : ''}`,
     );
   }
   process.exit(ok ? 0 : 1);

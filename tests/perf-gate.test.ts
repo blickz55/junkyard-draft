@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { compare, type GateReport } from '../tools/perf-gate';
+import { compare, scriptLoad, type GateReport } from '../tools/perf-gate';
 
 const baseline: GateReport = {
   samples: [
@@ -45,6 +45,23 @@ test('perf gate: a 30 % script-time regression fails, 10 % passes, and dropped f
   const v = compare(report(3.9, 20), baseline).verdicts[0];
   assert.equal(v.reasons.length, 2, 'both reasons are listed');
   assert.equal(compare(report(3.9), baseline, { tolerance: 0.5 }).ok, true, 'tolerance is configurable');
+});
+
+test('perf gate: with a yardstick a slower host is not a regression, and a faster host cannot hide one', () => {
+  const base = { samples: [{ label: 'device B canvas', frames: 200, dropped: 0, scriptMsPerFrame: 5, calibrationMs: 10 }] };
+  const run = (scriptMsPerFrame: number, frames: number, calibrationMs: number) => ({
+    samples: [{ label: 'device B canvas', frames, dropped: 0, scriptMsPerFrame, calibrationMs }],
+  });
+  assert.equal(scriptLoad(base.samples[0]), 100);
+  assert.equal(compare(run(10, 200, 20), base).ok, true, 'twice as slow a host, the same code');
+  assert.equal(compare(run(13, 150, 20), base).ok, true, 'and it drew fewer frames, each doing more: the same work per run');
+  assert.equal(compare(run(5, 200, 5), base).ok, false, 'twice as fast a host and twice the work: per frame looks unchanged');
+  assert.match(compare(run(5, 200, 5), base).verdicts[0].reasons[0], /^script load 200 > 125\.00 \(baseline 100 \+ 25 %\)$/);
+  assert.equal(compare(run(6, 200, 10), base).ok, true, 'twenty per cent more work is inside the tolerance');
+  const noYardstick = { samples: [{ label: 'device B canvas', frames: 200, dropped: 0, scriptMsPerFrame: 5 }] };
+  assert.equal(scriptLoad(noYardstick.samples[0]), null);
+  assert.equal(compare(run(5, 200, 5), noYardstick).ok, true, 'a baseline from before calibration falls back to per frame');
+  assert.equal(compare(run(7, 200, 5), noYardstick).ok, false, 'and still gates');
 });
 
 // 0.8.4: the gate is armed with the CI baseline (docs/baselines/ci/perf-ci.json), whose WebGL sample on the software-GL runner

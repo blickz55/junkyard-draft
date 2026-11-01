@@ -70,6 +70,8 @@ export interface Sample {
   dropped: number;
   cpuMsPerFrame: number | null;
   scriptMsPerFrame: number | null;
+  /** how long a fixed piece of work took in this page at this throttle: what the gate divides by, because hosts differ */
+  calibrationMs: number;
   drawsPerFrame: number | null;
   bindsPerFrame: number | null;
   maxObjects: number;
@@ -155,16 +157,42 @@ async function metrics(cdp: CDPSession | null): Promise<{ task: number; script: 
   }
 }
 
+/**
+ * The same work on every machine, timed in the page under the same throttle, the median of five. It stands for what the game's script does most:
+ * small objects, arithmetic, a map. GitHub's runners differ by more than 2× on identical code, so a number with no yardstick says more about the
+ * host than about the code, in both directions: a slow host fails a clean commit, and a fast one hides a real regression.
+ */
+const CALIBRATE = `(() => {
+  const once = () => {
+    const t0 = performance.now();
+    const items = [];
+    for (let i = 0; i < 4000; i++) items.push({ x: i % 97, y: i % 89, k: 'm' + (i % 13) });
+    const byKey = new Map();
+    let sum = 0;
+    for (let round = 0; round < 200; round++)
+      for (const it of items) {
+        it.x = (it.x * 31 + round) % 1009;
+        byKey.set(it.k, (byKey.get(it.k) || 0) + it.x);
+        sum += Math.sqrt(it.x) * it.y;
+      }
+    const ms = performance.now() - t0;
+    return Number.isFinite(sum + byKey.size) ? ms : NaN;
+  };
+  return Array.from({ length: 5 }, once).sort((a, b) => a - b)[2];
+})()`;
+
 async function measure(page: Page, cdp: CDPSession | null, label: string, actions: Action[]): Promise<Sample> {
   await driveToLastRound(page, actions);
   const machines = (await page.evaluate('window.__jd.state().layout.machines.length')) as number;
   await wait(300);
+  const before = (await page.evaluate(CALIBRATE)) as number;
   const m0 = await metrics(cdp);
   await page.evaluate(`${SAMPLER}(${SPEED})`);
   const t0 = Date.now();
   await page.waitForFunction("window.__jd.mode() === 'summary'", null, { timeout: 120000 });
   const runMs = Date.now() - t0;
   const m1 = await metrics(cdp);
+  const after = (await page.evaluate(CALIBRATE)) as number;
   const r = (await page.evaluate(RESULT)) as {
     frames: number[];
     peakItems: number;
@@ -190,6 +218,7 @@ async function measure(page: Page, cdp: CDPSession | null, label: string, action
     dropped,
     cpuMsPerFrame: cpu,
     scriptMsPerFrame: script,
+    calibrationMs: +((before + after) / 2).toFixed(2),
     drawsPerFrame: r.renderer === 'webgl' && r.draws != null ? +(r.draws / n).toFixed(1) : null,
     bindsPerFrame: r.renderer === 'webgl' && r.binds != null ? +(r.binds / n).toFixed(1) : null,
     maxObjects: r.maxObjects,
