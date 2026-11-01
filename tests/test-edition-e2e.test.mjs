@@ -50,7 +50,7 @@ before(async () => {
       const body = [];
       for await (const chunk of req) body.push(chunk);
       const env = { DB: db, ASSETS: { fetch: async () => new Response('not found', { status: 404 }) } };
-      const answer = await worker.fetch(new Request(`http://x${p}`, { method: 'POST', body: Buffer.concat(body) }), env);
+      const answer = await worker.fetch(new Request(`http://x${p}`, { method: 'POST', body: Buffer.concat(body) }), env, { waitUntil: () => {} });
       const text = await answer.text();
       for (const wake of waiting) wake();
       waiting.clear();

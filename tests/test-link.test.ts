@@ -9,13 +9,14 @@ import { standInD1 } from './e2e/d1';
 const INSTALL = 'a'.repeat(32);
 const ANSWERS: Answers = { goal: 'Make the money the job asks for', clear: 4, fun: 3, back: 'yes', worst: 'Which way the belts go', pay: 'no' };
 const AT = '2026-11-01T12:00:00.000Z';
+const CTX = { waitUntil: () => {} };
 
 function place() {
   const DB = standInD1();
   return { DB, env: { DB, ASSETS: { fetch: async () => new Response('the game') } } satisfies Env };
 }
 const post = (env: Env, route: string, body: unknown) =>
-  worker.fetch(new Request(`https://link.test${route}`, { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body) }), env);
+  worker.fetch(new Request(`https://link.test${route}`, { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body) }), env, CTX);
 const batch = (events: unknown[], over: object = {}) => ({ installId: INSTALL, consent: true, events, ...over });
 
 test('play data: what the fixed list allows is kept, a batch sent twice counts once, and nothing else gets in', async () => {
@@ -39,6 +40,16 @@ test('play data: what the fixed list allows is kept, a batch sent twice counts o
   assert.equal((await post(env, '/events', 'x'.repeat(70 * 1024))).status, 422);
   assert.equal(DB.rows('SELECT * FROM events').length, 2);
   assert.ok(!DB.rows<{ name: string }>("SELECT name FROM pragma_table_info('events')").some((c) => /ip|addr|agent/i.test(c.name)), 'no address is kept');
+});
+
+test('a write outlives the caller: closing the page hangs up, and Cloudflare cancels what is not held open', async () => {
+  const { DB, env } = place();
+  const held: Promise<unknown>[] = [];
+  const body = JSON.stringify(batch([{ name: 'session_end', props: { minutes: 1 }, at: AT, id: 'b'.repeat(16) }]));
+  await worker.fetch(new Request('https://link.test/events', { method: 'POST', body }), env, { waitUntil: (p) => held.push(p) });
+  assert.equal(held.length, 1);
+  await held[0];
+  assert.equal(DB.rows('SELECT * FROM events').length, 1);
 });
 
 test('the survey: a code comes back, a device keeps its first one, and half an answer is not kept', async () => {
@@ -94,7 +105,7 @@ test('whatever is not one of the two routes is the game', async () => {
     new Request('https://link.test/events'),
     new Request('https://link.test/other', { method: 'POST', body: '{}' }),
   ])
-    assert.equal(await (await worker.fetch(r, env)).text(), 'the game');
+    assert.equal(await (await worker.fetch(r, env, CTX)).text(), 'the game');
 });
 
 test('every lesson step reads as what the tester was asked to do', () => {

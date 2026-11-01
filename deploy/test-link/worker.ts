@@ -19,6 +19,9 @@ export interface Env {
   DB: Db;
   ASSETS: { fetch(request: Request): Promise<Response> };
 }
+export interface Context {
+  waitUntil(work: Promise<unknown>): void;
+}
 export interface Answers {
   goal: string;
   clear: number;
@@ -73,11 +76,12 @@ export function cleanAnswers(raw: unknown): Answers | null {
   };
 }
 
-export async function takeEvents(request: Request, env: Env): Promise<Response> {
+export async function takeEvents(request: Request, env: Env, ctx: Context): Promise<Response> {
   const batch = validateBatch(await read(request));
   if (typeof batch === 'string') return json(422, { ok: false });
   const received = new Date().toISOString();
-  await env.DB.batch(
+  // someone closing the page hangs up on us, and Cloudflare cancels a request whose caller has gone: this write is the one that matters most
+  const writing = env.DB.batch(
     batch.events.map((e) =>
       env.DB.prepare('INSERT OR IGNORE INTO events (install, id, name, props, at, received) VALUES (?, ?, ?, ?, ?, ?)').bind(
         batch.installId,
@@ -89,6 +93,8 @@ export async function takeEvents(request: Request, env: Env): Promise<Response> 
       ),
     ),
   );
+  ctx.waitUntil(writing);
+  await writing;
   return json(200, { ok: true });
 }
 
@@ -111,9 +117,9 @@ export async function takeFeedback(request: Request, env: Env): Promise<Response
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: Context): Promise<Response> {
     const { pathname } = new URL(request.url);
-    if (request.method === 'POST' && pathname === '/events') return takeEvents(request, env);
+    if (request.method === 'POST' && pathname === '/events') return takeEvents(request, env, ctx);
     if (request.method === 'POST' && pathname === '/feedback') return takeFeedback(request, env);
     return env.ASSETS.fetch(request);
   },
