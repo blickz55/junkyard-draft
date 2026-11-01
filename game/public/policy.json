@@ -212,6 +212,12 @@
       ]
     },
     {
+      "title": "What a person may look at",
+      "lines": [
+        "For each game on a daily or a weekly the server notes when it arrived, how many tries that player has had on that yard, and whether someone else already holds the same game, and keeps that for 90 days. A person may read it, with the recording, when something looks wrong. Nothing acts on it by itself: no score is removed and nobody is banned by a number."
+      ]
+    },
+    {
       "title": "Your profile",
       "lines": [
         "Your profile shows your name, the month you arrived, your trophies and your three best games, one per yard. It opens from a game on a board, a comment or a post, so there is no list of players, and a game on an open day stays off it until the day has closed or the person looking has played that yard.",

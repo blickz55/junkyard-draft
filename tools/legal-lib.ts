@@ -25,7 +25,7 @@ import {
   MAX_GROUPS_PER_PLAYER,
   PROTOCOL,
 } from '../server/verify';
-import { INBOX_READ_DAYS, MESSAGE_DAYS, REMOVED_TEXT_DAYS } from '../server/community';
+import { INBOX_READ_DAYS, MESSAGE_DAYS, REMOVED_TEXT_DAYS, SIGNAL_DAYS } from '../server/community';
 import { APPEAL_DAYS, POST_MAX, REVIEW_SLA_HOURS } from '../server/moderation';
 import { SOCIAL_PER_DAY } from '../server/push';
 
@@ -91,6 +91,7 @@ export function buildLegal(): Legal {
           'Reactions and watching. Which of the eight reactions your player id left on which run, and which recordings your player id watched and how often, with the times. Purpose: other players see the counts, never who left what or who watched. Both stay until you take the reaction back or delete your data.',
           "Divisions and trophies. When a day closes, the division your checked game placed in, your place in it, any medal, and a running count of medals. Purpose: a board of your own size. Other players see the division board with your name, as they see the day's board. Your name comes off when you delete your data.",
           `Direct messages, only if you send one. The words, who sent them, who received them and the times. They go between two friends and pass the automatic filter, and neither the AI classifier nor a person reads them unless the player a message was sent to reports it. Then the AI classifier reads that message, and a person reads it with the messages around it. Purpose: letting friends talk. Legal basis: the agreement. A message goes ${MESSAGE_DAYS} days after it was sent, or when either of you deletes their data.`,
+          `Notes on games, for fairness. For each game on a daily or a weekly: when it arrived, how many tries you have had on that yard, and whether someone else already holds the same game, with your player id. Kept for ${SIGNAL_DAYS} days. A person may read them with the recording when something looks wrong; nothing acts on them by itself. Legal basis: legitimate interest in a fair board.`,
           'Paint and titles. What you have earned in the paint shop and what you wear. Your title shows beside your name on boards and posts, and your paint on your recordings.',
           'Friends and the feed, only if you use them. Who you asked, who asked you, who your friends are and who you blocked, with the times, and the last few dozen things you did: a game on a day or a week, a post, a division result. Purpose: your friends and your crew see what you have been up to, and you see theirs. Legal basis: the agreement. A friend sees your name, your scores and those lines; nobody is told when they are removed or blocked. It stays until you remove it or delete your data.',
           `Your inbox. A line when someone reacts to a run of yours, writes on it or where you wrote, beats your score from a challenge link, or when your division or crew has a result, or when a moderator decides something about you, with the time. A line goes ${INBOX_READ_DAYS} days after you read it, or when you delete your data.`,

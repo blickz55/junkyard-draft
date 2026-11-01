@@ -4,6 +4,7 @@ import * as deviceKeys from './0002-device-keys';
 import * as moderation from './0003-moderation';
 import * as activity from './0004-activity';
 import * as messages from './0005-messages';
+import * as signals from './0006-signals';
 
 export const MIGRATIONS = [
   { version: 1, name: 'community', ...community },
@@ -11,4 +12,5 @@ export const MIGRATIONS = [
   { version: 3, name: 'moderation', ...moderation },
   { version: 4, name: 'activity', ...activity },
   { version: 5, name: 'messages', ...messages },
+  { version: 6, name: 'signals', ...signals },
 ];

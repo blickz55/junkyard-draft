@@ -82,8 +82,22 @@ export const PLAYER_COLUMNS: readonly { table: string; column: string; forget: '
   { table: 'divisions', column: 'player_id', forget: 'clear' },
   { table: 'trophies', column: 'player_id', forget: 'delete' },
   { table: 'cosmetics', column: 'player_id', forget: 'delete' },
+  { table: 'signals', column: 'player_id', forget: 'delete' },
+  { table: 'signals', column: 'collision_id', forget: 'clear', private: true },
 ];
 
+/** What was noted about a game on a day or a week (0.12.5): for a person to read, and acted on by nothing. */
+export interface SignalRow {
+  playerId: string;
+  seed: string;
+  replayHash: string;
+  score: number;
+  sinceOpenMs: number | null;
+  tries: number;
+  collisionId: string | null;
+  createdAt: number;
+}
+export const SIGNAL_DAYS = 90;
 /** What a player's row toward another says; no row, nothing between them. */
 export type Relation = 'requested' | 'friend' | 'blocked';
 /** The answer to a friend request. `ignored` reads like `sent` to the player: a block is never announced. */
@@ -1140,6 +1154,44 @@ export class CommunityStore {
   }
   isLinked(playerId: string): boolean {
     return this.emailOf(playerId) !== null;
+  }
+  /** Note a game on a day or a week (0.12.5). Old lines go as new ones come, so nothing has to remember to clear them. */
+  addSignal(s: Pick<SignalRow, 'playerId' | 'seed' | 'replayHash' | 'score' | 'sinceOpenMs' | 'collisionId'>): void {
+    const at = this.now();
+    this.sql('DELETE FROM signals WHERE created_at < ?').run(at - SIGNAL_DAYS * 86_400_000);
+    const before = this.sql('SELECT COUNT(*) AS n FROM signals WHERE player_id = ? AND seed = ?').get(s.playerId, s.seed) as { n: number };
+    this.sql('INSERT INTO signals (player_id, seed, replay_hash, score, since_open_ms, tries, collision_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
+      s.playerId,
+      s.seed,
+      s.replayHash,
+      s.score,
+      s.sinceOpenMs,
+      before.n + 1,
+      s.collisionId,
+      at,
+    );
+  }
+  signals(): SignalRow[] {
+    const rows = this.sql('SELECT * FROM signals ORDER BY id').all() as unknown as {
+      player_id: string;
+      seed: string;
+      replay_hash: string;
+      score: number;
+      since_open_ms: number | null;
+      tries: number;
+      collision_id: string | null;
+      created_at: number;
+    }[];
+    return rows.map((r) => ({
+      playerId: r.player_id,
+      seed: r.seed,
+      replayHash: r.replay_hash,
+      score: r.score,
+      sinceOpenMs: r.since_open_ms,
+      tries: r.tries,
+      collisionId: r.collision_id,
+      createdAt: r.created_at,
+    }));
   }
   /** Record what a player has earned and answer with what is new (0.11.12). A row stays, so a later change to the list takes nothing away. */
   grantCosmetics(playerId: string, ids: readonly string[]): string[] {

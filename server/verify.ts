@@ -1248,7 +1248,7 @@ export class Verifier {
    * Step 1 of a submission (0.8.2), cheap and synchronous: decode, rules version, duplicate, issued seed. Nothing is simulated,
    * so the request path refuses most bad input before paying for a re-simulation.
    */
-  prepare(replayText: string): { ok: true; replay: ReplayFile; replayHash: string } | { ok: false; error: string; code: RefusalCode } {
+  prepare(replayText: string): { ok: true; replay: ReplayFile; replayHash: string } | { ok: false; error: string; code: RefusalCode; duplicate?: BoardEntry } {
     let replay: ReplayFile;
     try {
       replay = decodeReplay(replayText);
@@ -1259,7 +1259,7 @@ export class Verifier {
       return { ok: false, error: `rejected: rules version ${replay.rulesVersion} not accepted (server has ${RULES_VERSION})`, code: 'rules-version' };
     const replayHash = replayId(replay);
     const dup = this.data.entries.find((e) => e.replayHash === replayHash);
-    if (dup && dup.score === replay.claimedScore) return { ok: false, error: 'rejected: duplicate replay', code: 'duplicate' }; // an identical resubmission skips the simulation; the same actions with a different claim still go through it and fail as a mismatch, as before
+    if (dup && dup.score === replay.claimedScore) return { ok: false, error: 'rejected: duplicate replay', code: 'duplicate', duplicate: dup }; // an identical resubmission skips the simulation; the same actions with a different claim still go through it and fail as a mismatch, as before
     if ((isMintedDailySeed(replay.seed) || isWeeklySeed(replay.seed)) && !this.issuedRecordForSeed(replay.seed))
       return { ok: false, error: `rejected: not an issued ${isWeeklySeed(replay.seed) ? 'weekly' : 'daily'} seed`, code: 'unissued-seed' }; // a minted-looking seed counts only if this server issued it (PLAN-v3 0.6.1, PLAN-v4 0.7.5)
     return { ok: true, replay, replayHash };
@@ -1624,6 +1624,11 @@ export class Verifier {
     const cold = ids.flatMap((id) => this.cold.summaryOf(id, RULES_VERSION).best);
     const best = topGames([...hot, ...cold].filter((e) => !this.revealGate(e.seed, viewer, now)));
     return { joined: player.createdAt.slice(0, 7), best: best.map((e) => ({ hash: e.replayHash, seed: e.seed, score: e.score })) };
+  }
+  /** When the day or week of a seed was first issued (0.12.5); null for any other seed. */
+  openedAt(seed: string): number | null {
+    const issued = this.issuedRecordForSeed(seed)?.issuedAt;
+    return issued ? Date.parse(issued) : null;
   }
   /** Days with a checked daily, whatever the rules were then (0.11.12). `ids` as for a card. */
   dailiesOf(ids: string[]): number {
@@ -2497,6 +2502,13 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       const social = ({ 'thread-reply': 'reply', challenge: 'challenge' } as const)[kind];
       if (social) void push.social([player, ...community.deviceKeysOf(player)], social);
     };
+  /** What a person may want to look at later (0.12.5): a game on a day or a week, noted and acted on by nothing. */
+  const noteGame = (player: string | null, seed: string, hash: string, score: number, holder: string | null) => {
+    if (!community || !player || (!isMintedDailySeed(seed) && !isWeeklySeed(seed))) return;
+    const opened = verifier.openedAt(seed);
+    const sinceOpenMs = opened == null ? null : Math.max(0, (opts.now ?? Date.now)() - opened);
+    community.addSignal({ playerId: player, seed, replayHash: hash, score, sinceOpenMs, collisionId: holder && holder !== player ? holder : null });
+  };
   const metricsToken = opts.metricsToken || null;
   /** What /metrics says (0.12.5): the numbers /health gives, and nothing that names anyone. */
   const metricsNow = (): Metric[] => {
@@ -4005,13 +4017,18 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
             }
             if (!parsed || typeof parsed !== 'object') return json(400, { ok: false, error: 'bad request: body is not an object', code: 'bad-request' });
             const prep = verifier.prepare(JSON.stringify(parsed.replay ?? null)); // cheap refusals before any simulation (0.8.2)
-            if (!prep.ok) return json(422, { ok: false, error: prep.error, code: prep.code });
+            if (!prep.ok) {
+              const dup = prep.duplicate;
+              if (dup) noteGame(bearerId, dup.seed, dup.replayHash, dup.score, runOwner(dup.replayHash));
+              return json(422, { ok: false, error: prep.error, code: prep.code });
+            }
             const player = typeof parsed.player === 'string' ? parsed.player : undefined;
             const finish = (sim: Resim) =>
               guarded(() => {
                 try {
                   const result = verifier.record(prep.replay, prep.replayHash, sim, player, bearerId, new Date((opts.now ?? Date.now)()));
                   if (result.ok && result.entry) par?.request(result.entry.seed);
+                  if (sim.ok && !result.late) noteGame(bearerId, prep.replay.seed, prep.replayHash, sim.score, null);
                   // friends and crew see a game on a day's or a week's board (0.11.8); a better one replaces the line
                   if (
                     result.ok &&
