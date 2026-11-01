@@ -9,6 +9,8 @@ import { choiceDialog } from './choice';
 import { openEmailLink } from './EmailLink';
 import { CSS } from '../render/palette';
 import { periodLabel } from '../content/division';
+import { categoryOf, isTopicKey } from '../content/hub';
+import { categoryName } from '../content/sal-posts';
 import { money, utcDateTime } from '../content/format';
 import { reasonText } from '../content/inbox';
 import { t, type StringKey } from '../content/strings';
@@ -52,6 +54,8 @@ const refusedKey: Record<string, StringKey> = {
   'no-name': 'thread.noName',
   'not-linked': 'thread.signIn',
   'not-friends': 'messages.notFriends',
+  locked: 'thread.refused.locked',
+  'hub-closed': 'thread.refused.hubClosed',
 };
 export const refusedText = (code: string) => t(refusedKey[code] ?? 'thread.refused.failed');
 
@@ -68,7 +72,12 @@ export function openThread(scene: Phaser.Scene, verifierUrl: string, key: string
     prev?.focus?.();
   };
   const isGame = /^[0-9a-f]{64}$/.test(key);
-  const head = h('div', { class: 'jd-head', tid: 'thread-head' }, isGame ? t('thread.headGame') : t('thread.head', { yard: periodLabel(key) }));
+  const category = categoryOf(key);
+  const head = h(
+    'div',
+    { class: 'jd-head', tid: 'thread-head' },
+    isGame ? t('thread.headGame') : category ? categoryName(category) : isTopicKey(key) ? '' : t('thread.head', { yard: periodLabel(key) }),
+  );
   const salBox = h('div', { class: 'jd-thread-salbox', tid: 'thread-sal' });
   const list = h('div', { class: 'jd-thread-list', tid: 'thread-list' }, t('thread.loading'));
   const foot = h('div', { class: 'jd-thread-foot', tid: 'thread-foot' });
@@ -232,6 +241,10 @@ export function openThread(scene: Phaser.Scene, verifierUrl: string, key: string
   };
 
   const composer = (view: ThreadView) => {
+    if (view.locked) {
+      foot.replaceChildren(h('div', { class: 'jd-dim', tid: 'thread-write-state' }, t('thread.locked')));
+      return;
+    }
     if (view.write !== 'ok') {
       const words =
         view.write === 'not-linked'
@@ -254,7 +267,10 @@ export function openThread(scene: Phaser.Scene, verifierUrl: string, key: string
     field.maxLength = POST_MAX;
     const count = h('span', { class: 'jd-dim', tid: 'thread-count' }, t('thread.count', { n: 0, max: POST_MAX }));
     field.addEventListener('input', () => (count.textContent = t('thread.count', { n: [...field.value].length, max: POST_MAX })));
-    const mine = view.run ? undefined : loadSubmissions()[view.seed]; // a game's own talk has nothing to attach
+    // a game's own talk has nothing to attach; a day's takes that day's game; the hub takes the latest
+    const games = Object.entries(loadSubmissions());
+    const latest = games.sort(([, a], [, b]) => b.verifiedAt.localeCompare(a.verifiedAt))[0]?.[1];
+    const mine = view.run ? undefined : view.seed ? loadSubmissions()[view.seed] : latest;
     const attach = h('input', { type: 'checkbox', tid: 'thread-attach' });
     const status = h('div', { class: 'jd-amber jd-thread-note', tid: 'thread-status', role: 'status' });
     const send = btn(
@@ -302,6 +318,7 @@ export function openThread(scene: Phaser.Scene, verifierUrl: string, key: string
         return;
       }
       if (view.run) head.textContent = t('thread.headRun', { player: view.run.player, score: money(view.run.score) });
+      if (view.title) head.textContent = view.title;
       salBox.replaceChildren(
         ...[view.foreman.close, view.foreman.open]
           .filter((line): line is string => !!line)

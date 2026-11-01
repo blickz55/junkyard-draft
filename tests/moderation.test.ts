@@ -41,6 +41,7 @@ import {
 import { PAGE_HTML, PAGE_JS } from '../server/moderation-page';
 import { createServer, friendHandle, playerIdFromToken, TEXT_FIELDS, Verifier } from '../server/verify';
 import { foldName, nameProblem, recoveryCodeFor } from '../game/src/identity/identity';
+import { HUB_V2_POSTERS } from '../game/src/content/hub';
 
 const FIXTURE = JSON.parse(fs.readFileSync('tests/fixtures/moderation-corpus.json', 'utf8')) as {
   items: { id: number; text: string; band: 'refuse' | 'publish' | 'queue' | 'hide'; category: string; problem?: string }[];
@@ -1034,6 +1035,15 @@ test('no free text outside the pipeline: a blocked string is refused by every fr
       return (await s.call('POST', '/posts/edit', { bearer: s.sam, body: { id: (mine.json.post as unknown as { id: number }).id, body: BLOCKED } })).status;
     },
     'appeal (POST /me/appeal)': async () => (await s.call('POST', '/me/appeal', { bearer: s.sam, body: { action, body: BLOCKED } })).status,
+    'topic title (POST /hub/topic)': async () => {
+      const thread = s.community.threadFor('hub', 'hub:offshift', null, null, 'offshift');
+      for (let i = 0; i < HUB_V2_POSTERS; i++) {
+        s.community.bindEmail(`crowd-${i}`, `crowd-hash-${i}`);
+        s.moderation.write(`crowd-${i}`, thread.id, `hello from ${i}`);
+        await s.moderation.idle();
+      }
+      return (await s.call('POST', '/hub/topic', { bearer: s.sam, body: { category: 'help', title: BLOCKED, body: 'fine words' } })).status;
+    },
     'direct message (POST /messages/send)': async () => {
       s.community.bindEmail(s.annId, 'hash-ann');
       s.community.requestFriend(s.samId, s.annId);

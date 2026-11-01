@@ -129,7 +129,8 @@ import {
 } from '../game/src/identity/identity';
 import { claudeClassifier, DEFAULT_SETTINGS, excerpt, OWNER, POST_RATE_LIMIT, Pipeline, REASON_CODES, REVIEW_SLA_HOURS, type Refused } from './moderation';
 import { closingPost, openingPost, type DayFacts } from '../game/src/content/sal-posts';
-import { dayPage, missingPage, SITE_CSS, SITE_POLICY } from './community-page';
+import { categoryPage, dayPage, hubPage, missingPage, SITE_CSS, SITE_POLICY, topicPage } from './community-page';
+import { categoryKey, categoryOf, HUB_CATEGORIES, isHubCategory, isTopicKey, type HubCategory } from '../game/src/content/hub';
 import type { ActivityRow, Message, Post } from './community';
 import { PAGE_CSS, PAGE_HTML, PAGE_JS, PAGE_POLICY } from './moderation-page';
 
@@ -359,7 +360,13 @@ export const USER_WRITTEN_FIELDS = [
 /** A friend as one player knows them: this handle means something only to that viewer, so no player id leaves the server (0.11.8). */
 export const friendHandle = (viewer: string, other: string): string => createHash('sha256').update(`${viewer}|${other}`).digest('hex').slice(0, 16);
 /** Every field of free text a player writes (0.11.2). Each passes textProblem; tests/moderation.test.ts pushes a blocked string through each and counts the call sites. A moderator's note is not here: it is an operator's, never shown to a player. */
-export const TEXT_FIELDS = ['post (POST /posts)', 'post edit (POST /posts/edit)', 'appeal (POST /me/appeal)', 'direct message (POST /messages/send)'] as const;
+export const TEXT_FIELDS = [
+  'post (POST /posts)',
+  'post edit (POST /posts/edit)',
+  'appeal (POST /me/appeal)',
+  'direct message (POST /messages/send)',
+  'topic title (POST /hub/topic)',
+] as const;
 /** Defaults the policy page publishes (PLAN-v3 0.6.5); env/flags override the rate limits at runtime. */
 export const DEFAULT_RATE_LIMIT = 60,
   DEFAULT_PLAYER_RATE_LIMIT = 2,
@@ -2397,11 +2404,27 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   /** Whether a viewer can ask this player to be friends: both have signed in, and nothing stands between them yet. */
   const canFriend = (viewer: string | null, other: string | null) =>
     !!community && !!viewer && !!other && viewer !== other && community.isLinked(viewer) && community.isLinked(other) && !community.relation(viewer, other);
-  /** What a thread is about: a day, a week, or one checked game (0.11.6). The reveal gate of its yard covers it either way. */
+  /** What a thread is about: a day, a week, one checked game (0.11.6), a hub category or a topic (0.11.10). The reveal gate of a yard covers its thread. */
   const threadTarget = (key: string, now: Date) => {
+    const category = categoryOf(key);
+    if (category) return { kind: 'hub' as const, seed: null, closed: false, owner: null, run: null, category, title: null };
+    if (isTopicKey(key)) {
+      const t = community?.findThread('hub', key);
+      return t ? { kind: 'hub' as const, seed: null, closed: false, owner: null, run: null, category: t.category, title: t.title } : null;
+    }
     if (/^[0-9a-f]{64}$/.test(key)) {
       const e = verifier.entry(key, null, now);
-      return e ? { kind: 'run' as const, seed: e.seed, closed: false, owner: verifier.ownerOf(key), run: { player: e.player, score: e.score } } : null;
+      return e
+        ? {
+            kind: 'run' as const,
+            seed: e.seed,
+            closed: false,
+            owner: verifier.ownerOf(key),
+            run: { player: e.player, score: e.score },
+            category: null,
+            title: null,
+          }
+        : null;
     }
     const rec = verifier.periodRecord(key, now);
     if (!rec) return null;
@@ -2411,8 +2434,22 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       closed: Date.parse(rec.closesAt) <= now.getTime(),
       owner: null,
       run: null,
+      category: null,
+      title: null,
     };
   };
+  /** The game a post carries, for a page with no game behind it: a line and a link, never the recording. */
+  const gameOf = (p: Post, now: Date) => {
+    const e = p.replayHash ? verifier.entry(p.replayHash, null, now) : null;
+    return e ? { player: e.player, score: e.score, hash: e.replayHash } : null;
+  };
+  const pagePost = (p: Post, now: Date) => ({
+    author: verifier.playerLabel(p.authorId, now),
+    body: p.body,
+    createdAt: p.createdAt,
+    edited: p.editedAt !== null,
+    game: gameOf(p, now),
+  });
   /** Reaction counts on a board's rows (0.11.3): a run nobody reacted to carries no field. */
   const withReactions = <T extends { replayHash: string }>(entries: T[]): T[] => {
     if (!community || !entries.length) return entries;
@@ -3366,7 +3403,53 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         );
         return;
       }
-      if (req.method === 'GET' && (url.pathname === '/community/site.css' || url.pathname.startsWith('/community/day/'))) {
+      if (req.method === 'GET' && url.pathname === '/hub') {
+        // the hub for the game (0.11.10): what each category holds and the days with a talk
+        if (!community || !moderation?.enabled) return json(503, { ok: false, code: 'writing-off', error: 'writing is not enabled on this verifier' });
+        return json(200, {
+          ok: true,
+          open: moderation.hubOpen,
+          categories: HUB_CATEGORIES.map((c) => ({
+            key: c,
+            posts: community.findThread('hub', categoryKey(c))?.postCount ?? 0,
+            topics: community.hubThreads(c).map((t) => ({ key: t.key, title: t.title, posts: t.postCount, pinned: t.pinned, locked: t.locked })),
+          })),
+          days: community.dayThreads().map((t) => ({ key: t.key, kind: t.kind, posts: t.postCount })),
+        });
+      }
+      if (req.method === 'POST' && url.pathname === '/hub/topic') {
+        // a topic of a player's own (0.11.10): shut until enough people are posting
+        if (!community || !moderation?.enabled) {
+          req.resume();
+          return json(503, { ok: false, code: 'writing-off', error: 'writing is not enabled on this verifier' });
+        }
+        if (!bearerId) {
+          req.resume();
+          return json(401, { ok: false, error: 'token required' });
+        }
+        const r = postRl.take(bearerId);
+        if (!r.ok) {
+          req.resume();
+          return json(429, { ok: false, code: 'rate-limited', error: 'slow down' }, { 'Retry-After': String(r.retryAfterSec) });
+        }
+        const w = writeLimited();
+        if (w != null) {
+          req.resume();
+          return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) });
+        }
+        return withBody(2048, (p) => {
+          if (!verifier.player(bearerId)) return json(422, { ok: false, code: 'no-name', error: 'choose a name before writing' });
+          const out = moderation.startTopic(bearerId, p.category, p.title, p.body);
+          return out.ok ? json(200, { ok: true, key: out.key, post: postView(out.post, bearerId, new Date((opts.now ?? Date.now)())) }) : refusal(out);
+        });
+      }
+      if (
+        req.method === 'GET' &&
+        (url.pathname === '/community/' ||
+          url.pathname === '/community' ||
+          url.pathname === '/community/site.css' ||
+          /^\/community\/(day|hub|topic)\//.test(url.pathname))
+      ) {
         // a closed day's talk as a plain page (0.11.5); an open day's stays behind its reveal gate, in the game
         const send = (status: number, type: string, body: string) => {
           res.writeHead(status, {
@@ -3381,13 +3464,49 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         };
         if (url.pathname === '/community/site.css') return send(200, 'text/css', SITE_CSS);
         const now = new Date((opts.now ?? Date.now)());
+        if (!community || !moderation?.enabled) return send(404, 'text/html', missingPage());
+        if (url.pathname === '/community/' || url.pathname === '/community') {
+          return send(
+            200,
+            'text/html',
+            hubPage({
+              categories: HUB_CATEGORIES.map((c) => ({ key: c, posts: community.findThread('hub', categoryKey(c))?.postCount ?? 0 })),
+              days: community.dayThreads().map((t) => ({ key: t.key, weekly: t.kind === 'weekly', posts: t.postCount })),
+            }),
+          );
+        }
+        const hub = /^\/community\/hub\/(\w+)$/.exec(url.pathname)?.[1];
+        if (url.pathname.startsWith('/community/hub/')) {
+          if (!isHubCategory(hub)) return send(404, 'text/html', missingPage());
+          const c: HubCategory = hub;
+          const thread = community.findThread('hub', categoryKey(c));
+          return send(
+            200,
+            'text/html',
+            categoryPage({
+              category: c,
+              posts: thread ? community.threadPage(thread.id, { limit: 100 }).posts.map((p) => pagePost(p, now)) : [],
+              topics: community.hubThreads(c).map((t) => ({ key: t.key, title: t.title ?? '', posts: t.postCount })),
+            }),
+          );
+        }
+        if (url.pathname.startsWith('/community/topic/')) {
+          const topic = `topic:${url.pathname.slice('/community/topic/'.length, 64)}`;
+          const thread = isTopicKey(topic) ? community.findThread('hub', topic) : null;
+          if (!thread || !thread.postCount) return send(404, 'text/html', missingPage());
+          return send(
+            200,
+            'text/html',
+            topicPage({ title: thread.title ?? '', posts: community.threadPage(thread.id, { limit: 100 }).posts.map((p) => pagePost(p, now)) }),
+          );
+        }
         const key = url.pathname.slice('/community/day/'.length, 64);
-        const rec = community && moderation?.enabled ? verifier.periodRecord(key, now) : null;
+        const rec = verifier.periodRecord(key, now);
         if (!rec) return send(404, 'text/html', missingPage());
         const weekly = isWeekId(key);
         const closed = Date.parse(rec.closesAt) <= now.getTime();
-        const thread = community!.findThread(weekly ? 'weekly' : 'daily', key);
-        const posts = closed ? (thread ? community!.threadPage(thread.id, { limit: 100 }).posts : []) : null;
+        const thread = community.findThread(weekly ? 'weekly' : 'daily', key);
+        const posts = closed ? (thread ? community.threadPage(thread.id, { limit: 100 }).posts : []) : null;
         return send(
           200,
           'text/html',
@@ -3396,8 +3515,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
             weekly,
             opening: openingPost(key),
             closing: closed ? closingOf(key, rec.seed, now) : null,
-            posts:
-              posts && posts.map((p) => ({ author: verifier.playerLabel(p.authorId, now), body: p.body, createdAt: p.createdAt, edited: p.editedAt !== null })),
+            posts: posts && posts.map((p) => pagePost(p, now)),
           }),
         );
       }
@@ -3408,9 +3526,9 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const key = (url.searchParams.get('key') || '').slice(0, 64);
         const target = threadTarget(key, now);
         if (!target) return json(404, { ok: false, code: 'no-thread', error: 'no such thread' });
-        const gate = verifier.revealGate(target.seed, bearerId, now);
+        const gate = target.seed ? verifier.revealGate(target.seed, bearerId, now) : null;
         if (gate) return json(403, { ok: false, code: 'reveal-gate', ...gate });
-        const { kind, seed, closed, run } = target;
+        const { kind, seed, closed, run, title, category } = target;
         const thread = community.findThread(kind, key);
         const page = thread
           ? community.threadPage(thread.id, { after: clampInt(url.searchParams.get('after'), 0, Number.MAX_SAFE_INTEGER, 0), viewer: bearerId })
@@ -3424,7 +3542,10 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           seed,
           closed,
           run,
-          foreman: { open: run ? null : openingPost(key), close: closed ? closingOf(key, seed, now) : null },
+          title,
+          category,
+          locked: !!thread?.locked,
+          foreman: { open: seed && !run ? openingPost(key) : null, close: seed && closed ? closingOf(key, seed, now) : null },
           posts: page.posts.filter((p) => !p.authorId || !blocked?.has(p.authorId)).map((p) => postView(p, bearerId, now)),
           next: page.next,
           count: thread?.postCount ?? 0,
@@ -3466,14 +3587,15 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           const target = threadTarget(key, now);
           if (!target) return json(404, { ok: false, code: 'no-thread', error: 'no such thread' });
           const { seed } = target;
-          const gate = verifier.revealGate(seed, bearerId, now);
+          const gate = seed ? verifier.revealGate(seed, bearerId, now) : null;
           if (gate) return json(403, { ok: false, code: 'reveal-gate', ...gate });
           if (!verifier.player(bearerId)) return json(422, { ok: false, code: 'no-name', error: 'choose a name before writing' });
           // a run is attached by its hash: a checked game of this yard, which everyone reading the thread is allowed to watch
           const hash = typeof p.hash === 'string' ? p.hash.slice(0, 64) : null;
-          if (hash && verifier.entry(hash, null, now)?.seed !== seed)
+          const entry = hash ? verifier.entry(hash, null, now) : null;
+          if (hash && (!entry || (seed && entry.seed !== seed)))
             return json(422, { ok: false, code: 'bad-run', error: 'no checked game of this yard with that hash' });
-          const out = moderation.write(bearerId, community.threadFor(target.kind, key, null, target.owner).id, p.body, hash);
+          const out = moderation.write(bearerId, community.threadFor(target.kind, key, null, target.owner, target.category).id, p.body, hash);
           return out.ok ? json(200, { ok: true, post: postView(out.post, bearerId, now) }) : refusal(out);
         });
       }
@@ -3570,7 +3692,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           });
         }
         const decision = url.pathname.slice('/moderation/'.length);
-        if (req.method === 'POST' && ['post', 'message', 'player', 'appeal', 'settings', 'trust'].includes(decision)) {
+        if (req.method === 'POST' && ['post', 'message', 'thread', 'player', 'appeal', 'settings', 'trust'].includes(decision)) {
           if (!moderation) {
             req.resume();
             return json(503, { ok: false, error: 'the community store is not enabled on this verifier' });
@@ -3585,13 +3707,15 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
                 ? moderation.decidePost(who, p.id, p.action, p.code, p.note)
                 : decision === 'message'
                   ? moderation.decideMessage(who, p.id, p.action, p.code, p.note)
-                  : decision === 'player'
-                    ? moderation.decidePlayer(who, p.id, p.action, p.code, p.note)
-                    : decision === 'appeal'
-                      ? moderation.answerAppeal(who, p.id, p.result, p.note)
-                      : decision === 'settings'
-                        ? moderation.saveSettings(who, p)
-                        : moderation.setTrusted(who, p.playerId, p.trusted);
+                  : decision === 'thread'
+                    ? moderation.flagThread(who, p.id, p)
+                    : decision === 'player'
+                      ? moderation.decidePlayer(who, p.id, p.action, p.code, p.note)
+                      : decision === 'appeal'
+                        ? moderation.answerAppeal(who, p.id, p.result, p.note)
+                        : decision === 'settings'
+                          ? moderation.saveSettings(who, p)
+                          : moderation.setTrusted(who, p.playerId, p.trusted);
             return out.ok ? json(200, out) : refusal(out);
           });
         }

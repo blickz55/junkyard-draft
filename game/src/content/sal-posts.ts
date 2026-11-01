@@ -7,6 +7,7 @@
 import { hashSeed } from '../sim/rng';
 import { money } from './format';
 import { render, type Params } from './template';
+import type { HubCategory } from './hub';
 
 interface Line {
   en: string;
@@ -38,11 +39,30 @@ export const SAL_STRINGS = {
   'sal.pageEdited': s('edited', 'beside a post that was changed'),
   'sal.pagePlay': s('Play Junkyard Draft', 'link to the game'),
   'sal.pageName': s('Sal', 'his name on a post'),
-  'sal.pageMissing': s('There is no such yard.', 'the web page of an unknown day'),
+  'sal.pageMissing': s('There is no such page.', 'the web page of something unknown'),
+  'sal.hub': s('Community', 'the name of the hub'),
+  'sal.hub.lead': s('What people are saying about the yards. Reading needs nothing; writing happens in the game.', 'under the name of the hub'),
+  'sal.hub.strategies': s('Strategies', 'a category of the hub'),
+  'sal.hub.yards': s('Show your yard', 'a category of the hub'),
+  'sal.hub.help': s('Help and bugs', 'a category of the hub'),
+  'sal.hub.offshift': s('Off-shift', 'a category of the hub'),
+  'sal.hub.strategiesLead': s('How you build, what you take, what works.', 'under a category'),
+  'sal.hub.yardsLead': s('Layouts and games worth a look.', 'under a category'),
+  'sal.hub.helpLead': s('Stuck, or something looks wrong.', 'under a category'),
+  'sal.hub.offshiftLead': s('Anything else, within the guidelines.', 'under a category'),
+  'sal.hub.days': s('Past days', 'a list of the days with a talk'),
+  'sal.hub.topics': s('Topics', 'a list of the topics in a category'),
+  'sal.hub.posts': s('{n, plural, one {# post} other {# posts}}', 'how much is in a thread'),
+  'sal.hub.game': s("{player}'s {score}", 'a game attached to a post on the web page'),
+  'sal.hub.watch': s('Watch it in the game', 'link under a game attached to a post'),
+  'sal.hub.back': s('Community', 'link back to the hub'),
 } as const satisfies Record<string, Line>;
 export type SalKey = keyof typeof SAL_STRINGS;
 
 export const sal = (key: SalKey, params: Params = {}): string => render(SAL_STRINGS[key].en, params);
+
+export const categoryName = (c: HubCategory): string => sal(`sal.hub.${c}` as SalKey);
+export const categoryLead = (c: HubCategory): string => sal(`sal.hub.${c}Lead` as SalKey);
 
 const pick = (group: string, day: string, n: number) => (hashSeed(`${group}|${day}`) % n) + 1;
 

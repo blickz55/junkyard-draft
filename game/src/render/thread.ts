@@ -19,10 +19,13 @@ export interface ThreadPost {
 export type WriteState = 'ok' | 'not-linked' | 'no-name' | 'muted' | 'banned';
 export interface ThreadView {
   key: string;
-  kind: 'daily' | 'weekly' | 'run';
-  seed: string;
+  kind: 'daily' | 'weekly' | 'run' | 'hub';
+  seed: string | null;
   closed: boolean;
   /** the game a thread is about (0.11.6) */ run: { player: string; score: number } | null;
+  /** a topic's title and a hub thread's category (0.11.10) */ title: string | null;
+  category: string | null;
+  locked: boolean;
   foreman: { open: string | null; close: string | null };
   posts: ThreadPost[];
   next: number | null;

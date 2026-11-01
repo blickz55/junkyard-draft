@@ -37,7 +37,7 @@ import { HIDDEN_LABEL } from '../identity/identity';
 import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWeekly, todaysYard } from '../render/daily';
 import { openArchive } from './ArchivePanel';
 import { openRecord } from './RecordPanel';
-import { openDivision, openFriends, openInbox, openLinkLanding, openPolicy, openPrivacy, openThread } from './panels';
+import { openDivision, openFriends, openHub, openInbox, openLinkLanding, openPolicy, openPrivacy, openThread } from './panels';
 import { syncNow, takeLinkToken } from '../render/link';
 import { hasInbox, loadInbox } from '../render/inbox';
 import { isFresh, latestPlacement } from '../render/divisions';
@@ -338,6 +338,8 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   let talkKey = '';
   const talkLink = link(t('home.talk'), 'talk', () => openThread(scene, verifierUrl, talkKey));
   talkLink.style.display = 'none';
+  const hubLink = link(t('home.community'), 'community', () => openHub(scene, verifierUrl));
+  hubLink.style.display = 'none';
   if (hasInbox(verifierUrl)) {
     inboxLink.style.display = '';
     void loadInbox(verifierUrl).then((inbox) => {
@@ -354,6 +356,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     link(t('title.crews'), 'groups', () => openGroups(scene, verifierUrl, () => scene.scene.restart()), t('title.crewsTitle')),
     inboxLink,
     talkLink,
+    hubLink,
     loadLinked() ? link(t('home.friends'), 'friends', () => openFriends(scene, verifierUrl)) : null,
     link(t('home.more'), 'more', () => {
       const r = pushSupported() ? loadReminder() : null;
@@ -452,6 +455,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
         if (d.talk) {
           talkKey = info.date;
           talkLink.style.display = '';
+          hubLink.style.display = '';
           if (d.talk.posts) talkLink.textContent = t('home.talkCount', { n: d.talk.posts });
         }
         showJob(seed);

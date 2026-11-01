@@ -196,6 +196,13 @@
       ]
     },
     {
+      "title": "The community",
+      "lines": [
+        "Four categories, each one thread: Strategies, Show your yard, Help and bugs, Off-shift. They read in the game and as plain web pages at /community/, with no key and no script, and writing goes through the same pipeline as the talk. Past days with a talk are listed there too.",
+        "Players can start topics of their own once 50 people have posted in the last seven days, so the hub never looks dead; the title, up to 80 characters, is read with the first post, and a topic shows when that post does. A moderator can pin a thread and close one."
+      ]
+    },
+    {
       "title": "Friends and the feed",
       "lines": [
         "Friends need a linked email on both sides. You add someone from a game of theirs or a post of theirs, so nobody can be searched for or listed; a request reaches their inbox and they accept it or leave it. At most 200 friends and open requests, 20 friend actions a minute.",

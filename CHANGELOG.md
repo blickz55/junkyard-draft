@@ -5,6 +5,12 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### 0.11.10 the community hub — 2026-11-01 (no rules change, protocol 3: additive)
+- **A place to talk beyond the day.** Community on Home opens four categories: Strategies, Show your yard, Help and bugs, Off-shift. They also read as plain web pages, with nothing to install. Past days with a talk are listed there too.
+- **Show a game.** Attach your latest game to a post. On the web page it shows who and how much, with a way into the game.
+- **Topics of your own open when there are enough people.** Once fifty players have posted in a week, New topic appears, so the hub never looks dead on the way there.
+- A moderator can pin a thread and close one.
+
 ### 0.11.9 direct messages — 2026-11-01 (no rules change, protocol 3: additive)
 - **Write to a friend.** Message sits beside each friend, and a new message lands in your inbox. Friends only, up to 500 characters, and messages go after 90 days.
 - **Private by default.** The filter still refuses links and contact details, but neither the classifier nor a person reads a message unless the player it was sent to reports it. Then a person sees that message and the ones around it.

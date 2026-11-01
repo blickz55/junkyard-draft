@@ -188,6 +188,8 @@ function queueCard(item) {
       item.authorId && el('button', { type: 'button', tid: 'mod-mute24-' + item.id, onClick: player('mute-24h', 'Muted for 24 hours.') }, 'Mute 24 h'),
       item.authorId && el('button', { type: 'button', tid: 'mod-mute7-' + item.id, onClick: player('mute-7d', 'Muted for 7 days.') }, 'Mute 7 days'),
       item.authorId && data.who === 'owner' && el('button', { type: 'button', className: 'danger', tid: 'mod-ban-' + item.id, onClick: player('ban', 'Banned.') }, 'Ban'),
+      el('button', { type: 'button', tid: 'mod-lock-' + item.id, onClick: function () { act('thread', { id: item.threadId, locked: !item.threadLocked }, item.threadLocked ? 'Thread open.' : 'Thread closed.'); } }, item.threadLocked ? 'Open the thread' : 'Close the thread'),
+      el('button', { type: 'button', tid: 'mod-pin-' + item.id, onClick: function () { act('thread', { id: item.threadId, pinned: !item.threadPinned }, item.threadPinned ? 'Unpinned.' : 'Pinned.'); } }, item.threadPinned ? 'Unpin the thread' : 'Pin the thread'),
     ),
   );
 }

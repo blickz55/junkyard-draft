@@ -1038,6 +1038,7 @@ export const STRINGS = {
   'record.trophiesHead': s('Trophies', 'record page section: never decay'),
   'home.inbox': s('Inbox', 'home footer'),
   'home.friends': s('Friends', 'home footer, once signed in with email'),
+  'home.community': s('Community', 'home footer while writing is open'),
   'friends.add': s('Add friend', 'button on a recording or a post'),
   'friends.asked': s('Asked', 'the same button after pressing it'),
   'friends.needName': s('Choose a name first', 'the same button when this device has no name'),

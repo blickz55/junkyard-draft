@@ -2,6 +2,7 @@
 export { openDivision } from './DivisionPanel';
 export { openFriends } from './FriendsPanel';
 export { openEmailLink, openLinkLanding } from './EmailLink';
+export { openHub } from './HubPanel';
 export { openInbox } from './InboxPanel';
 export { openMessages } from './MessagesPanel';
 export { openPolicy } from './PolicyPanel';

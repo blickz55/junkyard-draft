@@ -103,6 +103,9 @@ export interface Thread {
   key: string;
   title: string | null;
   /** whose thread it is: a run's owner, a topic's author */ authorId: string | null;
+  category: string | null;
+  pinned: boolean;
+  locked: boolean;
   postCount: number;
   lastPostAt: number | null;
   createdAt: number;
@@ -127,6 +130,8 @@ const VISIBLE: readonly PostState[] = ['published', 'queued'];
 export interface QueueItem extends Post {
   threadKind: ThreadKind;
   threadKey: string;
+  threadPinned: boolean;
+  threadLocked: boolean;
   reports: { reason: string; n: number }[];
 }
 export interface Message {
@@ -150,7 +155,7 @@ export interface ModerationAction {
   id: number;
   actor: string;
   action: string;
-  targetKind: 'post' | 'player' | 'settings' | 'message';
+  targetKind: 'post' | 'player' | 'settings' | 'message' | 'thread';
   targetRef: string;
   playerId: string | null;
   reasonCode: string | null;
@@ -221,6 +226,9 @@ const threadOf = (r: Record<string, unknown>): Thread => ({
   key: r.key as string,
   title: r.title as string | null,
   authorId: r.author_id as string | null,
+  category: r.category as string | null,
+  pinned: r.pinned === 1,
+  locked: r.locked === 1,
   postCount: r.post_count as number,
   lastPostAt: r.last_post_at as number | null,
   createdAt: r.created_at as number,
@@ -352,10 +360,11 @@ export class CommunityStore {
   }
 
   /** The thread for a daily, a week, a run or a hub topic, made on first use. */
-  threadFor(kind: ThreadKind, key: string, title: string | null = null, authorId: string | null = null): Thread {
-    this.sql('INSERT INTO threads (kind, key, title, author_id, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (kind, key) DO NOTHING').run(
+  threadFor(kind: ThreadKind, key: string, title: string | null = null, authorId: string | null = null, category: string | null = null): Thread {
+    this.sql('INSERT INTO threads (kind, key, category, title, author_id, created_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (kind, key) DO NOTHING').run(
       kind,
       key,
+      category,
       title,
       authorId,
       this.now(),
@@ -403,6 +412,34 @@ export class CommunityStore {
   findThread(kind: ThreadKind, key: string): Thread | null {
     const r = this.sql('SELECT * FROM threads WHERE kind = ? AND key = ?').get(kind, key) as Record<string, unknown> | undefined;
     return r ? threadOf(r) : null;
+  }
+  /** The hub's front page: threads of a category that have something in them, pinned first, then the latest talked about. */
+  hubThreads(category: string, limit = 50): Thread[] {
+    const rows = this.sql(
+      "SELECT * FROM threads WHERE kind = 'hub' AND category = ? AND key LIKE 'topic:%' AND post_count > 0 ORDER BY pinned DESC, last_post_at DESC LIMIT ?",
+    ).all(category, Math.min(Math.max(1, limit), MAX_THREAD_PAGE)) as Record<string, unknown>[];
+    return rows.map(threadOf);
+  }
+  /** The latest days that have a talk, newest first. */
+  dayThreads(limit = 20): Thread[] {
+    const rows = this.sql("SELECT * FROM threads WHERE kind IN ('daily', 'weekly') AND post_count > 0 ORDER BY last_post_at DESC LIMIT ?").all(
+      Math.min(Math.max(1, limit), MAX_THREAD_PAGE),
+    ) as Record<string, unknown>[];
+    return rows.map(threadOf);
+  }
+  /** How many players have words up from this time on: the hub opens up when enough do. */
+  postersSince(at: number): number {
+    return (
+      this.sql("SELECT COUNT(DISTINCT author_id) AS n FROM posts WHERE created_at >= ? AND state IN ('published', 'queued') AND author_id IS NOT NULL").get(
+        at,
+      ) as { n: number }
+    ).n;
+  }
+  /** Pin or lock a thread. Returns it, or null when there is none. */
+  setThreadFlags(id: number, flags: { pinned?: boolean; locked?: boolean }): Thread | null {
+    if (flags.pinned !== undefined) this.sql('UPDATE threads SET pinned = ? WHERE id = ?').run(flags.pinned ? 1 : 0, id);
+    if (flags.locked !== undefined) this.sql('UPDATE threads SET locked = ? WHERE id = ?').run(flags.locked ? 1 : 0, id);
+    return this.threadById(id);
   }
   threadById(id: number): Thread | null {
     const r = this.sql('SELECT * FROM threads WHERE id = ?').get(id) as Record<string, unknown> | undefined;
@@ -586,7 +623,7 @@ export class CommunityStore {
   /** What waits for a person, oldest first: anything the classifier or reports held up, anything with an open report. */
   moderationQueue(limit = MAX_QUEUE_PAGE): QueueItem[] {
     const rows = this.sql(
-      `SELECT p.*, t.kind AS thread_kind, t.key AS thread_key FROM posts p JOIN threads t ON t.id = p.thread_id
+      `SELECT p.*, t.kind AS thread_kind, t.key AS thread_key, t.pinned AS thread_pinned, t.locked AS thread_locked FROM posts p JOIN threads t ON t.id = p.thread_id
        WHERE (p.state IN ('queued', 'hidden') AND p.triaged_at IS NOT NULL AND p.reviewed_at IS NULL)
           OR p.id IN (SELECT target_ref FROM reports WHERE target_kind = 'post' AND resolved_at IS NULL)
        ORDER BY p.id LIMIT ?`,
@@ -599,6 +636,8 @@ export class CommunityStore {
         ...post,
         threadKind: r.thread_kind as ThreadKind,
         threadKey: r.thread_key as string,
+        threadPinned: r.thread_pinned === 1,
+        threadLocked: r.thread_locked === 1,
         reports: [...reports].map(([reason, n]) => ({ reason, n })),
       };
     });

@@ -6,6 +6,8 @@
  */
 import { RULES } from '../game/src/sim/rules';
 import { RULES_VERSION } from '../game/src/sim/types';
+import { HUB_CATEGORIES, HUB_V2_POSTERS, TOPIC_TITLE_MAX } from '../game/src/content/hub';
+import { categoryName } from '../game/src/content/sal-posts';
 import { EVENTS } from '../game/src/telemetry/events';
 import { NAME_MAX, NAME_BLOCKLIST, TAG_ALPHABET } from '../game/src/identity/identity';
 import { MEDAL_PERCENTILES, MEDAL_MIN_N } from '../game/src/daily/medals';
@@ -133,6 +135,13 @@ export function buildPolicy(): Policy {
         `A person can clear, hide, restore or remove a post and mute a player for 24 hours or 7 days; only the owner bans. A ban stops a player writing and nothing else: it holds the player id and the hash of the email address, and takes down what the player had up. The words of a removed post go after ${REMOVED_TEXT_DAYS} days. Trusted moderators are players the owner appoints; they must have a linked email.`,
         `Every decision has a reason code from a fixed list, a row in the database and a line in the audit log, and tells the player in their inbox. They can appeal it from there, once, within ${APPEAL_DAYS} days. An appeal passes the same filter. A person answers: kept, or undone, and the player hears either way.`,
         `Target: a person reviews everything flagged within ${REVIEW_SLA_HOURS} hours. This page shows the live counts for each month (posts, hidden, removed, appeals, decisions kept, decisions undone) from GET /transparency.`,
+      ],
+    },
+    {
+      title: 'The community',
+      lines: [
+        `Four categories, each one thread: ${HUB_CATEGORIES.map((c) => categoryName(c)).join(', ')}. They read in the game and as plain web pages at /community/, with no key and no script, and writing goes through the same pipeline as the talk. Past days with a talk are listed there too.`,
+        `Players can start topics of their own once ${HUB_V2_POSTERS} people have posted in the last seven days, so the hub never looks dead; the title, up to ${TOPIC_TITLE_MAX} characters, is read with the first post, and a topic shows when that post does. A moderator can pin a thread and close one.`,
       ],
     },
     {

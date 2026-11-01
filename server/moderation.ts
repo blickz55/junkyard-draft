@@ -14,7 +14,9 @@
  * and no classifier in front of it is not a pipeline. The call is one HTTPS POST, so the verifier gains no dependency (roadmap §4.6).
  * Scores never move here: moderating a post says nothing about a run.
  */
+import { randomBytes } from 'node:crypto';
 import { foldName, POST_MAX, REPORT_REASONS, type ReportReason } from '../game/src/identity/identity';
+import { HUB_V2_POSTERS, TOPIC_TITLE_MAX, isHubCategory } from '../game/src/content/hub';
 import {
   COUNTS_TTL_MS,
   type CommunityStore,
@@ -409,11 +411,36 @@ export class Pipeline {
     return oldest !== null && this.now() - oldest >= s.awayAfterHours * 3_600_000;
   }
 
+  /** Whether players can start topics in the hub: enough of them posted this week for a list of topics not to look dead. */
+  get hubOpen(): boolean {
+    return this.store.postersSince(this.now() - 7 * 86_400_000) >= HUB_V2_POSTERS;
+  }
+  /** A player starts a topic, once the hub is open. The title is read with the first post, and the topic shows when that post does. */
+  startTopic(
+    authorId: string,
+    category: unknown,
+    rawTitle: unknown,
+    raw: unknown,
+    replayHash: string | null = null,
+  ): { ok: true; post: Post; key: string } | Refused {
+    if (!this.classify) return refused(503, 'writing-off', 'writing is not enabled on this server');
+    if (!isHubCategory(category)) return refused(404, 'no-thread', 'no such category');
+    if (!this.hubOpen) return refused(403, 'hub-closed', 'topics open when more people are posting');
+    const titleProblem = textProblem(rawTitle, TOPIC_TITLE_MAX);
+    if (titleProblem) return refused(422, titleProblem, TEXT_MESSAGES[titleProblem]);
+    const block = this.store.writeBlock(authorId);
+    if (block) return blocked(block);
+    const key = `topic:${randomBytes(6).toString('hex')}`;
+    const thread = this.store.threadFor('hub', key, normaliseText(rawTitle), authorId, category);
+    const out = this.write(authorId, thread.id, raw, replayHash);
+    return out.ok ? { ...out, key } : out;
+  }
   /** A player writes a post. It waits down for the classifier; its author reads it at once. */
   write(authorId: string, threadId: number, raw: unknown, replayHash: string | null = null): { ok: true; post: Post } | Refused {
     if (!this.classify) return refused(503, 'writing-off', 'writing is not enabled on this server');
     const block = this.store.writeBlock(authorId);
     if (block) return blocked(block);
+    if (this.store.threadById(threadId)?.locked) return refused(403, 'locked', 'this thread is closed');
     const problem = textProblem(raw);
     if (problem) return refused(422, problem, TEXT_MESSAGES[problem]);
     const body = normaliseText(raw);
@@ -563,9 +590,12 @@ export class Pipeline {
       if (up) this.tellThread(up);
       return;
     }
+    // a topic's title is part of what a player wrote: it goes with the first post
+    const thread = this.store.threadById(post.threadId);
+    const words = thread?.title && thread.postCount === 0 ? `${thread.title}\n\n${post.body}` : post.body;
     let t: Triage;
     try {
-      t = await this.classify!(post.body);
+      t = await this.classify!(words);
     } catch (e) {
       this.store.recordUsage(day, { calls: 1, failures: 1 });
       this.logError(JSON.stringify({ ts: this.at(), error: `triage: ${(e as Error).message}`, post: post.id }));
@@ -771,6 +801,18 @@ export class Pipeline {
     this.store.addAction({ actor, action: 'settings', targetKind: 'settings', targetRef: 'thresholds', note: JSON.stringify(next) });
     this.audit({ at: this.at(), action: 'settings', by: actor, settings: next });
     return { ok: true, settings: next };
+  }
+  /** A person pins or locks a thread. */
+  flagThread(actor: Actor, id: unknown, flags: { pinned?: unknown; locked?: unknown }): { ok: true } | Refused {
+    const thread = typeof id === 'number' ? this.store.threadById(id) : null;
+    if (!thread) return refused(404, 'no-thread', 'no such thread');
+    const pinned = typeof flags.pinned === 'boolean' ? flags.pinned : undefined;
+    const locked = typeof flags.locked === 'boolean' ? flags.locked : undefined;
+    this.store.setThreadFlags(thread.id, { pinned, locked });
+    const action = locked === true ? 'lock' : locked === false ? 'unlock' : pinned === true ? 'pin' : 'unpin';
+    this.store.addAction({ actor, action, targetKind: 'thread', targetRef: thread.id });
+    this.audit({ at: this.at(), action, by: actor, thread: thread.key });
+    return { ok: true };
   }
   /** The owner grants or takes back the moderator role. It needs a linked email. */
   setTrusted(actor: Actor, playerId: unknown, trusted: unknown): { ok: true } | Refused {
