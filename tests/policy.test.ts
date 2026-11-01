@@ -32,6 +32,7 @@ test('policy (PLAN-v3 0.6.5): the committed policy.json and POLICY.md are exactl
       'Medals',
       'Identity and your data',
       'Writing and moderation',
+      'Friends and the feed',
       'Divisions and trophies',
       'Play statistics',
       'Abuse limits',

@@ -5,6 +5,12 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### 0.11.8 friends and the feed — 2026-11-01 (no rules change, protocol 3: additive)
+- **Add a friend** from a recording you watched, a post in the talk or a challenge you played. They answer in their inbox. Nobody can be searched for or listed.
+- **See what they have been up to.** Friends on Home shows your friends and crew mates: their games, their posts and how their divisions went, with Beat this in one tap. Their scores show on the chart of a yard you both played.
+- **Block anyone.** You stop seeing each other in the talk and the feed, and they are not told. Boards stay as they are, because scores are public.
+- Home named a yard by its code. It now says today's yard, the same as everywhere else.
+
 ### 0.11.6 comments on games — 2026-11-01 (no rules change, protocol 3: additive)
 - **Talk about one game.** A recording has Talk about this game beside its reactions, behind the same gate as the recording itself. Its owner hears in the inbox even if they never wrote there, and the talk shows on the results of a game of yours.
 

@@ -39,7 +39,7 @@ import { medalFor, medalsLine, type Medals } from '../daily/medals';
 import { openPolicy, openPrivacy, openThread } from './panels';
 import { reactionLine, reactionTotal, type ReactionCounts } from '../content/reactions';
 import { loadReactions } from '../render/reactions';
-import { reactionBar, talkButton } from './ReactionBar';
+import { friendButton, reactionBar, talkButton } from './ReactionBar';
 import { syncNow } from '../render/link';
 import { recordWatched } from '../render/storage';
 import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
@@ -357,6 +357,14 @@ export function mountResults(
     status.className = `jd-results-status ${cls}`;
   };
 
+  // played against someone's score: the way to add them (0.11.8)
+  if (o.challenge && !o.replayed) {
+    const hash = o.challenge.hash;
+    void loadReactions(verifierUrl, hash).then((r) => {
+      if (r?.friendable) talkSlot.after(friendButton(verifierUrl, hash));
+    });
+  }
+
   /** What other players made of this checked game: the reactions (0.11.3) and who watched it (0.11.4), nothing until someone has. */
   const showReactions = async (hash: string) => {
     const r = await loadReactions(verifierUrl, hash);
@@ -385,7 +393,7 @@ export function mountResults(
       const prior = !mine ? loadSubmissions()[run.seed] : undefined;
       const hres = await fetch(
         `${verifierUrl}/histogram?seed=${encodeURIComponent(run.seed)}${mine ? `&hash=${encodeURIComponent(mine)}` : ''}${groupParam(verifierUrl)}`,
-        { headers: groupHeaders(verifierUrl) },
+        { headers: { ...groupHeaders(verifierUrl), ...authHeaders(verifierUrl) } }, // the key says whose friends to mark
       );
       const hg = (await hres.json()) as {
         n: number;
@@ -393,6 +401,7 @@ export function mountResults(
         bins: { from: number; to: number; count: number }[];
         mine: { score: number; rank: number; bin: number; percentile: number } | null;
         around: { rank: number; player: string; score: number; mine: boolean }[];
+        friends?: { player: string; score: number }[];
         botPar?: number | null;
         medals?: Medals | null;
       };
@@ -452,7 +461,7 @@ export function mountResults(
             h(
               'div',
               {
-                class: `jd-hist-bin${hg.mine && hg.mine.bin === i ? ' jd-hist-mine' : ''}`,
+                class: `jd-hist-bin${hg.mine && hg.mine.bin === i ? ' jd-hist-mine' : hg.friends?.some((f) => f.score >= b.from && f.score <= b.to) ? ' jd-hist-friend' : ''}`,
                 tid: `hist-bin-${i}`,
                 title: `${money(b.from)}–${money(b.to)}: ${int(b.count)}`,
               },
@@ -463,6 +472,14 @@ export function mountResults(
         ),
       );
       histBox.append(h('div', { class: 'jd-hist-axis' }, h('span', {}, money(0)), h('span', {}, money(hg.bins[hg.bins.length - 1].to))));
+      if (hg.friends?.length)
+        histBox.append(
+          h(
+            'div',
+            { class: 'jd-blue', tid: 'hist-friends', style: 'font-size:0.8125em; margin-top:0.2em' },
+            t('results.friendsHere', { list: hg.friends.map((f) => `${f.player} ${money(f.score)}`).join(', ') }),
+          ),
+        );
       const pct = hg.mine
         ? hg.n >= 5
           ? t('results.rankLine', { rank: int(hg.mine.rank), n: int(hg.n) })

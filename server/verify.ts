@@ -127,10 +127,10 @@ import {
   HIDDEN_LABEL,
   type ReportReason,
 } from '../game/src/identity/identity';
-import { claudeClassifier, DEFAULT_SETTINGS, OWNER, POST_RATE_LIMIT, Pipeline, REASON_CODES, REVIEW_SLA_HOURS, type Refused } from './moderation';
+import { claudeClassifier, DEFAULT_SETTINGS, excerpt, OWNER, POST_RATE_LIMIT, Pipeline, REASON_CODES, REVIEW_SLA_HOURS, type Refused } from './moderation';
 import { closingPost, openingPost, type DayFacts } from '../game/src/content/sal-posts';
 import { dayPage, missingPage, SITE_CSS, SITE_POLICY } from './community-page';
-import type { Post } from './community';
+import type { ActivityRow, Post } from './community';
 import { PAGE_CSS, PAGE_HTML, PAGE_JS, PAGE_POLICY } from './moderation-page';
 
 /** Protocol level of this server's HTTP surface (PLAN-v3 §1): 2 adds identity (bearer tokens, /identity, DELETE /me, keep-best per player); GET /me/export (0.8.6) only grows it. */
@@ -317,6 +317,7 @@ const GROUP_CODE = /^[a-z2-7]{8}$/;
 export { REPORT_REASONS, HIDDEN_LABEL, type ReportReason };
 /** reports per minute per player; reporters kept per target; how often a report may hide the same name before a moderator has to act first */
 export const REACT_RATE_LIMIT = 30; // per player per minute (0.11.3)
+export const FRIEND_RATE_LIMIT = 20; // per player per minute (0.11.8)
 export const REPORT_RATE_LIMIT = 5,
   MAX_REPORTERS_PER_TARGET = 50,
   MAX_HIDES_PER_NAME = 2;
@@ -355,6 +356,8 @@ export const USER_WRITTEN_FIELDS = [
   'forced display name (POST /moderation/rename)',
   'forced group name (POST /moderation/rename-group)',
 ] as const;
+/** A friend as one player knows them: this handle means something only to that viewer, so no player id leaves the server (0.11.8). */
+export const friendHandle = (viewer: string, other: string): string => createHash('sha256').update(`${viewer}|${other}`).digest('hex').slice(0, 16);
 /** Every field of free text a player writes (0.11.2). Each passes textProblem; tests/moderation.test.ts pushes a blocked string through each and counts the call sites. A moderator's note is not here: it is an operator's, never shown to a player. */
 export const TEXT_FIELDS = ['post (POST /posts)', 'post edit (POST /posts/edit)', 'appeal (POST /me/appeal)'] as const;
 /** Defaults the policy page publishes (PLAN-v3 0.6.5); env/flags override the rate limits at runtime. */
@@ -1600,6 +1603,12 @@ export class Verifier {
       reacted: reacted ? { player: reacted.player, score: reacted.score } : null,
     };
   }
+  /** How these players did on a board, best first, for the friends on a histogram (0.11.8). */
+  scoresOn(seed: string, players: ReadonlySet<string>, now = new Date()): { player: string; score: number }[] {
+    return this.rank(seed, this.data, players, now)
+      .slice(0, 20)
+      .map((e) => ({ player: e.player, score: e.score }));
+  }
   /** Today's minted seed (the one bot par computes first). */
   todaySeed(now = new Date()): string {
     return this.dailyRecord(utcDate(now), now)!.seed;
@@ -2302,6 +2311,18 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       return e && reactions ? { ...r, payload: { hash: p.hash, seed: e.seed, score: e.score, reactions } } : null;
     }
     if (r.kind === 'challenge') return { ...r, payload: { ...p, by: undefined, player: verifier.playerLabel(p.by as string, now) } };
+    if (r.kind === 'friend-request') {
+      const from = p.from as string;
+      return {
+        ...r,
+        payload: {
+          handle: friendHandle(playerId, from),
+          player: verifier.playerLabel(from, now),
+          pending: community?.relation(from, playerId) === 'requested',
+        },
+      };
+    }
+    if (r.kind === 'friend-accepted') return { ...r, payload: { player: verifier.playerLabel(p.by as string, now) } };
     if (r.kind === 'thread-reply' && p.kind === 'run') {
       const e = verifier.entry(String(p.key), null, now);
       return e ? { ...r, payload: { ...p, seed: e.seed, score: e.score, player: e.player, own: verifier.ownerOf(e.replayHash) === playerId } } : null;
@@ -2315,6 +2336,17 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     const key = playerIdFromToken(bearerOf(req));
     return key ? (community?.playerOfKey(key) ?? key) : null;
   };
+  /** A line of the feed as a viewer may read it (0.11.8): a post on a yard they may not read yet stays out, as does one that came down. */
+  const feedLine = (a: ActivityRow, viewer: string, now: Date) => {
+    const base = { id: a.id, kind: a.kind, player: verifier.playerLabel(a.playerId, now), at: a.createdAt };
+    if (a.kind !== 'post') return { ...base, ...a.payload };
+    const post = community?.post(a.payload.post as number);
+    const thread = post && community?.threadById(post.threadId);
+    if (!post || !thread || (post.state !== 'published' && post.state !== 'queued')) return null;
+    const seed = thread.kind === 'run' ? verifier.entry(thread.key, null, now)?.seed : verifier.periodRecord(thread.key, now)?.seed;
+    if (!seed || verifier.revealGate(seed, viewer, now)) return null;
+    return { ...base, key: thread.key, thread: thread.kind, excerpt: excerpt(post.body) };
+  };
   /** A post as someone reads it (0.11.5): a name at read time and no id, and to its author what state it is in. */
   const postView = (p: Post, viewer: string | null, now: Date) => {
     const own = !!viewer && p.authorId === viewer;
@@ -2326,6 +2358,8 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       edited: p.editedAt !== null,
       hash: p.replayHash,
       own,
+      // what stands between this reader and the author, so the panel offers only what can still be done (0.11.8)
+      friend: !own && viewer && p.authorId ? (community?.relation(viewer, p.authorId) ?? null) : null,
       ...(own
         ? { state: p.state, waiting: p.state === 'hidden' && p.triagedAt === null, reason: p.reasonCode, editable: !!moderation?.canEdit(p, viewer) }
         : {}),
@@ -2347,6 +2381,9 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   /** What `/daily`, `/weekly` and `/entry` add while writing is open: how much talk there is, which is also how the game knows there is any. */
   const talkOf = (kind: 'daily' | 'weekly' | 'run', key: string) =>
     community && moderation?.enabled ? { talk: { posts: community.findThread(kind, key)?.postCount ?? 0 } } : {};
+  /** Whether a viewer can ask this player to be friends: both have signed in, and nothing stands between them yet. */
+  const canFriend = (viewer: string | null, other: string | null) =>
+    !!community && !!viewer && !!other && viewer !== other && community.isLinked(viewer) && community.isLinked(other) && !community.relation(viewer, other);
   /** What a thread is about: a day, a week, or one checked game (0.11.6). The reveal gate of its yard covers it either way. */
   const threadTarget = (key: string, now: Date) => {
     if (/^[0-9a-f]{64}$/.test(key)) {
@@ -2381,6 +2418,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const grl = new RateLimiter(GROUP_RATE_LIMIT, 60_000, opts.now); // per-player group calls (PLAN-v4 0.7.2)
   const rrl = new RateLimiter(REPORT_RATE_LIMIT, 60_000, opts.now); // per-player reports (PLAN-v4 0.7.7)
   const reactRl = new RateLimiter(REACT_RATE_LIMIT, 60_000, opts.now); // per-player reactions (0.11.3)
+  const friendRl = new RateLimiter(FRIEND_RATE_LIMIT, 60_000, opts.now); // per-player friend calls (0.11.8)
   const postRl = new RateLimiter(opts.postRateLimit ?? POST_RATE_LIMIT, 60_000, opts.now); // per-player posts and appeals (0.11.2)
   const HOUR = 3_600_000;
   const linkAddressRl = new RateLimiter(LINK_PER_ADDRESS, HOUR, opts.now); // sign-in mail (0.11.1): nobody's inbox can be flooded through us
@@ -2600,6 +2638,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           mine: viewer ? (community?.reactionOf(e.replayHash, viewer) ?? null) : null,
           own: !!viewer && verifier.ownerOf(e.replayHash) === viewer,
           seen: community?.seenBy(e.replayHash) ?? { times: 0, players: 0 },
+          friendable: canFriend(viewer, verifier.ownerOf(e.replayHash)),
           ...talkOf('run', e.replayHash),
         });
       }
@@ -2654,9 +2693,11 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const gs = groupScope();
         if (!gs.ok) return json(gs.status, { ok: false, error: gs.error });
         const seed = (url.searchParams.get('seed') || '').slice(0, 64);
+        const viewer = bearerPlayer(req);
         return json(200, {
           ok: true,
           ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined, gs.members, new Date((opts.now ?? Date.now)())),
+          friends: community && viewer ? verifier.scoresOn(seed, new Set(community.friendsOf(viewer)), new Date((opts.now ?? Date.now)())) : [],
           group: gs.group,
           botPar: withPar(seed),
           medals: verifier.medalsForSeed(seed, new Date((opts.now ?? Date.now)())),
@@ -2931,6 +2972,81 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const w = writeLimited();
         if (w != null) return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) });
         return json(200, { ok: true, read: community.markRead(bearerId) });
+      }
+      if (url.pathname === '/friends' || url.pathname.startsWith('/friends/') || url.pathname === '/feed') {
+        // friends and the feed (0.11.8): a player is reached through a run or a post, and known afterwards by a handle only they can use
+        if (!community) {
+          req.resume();
+          return json(503, { ok: false, error: 'friends are not enabled on this verifier' });
+        }
+        if (!bearerId) {
+          req.resume();
+          return json(401, { ok: false, error: 'token required' });
+        }
+        const now = new Date((opts.now ?? Date.now)());
+        if (req.method === 'GET' && url.pathname === '/friends') {
+          const rows = community.friendRows(bearerId);
+          const view = (r: (typeof rows)[number]) => ({
+            handle: friendHandle(bearerId, r.otherId),
+            player: verifier.playerLabel(r.otherId, now),
+            since: r.createdAt,
+          });
+          return json(200, {
+            ok: true,
+            friends: rows.filter((r) => r.state === 'friend').map(view),
+            incoming: rows.filter((r) => r.incoming).map(view),
+            sent: rows.filter((r) => r.state === 'requested' && !r.incoming).map(view),
+            blocked: rows.filter((r) => r.state === 'blocked').map(view),
+          });
+        }
+        if (req.method === 'GET' && url.pathname === '/feed') {
+          const members = new Set(community.friendsOf(bearerId));
+          for (const g of verifier.groupsOf(bearerId)) for (const id of verifier.groupMembers(g.code, bearerId) ?? []) members.add(id);
+          for (const id of [bearerId, ...community.blockedWith(bearerId)]) members.delete(id);
+          return json(200, { ok: true, items: community.feed([...members]).flatMap((a) => feedLine(a, bearerId, now) ?? []) });
+        }
+        const action = url.pathname.slice('/friends/'.length);
+        if (req.method !== 'POST' || !['request', 'answer', 'remove', 'block', 'unblock'].includes(action)) {
+          req.resume();
+          return json(404, { ok: false, error: 'not found' });
+        }
+        const r = friendRl.take(bearerId);
+        if (!r.ok) {
+          req.resume();
+          return json(429, { ok: false, code: 'rate-limited', error: 'slow down' }, { 'Retry-After': String(r.retryAfterSec) });
+        }
+        const w = writeLimited();
+        if (w != null) {
+          req.resume();
+          return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) });
+        }
+        return withBody(1024, (p) => {
+          const known =
+            typeof p.handle === 'string' ? community.friendRows(bearerId).find((x) => friendHandle(bearerId, x.otherId) === p.handle)?.otherId : undefined;
+          const other =
+            known ??
+            (typeof p.hash === 'string'
+              ? verifier.ownerOf(p.hash.slice(0, 64))
+              : typeof p.postId === 'number'
+                ? (community.post(p.postId)?.authorId ?? null)
+                : null);
+          if (!other || other === bearerId) return json(404, { ok: false, code: 'no-player', error: 'no such player' });
+          if (action === 'request') {
+            const stopped = community.writeBlock(bearerId);
+            if (stopped) return json(403, { ok: false, code: stopped.code, error: 'you cannot do that now' });
+            if (!verifier.player(bearerId)) return json(422, { ok: false, code: 'no-name', error: 'choose a name first' });
+            if (!community.isLinked(other)) return json(422, { ok: false, code: 'not-signed-in', error: 'that player has not signed in with email' });
+            const result = community.requestFriend(bearerId, other);
+            if (result === 'full') return json(409, { ok: false, code: 'full', error: 'you have as many friends as this allows' });
+            return json(200, { ok: true, result: result === 'ignored' ? 'sent' : result }); // a block is never announced
+          }
+          if (action === 'answer') {
+            if (!community.answerFriend(bearerId, other, p.accept === true)) return json(404, { ok: false, code: 'no-request', error: 'no such request' });
+          } else if (action === 'remove') community.removeFriend(bearerId, other);
+          else if (action === 'block') community.block(bearerId, other);
+          else community.unblock(bearerId, other);
+          return json(200, { ok: true });
+        });
       }
       if (url.pathname === '/me/divisions' && req.method === 'GET') {
         // 0.11.11: where this player finished lately, and the trophies that never decay
@@ -3215,6 +3331,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           ? community.threadPage(thread.id, { after: clampInt(url.searchParams.get('after'), 0, Number.MAX_SAFE_INTEGER, 0), viewer: bearerId })
           : { posts: [], next: null };
         const block = bearerId ? (community.writeBlock(bearerId) ?? null) : null;
+        const blocked = bearerId ? community.blockedWith(bearerId) : null; // a block hides both ways (0.11.8)
         return json(200, {
           ok: true,
           key,
@@ -3223,7 +3340,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           closed,
           run,
           foreman: { open: run ? null : openingPost(key), close: closed ? closingOf(key, seed, now) : null },
-          posts: page.posts.map((p) => postView(p, bearerId, now)),
+          posts: page.posts.filter((p) => !p.authorId || !blocked?.has(p.authorId)).map((p) => postView(p, bearerId, now)),
           next: page.next,
           count: thread?.postCount ?? 0,
           write: !bearerId ? 'not-linked' : block ? block.code : verifier.player(bearerId) ? 'ok' : 'no-name',
@@ -3492,6 +3609,19 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
                 try {
                   const result = verifier.record(prep.replay, prep.replayHash, sim, player, bearerId, new Date((opts.now ?? Date.now)()));
                   if (result.ok && result.entry) par?.request(result.entry.seed);
+                  // friends and crew see a game on a day's or a week's board (0.11.8); a better one replaces the line
+                  if (
+                    result.ok &&
+                    result.recorded &&
+                    result.entry &&
+                    bearerId &&
+                    community &&
+                    (isMintedDailySeed(result.entry.seed) || isWeeklySeed(result.entry.seed))
+                  ) {
+                    const { seed, score, replayHash } = result.entry;
+                    community.dropRunActivity(bearerId, seed);
+                    community.addActivity(bearerId, 'run', { hash: replayHash, seed, score });
+                  }
                   // a beaten challenge (0.11.7): the challenger hears who did it, once a game
                   if (result.ok && result.recorded && result.entry && bearerId && typeof parsed.challenge === 'string' && community) {
                     const beaten = verifier.entry(parsed.challenge.slice(0, 64));

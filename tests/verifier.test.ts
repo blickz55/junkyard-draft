@@ -423,7 +423,7 @@ test('verifier bundles to a single file that exports the server pieces (what the
       );
       if (!health) await new Promise((r) => setTimeout(r, 100));
     }
-    assert.equal(health?.community?.schema, 3);
+    assert.equal(health?.community?.schema, 4);
   } finally {
     child.kill();
   }

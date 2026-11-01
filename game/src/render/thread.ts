@@ -10,6 +10,7 @@ export interface ThreadPost {
   edited: boolean;
   hash: string | null;
   own: boolean;
+  /** what stands between this reader and the author */ friend: 'requested' | 'friend' | 'blocked' | null;
   state?: 'published' | 'queued' | 'hidden' | 'deleted';
   waiting?: boolean;
   reason?: string | null;

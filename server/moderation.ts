@@ -303,7 +303,7 @@ export const UNREAD = 'unread';
 /** Decisions the player they are about can appeal. */
 const APPEALABLE = new Set(['auto-hide', 'report-hide', 'hide', 'delete', 'mute-24h', 'mute-7d', 'ban']);
 /** An excerpt in an inbox line, so a player can tell which post it means. */
-const excerpt = (body: string) => ([...body].length > 80 ? `${[...body].slice(0, 77).join('')}…` : body);
+export const excerpt = (body: string) => ([...body].length > 80 ? `${[...body].slice(0, 77).join('')}…` : body);
 
 export interface Transparency {
   slaHours: number;
@@ -501,6 +501,7 @@ export class Pipeline {
     if (post.editedAt !== null) return; // the same post with other words is not news
     const thread = this.store.threadById(post.threadId);
     if (!thread) return;
+    if (post.authorId) this.store.addActivity(post.authorId, 'post', { post: post.id });
     const told = new Set(this.store.threadAuthors(thread.id));
     if (thread.authorId) told.add(thread.authorId); // a run's owner hears, whether or not they have said anything
     for (const id of told) if (id !== post.authorId) this.store.notify(id, 'thread-reply', { kind: thread.kind, key: thread.key });

@@ -14,7 +14,8 @@ import { reasonText } from '../content/inbox';
 import { t, type StringKey } from '../content/strings';
 import '../content/strings-more';
 import { POST_MAX, REPORT_REASONS } from '../identity/identity';
-import { loadSubmissions } from '../render/storage';
+import { askFriend, blockPlayer } from '../render/friends';
+import { loadLinked, loadSubmissions } from '../render/storage';
 import { changePost, loadThread, reportPost, sendPost, takeBackPost, type Sent, type ThreadPost, type ThreadView } from '../render/thread';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 
@@ -95,7 +96,7 @@ export function openThread(scene: Phaser.Scene, verifierUrl: string, key: string
   ui.layer(scene, layer);
   (box.querySelector('[data-testid=thread-close]') as HTMLElement | null)?.focus();
 
-  const report = (p: ThreadPost, line: HTMLElement) =>
+  const report = (p: ThreadPost, line: HTMLElement, row: HTMLElement) =>
     choiceDialog(scene, {
       title: t('thread.reportHead'),
       tid: 'report-post-dialog',
@@ -110,6 +111,16 @@ export function openThread(scene: Phaser.Scene, verifierUrl: string, key: string
             });
           },
         })),
+        {
+          label: t('thread.blockPlayer'),
+          tid: 'report-post-block',
+          run: () => {
+            void blockPlayer(verifierUrl, { postId: p.id }).then((ok) => {
+              if (ok) row.remove();
+              else line.textContent = t('thread.refused.failed');
+            });
+          },
+        },
         { label: t('common.cancel'), tid: 'report-post-cancel' },
       ],
       onDismiss: () => {},
@@ -199,7 +210,23 @@ export function openThread(scene: Phaser.Scene, verifierUrl: string, key: string
     if (p.own) {
       if (p.editable) add(btn(t('thread.change'), `post-change-${p.id}`, () => editor(p, row), { small: true }));
       if (p.state !== 'hidden' || p.waiting) add(btn(t('thread.takeBack'), `post-take-back-${p.id}`, () => takeBack(p, row), { small: true }));
-    } else add(btn(t('thread.report'), `post-report-${p.id}`, () => report(p, note), { small: true }));
+    } else {
+      add(btn(t('thread.report'), `post-report-${p.id}`, () => report(p, note, row), { small: true }));
+      if (!p.friend && loadLinked()) {
+        const friend: HTMLButtonElement = btn(
+          t('friends.add'),
+          `post-friend-${p.id}`,
+          () => {
+            friend.disabled = true;
+            void askFriend(verifierUrl, { postId: p.id }).then((r) => {
+              friend.textContent = r === 'asked' ? t('friends.asked') : r === 'no-name' ? t('friends.needName') : t('thread.refused.failed');
+            });
+          },
+          { small: true },
+        ) as HTMLButtonElement;
+        add(friend);
+      }
+    }
     return row;
   };
 

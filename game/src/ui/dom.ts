@@ -274,6 +274,7 @@ const STYLE = `
 #ui .jd-hist-bin { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-width: 0; height: 100%; }
 #ui .jd-hist-bar { width: 100%; background: #5a6670; border-radius: 0.1em 0.1em 0 0; min-height: 1px; }
 #ui .jd-hist-mine .jd-hist-bar { background: ${CSS.amber}; }
+#ui .jd-hist-friend .jd-hist-bar { background: ${CSS.blue}; }
 #ui .jd-hist-count { font-size: 0.625em; color: ${CSS.dim}; line-height: 1.2; }
 #ui .jd-hist-mine .jd-hist-count { color: ${CSS.amber}; font-weight: 700; }
 #ui .jd-hist-axis { display: flex; justify-content: space-between; font-size: 0.625em; color: ${CSS.dim}; font-family: ${MONO}; }

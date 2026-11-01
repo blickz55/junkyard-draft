@@ -196,6 +196,14 @@
       ]
     },
     {
+      "title": "Friends and the feed",
+      "lines": [
+        "Friends need a linked email on both sides. You add someone from a game of theirs or a post of theirs, so nobody can be searched for or listed; a request reaches their inbox and they accept it or leave it. At most 200 friends and open requests, 20 friend actions a minute.",
+        "A block ends what was there and hides you from each other in the talk, in the feed and on the chart of scores, both ways. Boards stay as they are, because scores are public. Removing or blocking someone tells them nothing, and a request to someone who has blocked you reads like any other.",
+        "The feed shows your friends and crew mates: their games on dailies and weeklies, their posts and their division results, newest first, with the same reveal gate as the talk. Each player keeps their last 50 lines, and a feed reads at most 300 players."
+      ]
+    },
+    {
       "title": "Divisions and trophies",
       "lines": [
         "Divisions, medals and trophies are labels over checked games: none of them changes an offer, a rule or a score."

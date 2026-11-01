@@ -37,13 +37,14 @@ import {
   MAX_GROUP_MEMBERS,
   REPORT_REASONS,
   REPORT_RATE_LIMIT,
+  FRIEND_RATE_LIMIT,
   MAX_HIDES_PER_NAME,
   HIDDEN_LABEL,
   APPEAL_CONTACT,
 } from '../server/verify';
 import { LINK_PER_ADDRESS, LINK_PER_IP, LINK_PER_PLAYER, LINK_TTL_MS } from '../server/link';
 import { APPEAL_DAYS, DEFAULT_SETTINGS, EDIT_WINDOW_MS, POST_MAX, POST_RATE_LIMIT, REVIEW_SLA_HOURS, TRIAGE_MODEL } from '../server/moderation';
-import { REMOVED_TEXT_DAYS } from '../server/community';
+import { ACTIVITY_PER_PLAYER, FEED_MEMBERS, MAX_FRIENDS, REMOVED_TEXT_DAYS } from '../server/community';
 
 export interface PolicySection {
   title: string;
@@ -132,6 +133,14 @@ export function buildPolicy(): Policy {
         `A person can clear, hide, restore or remove a post and mute a player for 24 hours or 7 days; only the owner bans. A ban stops a player writing and nothing else: it holds the player id and the hash of the email address, and takes down what the player had up. The words of a removed post go after ${REMOVED_TEXT_DAYS} days. Trusted moderators are players the owner appoints; they must have a linked email.`,
         `Every decision has a reason code from a fixed list, a row in the database and a line in the audit log, and tells the player in their inbox. They can appeal it from there, once, within ${APPEAL_DAYS} days. An appeal passes the same filter. A person answers: kept, or undone, and the player hears either way.`,
         `Target: a person reviews everything flagged within ${REVIEW_SLA_HOURS} hours. This page shows the live counts for each month (posts, hidden, removed, appeals, decisions kept, decisions undone) from GET /transparency.`,
+      ],
+    },
+    {
+      title: 'Friends and the feed',
+      lines: [
+        `Friends need a linked email on both sides. You add someone from a game of theirs or a post of theirs, so nobody can be searched for or listed; a request reaches their inbox and they accept it or leave it. At most ${MAX_FRIENDS} friends and open requests, ${FRIEND_RATE_LIMIT} friend actions a minute.`,
+        'A block ends what was there and hides you from each other in the talk, in the feed and on the chart of scores, both ways. Boards stay as they are, because scores are public. Removing or blocking someone tells them nothing, and a request to someone who has blocked you reads like any other.',
+        `The feed shows your friends and crew mates: their games on dailies and weeklies, their posts and their division results, newest first, with the same reveal gate as the talk. Each player keeps their last ${ACTIVITY_PER_PLAYER} lines, and a feed reads at most ${FEED_MEMBERS} players.`,
       ],
     },
     {

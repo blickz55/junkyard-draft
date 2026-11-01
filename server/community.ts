@@ -27,6 +27,11 @@ export const INBOX_READ_DAYS = 60;
 export const COUNTS_TTL_MS = 60_000;
 /** The text of a removed post stays this long, for an appeal; then only the row is left. */
 export const REMOVED_TEXT_DAYS = 90;
+/** Friends and pending requests per player, what the feed keeps per player and the most players one feed reads (0.11.8). */
+export const MAX_FRIENDS = 200,
+  ACTIVITY_PER_PLAYER = 50,
+  FEED_MEMBERS = 300,
+  FEED_PAGE = 30;
 /** How many decisions and appeals the queue page lists at a time. */
 export const MAX_QUEUE_PAGE = 100;
 
@@ -70,11 +75,23 @@ export const PLAYER_COLUMNS: readonly { table: string; column: string; forget: '
   { table: 'push_subscriptions', column: 'player_id', forget: 'delete' },
   { table: 'reports', column: 'reporter_id', forget: 'delete' },
   { table: 'moderation_actions', column: 'player_id', forget: 'clear', omit: ['actor', 'reason'] },
+  { table: 'activity', column: 'player_id', forget: 'delete' },
   { table: 'divisions', column: 'player_id', forget: 'clear' },
   { table: 'trophies', column: 'player_id', forget: 'delete' },
   { table: 'cosmetics', column: 'player_id', forget: 'delete' },
 ];
 
+/** What a player's row toward another says; no row, nothing between them. */
+export type Relation = 'requested' | 'friend' | 'blocked';
+/** The answer to a friend request. `ignored` reads like `sent` to the player: a block is never announced. */
+export type RequestResult = 'sent' | 'friends' | 'full' | 'ignored';
+export interface ActivityRow {
+  id: number;
+  playerId: string;
+  kind: string;
+  payload: Record<string, unknown>;
+  createdAt: number;
+}
 export type ThreadKind = 'daily' | 'weekly' | 'run' | 'hub';
 export type PostState = 'published' | 'queued' | 'hidden' | 'deleted';
 export interface Thread {
@@ -695,6 +712,127 @@ export class CommunityStore {
     for (const r of rows) out.set(r.replay_hash, { ...out.get(r.replay_hash), [r.emote]: r.n });
     return out;
   }
+  /** What `from` has with `to`: the row in that direction. */
+  relation(from: string, to: string): Relation | null {
+    return (this.sql('SELECT state FROM friends WHERE player_id = ? AND other_id = ?').get(from, to) as { state: Relation } | undefined)?.state ?? null;
+  }
+  private setRelation(from: string, to: string, state: Relation): void {
+    this.sql(
+      'INSERT INTO friends (player_id, other_id, state, created_at) VALUES (?, ?, ?, ?) ON CONFLICT (player_id, other_id) DO UPDATE SET state = excluded.state',
+    ).run(from, to, state, this.now());
+  }
+  private dropRelation(from: string, to: string): void {
+    this.sql('DELETE FROM friends WHERE player_id = ? AND other_id = ?').run(from, to);
+  }
+  /** Whoever this player blocked or was blocked by: the two see nothing of each other. */
+  blockedWith(playerId: string): Set<string> {
+    const rows = this.sql(
+      "SELECT other_id AS id FROM friends WHERE player_id = ? AND state = 'blocked' UNION SELECT player_id FROM friends WHERE other_id = ? AND state = 'blocked'",
+    ).all(playerId, playerId) as unknown as { id: string }[];
+    return new Set(rows.map((r) => r.id));
+  }
+  /** One step of a friendship: a request, or the answer when the other side asked first. A block drops it without saying so. */
+  requestFriend(from: string, to: string): RequestResult {
+    return this.transaction(() => {
+      if (this.relation(from, to) === 'blocked' || this.relation(to, from) === 'blocked') return 'ignored';
+      if (this.relation(from, to) === 'friend') return 'friends';
+      if (this.relation(to, from) === 'requested') {
+        this.setRelation(from, to, 'friend');
+        this.setRelation(to, from, 'friend');
+        this.notify(to, 'friend-accepted', { by: from });
+        return 'friends';
+      }
+      if (this.relation(from, to) === 'requested') return 'sent';
+      if (this.friendRows(from).filter((r) => r.state !== 'blocked').length >= MAX_FRIENDS) return 'full';
+      this.setRelation(from, to, 'requested');
+      this.notify(to, 'friend-request', { from });
+      return 'sent';
+    });
+  }
+  /** Accept or decline a request. A decline says nothing to the one who asked. False when there is none. */
+  answerFriend(playerId: string, from: string, accept: boolean): boolean {
+    return this.transaction(() => {
+      if (this.relation(from, playerId) !== 'requested') return false;
+      if (!accept) {
+        this.dropRelation(from, playerId);
+        return true;
+      }
+      this.setRelation(from, playerId, 'friend');
+      this.setRelation(playerId, from, 'friend');
+      this.notify(from, 'friend-accepted', { by: playerId });
+      return true;
+    });
+  }
+  removeFriend(playerId: string, other: string): void {
+    this.transaction(() => {
+      this.dropRelation(playerId, other);
+      this.dropRelation(other, playerId);
+    });
+  }
+  /** Ends whatever was between them. Only the one who blocked can lift it, and the other is not told. */
+  block(playerId: string, other: string): void {
+    this.transaction(() => {
+      this.dropRelation(other, playerId);
+      this.setRelation(playerId, other, 'blocked');
+    });
+  }
+  unblock(playerId: string, other: string): void {
+    if (this.relation(playerId, other) === 'blocked') this.dropRelation(playerId, other);
+  }
+  /** Everything between a player and others that is theirs to see: their own rows, and the requests waiting on them. */
+  friendRows(playerId: string): { otherId: string; state: Relation; incoming: boolean; createdAt: number }[] {
+    const own = this.sql('SELECT other_id, state, created_at FROM friends WHERE player_id = ? ORDER BY created_at DESC, other_id').all(playerId) as unknown as {
+      other_id: string;
+      state: Relation;
+      created_at: number;
+    }[];
+    const asked = this.sql("SELECT player_id, created_at FROM friends WHERE other_id = ? AND state = 'requested' ORDER BY created_at DESC, player_id").all(
+      playerId,
+    ) as unknown as { player_id: string; created_at: number }[];
+    return [
+      ...own.map((r) => ({ otherId: r.other_id, state: r.state, incoming: false, createdAt: r.created_at })),
+      ...asked.map((r) => ({ otherId: r.player_id, state: 'requested' as const, incoming: true, createdAt: r.created_at })),
+    ];
+  }
+  friendsOf(playerId: string): string[] {
+    return (this.sql("SELECT other_id FROM friends WHERE player_id = ? AND state = 'friend'").all(playerId) as unknown as { other_id: string }[]).map(
+      (r) => r.other_id,
+    );
+  }
+
+  /** Something a player did, for the feed of their friends and crew. Their oldest lines go once there are too many. */
+  addActivity(playerId: string, kind: string, payload: Record<string, unknown>): void {
+    this.sql('INSERT INTO activity (player_id, kind, payload, created_at) VALUES (?, ?, ?, ?)').run(playerId, kind, JSON.stringify(payload), this.now());
+    this.sql('DELETE FROM activity WHERE player_id = ? AND id NOT IN (SELECT id FROM activity WHERE player_id = ? ORDER BY id DESC LIMIT ?)').run(
+      playerId,
+      playerId,
+      ACTIVITY_PER_PLAYER,
+    );
+  }
+  /** A better game on a yard replaces the line for the earlier one. */
+  dropRunActivity(playerId: string, seed: string): void {
+    this.sql("DELETE FROM activity WHERE player_id = ? AND kind = 'run' AND json_extract(payload, '$.seed') = ?").run(playerId, seed);
+  }
+  /** The latest of what these players did, newest first. Bounded twice: the players read and what each keeps. */
+  feed(playerIds: readonly string[], limit = FEED_PAGE): ActivityRow[] {
+    const rows = this.sql(
+      'SELECT id, player_id, kind, payload, created_at FROM activity WHERE player_id IN (SELECT value FROM json_each(?)) ORDER BY id DESC LIMIT ?',
+    ).all(JSON.stringify(playerIds.slice(0, FEED_MEMBERS)), Math.min(Math.max(1, limit), FEED_PAGE)) as unknown as {
+      id: number;
+      player_id: string;
+      kind: string;
+      payload: string;
+      created_at: number;
+    }[];
+    return rows.map((r) => ({
+      id: r.id,
+      playerId: r.player_id,
+      kind: r.kind,
+      payload: JSON.parse(r.payload) as Record<string, unknown>,
+      createdAt: r.created_at,
+    }));
+  }
+
   /** The run with the most reactions among these, and how many; on a tie the first of the list, so a fixed board always answers the same. */
   mostReacted(hashes: readonly string[]): { hash: string; n: number } | null {
     const counts = new Map(
@@ -758,11 +896,9 @@ export class CommunityStore {
         );
         if (p.medal) trophy(playerId, `medal-${p.medal}`);
         if (several && p.division === 0) trophy(playerId, 'top-division');
-        this.sql("INSERT INTO notifications (player_id, kind, payload, created_at) VALUES (?, 'division', ?, ?)").run(
-          playerId,
-          JSON.stringify({ period, division: p.division, name: p.key, place: p.place, size: p.size, score, medal: p.medal }),
-          at,
-        );
+        const line = JSON.stringify({ period, division: p.division, name: p.key, place: p.place, size: p.size, score, medal: p.medal });
+        this.sql("INSERT INTO notifications (player_id, kind, payload, created_at) VALUES (?, 'division', ?, ?)").run(playerId, line, at);
+        this.sql("INSERT INTO activity (player_id, kind, payload, created_at) VALUES (?, 'division', ?, ?)").run(playerId, line, at);
       }
       return placed.length;
     });

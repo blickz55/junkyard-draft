@@ -15,6 +15,7 @@ import { t } from '../content/strings';
 import '../content/strings-more';
 import { fetchChallenge } from '../render/challenge';
 import type { Placement } from '../render/divisions';
+import { answerFriend } from '../render/friends';
 import { loadInbox, markInboxRead, sendAppeal, type AppealResult, type InboxLine } from '../render/inbox';
 
 const appealMessage: Record<Exclude<AppealResult, 'sent'>, () => string> = {
@@ -70,6 +71,17 @@ export function openInbox(scene: Phaser.Scene, verifierUrl: string, onRead: () =
     prev?.focus?.();
   };
   const action = (line: InboxLine): HTMLElement | null => {
+    if (line.kind === 'friend-request' && line.payload.pending) {
+      const handle = line.payload.handle as string;
+      const answer = (accept: boolean) => void answerFriend(verifierUrl, handle, accept).then((done) => done && both.remove());
+      const both: HTMLElement = h(
+        'div',
+        { class: 'jd-row' },
+        btn(t('friends.accept'), `inbox-accept-${line.id}`, () => answer(true), { small: true }),
+        btn(t('friends.decline'), `inbox-decline-${line.id}`, () => answer(false), { small: true }),
+      );
+      return both;
+    }
     if (line.kind === 'moderation' && line.payload.appealable) {
       const ask: HTMLElement = btn(
         t('inbox.appeal'),

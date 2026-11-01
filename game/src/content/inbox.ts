@@ -26,6 +26,8 @@ export function inboxText(kind: string, p: Record<string, unknown>): string | nu
       until: typeof p.until === 'number' ? utcDateTime(new Date(p.until).toISOString()) : '',
     });
   }
+  if (kind === 'friend-request') return t('inbox.friendRequest', { player: p.player as string });
+  if (kind === 'friend-accepted') return t('inbox.friendAccepted', { player: p.player as string });
   if (kind === 'appeal') return p.result === 'overturned' ? t('moderation.appealOverturned') : t('moderation.appealUpheld');
   if (kind === 'thread-reply') {
     if (p.kind !== 'run') return t('inbox.threadReply', { yard: periodLabel(p.key as string) });

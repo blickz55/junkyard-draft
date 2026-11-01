@@ -9,11 +9,29 @@ import { REACTIONS, reactionLine, type ReactionCounts, type ReactionId } from '.
 import { t, type StringKey } from '../content/strings';
 import { loadReactions, sendReaction } from '../render/reactions';
 import { btn, h } from './dom';
+import { askFriend } from '../render/friends';
 import { openThread } from './panels';
 
 /** The way into the talk on a run; the results of your own run use it too. */
 export const talkButton = (scene: Phaser.Scene, verifierUrl: string, hash: string, posts: number): HTMLElement =>
   btn(posts ? t('results.gameTalkCount', { n: posts }) : t('results.gameTalk'), 'game-talk', () => openThread(scene, verifierUrl, hash), { small: true });
+
+/** Ask the owner of a run to be friends (0.11.8). The button says what happened. */
+export function friendButton(verifierUrl: string, hash: string): HTMLElement {
+  const button: HTMLButtonElement = btn(
+    t('friends.add'),
+    'add-friend',
+    () => {
+      button.disabled = true;
+      void askFriend(verifierUrl, { hash }).then((r) => {
+        button.textContent = r === 'asked' ? t('friends.asked') : r === 'no-name' ? t('friends.needName') : t('friends.add');
+        button.disabled = r === 'asked';
+      });
+    },
+    { small: true },
+  ) as HTMLButtonElement;
+  return button;
+}
 
 export function reactionBar(scene: Phaser.Scene, verifierUrl: string, hash: string): HTMLElement {
   const box = h('div', { class: 'jd-reactions', tid: 'reactions' });
@@ -61,6 +79,7 @@ export function reactionBar(scene: Phaser.Scene, verifierUrl: string, hash: stri
     }
     box.append(h('div', { class: 'jd-dim jd-reaction-head' }, t('reaction.head')), row, note);
     if (r.talk) box.append(talkButton(scene, verifierUrl, hash, r.talk.posts));
+    if (r.friendable) box.append(friendButton(verifierUrl, hash));
     paint();
   });
   return box;

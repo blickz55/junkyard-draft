@@ -23,8 +23,10 @@ import {
   daysPlayed,
   currentStreak,
   totalStars,
+  loadLinked,
 } from '../render/storage';
 import { streakLine } from '../content/streak';
+import { yardLabel } from '../content/yard';
 import { MAX_SEED_LENGTH, sanitizeSeed, TUTORIAL_SEED } from '../sim/run';
 import { yardFor } from '../sim/yard';
 import { decodeReplay, verifyReplay } from '../sim/replay';
@@ -35,7 +37,7 @@ import { HIDDEN_LABEL } from '../identity/identity';
 import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWeekly, todaysYard } from '../render/daily';
 import { openArchive } from './ArchivePanel';
 import { openRecord } from './RecordPanel';
-import { openDivision, openInbox, openLinkLanding, openPolicy, openPrivacy, openThread } from './panels';
+import { openDivision, openFriends, openInbox, openLinkLanding, openPolicy, openPrivacy, openThread } from './panels';
 import { syncNow, takeLinkToken } from '../render/link';
 import { hasInbox, loadInbox } from '../render/inbox';
 import { isFresh, latestPlacement } from '../render/divisions';
@@ -274,7 +276,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     h(
       'div',
       { style: 'font-size:0.875em; margin-top:0.25em' },
-      bests.overall ? t('title.bestScore', { score: money(bests.overall.score), seed: bests.overall.seed }) : t('title.noGames'),
+      bests.overall ? t('title.bestScore', { score: money(bests.overall.score), yard: yardLabel(bests.overall.seed) }) : t('title.noGames'),
     ),
     h('div', { class: 'jd-dim', style: 'font-size:0.75em' }, t('title.gamesOnDevice', { n: bests.runs })),
     ...loadArchivedBests().map(({ version, bests: ab }) =>
@@ -352,6 +354,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     link(t('title.crews'), 'groups', () => openGroups(scene, verifierUrl, () => scene.scene.restart()), t('title.crewsTitle')),
     inboxLink,
     talkLink,
+    loadLinked() ? link(t('home.friends'), 'friends', () => openFriends(scene, verifierUrl)) : null,
     link(t('home.more'), 'more', () => {
       const r = pushSupported() ? loadReminder() : null;
       choiceDialog(scene, {
