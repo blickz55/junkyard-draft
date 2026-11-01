@@ -6,6 +6,7 @@ import type Phaser from 'phaser';
 import { alertText, h, ui } from './dom';
 import { choiceDialog } from './choice';
 import { t } from '../content/strings';
+import '../content/strings-more';
 import { startLink, syncNow, unlinkEmail, verifyLink, type StartResult } from '../render/link';
 import { loadLinked } from '../render/storage';
 

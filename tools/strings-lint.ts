@@ -17,7 +17,7 @@ export interface ProseHit {
   text: string;
 }
 export const LINTED_DIRS = ['game/src/ui', 'game/src/content'];
-export const EXEMPT_FILES = new Set(['strings.ts', 'glossary.ts', 'operator.ts']);
+export const EXEMPT_FILES = new Set(['strings.ts', 'strings-more.ts', 'glossary.ts', 'operator.ts']);
 
 const stripComments = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' ')).replace(/\/\/[^\n]*/g, '');
 const LITERAL = /'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g;

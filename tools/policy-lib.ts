@@ -42,6 +42,8 @@ import {
   APPEAL_CONTACT,
 } from '../server/verify';
 import { LINK_PER_ADDRESS, LINK_PER_IP, LINK_PER_PLAYER, LINK_TTL_MS } from '../server/link';
+import { APPEAL_DAYS, DEFAULT_SETTINGS, POST_MAX, POST_RATE_LIMIT, REVIEW_SLA_HOURS, TRIAGE_MODEL } from '../server/moderation';
+import { REMOVED_TEXT_DAYS } from '../server/community';
 
 export interface PolicySection {
   title: string;
@@ -119,6 +121,19 @@ export function buildPolicy(): Policy {
       ],
     },
     {
+      title: 'Writing and moderation',
+      lines: [
+        `Writing needs a linked email. A post is at most ${POST_MAX} characters of plain text, at most ${POST_RATE_LIMIT} a minute, and the same words twice within ten minutes are refused. On an open day you can write once you have a verified run on it; once the day closes, anyone can.`,
+        'The filter refuses a post at write time for a blocked word (after folding look-alikes and leetspeak), a link, an email address, a phone number or a home address. A refused post is never stored.',
+        `Every public post is then read by a small AI model (${TRIAGE_MODEL}) against a fixed rubric, with no name and no id, which answers a category and a score from 0 to 100. Under ${DEFAULT_SETTINGS.queueAt} the post stays up; from ${DEFAULT_SETTINGS.queueAt} it stays up and goes to a person; from ${DEFAULT_SETTINGS.hideAt} it comes down until a person has looked. The owner can change these numbers. If the queue goes unwatched for ${DEFAULT_SETTINGS.awayAfterHours} hours the bar for coming down drops to ${DEFAULT_SETTINGS.awayHideAt}. A post waits a few seconds for this; its author reads it meanwhile.`,
+        'If the classifier cannot answer, or its daily budget is spent, the post stays up and goes to a person: a failure never skips the review and never silences anyone.',
+        `Reports on posts use the same fixed reasons as names. ${DEFAULT_REPORT_POLICY.reporters} established players take a post down until a person looks, one trusted moderator at once. A post a person has cleared stays up, and new reports put it back in front of a person.`,
+        `A person can clear, hide, restore or remove a post and mute a player for 24 hours or 7 days; only the owner bans. A ban stops a player writing and nothing else: it holds the player id and the hash of the email address, and takes down what the player had up. The words of a removed post go after ${REMOVED_TEXT_DAYS} days. Trusted moderators are players the owner appoints; they must have a linked email.`,
+        `Every decision has a reason code from a fixed list, a row in the database and a line in the audit log, and tells the player in their inbox. They can appeal it from there, once, within ${APPEAL_DAYS} days. An appeal passes the same filter. A person answers: kept, or undone, and the player hears either way.`,
+        `Target: a person reviews everything flagged within ${REVIEW_SLA_HOURS} hours. This page shows the live counts for each month (posts, hidden, removed, appeals, decisions kept, decisions undone) from GET /transparency.`,
+      ],
+    },
+    {
       title: 'Divisions and trophies',
       lines: ['Divisions, medals and trophies are labels over checked games: none of them changes an offer, a rule or a score.'],
     },
@@ -132,6 +147,7 @@ export function buildPolicy(): Policy {
       title: 'Abuse limits',
       lines: [
         `Submissions: ${DEFAULT_RATE_LIMIT} per minute per address and ${DEFAULT_PLAYER_RATE_LIMIT} per minute per player; identity calls ${IDENTITY_RATE_LIMIT} per minute per player; reports ${REPORT_RATE_LIMIT} per minute per player; reads ${DEFAULT_READ_RATE_LIMIT} and identity, group, report or deletion calls ${DEFAULT_WRITE_RATE_LIMIT} per minute per address; statistics ${DEFAULT_EVENTS_RATE_LIMIT} per minute per address; request bodies up to ${Math.round(MAX_BODY_BYTES / 1024)} KB; at most ${DEFAULT_MAX_PLAYERS} claimed identities (the oldest that never played and sit in no group make room). Limits answer 429 with Retry-After and never record anything.`,
+        `Posts and appeals: ${POST_RATE_LIMIT} per minute per player.`,
         `Sign-in emails: ${LINK_PER_ADDRESS} an hour per address, ${LINK_PER_PLAYER} per player and ${LINK_PER_IP} per network address; a link works once, for ${LINK_TTL_MS / 60_000} minutes.`,
         `Protocol level ${PROTOCOL}: endpoints only grow; a client one release behind keeps working.`,
       ],

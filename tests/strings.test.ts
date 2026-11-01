@@ -4,16 +4,20 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { STRINGS, STRING_KEYS, render, t } from '../game/src/content/strings';
+import { STRINGS, render, t, type Entry } from '../game/src/content/strings';
+import { MORE_STRINGS } from '../game/src/content/strings-more';
 import { BANNED_WORDS, bannedWordsIn, GLOSSARY } from '../game/src/content/glossary';
 import { pseudo, setLocale, PSEUDO_GROWTH } from '../game/src/content/locale';
 import { money, int, utcDateTime, utcDate, utcDay } from '../game/src/content/format';
 import { lintProseLiterals, LINTED_DIRS } from '../tools/strings-lint';
 
+const ALL: Record<string, Entry> = { ...STRINGS, ...MORE_STRINGS };
+const KEYS = Object.keys(ALL);
+
 test('string table: every entry has text and a note; keys are grouped by screen; the renderer fills placeholders and English plurals', () => {
-  assert.ok(STRING_KEYS.length > 300, `${STRING_KEYS.length} strings`);
-  for (const k of STRING_KEYS) {
-    const e = STRINGS[k];
+  assert.ok(KEYS.length > 300, `${KEYS.length} strings`);
+  for (const k of KEYS) {
+    const e = ALL[k];
     assert.ok(e.en.length > 0, `${k} has text`);
     assert.ok(e.note.length > 2, `${k} has a note`);
     assert.match(k, /^[a-z]+\.[A-Za-z0-9.]+$/, `${k} is screen.key`);
@@ -33,9 +37,9 @@ test('string table: every entry has text and a note; keys are grouped by screen;
 
 test('glossary: no banned word in any player-facing string (the policy page excepted); the glossary covers every banned term', () => {
   const offenders: string[] = [];
-  for (const k of STRING_KEYS) {
+  for (const k of KEYS) {
     if (k.startsWith('policy.')) continue;
-    const bad = bannedWordsIn(STRINGS[k].en);
+    const bad = bannedWordsIn(ALL[k].en);
     if (bad.length) offenders.push(`${k}: ${bad.join(', ')}`);
   }
   assert.deepEqual(offenders, []);
@@ -46,6 +50,33 @@ test('glossary: no banned word in any player-facing string (the policy page exce
   assert.ok(GLOSSARY.length >= 20);
   for (const w of ['seed', 'tick', 'verifier', 'replay', 'histogram', 'percentile', 'reroll', 'bin', 'token'])
     assert.ok(BANNED_WORDS.includes(w), `${w} is banned`);
+});
+
+test('the strings behind import() stay out of the first visit: nothing main.ts loads reaches that table or reads one of its keys', () => {
+  const read = (f: string) => fs.readFileSync(f, 'utf8');
+  const imports = (f: string) =>
+    [...read(f).matchAll(/^(?:import|export)\s+(?!type\b)(?:[^'"\n]*?from\s+)?'(\.[^']+)'/gm)].flatMap((m) => {
+      const base = path.join(path.dirname(f), m[1]);
+      return [`${base}.ts`].filter((c) => fs.existsSync(c));
+    });
+  const first = new Set<string>();
+  const stack = [path.join('game', 'src', 'main.ts')];
+  while (stack.length) {
+    const f = stack.pop()!;
+    if (first.has(f)) continue;
+    first.add(f);
+    stack.push(...imports(f));
+  }
+  assert.ok(first.size > 80, `the walk found the game: ${first.size} modules`);
+  assert.ok(first.has(path.join('game', 'src', 'ui', 'panels.ts')));
+  const table = path.join('game', 'src', 'content', 'strings-more.ts');
+  assert.ok(!first.has(table), 'a module a first visit loads imports the table of the panels');
+  const moved = Object.keys(MORE_STRINGS);
+  const offenders = [...first].flatMap((f) => {
+    const src = read(f);
+    return moved.filter((k) => src.includes(`'${k}'`)).map((k) => `${f}: ${k}`);
+  });
+  assert.deepEqual(offenders, []);
 });
 
 test('pseudo-locale: every letter accented, about 30 % longer, digits, dollar signs and glyphs untouched; t() applies it', () => {

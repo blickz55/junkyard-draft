@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Privacy notice · Junkyard Draft</title>
-  <meta name="description" content="Junkyard Draft needs no account to play, and has no passwords, no cookies and no advertising. The game keeps your settings and best scores on your device. The verifier keeps what public leaderboards need: the replays you submit, the display name you choose and a hash of a key your device made. Signing in with email is your choice: it keeps a hash of your address, never the address, so your progress can follow you to another device. You can download or delete all of it from the game." />
+  <meta name="description" content="Junkyard Draft needs no account to play, and has no passwords, no cookies and no advertising. The game keeps your settings and best scores on your device. The verifier keeps what public leaderboards need: the replays you submit, the display name you choose and a hash of a key your device made. Signing in with email is your choice: it keeps a hash of your address, never the address, so your progress can follow you to another device. You can download or delete all of it from the game. If you write a post, an AI service reads its words, without your name, and a person may too." />
   <style>
     :root { color-scheme: dark; }
     html, body { margin: 0; background: #1a1612; color: #e8dcc8; font: 16px/1.5 system-ui, "Segoe UI", Roboto, sans-serif; }
@@ -20,14 +20,14 @@
 </head>
 <body>
   <main>
-    <nav><a href="../">← Junkyard Draft</a> · <strong>Privacy notice</strong> · <a href="./terms.html">Terms of play</a> · <a href="./guidelines.html">Community guidelines (v0)</a></nav>
+    <nav><a href="../">← Junkyard Draft</a> · <strong>Privacy notice</strong> · <a href="./terms.html">Terms of play</a> · <a href="./guidelines.html">Community guidelines (v1)</a></nav>
     <h1>Privacy notice</h1>
-    <p class="meta">Junkyard Draft · last changed 2026-10-31 · rules version 4, verifier protocol 3</p>
-    <p class="summary">Junkyard Draft needs no account to play, and has no passwords, no cookies and no advertising. The game keeps your settings and best scores on your device. The verifier keeps what public leaderboards need: the replays you submit, the display name you choose and a hash of a key your device made. Signing in with email is your choice: it keeps a hash of your address, never the address, so your progress can follow you to another device. You can download or delete all of it from the game.</p>
+    <p class="meta">Junkyard Draft · last changed 2026-11-01 · rules version 4, verifier protocol 3</p>
+    <p class="summary">Junkyard Draft needs no account to play, and has no passwords, no cookies and no advertising. The game keeps your settings and best scores on your device. The verifier keeps what public leaderboards need: the replays you submit, the display name you choose and a hash of a key your device made. Signing in with email is your choice: it keeps a hash of your address, never the address, so your progress can follow you to another device. You can download or delete all of it from the game. If you write a post, an AI service reads its words, without your name, and a person may too.</p>
     <section>
       <h2>Who is responsible</h2>
       <p>The data controller is Jon (GitHub: blickz55), living in the United States, who operates Junkyard Draft at https://junkyarddraft.com. Contact for anything in this notice: contact@junkyarddraft.com.</p>
-      <p>This notice covers the game at junkyarddraft.com, the desktop edition (which talks to the same verifier) and the verifier at verify.junkyarddraft.com. It was last changed on 2026-10-31.</p>
+      <p>This notice covers the game at junkyarddraft.com, the desktop edition (which talks to the same verifier) and the verifier at verify.junkyarddraft.com. It was last changed on 2026-11-01.</p>
     </section>
     <section>
       <h2>On your device</h2>
@@ -39,7 +39,8 @@
       <p>Verified entries. When you submit a run, the verifier stores the replay (seed, your actions, the rules version), the score, the time, the label you chose, the replay's hash and, when you have claimed a name, your player id. Purpose: public leaderboards whose scores were re-simulated rather than trusted. Legal basis: the agreement you enter by submitting (the terms and the fairness policy) and the legitimate interest in boards that are correct.</p>
       <p>Your identity. A player id, which is the SHA-256 hash of the key your device created, and the display name and tag you chose with the time of your last rename. The key itself leaves your device only as a bearer header over TLS to the verifier, which hashes it before any use and never stores or logs it. Purpose: one best entry per player, renames that follow you onto every board, groups, and deletion. Legal basis: the agreement.</p>
       <p>Groups. The codes of the groups you joined (at most 5), keyed by player id. Purpose: boards scoped to the people you chose. Legal basis: the agreement.</p>
-      <p>Moderation. Reports you file (your player id, the reported player, one reason from a fixed list, the time), reports filed about your name, and every moderator action on a name (hide, confirm, clear, forced rename) in an audit log. Purpose: names fit for a public board. Legal basis: the legitimate interest in a safe service.</p>
+      <p>Posts, only if you write one. The words, the day they belong to, your player id and the time. Each public post is read by an automatic filter and an AI classifier, and by a person if it is flagged, reported or appealed. Purpose: a conversation about the day that stays fit for everyone. Legal basis: the agreement you enter by posting, and the legitimate interest in a safe service. A post stays until you delete your data; the words of a removed post go after 90 days, so an appeal can still be read.</p>
+      <p>Moderation. Reports you file (your player id, what you reported, one reason from a fixed list, the time), reports filed about your name or your posts, and every decision about a name, a post or a player: what was decided, a reason from a fixed list, who decided, the time, any note a moderator left, any appeal you wrote and its answer, in the database and in an audit log. Mutes and bans are kept with your player id; a ban also keeps the hash of your email address, so signing in again does not lift it. Purpose: a safe community and a record that decisions were made fairly. Legal basis: the legitimate interest in a safe service.</p>
       <p>Request logs. One line per request with the method, path, status, duration and a hash of your network address salted with the day, so the same address cannot be followed from one day to the next. The address itself is not written: the reverse proxy in front of the verifier is configured to drop it from its access log as well. Purpose: abuse limits and debugging. Legal basis: the legitimate interest in a service that stays up. Kept by rotation, 7 files of 20 MB each per service, which is days to weeks depending on traffic.</p>
       <p>Play statistics, on unless you turn them off. Events from a fixed list of 25 names (which lesson step you reached, that a game completed, that a share was copied, and the like), a random install id stored on your device, and the same daily-salted address hash. Never seeds other than daily and tutorial labels, never layouts, never your player id. Purpose: seeing where the game confuses people, so it can be fixed. Legal basis: the legitimate interest in a game people can understand. Turn &quot;Share play data&quot; off in Settings at any time: that stops it at once and deletes the install id and the queue on your device. A browser that sends Global Privacy Control or Do Not Track starts with it off. Kept 7 days on the server.</p>
       <p>Reactions and watching. Which of the eight reactions your player id left on which run, and which recordings your player id watched and how often, with the times. Purpose: other players see the counts, never who left what or who watched. Both stay until you take the reaction back or delete your data.</p>
@@ -53,6 +54,7 @@
       <h2>How long</h2>
       <p>Entries and replays follow the fairness policy's retention: replays are kept for each seed's top 100 entries; 30 days after a daily closes it moves to cold storage, where every entry and the final board stay and only the top 10 replays remain; boards are kept 400 days back. Your name and group memberships stay until you delete them.</p>
       <p>Play-statistics events: 7 days. Logs: by rotation, as above. Nightly backups of the verifier's data are kept for 14 days, so a record you deleted can survive in a backup for up to 14 days before it is gone everywhere; backups are used to recover from a failure, never to restore a deleted player.</p>
+      <p>Moderation decisions and the audit log outlive a deleted player, as the record of how the service was moderated: they keep the decision and the player id, which then leads to no name, and an appeal you wrote is erased. The hash of a banned address stays until the ban is lifted.</p>
     </section>
     <section>
       <h2>Who else sees it</h2>
@@ -60,6 +62,7 @@
       <p>Your browser connects to Cloudflare's network to load the game and to the verifier's host to submit runs and read boards; each sees your network address the way any web server does, under its own privacy policy. The verifier itself stores no addresses.</p>
       <p>The boards are public. Anyone can see your display name and tag, your scores and ranks and, within the fairness policy's reveal rules, your replays; a Discord channel the operator connects shows the same facts. Nothing is sold, and there is no advertising.</p>
       <p>If you sign in with email, Resend, Inc., in the United States delivers the link. It sees the address and that an email was sent, and keeps delivery records for up to 30 days. It holds them in the United States under the EU Standard Contractual Clauses and the Data Privacy Framework.</p>
+      <p>If you write a public post, Anthropic, PBC, in the United States runs the AI classifier for the operator. It receives the words of the post, without your name, your tag or your player id, and answers with a category and a score. It handles them as a service provider under its commercial terms.</p>
       <p>If you turn the daily reminder on, your browser maker's push service (Apple, Google or Mozilla, depending on the browser) relays one encrypted message a day: it sees that a message went to your browser, not what it says.</p>
     </section>
     <section>
@@ -68,15 +71,15 @@
     </section>
     <section>
       <h2>Your rights</h2>
-      <p>Download everything stored under your player id: &quot;Download my data&quot; in the game (Privacy &amp; data), or GET /me/export with your key. The file lists your entries with their replays where kept, your group memberships, the moderation record of your name and the reports you filed.</p>
-      <p>Delete it: &quot;Delete my data&quot; in the game, or DELETE /me with your key. Your name is removed, your entries stay on the boards anonymised as &quot;deleted&quot; with the score only, their replays are dropped from live and cold storage, your group memberships end, and the key on your device is replaced, so nothing links the old entries to you.</p>
+      <p>Download everything stored under your player id: &quot;Download my data&quot; in the game (Privacy &amp; data), or GET /me/export with your key. The file lists your entries with their replays where kept, your group memberships, the moderation record of your name, the reports you filed, your posts, the decisions about you and any appeal you wrote.</p>
+      <p>Delete it: &quot;Delete my data&quot; in the game, or DELETE /me with your key. Your name is removed, your entries stay on the boards anonymised as &quot;deleted&quot; with the score only, their replays are dropped from live and cold storage, your group memberships end, your posts and appeals go, and the key on your device is replaced, so nothing links the old entries to you.</p>
       <p>Correct it: the player button renames you (once every 24 hours); turning play statistics off ends that processing at once.</p>
       <p>Object to or ask about anything here at contact@junkyarddraft.com. Because the verifier knows you only by the hash of your device key, a request about a specific player has to come from the device that holds the key or from its recovery code: by e-mail alone we cannot tell whose data is whose, and we will not guess.</p>
       <p>If you live in the EU, the EEA or the UK you may also complain to your data protection authority; elsewhere, to the body responsible for privacy where you live.</p>
     </section>
     <section>
       <h2>Children</h2>
-      <p>The game is not directed at children under 13 and collects no personal information to play. Display names are public: do not use a real name, and if you are under 13 do not claim a name or turn play statistics on.</p>
+      <p>The game is not directed at children under 13 and collects no personal information to play. Display names are public: do not use a real name, and if you are under 13 do not claim a name, sign in with email, write posts or turn play statistics on.</p>
     </section>
     <section>
       <h2>Changes</h2>

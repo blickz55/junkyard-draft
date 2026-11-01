@@ -26,5 +26,20 @@ export async function loadInbox(verifierUrl: string): Promise<Inbox | null> {
     return null;
   }
 }
+export type AppealResult = 'sent' | 'empty' | 'refused' | 'closed' | 'failed';
+/** Ask a person to look at a decision again (0.11.2). */
+export async function sendAppeal(verifierUrl: string, action: number, body: string): Promise<AppealResult> {
+  if (!body.trim()) return 'empty';
+  try {
+    const res = await fetch(`${verifierUrl}/me/appeal`, {
+      method: 'POST',
+      headers: { ...authHeaders(verifierUrl), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, body }),
+    });
+    return res.ok ? 'sent' : res.status === 422 ? 'refused' : res.status === 409 || res.status === 404 ? 'closed' : 'failed';
+  } catch {
+    return 'failed';
+  }
+}
 export const markInboxRead = (verifierUrl: string): Promise<unknown> =>
   fetch(`${verifierUrl}/me/inbox/read`, { method: 'POST', headers: authHeaders(verifierUrl) }).catch(() => null);

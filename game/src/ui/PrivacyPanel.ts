@@ -16,6 +16,7 @@ import { saveGroup } from '../render/groups';
 import { telemetry } from '../render/telemetry';
 import { labelFor } from '../identity/identity';
 import { t } from '../content/strings';
+import '../content/strings-more';
 
 type LegalId = 'privacy' | 'terms' | 'guidelines';
 interface LegalDoc {

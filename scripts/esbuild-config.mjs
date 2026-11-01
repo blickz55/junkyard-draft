@@ -58,7 +58,7 @@ export function stringNotesPlugin() {
   return {
     name: 'string-notes',
     setup(build) {
-      build.onLoad({ filter: /[\\/]content[\\/]strings\.ts$/ }, async (args) => ({
+      build.onLoad({ filter: /[\\/]content[\\/]strings(-more)?\.ts$/ }, async (args) => ({
         contents: stripStringNotes(await fs.promises.readFile(args.path, 'utf8')),
         loader: 'ts',
       }));

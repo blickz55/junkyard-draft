@@ -10,12 +10,13 @@
  */
 import { locale, pseudo } from './locale';
 import { int } from './format';
+import type { MORE_STRINGS } from './strings-more';
 
 export interface Entry {
   en: string;
   note: string;
 }
-const s = (en: string, note: string): Entry => ({ en, note });
+export const s = (en: string, note: string): Entry => ({ en, note });
 
 export const STRINGS = {
   // ---- shared ----
@@ -732,46 +733,8 @@ export const STRINGS = {
   'gate.daily': s('recordings for this day open once your score is on the board, or when the day closes ({date} 00:00 UTC)', 'reveal gate'),
 
   // ---- the fairness policy panel (technical words allowed here, the glossary's one exception) ----
-  'policy.title': s('Fairness and verification policy', 'panel head and aria'),
-  'policy.headline': s('Rules version {rules} · verifier protocol {protocol}', 'headline'),
-  'policy.tie': s('Tie-break: {tie}', 'line'),
-  'policy.footer': s('Generated from the code by tools/make-policy.ts; also at policy.json next to the game and docs/POLICY.md in the repository.', 'footer'),
 
   // ---- privacy & data ----
-  'privacy.head': s('Privacy', 'panel head'),
-  'privacy.aria': s('Privacy and data', 'dialog aria'),
-  'privacy.meta': s('{title} · last changed {date} · {product} is run by {holder}', 'meta line'),
-  'privacy.also': s('Also at legal/{id}.html next to the game. Contact {contact}; moderation appeals {appeal}.', 'footer'),
-  'privacy.yourData': s('Your data', 'section head'),
-  'privacy.whoNamed': s('You are {label} to our server', 'status'),
-  'privacy.whoAnon': s('This device has a key but no claimed name', 'status'),
-  'privacy.statusOk': s('{who}; our server is {url}.', 'status'),
-  'privacy.statusInsecure': s(
-    '{who}; the connection to our server at {url} is not secure, so the key is never sent to it and there is nothing to download or delete there.',
-    'status',
-  ),
-  'privacy.export': s('Download my data', 'button'),
-  'privacy.exportTitle': s('everything our server stores under your key, saved as a file', 'tooltip'),
-  'privacy.asking': s('Asking our server for everything stored under your key…', 'status'),
-  'privacy.downloadFailed': s('Download failed: {error}.', 'status'),
-  'privacy.saved': s(
-    'Saved {file}: {n, plural, one {# entry} other {# entries}}, {r, plural, one {# with a stored recording} other {# with a stored recording}}, plus your name, crews and moderation record.',
-    'status',
-  ),
-  'privacy.delete': s('Delete my data', 'button'),
-  'privacy.deleteTitle': s('our server forgets you, then this device gets a new key', 'tooltip'),
-  'privacy.deleteLabel': s(
-    'Our server removes your name, anonymises your entries as "deleted" (the scores stay, nothing links them to you), drops their recordings and ends your crew memberships. This device then gets a new key, forgets the name and the crew code, and turns play statistics off. Best scores and settings stay on this device. This cannot be undone.',
-    'dialog label',
-  ),
-  'privacy.deleteOk': s('Delete everything', 'dialog OK'),
-  'privacy.deleteCancel': s('Keep my data', 'dialog cancel'),
-  'privacy.deleting': s('Deleting…', 'status'),
-  'privacy.deleteFailed': s('Deletion failed: {error}.', 'status'),
-  'privacy.deleted': s(
-    'Deleted. {n, plural, one {# entry} other {# entries}} anonymised, {r, plural, one {# archived recording} other {# archived recordings}} dropped; this device has a new key and no name. Backups age out within {days} days.',
-    'status',
-  ),
 
   // ---- share text and the card ----
   'share.header': s('Junkyard Draft · {label} · {score}', 'line 1'),
@@ -1063,16 +1026,6 @@ export const STRINGS = {
   'division.place': s('#{place} of {size} in {division}', 'a place in a division'),
   'division.home': s('{day}: {line}', 'on Home, where the last closed day left the player'),
   'division.open': s('See it', 'button on Home: opens the division board'),
-  'division.aria': s('Your division on a closed day', 'dialog name for screen readers'),
-  'division.note': s(
-    'When a day closes, everyone is split into divisions by score, so there is a board at your level. The top three of each take a medal. Divisions never change offers or scores.',
-    'above the division board',
-  ),
-  'division.loading': s('Finding your division…', 'while the board loads'),
-  'division.noBoard': s('That board is not available right now.', 'when the server cannot be reached'),
-  'division.copy': s('Copy my result', 'button and dialog title'),
-  'division.copied': s('Copied', 'button after copying'),
-  'division.share': s('Junkyard Draft · {day} · {line}', 'the text copied for sharing'),
   'division.trophy.gold': s('{n} gold', 'on Your record'),
   'division.trophy.silver': s('{n} silver', 'on Your record'),
   'division.trophy.bronze': s('{n} bronze', 'on Your record'),
@@ -1080,45 +1033,9 @@ export const STRINGS = {
   'record.trophiesHead': s('Trophies', 'record page section: never decay'),
   'home.inbox': s('Inbox', 'home footer'),
   'home.inboxUnread': s('Inbox ({n})', 'home footer, with the number of new lines'),
-  'inbox.head': s('Inbox', 'dialog title'),
-  'inbox.aria': s('Your inbox', 'dialog name for screen readers'),
-  'inbox.loading': s('Looking…', 'while the inbox loads'),
-  'inbox.none': s('Nothing yet. When someone reacts to one of your games, beats your score or your division closes, it lands here.', 'empty inbox'),
-  'inbox.noLoad': s('The inbox is not available right now.', 'when the server cannot be reached'),
-  'inbox.reactions': s('{line} on your {score} on {yard}', 'a line in the inbox: "3 reactions 🔥 2 👏 1 on your $412 on the yard of 29 October"'),
-  'inbox.challenge': s('{player} beat your {theirs} on {yard} with {score}', 'a line in the inbox'),
-  'inbox.challengeBack': s('Beat it back', 'button: play that yard against their score'),
-  'inbox.crewDay': s('{crew}, {day}: {top} came first with {score}. You were #{place} of {size}.', 'a line in the inbox'),
-  'inbox.crewDayWon': s('{crew}, {day}: you came first of {size} with {score}.', 'a line in the inbox'),
-  'inbox.crewGone': s('Your crew', 'when the crew no longer exists'),
   'settings.email': s('Email', 'settings row'),
   'link.open': s('Sign in with email', 'settings button'),
   'link.linked': s('Signed in with email', 'settings button'),
-  'link.head': s('Sign in with email', 'dialog title'),
-  'link.lead': s('Get a one-time link by email. Your name and progress then follow you to every device you sign in on. There is no password.', 'dialog text'),
-  'link.field': s('Your email', 'field label'),
-  'link.send': s('Send me a link', 'button'),
-  'link.sending': s('Sending…', 'status while the request is on its way'),
-  'link.sent': s('Check your email. Open the link on the device you want to sign in on. It works once, for 15 minutes.', 'status'),
-  'link.invalid': s("That doesn't look like an email address.", 'status'),
-  'link.limited': s('Too many tries. Try again in a while.', 'status'),
-  'link.off': s("Signing in with email isn't available yet.", 'status'),
-  'link.failed': s("That didn't go through. Try again in a moment.", 'status'),
-  'link.note': s('We keep a scrambled form of your address, never the address itself. The privacy notice has the details.', 'small print under the buttons'),
-  'link.confirmHead': s('Sign in on this device?', 'dialog title when an email link is opened'),
-  'link.confirmLead': s('This device will use your name and progress.', 'dialog text'),
-  'link.confirm': s('Sign in', 'button'),
-  'link.notNow': s('Not now', 'button'),
-  'link.done': s("You're signed in. Your name and progress now follow you to every device you sign in on.", 'message'),
-  'link.doneJoined': s(
-    "You're signed in. Your name and progress are on this device now. Games this device already put on a board stay there under their old name.",
-    'message',
-  ),
-  'link.gone': s('That link has expired or was already used. Ask for a new one in Settings.', 'message'),
-  'link.elsewhere': s('This device is signed in with a different email. Sign out in Settings first.', 'message'),
-  'link.signedIn': s("You're signed in with email. Your name and progress follow you to every device you sign in on.", 'dialog text'),
-  'link.unlink': s('Sign out and forget my email', 'button'),
-  'link.unlinked': s('Done. Your email is gone from our server, and this device keeps your name.', 'message'),
   'reaction.head': s('What did you make of it?', 'above the eight reactions under a recording'),
   'reaction.fire': s('On fire', 'a reaction to a run'),
   'reaction.applause': s('Well played', 'a reaction to a run'),
@@ -1147,11 +1064,17 @@ export const STRINGS = {
   'job.the': s('the ', 'before the first machine name'),
 } as const satisfies Record<string, Entry>;
 
-export type StringKey = keyof typeof STRINGS;
+export type StringKey = keyof typeof STRINGS | keyof typeof MORE_STRINGS;
 export type Params = Record<string, string | number>;
 
-/** Every key, for the lint and the pseudo-locale tests. */
-export const STRING_KEYS = Object.keys(STRINGS) as StringKey[];
+/** Every key of the first-visit table, for the lint and the pseudo-locale tests. */
+export const STRING_KEYS = Object.keys(STRINGS) as (keyof typeof STRINGS)[];
+
+const table: Record<string, Entry> = { ...STRINGS };
+/** A chunk behind import() brings its own strings (strings-more.ts). */
+export function addStrings(more: Record<string, Entry>): void {
+  Object.assign(table, more);
+}
 
 /** Render a template: `{name}` placeholders and `{n, plural, one {…} other {…}}` with `#` for the number. */
 export function render(template: string, params: Params): string {
@@ -1212,6 +1135,6 @@ function pluralBranch(spec: string, n: number): string {
 
 /** The string for a key, with its placeholders filled; the pseudo-locale transforms the result when it is on. */
 export function t(key: StringKey, params: Params = {}): string {
-  const text = render(STRINGS[key].en, params);
+  const text = render(table[key].en, params);
   return locale() === 'pseudo' ? pseudo(text) : text;
 }

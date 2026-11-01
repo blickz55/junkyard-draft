@@ -36,6 +36,47 @@ export function normaliseName(raw: unknown): string {
   );
 }
 const LEET: Record<string, string> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', $: 's', '!': 'i', '|': 'l', '+': 't' };
+/** Cyrillic and Greek letters that read as Latin ones, so a word cannot pass the blocklist in another alphabet (0.11.2). */
+const LOOKALIKE: Record<string, string> = Object.fromEntries(
+  [
+    'аa',
+    'вb',
+    'еe',
+    'ёe',
+    'гr',
+    'ѕs',
+    'зe',
+    'иu',
+    'іi',
+    'їi',
+    'јj',
+    'кk',
+    'мm',
+    'нh',
+    'оo',
+    'пn',
+    'рp',
+    'сc',
+    'тt',
+    'уy',
+    'хx',
+    'ьb',
+    'αa',
+    'βb',
+    'γy',
+    'εe',
+    'ηn',
+    'ιi',
+    'κk',
+    'νv',
+    'οo',
+    'ρp',
+    'τt',
+    'υu',
+    'χx',
+    'ωw',
+  ].map((p) => [p[0], p[1]]),
+);
 /** Lowercase, leetspeak folded, non-letters removed: the form the blocklist is matched against. */
 export function foldName(name: string): string {
   return name
@@ -43,7 +84,7 @@ export function foldName(name: string): string {
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .split('')
-    .map((c) => LEET[c] ?? c)
+    .map((c) => LEET[c] ?? LOOKALIKE[c] ?? c)
     .join('')
     .replace(/[^a-z]/g, '');
 }

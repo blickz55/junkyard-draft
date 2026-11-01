@@ -7,6 +7,7 @@ import { btn, h, showText, ui } from './dom';
 import { divisionName, medalGlyph, periodLabel, placeLine } from '../content/division';
 import { money } from '../content/format';
 import { t } from '../content/strings';
+import '../content/strings-more';
 import { loadDivisionBoard, type Placement } from '../render/divisions';
 
 export function openDivision(scene: Phaser.Scene, verifierUrl: string, p: Placement): void {

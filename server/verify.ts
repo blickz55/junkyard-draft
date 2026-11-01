@@ -116,7 +116,19 @@ export { medalThresholds, medalFor, MEDAL_PERCENTILES, MEDAL_MIN_N, type Medals 
 export { mintSeed, commitmentFor, shiftDate, utcDate, isUtcDate, DAILY_WINDOW_MS } from './mint';
 import { validateBatch, FUNNEL, type EventBatch, type EventName, type Props } from '../game/src/telemetry/events';
 import pkg from '../package.json' with { type: 'json' };
-import { tagFor, labelFor, normaliseName, nameProblem, TOKEN_HEX, REPORT_REASONS, HIDDEN_LABEL, type ReportReason } from '../game/src/identity/identity';
+import {
+  tagFor,
+  labelFor,
+  normaliseName,
+  nameProblem,
+  tokenFromRecoveryCode,
+  TOKEN_HEX,
+  REPORT_REASONS,
+  HIDDEN_LABEL,
+  type ReportReason,
+} from '../game/src/identity/identity';
+import { claudeClassifier, DEFAULT_SETTINGS, OWNER, POST_RATE_LIMIT, Pipeline, REASON_CODES, REVIEW_SLA_HOURS, type Refused } from './moderation';
+import { PAGE_CSS, PAGE_HTML, PAGE_JS, PAGE_POLICY } from './moderation-page';
 
 /** Protocol level of this server's HTTP surface (PLAN-v3 §1): 2 adds identity (bearer tokens, /identity, DELETE /me, keep-best per player); GET /me/export (0.8.6) only grows it. */
 export const PROTOCOL = 3; // 0.11.3: additive, a client one release behind keeps working
@@ -340,6 +352,8 @@ export const USER_WRITTEN_FIELDS = [
   'forced display name (POST /moderation/rename)',
   'forced group name (POST /moderation/rename-group)',
 ] as const;
+/** Every field of free text a player writes (0.11.2). Each passes textProblem; tests/moderation.test.ts pushes a blocked string through each and counts the call sites. A moderator's note is not here: it is an operator's, never shown to a player. */
+export const TEXT_FIELDS = ['post (POST /posts)', 'appeal (POST /me/appeal)'] as const;
 /** Defaults the policy page publishes (PLAN-v3 0.6.5); env/flags override the rate limits at runtime. */
 export const DEFAULT_RATE_LIMIT = 60,
   DEFAULT_PLAYER_RATE_LIMIT = 2,
@@ -1052,6 +1066,18 @@ export class Verifier {
       return this.data.players?.[t.playerId] ? { playerId: t.playerId } : { error: 'no such player', status: 404 };
     return { error: 'a report needs a playerId or a replay hash', status: 422 };
   }
+  /** Whether a reporter counts toward a hide: they hold a verified entry old enough (0.8.1). */
+  isEstablished(playerId: string, now = new Date()): boolean {
+    return (
+      this.reportPolicy.establishedDays <= 0 ||
+      this.data.entries.some(
+        (e) =>
+          e.playerId === playerId &&
+          e.rulesVersion === RULES_VERSION &&
+          Date.parse(e.verifiedAt) <= now.getTime() - this.reportPolicy.establishedDays * 86_400_000,
+      )
+    );
+  }
   /** Report a name: hides it as HIDDEN_LABEL on every board until a moderator acts (at most MAX_HIDES_PER_NAME times per name); never touches scores; one report per reporter per target. */
   report(
     reporterId: string,
@@ -1070,14 +1096,7 @@ export class Verifier {
     const rec: ModerationRecord =
       prev && (prev.hidden || prev.name === p.name) ? { ...prev, reports: [...prev.reports] } : { name: p.name, hidden: false, clears: 0, reports: [] };
     if (rec.reports.some((r) => r.reporterId === reporterId)) return { ok: true, playerId: t.playerId, hidden: this.isHidden(rec, now), duplicate: true };
-    const established =
-      this.reportPolicy.establishedDays <= 0 ||
-      this.data.entries.some(
-        (e) =>
-          e.playerId === reporterId &&
-          e.rulesVersion === RULES_VERSION &&
-          Date.parse(e.verifiedAt) <= now.getTime() - this.reportPolicy.establishedDays * 86_400_000,
-      );
+    const established = this.isEstablished(reporterId, now);
     if (rec.reports.length < MAX_REPORTERS_PER_TARGET)
       rec.reports.push({ reporterId, reason: reason as ReportReason, at: now.toISOString(), ...(established ? { established: true } : {}) });
     if (rec.hidden && !this.isHidden(rec, now)) {
@@ -1200,7 +1219,7 @@ export class Verifier {
     return { ok: true, group: { code: g.code, name } };
   }
   /** One JSON line per report and moderator action (best effort: a failed append is logged and never undoes the action). */
-  private audit(row: Record<string, unknown>) {
+  audit(row: Record<string, unknown>) {
     if (!this.auditFile) return;
     try {
       fs.mkdirSync(path.dirname(this.auditFile), { recursive: true });
@@ -1561,6 +1580,10 @@ export class Verifier {
     this.observeFreeze(now);
     const rec = this.issuedRecordForSeed(seed);
     return rec && rec.frozenAt ? (rec.medals ?? null) : null;
+  }
+  /** The seed of an opened daily or weekly by its date or week id; null for anything else. */
+  seedOfPeriod(key: string, now = new Date()): string | null {
+    return (isWeekId(key) ? this.weeklyRecord(key, now) : isUtcDate(key) ? this.dailyRecord(key, now) : null)?.seed ?? null;
   }
   /** Today's minted seed (the one bot par computes first). */
   todaySeed(now = new Date()): string {
@@ -2127,6 +2150,10 @@ export interface ServerOptions {
   community?: CommunityStore | null;
   /** sends the sign-in mail (0.11.1); absent, the email routes answer 503 */
   mailer?: Mailer | null;
+  /** the moderation pipeline (0.11.2); absent, or with no classifier, nothing can be written */
+  moderation?: Pipeline | null;
+  /** posts and appeals per player per minute (default POST_RATE_LIMIT) */
+  postRateLimit?: number;
   /** where a sign-in link opens the game (default the operator's site) */
   siteUrl?: string;
   /** POST /events limit per client IP per minute (default 30) */
@@ -2248,9 +2275,12 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         );
       }
     };
+  const moderation = opts.moderation ?? null;
   /** What a player reads in the inbox: ids become names at read time, so a rename or a moderation decision follows, and no id leaves the server. */
-  const inboxLine = (r: InboxRow, now: Date): InboxRow | null => {
+  const inboxLine = (r: InboxRow, now: Date, playerId: string): InboxRow | null => {
     const p = r.payload;
+    if (r.kind === 'moderation')
+      return { ...r, payload: { ...p, appealable: !!moderation?.canAppeal(community?.action(p.action as number) ?? null, playerId) } };
     if (r.kind === 'reactions') {
       const e = verifier.entry(String(p.hash), null, now);
       const reactions = community?.reactionsOn([String(p.hash)]).get(String(p.hash));
@@ -2284,6 +2314,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
   const grl = new RateLimiter(GROUP_RATE_LIMIT, 60_000, opts.now); // per-player group calls (PLAN-v4 0.7.2)
   const rrl = new RateLimiter(REPORT_RATE_LIMIT, 60_000, opts.now); // per-player reports (PLAN-v4 0.7.7)
   const reactRl = new RateLimiter(REACT_RATE_LIMIT, 60_000, opts.now); // per-player reactions (0.11.3)
+  const postRl = new RateLimiter(opts.postRateLimit ?? POST_RATE_LIMIT, 60_000, opts.now); // per-player posts and appeals (0.11.2)
   const HOUR = 3_600_000;
   const linkAddressRl = new RateLimiter(LINK_PER_ADDRESS, HOUR, opts.now); // sign-in mail (0.11.1): nobody's inbox can be flooded through us
   const linkPlayerRl = new RateLimiter(LINK_PER_PLAYER, HOUR, opts.now);
@@ -2358,6 +2389,32 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       const r = writeRl.take(ip);
       return r.ok ? null : r.retryAfterSec;
     };
+    /** A small JSON object from the request, for the routes from 0.11.2 on: 413 past the limit, 400 for anything else. */
+    const withBody = (limit: number, then: (p: Record<string, unknown>) => void) => {
+      let body = '';
+      req.setEncoding('utf8'); // a character split between two packets stays one character
+      req.on('data', (c) => {
+        body += c;
+        if (body.length > limit) {
+          json(413, { ok: false, error: 'too large', code: 'too-large' });
+          req.destroy();
+        }
+      });
+      req.on('end', () =>
+        guarded(() => {
+          if (res.writableEnded) return;
+          let p: unknown;
+          try {
+            p = JSON.parse(body || '{}');
+          } catch {
+            return json(400, { ok: false, error: 'bad request' });
+          }
+          if (!p || typeof p !== 'object') return json(400, { ok: false, error: 'bad request' });
+          then(p as Record<string, unknown>);
+        }),
+      );
+    };
+    const refusal = ({ status, ...body }: Refused) => json(status, body);
     let url: URL;
     try {
       url = new URL(req.url || '/', 'http://localhost');
@@ -2382,6 +2439,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           push: push ? { enabled: push.enabled, subscriptions: push.count, ...push.stats } : null,
           community: community?.health() ?? null,
           email: !!mailer && !!community,
+          moderation: !!moderation?.enabled,
           ...(opts.announcer?.enabled ? { discord: opts.announcer.stats } : {}),
           uptimeSec: Math.round((Date.now() - started) / 1000),
           ...verifier.health,
@@ -2780,7 +2838,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         if (!community) return json(503, { ok: false, error: 'the inbox is not enabled on this verifier' });
         const now = new Date((opts.now ?? Date.now)());
         const { items, unread } = community.inbox(bearerId, clampInt(url.searchParams.get('limit'), 30, MAX_INBOX_PAGE));
-        return json(200, { ok: true, unread, items: items.flatMap((r) => inboxLine(r, now) ?? []) });
+        return json(200, { ok: true, unread, items: items.flatMap((r) => inboxLine(r, now, bearerId) ?? []) });
       }
       if (url.pathname === '/me/inbox/read' && req.method === 'POST') {
         req.resume();
@@ -2996,7 +3054,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         req.on('end', () =>
           guarded(() => {
             if (res.writableEnded) return;
-            type ReportBody = { playerId?: unknown; hash?: unknown; reason?: unknown };
+            type ReportBody = { playerId?: unknown; hash?: unknown; postId?: unknown; reason?: unknown };
             let parsed: ReportBody | null;
             try {
               parsed = JSON.parse(body || '{}') as ReportBody | null;
@@ -3004,6 +3062,13 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
               return json(400, { ok: false, error: 'bad request' });
             }
             if (!parsed || typeof parsed !== 'object') return json(400, { ok: false, error: 'bad request' });
+            if (parsed.postId !== undefined) {
+              // a post (0.11.2): the same fixed reasons, the pipeline decides what they do
+              if (!moderation) return json(503, { ok: false, error: 'writing is not enabled on this verifier' });
+              if (!verifier.player(bearerId)) return json(422, { ok: false, error: 'claim a name before reporting' });
+              const out = moderation.report(bearerId, parsed.postId, parsed.reason, verifier.isEstablished(bearerId, new Date((opts.now ?? Date.now)())));
+              return out.ok ? json(200, out) : refusal(out);
+            }
             try {
               const out = verifier.report(bearerId, parsed, parsed.reason, new Date((opts.now ?? Date.now)()));
               if (!out.ok) return json(out.status, { ok: false, error: out.error });
@@ -3016,18 +3081,153 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         );
         return;
       }
-      if (url.pathname.startsWith('/moderation/')) {
+      if (req.method === 'POST' && url.pathname === '/posts') {
+        // writing (0.11.2): a device key that signed in with email, on a day the player has played or that has closed
+        if (!community || !moderation?.enabled) {
+          req.resume();
+          return json(503, { ok: false, code: 'writing-off', error: 'writing is not enabled on this verifier' });
+        }
+        if (!bearerId) {
+          req.resume();
+          return json(401, { ok: false, error: 'token required' });
+        }
+        const r = postRl.take(bearerId);
+        if (!r.ok) {
+          req.resume();
+          return json(429, { ok: false, code: 'rate-limited', error: 'slow down' }, { 'Retry-After': String(r.retryAfterSec) });
+        }
+        const w = writeLimited();
+        if (w != null) {
+          req.resume();
+          return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) });
+        }
+        return withBody(2048, (p) => {
+          const now = new Date((opts.now ?? Date.now)());
+          const key = typeof p.key === 'string' ? p.key.slice(0, 16) : '';
+          const seed = verifier.seedOfPeriod(key, now);
+          if (!seed) return json(404, { ok: false, code: 'no-thread', error: 'no such day' });
+          const gate = verifier.revealGate(seed, bearerId, now);
+          if (gate) return json(403, { ok: false, code: 'reveal-gate', ...gate });
+          if (!verifier.player(bearerId)) return json(422, { ok: false, code: 'no-name', error: 'choose a name before writing' });
+          const out = moderation.write(bearerId, community.threadFor(isWeekId(key) ? 'weekly' : 'daily', key).id, p.body);
+          if (!out.ok) return refusal(out);
+          return json(200, { ok: true, post: { id: out.post.id, body: out.post.body, state: out.post.state, createdAt: out.post.createdAt } });
+        });
+      }
+      if (req.method === 'POST' && url.pathname === '/me/appeal') {
+        // appeals come from the inbox (0.11.2): the player a decision is about, once
+        if (!moderation) {
+          req.resume();
+          return json(503, { ok: false, error: 'writing is not enabled on this verifier' });
+        }
+        if (!bearerId) {
+          req.resume();
+          return json(401, { ok: false, error: 'token required' });
+        }
+        const r = postRl.take(bearerId);
+        if (!r.ok) {
+          req.resume();
+          return json(429, { ok: false, code: 'rate-limited', error: 'slow down' }, { 'Retry-After': String(r.retryAfterSec) });
+        }
+        const w = writeLimited();
+        if (w != null) {
+          req.resume();
+          return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) });
+        }
+        return withBody(4096, (p) => {
+          const out = moderation.appeal(bearerId, p.action, p.body);
+          return out.ok ? json(200, out) : refusal(out);
+        });
+      }
+      if (req.method === 'GET' && url.pathname === '/transparency') {
+        // the counts the policy page publishes (roadmap §4.2): no names, no ids, no words
+        if (!moderation) return json(503, { ok: false, error: 'the community store is not enabled on this verifier' });
+        return json(200, { ok: true, ...moderation.transparency() });
+      }
+      if (url.pathname === '/moderation' || url.pathname.startsWith('/moderation/')) {
         // moderator endpoints (PLAN-v4 0.7.7): X-Moderation-Token, never a player bearer
         if (!modToken) {
           req.resume();
           return json(403, { ok: false, error: 'moderation is not enabled on this verifier (set MODERATION_TOKEN)' });
         }
-        const given = req.headers['x-moderation-token'];
-        const t = Buffer.from(Array.isArray(given) ? (given[0] ?? '') : (given ?? '')),
+        // the queue page (0.11.2) holds no data, so it needs no token: its own script asks for one
+        const page = { '/moderation': PAGE_HTML, '/moderation/': PAGE_HTML, '/moderation/app.js': PAGE_JS, '/moderation/app.css': PAGE_CSS }[url.pathname];
+        if (req.method === 'GET' && page) {
+          const type = url.pathname.endsWith('.js') ? 'text/javascript' : url.pathname.endsWith('.css') ? 'text/css' : 'text/html';
+          res.writeHead(200, {
+            'Content-Type': `${type}; charset=utf-8`,
+            'Cache-Control': 'no-store',
+            'Content-Security-Policy': PAGE_POLICY,
+            'X-Content-Type-Options': 'nosniff',
+            'Referrer-Policy': 'no-referrer',
+            'X-Request-Id': reqId,
+          });
+          return void res.end(page);
+        }
+        const header = req.headers['x-moderation-token'];
+        const given = Array.isArray(header) ? (header[0] ?? '') : (header ?? '');
+        const t = Buffer.from(given),
           want = Buffer.from(modToken);
-        if (t.length !== want.length || !timingSafeEqual(t, want)) {
+        /** 'owner' for the token, a player id for a trusted moderator's key (0.11.2). */
+        const key = TOKEN_HEX.test(given) ? given : tokenFromRecoveryCode(given);
+        const keyId = playerIdFromToken(key);
+        const player = keyId ? (community?.playerOfKey(keyId) ?? keyId) : null;
+        const who = t.length === want.length && timingSafeEqual(t, want) ? OWNER : player && community?.isTrusted(player) ? player : null;
+        if (!who) {
           req.resume();
           return json(401, { ok: false, error: 'bad moderation token' });
+        }
+        if (req.method === 'GET' && url.pathname === '/moderation/queue') {
+          if (!community || !moderation) return json(503, { ok: false, error: 'the community store is not enabled on this verifier' });
+          const now = new Date((opts.now ?? Date.now)());
+          const label = (id: string | null) => verifier.playerLabel(id, now);
+          const { months, ...sla } = moderation.counts();
+          return json(200, {
+            ok: true,
+            who: who === OWNER ? 'owner' : 'trusted',
+            enabled: moderation.enabled,
+            reasons: REASON_CODES,
+            stats: { ...sla, oldest: community.queueStats().oldest, away: moderation.isAway() },
+            months,
+            queue: community
+              .moderationQueue()
+              .map((q) => ({ ...q, author: label(q.authorId), record: q.authorId ? community.authorRecord(q.authorId) : null })),
+            appeals: community.openAppeals().map((a) => ({ ...a, player: label(a.playerId) })),
+            recent: community.recentActions().map((a) => ({
+              ...a,
+              player: label(a.playerId),
+              by: /^[0-9a-f]{64}$/.test(a.actor) ? label(a.actor) : a.actor,
+              undo: moderation.undoFor(a),
+            })),
+            names: verifier.reports(now),
+            settings: moderation.settings(),
+            usage: moderation.usage(),
+            trusted: who === OWNER ? community.trustedPlayers().map((id) => ({ id, label: label(id) })) : [],
+          });
+        }
+        const decision = url.pathname.slice('/moderation/'.length);
+        if (req.method === 'POST' && ['post', 'player', 'appeal', 'settings', 'trust'].includes(decision)) {
+          if (!moderation) {
+            req.resume();
+            return json(503, { ok: false, error: 'the community store is not enabled on this verifier' });
+          }
+          if ((decision === 'settings' || decision === 'trust') && who !== OWNER) {
+            req.resume();
+            return json(403, { ok: false, code: 'owner-only', error: 'only the owner can do that' });
+          }
+          return withBody(4096, (p) => {
+            const out =
+              decision === 'post'
+                ? moderation.decidePost(who, p.id, p.action, p.code, p.note)
+                : decision === 'player'
+                  ? moderation.decidePlayer(who, p.id, p.action, p.code, p.note)
+                  : decision === 'appeal'
+                    ? moderation.answerAppeal(who, p.id, p.result, p.note)
+                    : decision === 'settings'
+                      ? moderation.saveSettings(who, p)
+                      : moderation.setTrusted(who, p.playerId, p.trusted);
+            return out.ok ? json(200, out) : refusal(out);
+          });
         }
         if (req.method === 'GET' && url.pathname === '/moderation/reports')
           return json(200, {
@@ -3354,6 +3554,23 @@ if (isMain) {
   // the community database (0.11.0): next to the board, migrated here, so a bad migration stops the start instead of half-running
   const community = new CommunityStore(process.env.COMMUNITY_DB || path.join(path.dirname(file), COMMUNITY_DB));
   console.log(`community store: schema ${community.version} of ${community.migrations.length} (${community.file})`);
+  // the moderation pipeline (0.11.2): an API key and the moderation token turn writing on; a queue nobody can read is not a pipeline
+  const anthropicKey = process.env.ANTHROPIC_API_KEY || '';
+  const moderation = new Pipeline({
+    store: community,
+    classify:
+      anthropicKey && moderationToken
+        ? claudeClassifier({ apiKey: anthropicKey, model: process.env.MODERATION_MODEL || undefined, url: process.env.ANTHROPIC_API_URL || undefined })
+        : null,
+    audit: (row) => verifier.audit(row),
+    reporters: reportPolicy.reporters,
+    defaults: { ...DEFAULT_SETTINGS, dailyCalls: Number(process.env.MODERATION_DAILY_CALLS || DEFAULT_SETTINGS.dailyCalls) },
+  });
+  console.log(
+    moderation.enabled
+      ? `writing: on, each post read by the classifier, a person reviews the queue within ${REVIEW_SLA_HOURS} hours`
+      : 'writing: off (set ANTHROPIC_API_KEY and MODERATION_TOKEN to open it)',
+  );
   const server = createServer(verifier, {
     rateLimit: { limit, windowMs: 60_000 },
     playerRateLimit,
@@ -3366,6 +3583,8 @@ if (isMain) {
     push,
     community,
     mailer,
+    moderation,
+    postRateLimit: Number(process.env.POST_RATE_LIMIT || POST_RATE_LIMIT),
     siteUrl: process.env.SITE_URL || undefined,
     par,
     verify,
@@ -3381,6 +3600,7 @@ if (isMain) {
     announcer,
     after: () => {
       verify?.close();
+      moderation.close();
       community.close();
     },
   }); // 0.8.1: SIGTERM/SIGINT stop accepting, finish in-flight requests and queued announcements, exit 0 (hard stop after 10 s)

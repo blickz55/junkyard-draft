@@ -25,6 +25,10 @@ export const MAX_INBOX_PAGE = 50;
 export const INBOX_READ_DAYS = 60;
 /** How long /health may repeat its counts: it is exempt from the read limiter and counting walks an index. */
 export const COUNTS_TTL_MS = 60_000;
+/** The text of a removed post stays this long, for an appeal; then only the row is left. */
+export const REMOVED_TEXT_DAYS = 90;
+/** How many decisions and appeals the queue page lists at a time. */
+export const MAX_QUEUE_PAGE = 100;
 
 export interface MigrationSource {
   version: number;
@@ -47,9 +51,10 @@ export function hashMigrations(list: readonly MigrationSource[]): Migration[] {
 /**
  * Every column that holds a player id, and what forgetting the player does to its rows. `DELETE /me` and `/me/export` run on
  * this list; tests/community.test.ts walks the schema, so a new column cannot be left out of the right to be forgotten.
- * `private` columns are left out of the export: a block by someone else is theirs, and a link token is a credential.
+ * `private` columns are left out of the export: a block by someone else is theirs, and a link token is a credential. `omit` names
+ * columns a player does not get: who the moderator was.
  */
-export const PLAYER_COLUMNS: readonly { table: string; column: string; forget: 'delete' | 'clear'; private?: boolean }[] = [
+export const PLAYER_COLUMNS: readonly { table: string; column: string; forget: 'delete' | 'clear'; private?: boolean; omit?: readonly string[] }[] = [
   { table: 'accounts', column: 'player_id', forget: 'delete' },
   { table: 'email_links', column: 'player_id', forget: 'delete', private: true },
   { table: 'device_keys', column: 'player_id', forget: 'delete', private: true },
@@ -64,6 +69,7 @@ export const PLAYER_COLUMNS: readonly { table: string; column: string; forget: '
   { table: 'notifications', column: 'player_id', forget: 'delete' },
   { table: 'push_subscriptions', column: 'player_id', forget: 'delete' },
   { table: 'reports', column: 'reporter_id', forget: 'delete' },
+  { table: 'moderation_actions', column: 'player_id', forget: 'clear', omit: ['actor', 'reason'] },
   { table: 'divisions', column: 'player_id', forget: 'clear' },
   { table: 'trophies', column: 'player_id', forget: 'delete' },
   { table: 'cosmetics', column: 'player_id', forget: 'delete' },
@@ -87,9 +93,62 @@ export interface Post {
   body: string;
   replayHash: string | null;
   state: PostState;
+  triageCategory: string | null;
+  triageScore: number | null;
+  triagedAt: number | null;
+  reasonCode: string | null;
+  reviewedAt: number | null;
   editedAt: number | null;
   createdAt: number;
 }
+/** What others read: `queued` is up and waiting for a person, `hidden` and `deleted` are not up. */
+const VISIBLE: readonly PostState[] = ['published', 'queued'];
+export interface QueueItem extends Post {
+  threadKind: ThreadKind;
+  threadKey: string;
+  reports: { reason: string; n: number }[];
+}
+export interface ModerationAction {
+  id: number;
+  actor: string;
+  action: string;
+  targetKind: 'post' | 'player' | 'settings';
+  targetRef: string;
+  playerId: string | null;
+  reasonCode: string | null;
+  note: string;
+  createdAt: number;
+  appealBody: string | null;
+  appealedAt: number | null;
+  appealResult: string | null;
+  answeredAt: number | null;
+}
+export type AppealItem = ModerationAction & { body: string | null };
+export interface AuthorRecord {
+  posts: number;
+  hidden: number;
+  removed: number;
+  mutedUntil: number | null;
+  banned: boolean;
+  trusted: boolean;
+}
+export interface MonthCounts {
+  month: string;
+  posts: number;
+  hidden: number;
+  removed: number;
+  appeals: number;
+  upheld: number;
+  overturned: number;
+}
+export interface TriageUsage {
+  calls: number;
+  failures: number;
+  inputTokens: number;
+  outputTokens: number;
+}
+/** Why a player cannot write now. */
+export type WriteBlock = { code: 'not-linked' } | { code: 'banned' } | { code: 'muted'; until: number };
 export interface DivisionRow {
   period: string;
   division: number;
@@ -134,8 +193,28 @@ const postOf = (r: Record<string, unknown>): Post => ({
   body: r.body as string,
   replayHash: r.replay_hash as string | null,
   state: r.state as PostState,
+  triageCategory: r.triage_category as string | null,
+  triageScore: r.triage_score as number | null,
+  triagedAt: r.triaged_at as number | null,
+  reasonCode: r.reason_code as string | null,
+  reviewedAt: r.reviewed_at as number | null,
   editedAt: r.edited_at as number | null,
   createdAt: r.created_at as number,
+});
+const actionOf = (r: Record<string, unknown>): ModerationAction => ({
+  id: r.id as number,
+  actor: r.actor as string,
+  action: r.action as string,
+  targetKind: r.target_kind as ModerationAction['targetKind'],
+  targetRef: r.target_ref as string,
+  playerId: r.player_id as string | null,
+  reasonCode: r.reason_code as string | null,
+  note: r.reason as string,
+  createdAt: r.created_at as number,
+  appealBody: r.appeal_body as string | null,
+  appealedAt: r.appealed_at as number | null,
+  appealResult: r.appeal_result as string | null,
+  answeredAt: r.answered_at as number | null,
 });
 
 export class CommunityStore {
@@ -228,30 +307,316 @@ export class CommunityStore {
     this.sql('INSERT INTO threads (kind, key, title, created_at) VALUES (?, ?, ?, ?) ON CONFLICT (kind, key) DO NOTHING').run(kind, key, title, this.now());
     return threadOf(this.sql('SELECT * FROM threads WHERE kind = ? AND key = ?').get(kind, key) as Record<string, unknown>);
   }
-  addPost(threadId: number, authorId: string | null, body: string, replayHash: string | null = null): Post {
+  /** `post_count` counts what others can read, so a post joins it when it goes up and leaves when it comes down. */
+  private tally(threadId: number, delta: number, at: number | null): void {
+    this.sql('UPDATE threads SET post_count = post_count + ?, last_post_at = COALESCE(?, last_post_at) WHERE id = ?').run(delta, at, threadId);
+  }
+  /** The moderation pipeline writes with `hidden`: a post waits there for the classifier (server/moderation.ts). */
+  addPost(threadId: number, authorId: string | null, body: string, replayHash: string | null = null, state: PostState = 'published'): Post {
     return this.transaction(() => {
       const at = this.now();
-      const r = this.sql('INSERT INTO posts (thread_id, author_id, body, replay_hash, created_at) VALUES (?, ?, ?, ?, ?) RETURNING *').get(
+      const r = this.sql('INSERT INTO posts (thread_id, author_id, body, replay_hash, state, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *').get(
         threadId,
         authorId,
         body,
         replayHash,
+        state,
         at,
       ) as Record<string, unknown>;
-      this.sql('UPDATE threads SET post_count = post_count + 1, last_post_at = ? WHERE id = ?').run(at, threadId);
+      if (VISIBLE.includes(state)) this.tally(threadId, 1, at);
       return postOf(r);
     });
   }
-  /** A page of a thread's published posts, oldest first. `next` is the `after` of the following page, null on the last one. */
-  threadPage(threadId: number, o: { after?: number; limit?: number } = {}): { posts: Post[]; next: number | null } {
+  post(id: number): Post | null {
+    const r = this.sql('SELECT * FROM posts WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    return r ? postOf(r) : null;
+  }
+  /**
+   * A page of what a thread shows, oldest first: what is up, and for the viewer their own posts that are not. `next` is the `after`
+   * of the following page, null on the last one.
+   */
+  threadPage(threadId: number, o: { after?: number; limit?: number; viewer?: string | null } = {}): { posts: Post[]; next: number | null } {
     const limit = Math.min(Math.max(1, o.limit ?? 50), MAX_THREAD_PAGE);
-    const rows = this.sql("SELECT * FROM posts WHERE thread_id = ? AND state = 'published' AND id > ? ORDER BY id LIMIT ?").all(
-      threadId,
-      o.after ?? 0,
-      limit + 1,
-    ) as Record<string, unknown>[];
+    const rows = this.sql(
+      "SELECT * FROM posts INDEXED BY posts_thread WHERE thread_id = ? AND id > ? AND (state IN ('published', 'queued') OR (state = 'hidden' AND author_id = ?)) ORDER BY id LIMIT ?",
+    ).all(threadId, o.after ?? 0, o.viewer ?? null, limit + 1) as Record<string, unknown>[];
     const posts = rows.slice(0, limit).map(postOf);
     return { posts, next: rows.length > limit ? posts[limit - 1].id : null };
+  }
+
+  /** Posts the classifier has not answered for, oldest first. */
+  pendingPosts(limit: number): Post[] {
+    return (this.sql("SELECT * FROM posts WHERE state = 'hidden' AND triaged_at IS NULL ORDER BY id LIMIT ?").all(limit) as Record<string, unknown>[]).map(
+      postOf,
+    );
+  }
+  /** The classifier's answer, or its absence: null when the post no longer waits for one. */
+  settlePost(id: number, state: PostState, category: string | null, score: number | null, code: string | null = null): Post | null {
+    return this.transaction(() => {
+      const at = this.now();
+      const r = this.sql(
+        "UPDATE posts SET state = ?, triage_category = ?, triage_score = ?, reason_code = ?, triaged_at = ? WHERE id = ? AND state = 'hidden' AND triaged_at IS NULL RETURNING *",
+      ).get(state, category, score, code, at, id) as Record<string, unknown> | undefined;
+      if (!r) return null;
+      if (VISIBLE.includes(state)) this.tally(r.thread_id as number, 1, r.created_at as number);
+      return postOf(r);
+    });
+  }
+  /** A decision on a post. `reviewed` when a person made it: reports alone are not a review. */
+  movePost(id: number, state: PostState, code: string | null, reviewed: boolean): Post | null {
+    return this.transaction(() => {
+      const before = this.post(id);
+      if (!before) return null;
+      const r = this.sql(
+        'UPDATE posts SET state = ?, reason_code = ?, reviewed_at = COALESCE(?, reviewed_at), triaged_at = COALESCE(triaged_at, ?) WHERE id = ? RETURNING *',
+      ).get(state, code, reviewed ? this.now() : null, this.now(), id) as Record<string, unknown>;
+      const was = VISIBLE.includes(before.state),
+        is = VISIBLE.includes(state);
+      if (was !== is) this.tally(before.threadId, is ? 1 : -1, null);
+      return postOf(r);
+    });
+  }
+  /** What a player last wrote and when, so the same words twice in a row can be refused. */
+  lastPostOf(authorId: string): Pick<Post, 'body' | 'createdAt'> | null {
+    const r = this.sql('SELECT body, created_at FROM posts WHERE author_id = ? ORDER BY id DESC LIMIT 1').get(authorId) as
+      { body: string; created_at: number } | undefined;
+    return r ? { body: r.body, createdAt: r.created_at } : null;
+  }
+
+  /** One report per reporter per post. False when this reporter had already reported it. */
+  addReport(kind: 'post' | 'message', ref: number, reporterId: string, reason: string, established = false): boolean {
+    return (
+      Number(
+        this.sql(
+          'INSERT INTO reports (target_kind, target_ref, reporter_id, reason, established, created_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING',
+        ).run(kind, ref, reporterId, reason, established ? 1 : 0, this.now()).changes,
+      ) > 0
+    );
+  }
+  openReports(kind: 'post' | 'message', ref: number): { reason: string; established: boolean }[] {
+    return (
+      this.sql('SELECT reason, established FROM reports WHERE target_kind = ? AND target_ref = ? AND resolved_at IS NULL').all(kind, ref) as unknown as {
+        reason: string;
+        established: number;
+      }[]
+    ).map((r) => ({ reason: r.reason, established: r.established === 1 }));
+  }
+  resolveReports(kind: 'post' | 'message', ref: number): number {
+    return Number(
+      this.sql('UPDATE reports SET resolved_at = ? WHERE target_kind = ? AND target_ref = ? AND resolved_at IS NULL').run(this.now(), kind, ref).changes,
+    );
+  }
+
+  /** What waits for a person, oldest first: anything the classifier or reports held up, anything with an open report. */
+  moderationQueue(limit = MAX_QUEUE_PAGE): QueueItem[] {
+    const rows = this.sql(
+      `SELECT p.*, t.kind AS thread_kind, t.key AS thread_key FROM posts p JOIN threads t ON t.id = p.thread_id
+       WHERE (p.state IN ('queued', 'hidden') AND p.triaged_at IS NOT NULL AND p.reviewed_at IS NULL)
+          OR p.id IN (SELECT target_ref FROM reports WHERE target_kind = 'post' AND resolved_at IS NULL)
+       ORDER BY p.id LIMIT ?`,
+    ).all(Math.min(Math.max(1, limit), MAX_QUEUE_PAGE)) as Record<string, unknown>[];
+    return rows.map((r) => {
+      const post = postOf(r);
+      const reports = new Map<string, number>();
+      for (const { reason } of this.openReports('post', post.id)) reports.set(reason, (reports.get(reason) ?? 0) + 1);
+      return {
+        ...post,
+        threadKind: r.thread_kind as ThreadKind,
+        threadKey: r.thread_key as string,
+        reports: [...reports].map(([reason, n]) => ({ reason, n })),
+      };
+    });
+  }
+  /** How many posts wait for a person and since when (null: none). */
+  queueStats(): { waiting: number; oldest: number | null } {
+    const r = this.sql(
+      `SELECT COUNT(*) AS n, MIN(created_at) AS oldest FROM posts
+       WHERE (state IN ('queued', 'hidden') AND triaged_at IS NOT NULL AND reviewed_at IS NULL)
+          OR id IN (SELECT target_ref FROM reports WHERE target_kind = 'post' AND resolved_at IS NULL)`,
+    ).get() as { n: number; oldest: number | null };
+    return { waiting: r.n, oldest: r.oldest };
+  }
+
+  /** One row per decision (0.11.2): the player it is about can appeal it. Returns its id. */
+  addAction(a: {
+    actor: string;
+    action: string;
+    targetKind: ModerationAction['targetKind'];
+    targetRef: string | number;
+    playerId?: string | null;
+    code?: string | null;
+    note?: string;
+  }): number {
+    return Number(
+      this.sql(
+        'INSERT INTO moderation_actions (actor, action, target_kind, target_ref, player_id, reason_code, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      ).run(a.actor, a.action, a.targetKind, String(a.targetRef), a.playerId ?? null, a.code ?? null, a.note ?? '', this.now()).lastInsertRowid,
+    );
+  }
+  action(id: number): ModerationAction | null {
+    const r = this.sql('SELECT * FROM moderation_actions WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    return r ? actionOf(r) : null;
+  }
+  /** The latest decisions, newest first. */
+  recentActions(limit = 30): ModerationAction[] {
+    return (
+      this.sql("SELECT * FROM moderation_actions WHERE target_kind <> 'settings' ORDER BY id DESC LIMIT ?").all(
+        Math.min(Math.max(1, limit), MAX_QUEUE_PAGE),
+      ) as Record<string, unknown>[]
+    ).map(actionOf);
+  }
+  /** An appeal is one sentence on one decision, once. False when it was already appealed. */
+  fileAppeal(id: number, body: string): boolean {
+    return (
+      Number(
+        this.sql('UPDATE moderation_actions SET appeal_body = ?, appealed_at = ? WHERE id = ? AND appealed_at IS NULL').run(body, this.now(), id).changes,
+      ) > 0
+    );
+  }
+  answerAppeal(id: number, result: 'upheld' | 'overturned'): boolean {
+    return (
+      Number(
+        this.sql('UPDATE moderation_actions SET appeal_result = ?, answered_at = ? WHERE id = ? AND appealed_at IS NOT NULL AND answered_at IS NULL').run(
+          result,
+          this.now(),
+          id,
+        ).changes,
+      ) > 0
+    );
+  }
+  /** Appeals waiting for an answer, oldest first, with the words of the post they are about. */
+  openAppeals(limit = MAX_QUEUE_PAGE): AppealItem[] {
+    const rows = this.sql(
+      `SELECT a.*, p.body AS post_body FROM moderation_actions a LEFT JOIN posts p ON a.target_kind = 'post' AND p.id = CAST(a.target_ref AS INTEGER)
+       WHERE a.appealed_at IS NOT NULL AND a.answered_at IS NULL ORDER BY a.appealed_at LIMIT ?`,
+    ).all(Math.min(Math.max(1, limit), MAX_QUEUE_PAGE)) as Record<string, unknown>[];
+    return rows.map((r) => ({ ...actionOf(r), body: r.post_body as string | null }));
+  }
+  /** Open appeals on decisions about one post. */
+  appealsOnPost(postId: number): number[] {
+    return (
+      this.sql("SELECT id FROM moderation_actions WHERE target_kind = 'post' AND target_ref = ? AND appealed_at IS NOT NULL AND answered_at IS NULL").all(
+        String(postId),
+      ) as unknown as { id: number }[]
+    ).map((r) => r.id);
+  }
+
+  /** Why this player cannot write now, or null. Writing needs a linked email (roadmap §4, identity has two levels). */
+  writeBlock(playerId: string): WriteBlock | null {
+    const r = this.sql('SELECT email_hash, muted_until, banned_at FROM accounts WHERE player_id = ?').get(playerId) as
+      { email_hash: string | null; muted_until: number | null; banned_at: number | null } | undefined;
+    if (!r?.email_hash) return { code: 'not-linked' };
+    if (r.banned_at !== null || this.sql('SELECT 1 FROM banned_emails WHERE email_hash = ?').get(r.email_hash)) return { code: 'banned' };
+    return r.muted_until !== null && r.muted_until > this.now() ? { code: 'muted', until: r.muted_until } : null;
+  }
+  setMute(playerId: string, until: number | null): void {
+    this.sql('UPDATE accounts SET muted_until = ? WHERE player_id = ?').run(until, playerId);
+  }
+  /** A ban holds the player and the address: signing out or deleting the account does not lift it. */
+  setBan(playerId: string, banned: boolean): void {
+    const at = this.now();
+    const hash = this.emailOf(playerId);
+    this.sql('UPDATE accounts SET banned_at = ? WHERE player_id = ?').run(banned ? at : null, playerId);
+    if (!hash) return;
+    if (banned) this.sql('INSERT INTO banned_emails (email_hash, created_at) VALUES (?, ?) ON CONFLICT DO NOTHING').run(hash, at);
+    else this.sql('DELETE FROM banned_emails WHERE email_hash = ?').run(hash);
+  }
+  isTrusted(playerId: string): boolean {
+    const r = this.sql('SELECT trusted, email_hash FROM accounts WHERE player_id = ?').get(playerId) as
+      { trusted: number; email_hash: string | null } | undefined;
+    return !!r?.trusted && r.email_hash !== null;
+  }
+  setTrusted(playerId: string, trusted: boolean): boolean {
+    return Number(this.sql('UPDATE accounts SET trusted = ? WHERE player_id = ?').run(trusted ? 1 : 0, playerId).changes) > 0;
+  }
+  trustedPlayers(): string[] {
+    return (this.sql('SELECT player_id FROM accounts WHERE trusted = 1').all() as unknown as { player_id: string }[]).map((r) => r.player_id);
+  }
+  /** What a moderator wants to know about the author of a post. */
+  authorRecord(playerId: string): AuthorRecord {
+    const r = this.sql(
+      "SELECT COUNT(*) AS posts, COALESCE(SUM(state = 'hidden'), 0) AS hidden, COALESCE(SUM(state = 'deleted'), 0) AS removed FROM posts WHERE author_id = ?",
+    ).get(playerId) as { posts: number; hidden: number; removed: number };
+    const a = this.sql('SELECT muted_until, banned_at FROM accounts WHERE player_id = ?').get(playerId) as
+      { muted_until: number | null; banned_at: number | null } | undefined;
+    return { ...r, mutedUntil: a?.muted_until ?? null, banned: this.writeBlock(playerId)?.code === 'banned', trusted: this.isTrusted(playerId) };
+  }
+  /** The posts a ban took down, for when the ban turns out to be wrong. */
+  postsTakenWithBan(playerId: string, banAction: number): number[] {
+    return (
+      this.sql("SELECT target_ref FROM moderation_actions WHERE action = 'ban-hide' AND player_id = ? AND id < ? ORDER BY id DESC").all(
+        playerId,
+        banAction,
+      ) as unknown as {
+        target_ref: string;
+      }[]
+    ).map((r) => Number(r.target_ref));
+  }
+  /** Every post of a player that is up comes down, for a ban. Returns their ids. */
+  visiblePostsOf(playerId: string): number[] {
+    return (this.sql("SELECT id FROM posts WHERE author_id = ? AND state IN ('published', 'queued')").all(playerId) as unknown as { id: number }[]).map(
+      (r) => r.id,
+    );
+  }
+  /** The words of a post removed long ago go; the row stays for the counts. Returns how many went. */
+  purgeRemoved(): number {
+    return Number(
+      this.sql("UPDATE posts SET body = '' WHERE state = 'deleted' AND body <> '' AND created_at < ?").run(this.now() - REMOVED_TEXT_DAYS * 86_400_000).changes,
+    );
+  }
+
+  /** The counts the policy page publishes (roadmap §4.2), one row per month, newest first; a month with nothing to show has no row. */
+  monthlyCounts(months = 12): MonthCounts[] {
+    const month = (column: string) => `strftime('%Y-%m', ${column} / 1000, 'unixepoch')`;
+    const rows = this.sql(
+      `SELECT month, SUM(posts) AS posts, SUM(hidden) AS hidden, SUM(removed) AS removed, SUM(appeals) AS appeals, SUM(upheld) AS upheld, SUM(overturned) AS overturned FROM (
+         SELECT ${month('created_at')} AS month, 1 AS posts, 0 AS hidden, 0 AS removed, 0 AS appeals, 0 AS upheld, 0 AS overturned FROM posts
+         UNION ALL SELECT ${month('created_at')}, 0, action IN ('auto-hide', 'report-hide', 'hide', 'ban-hide'), action = 'delete', 0, 0, 0 FROM moderation_actions WHERE target_kind = 'post'
+         UNION ALL SELECT ${month('appealed_at')}, 0, 0, 0, 1, 0, 0 FROM moderation_actions WHERE appealed_at IS NOT NULL
+         UNION ALL SELECT ${month('answered_at')}, 0, 0, 0, 0, appeal_result = 'upheld', appeal_result = 'overturned' FROM moderation_actions WHERE answered_at IS NOT NULL
+       ) GROUP BY month ORDER BY month DESC LIMIT ?`,
+    ).all(Math.min(Math.max(1, months), 36));
+    return rows.map((r) => ({ ...r })) as unknown as MonthCounts[];
+  }
+  /** Half the posts a person reviewed since then took less than this; null when there are none. */
+  medianReviewMs(since: number): number | null {
+    const n = (this.sql('SELECT COUNT(*) AS n FROM posts WHERE reviewed_at >= ?').get(since) as { n: number }).n;
+    if (!n) return null;
+    return (
+      this.sql('SELECT reviewed_at - created_at AS ms FROM posts WHERE reviewed_at >= ? ORDER BY ms LIMIT 1 OFFSET ?').get(since, Math.floor((n - 1) / 2)) as {
+        ms: number;
+      }
+    ).ms;
+  }
+
+  /** The numbers the owner set; what they have not set stays at the default. */
+  moderationSettings<T extends Record<string, number>>(defaults: T): T {
+    const out: Record<string, number> = { ...defaults };
+    for (const r of this.sql('SELECT key, value FROM moderation_settings').all() as unknown as { key: string; value: number }[])
+      if (r.key in out) out[r.key] = r.value;
+    return out as T;
+  }
+  saveModerationSettings(values: Record<string, number>): void {
+    const at = this.now();
+    for (const [key, value] of Object.entries(values))
+      this.sql(
+        'INSERT INTO moderation_settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+      ).run(key, value, at);
+  }
+  /** A day of the classifier's work, for the budget. */
+  recordUsage(day: string, u: Partial<TriageUsage>): void {
+    this.sql(
+      `INSERT INTO triage_usage (day, calls, failures, input_tokens, output_tokens) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (day) DO UPDATE SET calls = calls + excluded.calls, failures = failures + excluded.failures,
+         input_tokens = input_tokens + excluded.input_tokens, output_tokens = output_tokens + excluded.output_tokens`,
+    ).run(day, u.calls ?? 0, u.failures ?? 0, u.inputTokens ?? 0, u.outputTokens ?? 0);
+  }
+  /** The classifier's work since a day, that day included. */
+  usageSince(day: string): TriageUsage {
+    const r = this.sql(
+      'SELECT COALESCE(SUM(calls), 0) AS calls, COALESCE(SUM(failures), 0) AS failures, COALESCE(SUM(input_tokens), 0) AS i, COALESCE(SUM(output_tokens), 0) AS o FROM triage_usage WHERE day >= ?',
+    ).get(day) as { calls: number; failures: number; i: number; o: number };
+    return { calls: r.calls, failures: r.failures, inputTokens: r.i, outputTokens: r.o };
   }
 
   /**
@@ -423,6 +788,9 @@ export class CommunityStore {
   isLinked(playerId: string): boolean {
     return this.emailOf(playerId) !== null;
   }
+  hasAccount(playerId: string): boolean {
+    return !!this.sql('SELECT 1 FROM accounts WHERE player_id = ?').get(playerId);
+  }
   bindEmail(playerId: string, emailHash: string): void {
     const at = this.now();
     this.sql(
@@ -467,6 +835,7 @@ export class CommunityStore {
     for (const c of PLAYER_COLUMNS) {
       if (c.private) continue;
       const rows = this.sql(`SELECT * FROM ${c.table} WHERE ${c.column} = ?`).all(playerId) as Record<string, unknown>[];
+      for (const r of rows) for (const k of c.omit ?? []) delete r[k];
       if (rows.length) out[c.table] = [...(out[c.table] ?? []), ...rows];
     }
     return out;
@@ -475,9 +844,15 @@ export class CommunityStore {
   forget(playerId: string): number {
     return this.transaction(() => {
       this.sql(
-        "UPDATE threads SET post_count = post_count - (SELECT COUNT(*) FROM posts p WHERE p.thread_id = threads.id AND p.author_id = ? AND p.state = 'published') WHERE id IN (SELECT thread_id FROM posts WHERE author_id = ?)",
+        "UPDATE threads SET post_count = post_count - (SELECT COUNT(*) FROM posts p WHERE p.thread_id = threads.id AND p.author_id = ? AND p.state IN ('published', 'queued')) WHERE id IN (SELECT thread_id FROM posts WHERE author_id = ?)",
       ).run(playerId, playerId);
       let n = 0;
+      // what they wrote to a moderator goes with them, and an appeal still open has nobody left to answer; the decision stays in the log with no name on it
+      n += Number(
+        this.sql(
+          "UPDATE moderation_actions SET appeal_body = NULL, appeal_result = COALESCE(appeal_result, 'withdrawn'), answered_at = COALESCE(answered_at, ?) WHERE player_id = ? AND appealed_at IS NOT NULL",
+        ).run(this.now(), playerId).changes,
+      );
       // reports on what is about to go: nothing left to review
       n += Number(
         this.sql("DELETE FROM reports WHERE target_kind = 'post' AND target_ref IN (SELECT id FROM posts WHERE author_id = ?)").run(playerId).changes,

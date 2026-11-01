@@ -182,6 +182,19 @@
       ]
     },
     {
+      "title": "Writing and moderation",
+      "lines": [
+        "Writing needs a linked email. A post is at most 280 characters of plain text, at most 6 a minute, and the same words twice within ten minutes are refused. On an open day you can write once you have a verified run on it; once the day closes, anyone can.",
+        "The filter refuses a post at write time for a blocked word (after folding look-alikes and leetspeak), a link, an email address, a phone number or a home address. A refused post is never stored.",
+        "Every public post is then read by a small AI model (claude-haiku-5-5) against a fixed rubric, with no name and no id, which answers a category and a score from 0 to 100. Under 40 the post stays up; from 40 it stays up and goes to a person; from 80 it comes down until a person has looked. The owner can change these numbers. If the queue goes unwatched for 48 hours the bar for coming down drops to 60. A post waits a few seconds for this; its author reads it meanwhile.",
+        "If the classifier cannot answer, or its daily budget is spent, the post stays up and goes to a person: a failure never skips the review and never silences anyone.",
+        "Reports on posts use the same fixed reasons as names. 2 established players take a post down until a person looks, one trusted moderator at once. A post a person has cleared stays up, and new reports put it back in front of a person.",
+        "A person can clear, hide, restore or remove a post and mute a player for 24 hours or 7 days; only the owner bans. A ban stops a player writing and nothing else: it holds the player id and the hash of the email address, and takes down what the player had up. The words of a removed post go after 90 days. Trusted moderators are players the owner appoints; they must have a linked email.",
+        "Every decision has a reason code from a fixed list, a row in the database and a line in the audit log, and tells the player in their inbox. They can appeal it from there, once, within 30 days. An appeal passes the same filter. A person answers: kept, or undone, and the player hears either way.",
+        "Target: a person reviews everything flagged within 72 hours. This page shows the live counts for each month (posts, hidden, removed, appeals, decisions kept, decisions undone) from GET /transparency."
+      ]
+    },
+    {
       "title": "Divisions and trophies",
       "lines": [
         "Divisions, medals and trophies are labels over checked games: none of them changes an offer, a rule or a score."
@@ -197,6 +210,7 @@
       "title": "Abuse limits",
       "lines": [
         "Submissions: 60 per minute per address and 2 per minute per player; identity calls 5 per minute per player; reports 5 per minute per player; reads 300 and identity, group, report or deletion calls 30 per minute per address; statistics 30 per minute per address; request bodies up to 512 KB; at most 20000 claimed identities (the oldest that never played and sit in no group make room). Limits answer 429 with Retry-After and never record anything.",
+        "Posts and appeals: 6 per minute per player.",
         "Sign-in emails: 3 an hour per address, 5 per player and 10 per network address; a link works once, for 15 minutes.",
         "Protocol level 3: endpoints only grow; a client one release behind keeps working."
       ]

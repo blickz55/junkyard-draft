@@ -5,6 +5,19 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### 0.11.2 the moderation pipeline — 2026-11-01 (no rules change, protocol 3: additive)
+- **Writing can open safely, and stays shut until it can.** With no `ANTHROPIC_API_KEY` and `MODERATION_TOKEN`, nothing can be written and the game is unchanged.
+- **Every post is read before most people see it.** A filter refuses blocked words, links, email addresses, phone numbers and home addresses at once. Then Claude Haiku 5.5 reads the words, with no name and no id on them, and answers a category and a score. Under 40 the post stays up. From 40 it stays up and a person looks. From 80 it comes down until a person looks. Its author can read it the whole time.
+- **A failure goes to a person, never past one.** If the classifier cannot answer, or its daily budget is spent, the post stays up and joins the queue.
+- **The queue left alone tightens by itself.** Once a post has waited 48 hours the bar for hiding drops to 60, until someone reviews it.
+- **Reports work on posts.** Two established players, or one trusted moderator, take a post down until a person looks. A post a person has cleared stays up.
+- **A queue page at `/moderation/`** for the owner and the trusted moderators they name: clear, hide, put back, remove, mute for 24 hours or 7 days, ban, each with a reason and a private note, plus appeals, reported names, the latest decisions and the thresholds. It works on a phone.
+- **You can always ask a person.** Every decision lands in your inbox with its reason. Press Ask a person, once, within 30 days. The answer lands there too, and an undone decision puts things back. A ban follows the email address, not the device, and never touches your scores.
+- **The numbers are public.** The fairness page shows each month's posts, hidden, removed, appeals, decisions kept and undone, and the 72-hour target against how it is going.
+- Community guidelines v1, and the privacy notice, the terms and the fairness page say all of this, including that Anthropic reads the words of public posts.
+- The moderation token no longer reaches the proxy's access log. It would have from 0.7.7 on: Caddy keeps `Authorization` out of its log by itself, not other headers.
+- Text used only by panels that load on demand now loads with them, which makes room on the first visit.
+
 ### 0.11.1 sign in with email — 2026-10-31 (no rules change, protocol 3: additive)
 - **Your name and progress can follow you.** Settings → Email sends a one-time link. Open it on a device and press Sign in: that device becomes you, with your name, your best scores, your stars and your record, and a better game on one device reaches the others. There is no password. Playing still needs no account.
 - **We keep a scrambled form of your address, never the address.** A link works once, for 15 minutes. Its secret part stays out of every server log, and nothing happens until a person presses Sign in, so a mail scanner that follows links signs nobody in. The device that opens the link is the one that signs in, so typing someone else's address gains nothing, and a known address gets the same answer as an unknown one, so nobody can test who plays here. At most three mails an hour go to an address.

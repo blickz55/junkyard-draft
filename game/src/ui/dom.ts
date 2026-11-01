@@ -232,6 +232,7 @@ const STYLE = `
 #ui .jd-dialog-label { font-size: 0.8125em; }
 #ui .jd-dialog input, #ui .jd-dialog textarea { font: inherit; font-size: 0.875em; width: 100%; box-sizing: border-box; background: #1a1612; color: ${CSS.text}; border: 1px solid #3f382d; border-radius: 0.2em; padding: 0.4em 0.5em; }
 #ui .jd-dialog textarea { min-height: 8em; resize: vertical; font-family: ${MONO}; font-size: 0.75em; }
+#ui .jd-dialog textarea.jd-words { min-height: 5em; font-family: inherit; font-size: 0.875em; }
 #ui .jd-tips { position: absolute; inset: 0; pointer-events: auto; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10; }
 #ui .jd-tips-box { width: min(92%, 50em); max-height: 94%; overflow: auto; display: flex; flex-direction: column; gap: 0.5em; }
 #ui .jd-tips-cols { display: flex; gap: 1em; align-items: flex-start; flex-wrap: wrap; }

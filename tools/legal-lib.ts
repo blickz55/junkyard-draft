@@ -1,5 +1,5 @@
 /**
- * The legal minimum (production roadmap 0.8.6) as data: the privacy notice, the terms and the community guidelines v0,
+ * The legal minimum (production roadmap 0.8.6) as data: the privacy notice, the terms and the community guidelines,
  * built from the operator module (game/src/content/operator.ts) and the verifier's constants, so the texts can never
  * disagree with the code about retention, limits or the appeal contact. `tools/make-policy.ts` renders them to
  * `game/public/legal.json` (bundled into the game and shown by the "Privacy & data" panel) and to three standalone
@@ -25,7 +25,8 @@ import {
   MAX_GROUPS_PER_PLAYER,
   PROTOCOL,
 } from '../server/verify';
-import { INBOX_READ_DAYS } from '../server/community';
+import { INBOX_READ_DAYS, REMOVED_TEXT_DAYS } from '../server/community';
+import { APPEAL_DAYS, POST_MAX, REVIEW_SLA_HOURS } from '../server/moderation';
 
 export type LegalId = 'privacy' | 'terms' | 'guidelines';
 export interface LegalSection {
@@ -60,7 +61,7 @@ export function buildLegal(): Legal {
   const privacy: LegalDoc = {
     id: 'privacy',
     title: 'Privacy notice',
-    summary: `${O.product} needs no account to play, and has no passwords, no cookies and no advertising. The game keeps your settings and best scores on your device. The verifier keeps what public leaderboards need: the replays you submit, the display name you choose and a hash of a key your device made. Signing in with email is your choice: it keeps a hash of your address, never the address, so your progress can follow you to another device. You can download or delete all of it from the game.`,
+    summary: `${O.product} needs no account to play, and has no passwords, no cookies and no advertising. The game keeps your settings and best scores on your device. The verifier keeps what public leaderboards need: the replays you submit, the display name you choose and a hash of a key your device made. Signing in with email is your choice: it keeps a hash of your address, never the address, so your progress can follow you to another device. You can download or delete all of it from the game. If you write a post, an AI service reads its words, without your name, and a person may too.`,
     sections: [
       {
         title: 'Who is responsible',
@@ -82,7 +83,8 @@ export function buildLegal(): Legal {
           "Verified entries. When you submit a run, the verifier stores the replay (seed, your actions, the rules version), the score, the time, the label you chose, the replay's hash and, when you have claimed a name, your player id. Purpose: public leaderboards whose scores were re-simulated rather than trusted. Legal basis: the agreement you enter by submitting (the terms and the fairness policy) and the legitimate interest in boards that are correct.",
           'Your identity. A player id, which is the SHA-256 hash of the key your device created, and the display name and tag you chose with the time of your last rename. The key itself leaves your device only as a bearer header over TLS to the verifier, which hashes it before any use and never stores or logs it. Purpose: one best entry per player, renames that follow you onto every board, groups, and deletion. Legal basis: the agreement.',
           `Groups. The codes of the groups you joined (at most ${MAX_GROUPS_PER_PLAYER}), keyed by player id. Purpose: boards scoped to the people you chose. Legal basis: the agreement.`,
-          'Moderation. Reports you file (your player id, the reported player, one reason from a fixed list, the time), reports filed about your name, and every moderator action on a name (hide, confirm, clear, forced rename) in an audit log. Purpose: names fit for a public board. Legal basis: the legitimate interest in a safe service.',
+          `Posts, only if you write one. The words, the day they belong to, your player id and the time. Each public post is read by an automatic filter and an AI classifier, and by a person if it is flagged, reported or appealed. Purpose: a conversation about the day that stays fit for everyone. Legal basis: the agreement you enter by posting, and the legitimate interest in a safe service. A post stays until you delete your data; the words of a removed post go after ${REMOVED_TEXT_DAYS} days, so an appeal can still be read.`,
+          'Moderation. Reports you file (your player id, what you reported, one reason from a fixed list, the time), reports filed about your name or your posts, and every decision about a name, a post or a player: what was decided, a reason from a fixed list, who decided, the time, any note a moderator left, any appeal you wrote and its answer, in the database and in an audit log. Mutes and bans are kept with your player id; a ban also keeps the hash of your email address, so signing in again does not lift it. Purpose: a safe community and a record that decisions were made fairly. Legal basis: the legitimate interest in a safe service.',
           `Request logs. One line per request with the method, path, status, duration and a hash of your network address salted with the day, so the same address cannot be followed from one day to the next. The address itself is not written: the reverse proxy in front of the verifier is configured to drop it from its access log as well. Purpose: abuse limits and debugging. Legal basis: the legitimate interest in a service that stays up. Kept by rotation, ${O.logRotation} per service, which is days to weeks depending on traffic.`,
           `Play statistics, on unless you turn them off. Events from a fixed list of ${eventCount} names (which lesson step you reached, that a game completed, that a share was copied, and the like), a random install id stored on your device, and the same daily-salted address hash. Never seeds other than daily and tutorial labels, never layouts, never your player id. Purpose: seeing where the game confuses people, so it can be fixed. Legal basis: the legitimate interest in a game people can understand. Turn "Share play data" off in Settings at any time: that stops it at once and deletes the install id and the queue on your device. A browser that sends Global Privacy Control or Do Not Track starts with it off. Kept ${DEFAULT_EVENTS_RETENTION_DAYS} days on the server.`,
           'Reactions and watching. Which of the eight reactions your player id left on which run, and which recordings your player id watched and how often, with the times. Purpose: other players see the counts, never who left what or who watched. Both stay until you take the reaction back or delete your data.',
@@ -98,6 +100,7 @@ export function buildLegal(): Legal {
         items: [
           `Entries and replays follow the fairness policy's retention: replays are kept for each seed's top ${DEFAULT_REPLAYS_PER_SEED} entries; ${HOT_DAYS} days after a daily closes it moves to cold storage, where every entry and the final board stay and only the top ${COLD_REPLAYS_PER_DAY} replays remain; boards are kept ${DAILY_HISTORY_DAYS} days back. Your name and group memberships stay until you delete them.`,
           `Play-statistics events: ${DEFAULT_EVENTS_RETENTION_DAYS} days. Logs: by rotation, as above. Nightly backups of the verifier's data are kept for ${O.backupKeepDays} days, so a record you deleted can survive in a backup for up to ${O.backupKeepDays} days before it is gone everywhere; backups are used to recover from a failure, never to restore a deleted player.`,
+          'Moderation decisions and the audit log outlive a deleted player, as the record of how the service was moderated: they keep the decision and the player id, which then leads to no name, and an appeal you wrote is erased. The hash of a banned address stays until the ban is lifted.',
         ],
       },
       {
@@ -107,6 +110,7 @@ export function buildLegal(): Legal {
           "Your browser connects to Cloudflare's network to load the game and to the verifier's host to submit runs and read boards; each sees your network address the way any web server does, under its own privacy policy. The verifier itself stores no addresses.",
           "The boards are public. Anyone can see your display name and tag, your scores and ranks and, within the fairness policy's reveal rules, your replays; a Discord channel the operator connects shows the same facts. Nothing is sold, and there is no advertising.",
           `If you sign in with email, ${O.mailProvider} delivers the link. It sees the address and that an email was sent, and keeps delivery records for up to 30 days. It holds them in the United States under the EU Standard Contractual Clauses and the Data Privacy Framework.`,
+          `If you write a public post, ${O.aiProvider} runs the AI classifier for the operator. It receives the words of the post, without your name, your tag or your player id, and answers with a category and a score. It handles them as a service provider under its commercial terms.`,
           "If you turn the daily reminder on, your browser maker's push service (Apple, Google or Mozilla, depending on the browser) relays one encrypted message a day: it sees that a message went to your browser, not what it says.",
         ],
       },
@@ -119,8 +123,8 @@ export function buildLegal(): Legal {
       {
         title: 'Your rights',
         items: [
-          'Download everything stored under your player id: "Download my data" in the game (Privacy & data), or GET /me/export with your key. The file lists your entries with their replays where kept, your group memberships, the moderation record of your name and the reports you filed.',
-          'Delete it: "Delete my data" in the game, or DELETE /me with your key. Your name is removed, your entries stay on the boards anonymised as "deleted" with the score only, their replays are dropped from live and cold storage, your group memberships end, and the key on your device is replaced, so nothing links the old entries to you.',
+          'Download everything stored under your player id: "Download my data" in the game (Privacy & data), or GET /me/export with your key. The file lists your entries with their replays where kept, your group memberships, the moderation record of your name, the reports you filed, your posts, the decisions about you and any appeal you wrote.',
+          'Delete it: "Delete my data" in the game, or DELETE /me with your key. Your name is removed, your entries stay on the boards anonymised as "deleted" with the score only, their replays are dropped from live and cold storage, your group memberships end, your posts and appeals go, and the key on your device is replaced, so nothing links the old entries to you.',
           `Correct it: the player button renames you (once every ${hours(RENAME_COOLDOWN_MS)}); turning play statistics off ends that processing at once.`,
           `Object to or ask about anything here at ${O.contactEmail}. Because the verifier knows you only by the hash of your device key, a request about a specific player has to come from the device that holds the key or from its recovery code: by e-mail alone we cannot tell whose data is whose, and we will not guess.`,
           'If you live in the EU, the EEA or the UK you may also complain to your data protection authority; elsewhere, to the body responsible for privacy where you live.',
@@ -129,7 +133,7 @@ export function buildLegal(): Legal {
       {
         title: 'Children',
         items: [
-          'The game is not directed at children under 13 and collects no personal information to play. Display names are public: do not use a real name, and if you are under 13 do not claim a name or turn play statistics on.',
+          'The game is not directed at children under 13 and collects no personal information to play. Display names are public: do not use a real name, and if you are under 13 do not claim a name, sign in with email, write posts or turn play statistics on.',
         ],
       },
       {
@@ -148,7 +152,7 @@ export function buildLegal(): Legal {
       {
         title: 'The service',
         items: [
-          `${O.product} is a free browser and desktop game operated by ${O.holder}. Playing needs no account. Submitting a run to the verified boards, claiming a display name, joining a group and reporting a name are the interactions with the service, and these terms govern them. By submitting a run or claiming a name you accept these terms, the community guidelines and the fairness policy, which is generated from the code and is part of these terms.`,
+          `${O.product} is a free browser and desktop game operated by ${O.holder}. Playing needs no account. Submitting a run to the verified boards, claiming a display name, joining a group, writing a post and reporting a name or a post are the interactions with the service, and these terms govern them. By doing any of them you accept these terms, the community guidelines and the fairness policy, which is generated from the code and is part of these terms.`,
         ],
       },
       {
@@ -175,13 +179,14 @@ export function buildLegal(): Legal {
       {
         title: 'Moderation',
         items: [
-          `A name reported by ${DEFAULT_REPORT_POLICY.reporters} established players, or confirmed by a moderator, is shown as "${HIDDEN_LABEL}" on every board until it is reviewed; a moderator may rename a player or a group, clear a report or confirm a hide. Moderation never touches scores, and a report is never a ban. Appeals: ${APPEAL_CONTACT}, with your tag.`,
+          `A name reported by ${DEFAULT_REPORT_POLICY.reporters} established players, or confirmed by a moderator, is shown as "${HIDDEN_LABEL}" on every board until it is reviewed; a moderator may rename a player or a group, clear a report or confirm a hide. Moderation never touches scores, and a report is never a ban. Appeals about a name: ${APPEAL_CONTACT}, with your tag.`,
+          `Posts pass an automatic filter and an AI classifier and may be reviewed by people, including trusted players the operator appoints. A post may be hidden or removed, and a player muted or banned from writing, under the community guidelines. Each decision carries a reason and can be appealed from your inbox, once, within ${APPEAL_DAYS} days. A person reviews what is flagged, with a target of ${REVIEW_SLA_HOURS} hours and no guarantee.`,
         ],
       },
       {
         title: 'Your content',
         items: [
-          "Display names, group names and the anonymous label are the only text you can enter. You allow the operator to show them on the boards, in the archive, in share cards other players make and in Discord announcements, and to filter or change them under the guidelines. The replays you submit may be shown to other players under the fairness policy's reveal rules and are kept as its retention rules describe.",
+          "Display names, group names, the anonymous label, posts and appeals are the text you can enter. What you write stays yours. You allow the operator to show it on the boards, in the archive, in share cards other players make, in threads and in Discord announcements, and to filter, hide, remove or change it under the guidelines. The replays you submit may be shown to other players under the fairness policy's reveal rules and are kept as its retention rules describe.",
         ],
       },
       {
@@ -207,14 +212,24 @@ export function buildLegal(): Legal {
   };
   const guidelines: LegalDoc = {
     id: 'guidelines',
-    title: 'Community guidelines (v0)',
+    title: 'Community guidelines (v1)',
     summary:
-      'The short version: be someone the other players want on the same board. These guidelines govern names, play on the ranked boards, sharing, groups and reports; they grow with the social features.',
+      'The short version: be someone the other players want on the same board. These guidelines govern names, posts, play on the ranked boards, sharing, groups and reports.',
     sections: [
       {
         title: 'Names',
         items: [
           `Pick a handle, not a real name, yours or anyone else's. No slurs, no sexual content, no harassment aimed at a person or a group, no impersonation of other players, of the game's staff or of a brand. Look-alike characters are folded before the blocklist is checked, so a disguised word is still the word. Group names follow the same rule. ${NAME_MAX} characters at most.`,
+        ],
+      },
+      {
+        title: 'Writing',
+        items: [
+          `Writing needs a signed-in email, so that a ban means something, and a post is at most ${POST_MAX} characters of plain text. Talk about the game: scores, yards, layouts, how the shift went. Boasting and teasing about a score are part of it. Aim them at the score, never at the person.`,
+          'Not allowed: insults or contempt aimed at a person; attacks on people for their race, ethnicity, nationality, religion, sex, gender identity, sexual orientation, disability or age; anything sexual; threats or wishing real harm on anyone; encouraging anyone to hurt themselves; advertising, selling or inviting people elsewhere; claiming to be staff, a moderator or someone else; organising cheating.',
+          "Keep private things private: yours and everyone else's. Nobody may ask another player's age, location, school, real name or photos. Links, email addresses, phone numbers and home addresses cannot be posted at all.",
+          'Each post is read by an automatic filter, then by an AI classifier that sees the words and not who wrote them. It can leave a post up, put it in front of a person, or take it down until a person has looked. If the classifier cannot answer, the post stays up and a person reads it. While the queue goes unwatched for two days, the bar for taking a post down drops.',
+          'If a post says someone is in danger, report it, and a person will read it. If you are the one struggling, please talk to someone you trust or a local helpline. A game is not the right place to carry that alone.',
         ],
       },
       {
@@ -244,13 +259,14 @@ export function buildLegal(): Legal {
       {
         title: 'Reporting',
         items: [
-          `Report a name from any board or replay with one of the fixed reasons. Reports are counted, not read as text: ${DEFAULT_REPORT_POLICY.reporters} established players agreeing hide a name until a moderator looks. Do not report scores you dislike, and do not organise mass reports: that is itself a breach.`,
+          `Report a name from any board or replay, or a post from its thread, with one of the fixed reasons. Reports are counted, not read as text: ${DEFAULT_REPORT_POLICY.reporters} established players agreeing hide a name or a post until a moderator looks, and one trusted moderator can hide a post at once. Do not report scores you dislike, and do not organise mass reports: that is itself a breach.`,
         ],
       },
       {
         title: 'Consequences and appeals',
         items: [
-          `In order of weight: a hidden name, a forced rename, removal of entries, a block. Appeals go to ${APPEAL_CONTACT} with your tag; a moderator answers within a week where possible, best-effort.`,
+          `In order of weight: a hidden name or post, a forced rename, a removed post, a mute of 24 hours, a mute of 7 days, removal of entries, a ban from writing, a block. A ban stays on your email address, not only on your device. None of it touches your scores unless the breach is about the scores.`,
+          `Each decision about a post, a mute or a ban lands in your inbox with its reason. From there you can ask a person to look again, once, within ${APPEAL_DAYS} days; whoever answers can undo it, and you hear the answer in your inbox. A person reviews what is flagged with a target of ${REVIEW_SLA_HOURS} hours. Appeals about a name go to ${APPEAL_CONTACT} with your tag.`,
         ],
       },
       {

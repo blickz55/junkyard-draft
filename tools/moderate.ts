@@ -7,6 +7,9 @@
  *   node --import tsx tools/moderate.ts <verifier-url> confirm <playerId>          the hide stands until clear or rename (0.8.1: unconfirmed hides lapse after 72 h)
  *   node --import tsx tools/moderate.ts <verifier-url> rename <playerId> <name>    force a display name (filtered like any other)
  *   node --import tsx tools/moderate.ts <verifier-url> rename-group <code> <name>  force a group name
+ *   node --import tsx tools/moderate.ts <verifier-url> trust <playerId>            make a signed-in player a trusted moderator (0.11.2)
+ *   node --import tsx tools/moderate.ts <verifier-url> untrust <playerId>          take the role back
+ * Posts, mutes, bans and appeals are decided on the queue page, `<verifier-url>/moderation/`.
  * The token comes from --token or MODERATION_TOKEN. Exit 0 on success, 1 on a refusal or a failed request, 2 on usage.
  */
 import type { ModerationRecord } from '../server/verify';
@@ -19,16 +22,16 @@ const rest = args.filter((a, i) => a !== url && i !== flagAt && i !== flagAt + 1
 const [cmd, a1, a2] = rest;
 const usage = () => {
   console.error(
-    'usage: moderate <verifier-url> list | clear <playerId> | confirm <playerId> | rename <playerId> <name> | rename-group <code> <name>   [--token T | MODERATION_TOKEN]',
+    'usage: moderate <verifier-url> list | clear <playerId> | confirm <playerId> | rename <playerId> <name> | rename-group <code> <name> | trust <playerId> | untrust <playerId>   [--token T | MODERATION_TOKEN]',
   );
   process.exit(2);
 };
-if (!url || !cmd || !['list', 'clear', 'confirm', 'rename', 'rename-group'].includes(cmd)) usage();
+if (!url || !cmd || !['list', 'clear', 'confirm', 'rename', 'rename-group', 'trust', 'untrust'].includes(cmd)) usage();
 if (!token) {
   console.error('no moderation token: pass --token or set MODERATION_TOKEN (the verifier was started with the same value)');
   process.exit(2);
 }
-if (((cmd === 'clear' || cmd === 'confirm') && !a1) || ((cmd === 'rename' || cmd === 'rename-group') && (!a1 || !a2))) usage();
+if ((['clear', 'confirm', 'trust', 'untrust'].includes(cmd) && !a1) || ((cmd === 'rename' || cmd === 'rename-group') && (!a1 || !a2))) usage();
 
 type Row = ModerationRecord & { playerId: string; tag: string; currentName: string | null; expiresAt?: string | null };
 const call = async (method: string, p: string, body?: unknown) => {
@@ -69,6 +72,11 @@ async function main() {
     console.log(
       `\nreasons: ${out.reasons.join(', ')}. Act with: clear <playerId> · confirm <playerId> · rename <playerId> <name> · rename-group <code> <name>`,
     );
+    return;
+  }
+  if (cmd === 'trust' || cmd === 'untrust') {
+    if (await call('POST', '/moderation/trust', { playerId: a1, trusted: cmd === 'trust' }))
+      console.log(`${cmd === 'trust' ? 'granted to' : 'taken back from'} ${a1}`);
     return;
   }
   if (cmd === 'confirm') {

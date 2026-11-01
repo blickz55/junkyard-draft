@@ -1,12 +1,32 @@
 /** What a line in the inbox says (0.11.7). A kind this client does not know yet says nothing, so a newer server cannot break an older game. */
 import { placeLine, periodLabel } from './division';
-import { money } from './format';
+import { money, utcDateTime } from './format';
 import { reactionLine, reactionTotal, type ReactionCounts } from './reactions';
-import { t } from './strings';
+import { t, type StringKey } from './strings';
+import { MORE_STRINGS } from './strings-more';
 import { yardLabel } from './yard';
 import type { DivisionMedal } from '../daily/divisions';
 
+/** `self-harm` is the key `selfHarm`: a code from the server names a string. */
+const keyWord = (code: unknown) => String(code).replace(/-(\w)/g, (_, c: string) => c.toUpperCase());
+const known = (key: string): key is StringKey => key in MORE_STRINGS;
+/** The sentence for a reason; a reason this client does not know yet still says something true. */
+const reasonText = (code: unknown) => {
+  const key = `moderation.reason.${keyWord(code)}`;
+  return t(known(key) ? key : 'moderation.reason.other');
+};
+
 export function inboxText(kind: string, p: Record<string, unknown>): string | null {
+  if (kind === 'moderation') {
+    const key = `moderation.what.${keyWord(p.what)}`;
+    if (!known(key)) return null;
+    return t(key, {
+      excerpt: (p.excerpt as string | undefined) ?? '',
+      reason: reasonText(p.code),
+      until: typeof p.until === 'number' ? utcDateTime(new Date(p.until).toISOString()) : '',
+    });
+  }
+  if (kind === 'appeal') return p.result === 'overturned' ? t('moderation.appealOverturned') : t('moderation.appealUpheld');
   if (kind === 'reactions') {
     const reactions = p.reactions as ReactionCounts;
     const n = reactionTotal(reactions);

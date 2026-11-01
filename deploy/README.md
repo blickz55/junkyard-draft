@@ -94,6 +94,22 @@ Without it the game plays as before, and Settings says signing in is not availab
 4. Sign in from the game with a Gmail, an Outlook and an iCloud address, and record in `docs/STATUS.md` whether each mail reached the inbox. If they land in spam, Postmark is the fallback: `server/link.ts` has one function to change.
 The free plan sends 100 mails a day. Sign-in links fit in that; the weekly digest (0.11.7) will not past about 100 subscribers, and then it is the $20 plan.
 
+## 8. Writing and moderation ⚑ (Anthropic)
+Without it nothing can be written: `POST /posts` answers 503, `/health` says `"moderation": false` and the rest of the game is unaffected. It needs `MODERATION_TOKEN` from §3 as well, because a post nobody can review should not exist.
+1. **Read what you are putting your name to.** The community guidelines (`game/public/legal/guidelines.html`), the rubric the classifier reads (`RUBRIC` in `server/moderation.ts`) and the 200 labelled strings in `tests/fixtures/moderation-corpus.json`. Every label is a draft. Change the ones you disagree with: they are your policy.
+2. **Check the legal side.** The privacy notice names Anthropic as a recipient of post text. Read its current commercial terms and data processing terms, and take advice on what the notice says about them.
+3. **Create the key.** In the Anthropic console, make a workspace for this and set a monthly spend limit on it: that limit is the real ceiling. Create an API key there. Put it in `verifier.env` as `ANTHROPIC_API_KEY` and in the password manager.
+4. **Measure before opening.** Run this once. It makes about 140 calls and costs about 2 cents. It prints a table of where each string landed against its label:
+   `ANTHROPIC_API_KEY=… node --import tsx tools/moderation-corpus.ts --live --json docs/baselines/0.11/moderation-corpus.json`
+   Do not open writing with anything under "serious": a post labelled hide that stayed up, or one labelled publish that came down. Commit the result and record it in `docs/STATUS.md`.
+5. **Turn it on.** Restart the verifier: the log says `writing: on` and `/health` says `"moderation": true`.
+6. **Open the queue.** `https://verify.<domain>/moderation/`, with `MODERATION_TOKEN` typed in. Thresholds are at the bottom of the page: queue from 40, hide from 80, hide from 60 once the queue has been left alone for 48 hours, 5,000 classifier calls a day. Past that cap posts go straight to the queue unread. What you save there is stored and takes effect at once.
+7. **Keep the promise.** The fairness page publishes the 72-hour target and the monthly counts, so a neglected queue is visible to everyone. To share the load, have someone sign in with email, then `node --import tsx tools/moderate.ts https://verify.<domain> trust <their player id>` or the form on the page. They sign in to the queue with their own key (the recovery code in the game) and can do everything but ban, answer an appeal against a ban, change the numbers, or decide anything about themselves.
+
+Cost: Haiku 5.5 is $0.10 per million tokens in and $0.50 out, and one post is about 1,150 in and 40 out, so about $0.15 per thousand posts by estimate, less once the rubric is cached. The page shows the real tokens for the month. The default cap of 5,000 calls a day cannot pass about $20 a month.
+
+If anything sexual involving a minor ever reaches the queue: remove it, do not copy it anywhere, and report it to the NCMEC CyberTipline (report.cybertip.org). US providers are required to by law. Take advice the same day.
+
 ## Releases, rollback and the rules version
 - **Tag → verifier.** `git tag v0.8.0 && git push origin v0.8.0`: `ci` builds, smokes and pushes `ghcr.io/blickz55/junkyard-verifier:v0.8.0`, publishes the Release, and `deploy` then checks out the tag on the VPS, pins `VERIFIER_TAG=v0.8.0` in `.env`, pulls and restarts, waits for `/health` on the loopback, and checks the public `/health` and today's mint. Rollback: `Actions → deploy → Run workflow` with `verifier_tag` = the previous tag, or on the VPS `sed -i 's/^VERIFIER_TAG=.*/VERIFIER_TAG=v0.7.9/' .env && docker compose up -d`. Nothing in the data directory is deleted either way (`server/README.md`, rules-version runbook).
 - **main → web.** Every green `ci` run of a push to `main` redeploys the web. Rollback: Pages → Deployments → Rollback (instant), or redeploy a commit by hand with `workflow_dispatch` from that ref.

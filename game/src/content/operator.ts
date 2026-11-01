@@ -25,6 +25,8 @@ export const OPERATOR = {
   /** the processors the privacy notice lists as recipients */
   /** who carries the sign-in mail (0.11.1) */
   mailProvider: 'Resend, Inc., in the United States',
+  /** who runs the AI check on public posts (0.11.2) */
+  aiProvider: 'Anthropic, PBC, in the United States',
   hosting: {
     verifier: 'Hetzner Online GmbH (virtual server in the European Union)',
     site: 'Cloudflare, Inc. (Pages hosting, DNS and e-mail forwarding for the domain)',
@@ -37,5 +39,5 @@ export const OPERATOR = {
   /** the proxy's and the verifier's logs: json-file rotation, files × size (deploy/docker-compose.yml) */
   logRotation: '7 files of 20 MB each',
   /** the day these texts were last changed (shown on every page; bump it when the text changes) */
-  legalUpdated: '2026-10-31',
+  legalUpdated: '2026-11-01',
 } as const;

@@ -30,6 +30,9 @@ import { dropOnLine } from './e2e/line';
 
 const TABLES = [
   'accounts',
+  'banned_emails',
+  'moderation_settings',
+  'triage_usage',
   'email_links',
   'threads',
   'posts',
@@ -84,10 +87,10 @@ test('migrations: up makes every table of the roadmap, down takes them away agai
   assert.equal(s.version, s.migrations.length);
   assert.deepEqual(tables(s), [...TABLES].sort());
   assert.deepEqual(s.migrate(), [], 'nothing left to apply');
-  assert.deepEqual(s.rollback(0), [2, 1]);
+  assert.deepEqual(s.rollback(0), [3, 2, 1]);
   assert.equal(s.version, 0);
   assert.deepEqual(tables(s), []);
-  assert.deepEqual(s.migrate(), [1, 2]);
+  assert.deepEqual(s.migrate(), [1, 2, 3]);
   assert.deepEqual(tables(s), [...TABLES].sort());
   const t = s.threadFor('daily', '2030-01-10');
   s.addPost(t.id, 'p1', 'kept');
@@ -286,7 +289,7 @@ test('health: the size on disk and the schema every time, the counts at most onc
   const t = s.threadFor('daily', '2030-01-10');
   s.addPost(t.id, 'p', 'one');
   const h = s.health();
-  assert.deepEqual({ schema: h.schema, threads: h.threads, posts: h.posts, accounts: h.accounts }, { schema: 2, threads: 1, posts: 1, accounts: 0 });
+  assert.deepEqual({ schema: h.schema, threads: h.threads, posts: h.posts, accounts: h.accounts }, { schema: 3, threads: 1, posts: 1, accounts: 0 });
   assert.ok(h.bytes > 0);
   s.addPost(t.id, 'p', 'two');
   assert.equal(s.health().posts, 1, 'cached');
@@ -307,7 +310,7 @@ test('a snapshot of a live database has everything committed, and passes the int
   s.addPost(t.id, 'p', 'after the snapshot');
   s.close();
   const seen = inspectDatabase(dest);
-  assert.deepEqual(seen, { integrity: 'ok', schema: 2, accounts: 0, threads: 1, posts: 100 });
+  assert.deepEqual(seen, { integrity: 'ok', schema: 3, accounts: 0, threads: 1, posts: 100 });
   assert.ok(!fs.existsSync(`${dest}-wal`), 'one file, nothing beside it');
 });
 
@@ -315,10 +318,10 @@ test('the operator tool shows where a directory stands and takes it back down', 
   const dir = tempDir();
   open(dir).close();
   const tool = (...a: string[]) => spawnSync(process.execPath, ['--import', 'tsx', 'tools/community.ts', ...a], { encoding: 'utf8' });
-  assert.match(tool(dir, 'status').stdout, /"schema": 2/);
+  assert.match(tool(dir, 'status').stdout, /"schema": 3/);
   const down = tool(dir, 'down', '0');
   assert.equal(down.status, 0, down.stderr);
-  assert.deepEqual(JSON.parse(down.stdout).reversed, [2, 1]);
+  assert.deepEqual(JSON.parse(down.stdout).reversed, [3, 2, 1]);
   assert.equal(JSON.parse(tool(dir, 'status').stdout).schema, 0, 'it stays down: only the verifier migrates up');
   assert.equal(tool(tempDir(), 'status').status, 1, 'no database, no status');
   assert.equal(tool().status, 2);
@@ -338,7 +341,7 @@ test('the routes: /health reports the store, /me/export carries it, DELETE /me e
   const bearer = { Authorization: `Bearer ${token}` };
   try {
     const health = (await (await fetch(`${base}/health`)).json()) as { community: { schema: number; posts: number; bytes: number } };
-    assert.equal(health.community.schema, 2);
+    assert.equal(health.community.schema, 3);
     assert.equal(health.community.posts, 2);
     assert.ok(health.community.bytes > 0);
     const out = (await (await fetch(`${base}/me/export`, { headers: bearer })).json()) as { community: { posts: { body: string }[] } };
