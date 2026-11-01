@@ -7,6 +7,7 @@ export interface PlayerCard {
   /** this viewer's own card */ own?: boolean;
   /** this viewer's own card, and the others see only the name */ hidden?: boolean;
   /** "2026-11" */ joined?: string;
+  /** the title they wear */ badge?: string | null;
   trophies?: Record<string, number>;
   best?: { hash: string; seed: string; score: number }[];
   friendable: boolean;

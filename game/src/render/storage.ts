@@ -5,6 +5,7 @@ import { isValidSeed, validateAction, type Action } from '../sim/run';
 import type { ReplayFile } from '../sim/replay';
 import { RULES_VERSION } from '../sim/types';
 import { dailySeed } from '../sim/daily';
+import { lookFrom, PLAIN, type Look } from '../content/cosmetics';
 import { normaliseDates, streakOf } from '../daily/streak';
 import { cleanPlayer } from './share';
 
@@ -35,6 +36,7 @@ const K = {
   stars: 'jd.stars.v1',
   watched: 'jd.watched.v1',
   trophies: 'jd.trophies.v1',
+  look: 'jd.look.v1',
   linked: 'jd.linked.v1',
 };
 /**
@@ -705,6 +707,13 @@ export function loadTrophies(): Record<string, number> {
   return isObj(raw) ? Object.fromEntries(Object.entries(raw).filter((e): e is [string, number] => isFiniteNum(e[1]))) : {};
 }
 export const recordTrophies = (trophies: Record<string, number>) => write(K.trophies, trophies);
+
+/** What this player last wore, as the server said (0.11.12). A game starts in it, with a connection or without. */
+export function loadLook(): Look {
+  const raw = readRaw(K.look);
+  return isObj(raw) ? lookFrom(Object.values(raw)) : PLAIN;
+}
+export const recordLook = (look: Look) => write(K.look, look);
 
 /** Who watched a checked game of this device (0.11.4), as last learnt on its results. */
 export interface WatchedRecord {

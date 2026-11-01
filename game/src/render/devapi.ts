@@ -48,6 +48,8 @@ export interface DevApi {
   };
   openTips: (id?: string) => void;
   closeTips: () => void;
+  /** a sprite key as a picture, to tell one coat of paint from another */
+  art: (key: string) => string;
   /** opt-in funnel: enabled flag, install id presence, queue and send counters */
   telemetry: () => { enabled: boolean; hasInstallId: boolean; queued: number; sent: number; dropped: number; firsts: number; games: number };
   /** synth counters: sounds requested, chords, most sounds in one tick, reduced-audio flag, bus levels */
@@ -105,6 +107,7 @@ export function installDevApi(scene: GameScene) {
     tips: () => scene.tipsInfo(),
     openTips: (id) => scene.openTips(id),
     closeTips: () => scene.closeTips(),
+    art: (key) => scene.game.textures.getBase64(key),
     telemetry: () => telemetry.stats(),
     audio: () => audio.info(),
     flushTelemetry: () => telemetry.flush(),

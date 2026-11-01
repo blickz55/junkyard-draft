@@ -12,6 +12,7 @@ import { openThread } from './ThreadPanel';
 import { openDivision } from './DivisionPanel';
 import { inboxText } from '../content/inbox';
 import { utcDay } from '../content/format';
+import { openPaint } from './PaintPanel';
 import { t } from '../content/strings';
 import '../content/strings-more';
 import { fetchChallenge } from '../render/challenge';
@@ -98,6 +99,7 @@ export function openInbox(scene: Phaser.Scene, verifierUrl: string, onRead: () =
     }
     if (line.kind === 'thread-reply')
       return btn(t('inbox.threadOpen'), `inbox-thread-${line.id}`, () => openThread(scene, verifierUrl, line.payload.key as string), { small: true });
+    if (line.kind === 'cosmetic') return btn(t('inbox.cosmeticOpen'), `inbox-paint-${line.id}`, () => void openPaint(scene, verifierUrl), { small: true });
     if (line.kind === 'division')
       return btn(t('division.open'), `inbox-division-${line.id}`, () => openDivision(scene, verifierUrl, line.payload as unknown as Placement), {
         small: true,

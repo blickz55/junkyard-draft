@@ -65,6 +65,8 @@ State frames are chosen by `machineFrame` in `render/simframes.ts`. A new frame 
 
 `render/atlas.ts` loads the sheet once, behind Home (Home is DOM and needs none of it; the way into a game waits, `ui/opening.ts`), uses it as the atlas at 2 sheet pixels per logical pixel on a DPR 2 screen under WebGL, makes a canvas of it elsewhere (scaled on a lower ratio so frames blit 1:1; the Canvas renderer draws from a canvas much faster than from a decoded image), and registers every key as an alias into that one texture. If the sheet does not load, `render/textures.ts` draws every key procedurally: the game degrades to the old look, it never blanks.
 
+Paint (0.11.12) is drawn here too: `render/paint.ts` makes recoloured copies of the machine frames, or of `ground` and `shelf`, on a canvas and points those keys at them when a Game scene starts. The coats in `game/src/content/cosmetics.ts` are placeholders. When the commission (0.12.0) brings real skins, a skin becomes a set of frames and only that file and `render/paint.ts` change.
+
 ## Fonts and licences
 
 Inter and Barlow Condensed are under the SIL Open Font License 1.1; the licences travel with the files as `OFL-Inter.txt` and `OFL-BarlowCondensed.txt`. Neither font declares a Reserved Font Name, so the subsets may keep their names. `@font-face` rules are inline in `game/index.html` with `font-display: swap`, and the pseudo-locale's subsets load only for that locale's characters. Bundling them is what makes the layout the same on Windows and on the Ubuntu CI runner.

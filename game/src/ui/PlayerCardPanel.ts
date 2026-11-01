@@ -10,6 +10,7 @@ import { trophyLine } from '../content/division';
 import { money, utcMonth } from '../content/format';
 import { t } from '../content/strings';
 import '../content/strings-more';
+import { lookName } from '../content/title';
 import { yardLabel } from '../content/yard';
 import { fetchChallenge } from '../render/challenge';
 import { askFriend } from '../render/friends';
@@ -40,6 +41,7 @@ export async function openPlayerCard(scene: Phaser.Scene, verifierUrl: string, t
   if (card.private) lead.push(h('p', { class: 'jd-dim', tid: 'profile-private' }, t('profile.private')));
   else {
     if (card.hidden) lead.push(h('p', { class: 'jd-amber', tid: 'profile-own-hidden' }, t('profile.ownHidden')));
+    if (lookName(card.badge)) lead.push(h('p', { tid: 'profile-badge' }, lookName(card.badge)));
     lead.push(h('p', { class: 'jd-dim', tid: 'profile-joined' }, t('profile.joined', { month: utcMonth(card.joined ?? '') })));
     const trophies = trophyLine(card.trophies ?? {});
     if (trophies) lead.push(h('p', { tid: 'profile-trophies' }, trophies));

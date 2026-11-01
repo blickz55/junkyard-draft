@@ -26,6 +26,7 @@ import {
   loadLinked,
 } from '../render/storage';
 import { streakLine } from '../content/streak';
+import { withTitle } from '../content/title';
 import { yardLabel } from '../content/yard';
 import { MAX_SEED_LENGTH, sanitizeSeed, TUTORIAL_SEED } from '../sim/run';
 import { yardFor } from '../sim/yard';
@@ -37,7 +38,7 @@ import { HIDDEN_LABEL } from '../identity/identity';
 import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWeekly, todaysYard } from '../render/daily';
 import { openArchive } from './ArchivePanel';
 import { openRecord } from './RecordPanel';
-import { openDivision, openFriends, openHub, openInbox, openLinkLanding, openPolicy, openPrivacy, openThread } from './panels';
+import { openDivision, openFriends, openHub, openInbox, openLinkLanding, openPaint, openPolicy, openPrivacy, openThread } from './panels';
 import { syncNow, takeLinkToken } from '../render/link';
 import { hasInbox, loadInbox } from '../render/inbox';
 import { isFresh, latestPlacement } from '../render/divisions';
@@ -383,6 +384,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
               });
             },
           },
+          { label: t('title.paint'), tid: 'paint', run: () => openPaint(scene, verifierUrl) },
           { label: t('title.import'), tid: 'import', run: () => importRecording(scene) },
           { label: t('title.policy'), tid: 'policy', run: () => openPolicy(scene) },
           {
@@ -437,7 +439,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
         seed: string;
         date?: string;
         rulesVersion: number;
-        entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean; stars?: number; reactions?: ReactionCounts }[];
+        entries: { player: string; score: number; replayHash: string; replayAvailable?: boolean; stars?: number; reactions?: ReactionCounts; badge?: string }[];
         botPar?: number | null;
         closesAt?: string;
         now?: string;
@@ -466,7 +468,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
           h(
             'div',
             { class: 'jd-board-line' },
-            `${i + 1}. ${money(e.score)} ${e.player}${e.stars ? ` ${starMarks(e.stars)}` : ''}${e.reactions ? ` ${reactionLine(e.reactions)}` : ''}`,
+            `${i + 1}. ${money(e.score)} ${withTitle(e.player, e.badge)}${e.stars ? ` ${starMarks(e.stars)}` : ''}${e.reactions ? ` ${reactionLine(e.reactions)}` : ''}`,
           ),
         );
         line.replaceChildren(...(rows.length ? rows : [t('title.noScores')]));

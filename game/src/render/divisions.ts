@@ -1,9 +1,10 @@
 /** Where this device finished when a day closed (0.11.11). Home asks once; the trophies go to local storage for Your record, which never fetches. */
+import { lookFrom } from '../content/cosmetics';
 import type { DivisionMedal } from '../daily/divisions';
 import { weeklyWindow } from '../sim/weekly';
 import { authHeaders } from './identity';
 import { hasInbox } from './inbox';
-import { recordTrophies } from './storage';
+import { recordLook, recordTrophies } from './storage';
 
 export interface Placement {
   period: string;
@@ -21,8 +22,9 @@ export async function latestPlacement(verifierUrl: string): Promise<Placement | 
   try {
     const res = await fetch(`${verifierUrl}/me/divisions?limit=1`, { headers: authHeaders(verifierUrl) });
     if (!res.ok) return null;
-    const b = (await res.json()) as { divisions?: Placement[]; trophies?: Record<string, number> };
+    const b = (await res.json()) as { divisions?: Placement[]; trophies?: Record<string, number>; look?: Record<string, unknown> };
     recordTrophies(b.trophies ?? {});
+    if (b.look) recordLook(lookFrom(Object.values(b.look))); // another device may have changed it
     return b.divisions?.[0] ?? null;
   } catch {
     return null;

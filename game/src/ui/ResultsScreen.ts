@@ -49,6 +49,7 @@ import { makeCard, type CardInput } from '../render/card';
 import { loadForkBests } from '../render/storage';
 import { t } from '../content/strings';
 import { money, int, utcDateTime } from '../content/format';
+import { withTitle } from '../content/title';
 import { yardLabel } from '../content/yard';
 import { machineName, materialName } from '../content/machines';
 
@@ -589,6 +590,7 @@ export function mountResults(
           finalMachines?: number;
           reactions?: ReactionCounts;
           playerId?: string;
+          badge?: string;
         }[];
         tieBreak?: string;
       };
@@ -610,7 +612,7 @@ export function mountResults(
                 .catch((err: Error) => setStatus(err.message, 'jd-red'));
             },
           },
-          `${t('results.entry', { n: i + 1, score: money(e.score), player: e.player })}${e.stars ? ` ${starMarks(e.stars)}` : ''}${e.reactions ? ` ${reactionLine(e.reactions)}` : ''}${e.replayAvailable ? t('results.entryWatch') : ''}`,
+          `${t('results.entry', { n: i + 1, score: money(e.score), player: withTitle(e.player, e.badge) })}${e.stars ? ` ${starMarks(e.stars)}` : ''}${e.reactions ? ` ${reactionLine(e.reactions)}` : ''}${e.replayAvailable ? t('results.entryWatch') : ''}`,
         );
         const dare = btn(
           t('results.beatThis'),
@@ -1093,6 +1095,7 @@ export function mountResults(
       group('actions-share', shareNativeBtn ? shareBtn : null, detailedBtn, shareLinkLabel, cardBtn, fork ? null : challengeBtn),
       group('actions-watch', clipBtn, gifBtn, fork ? null : exportBtn, fork ? null : downloadBtn),
     ),
+    h('p', { class: 'jd-dim', tid: 'results-paint-note', style: 'font-size:0.75em; text-align:center' }, t('results.paintNote')),
     h(
       'nav',
       { class: 'jd-home-foot', tid: 'results-foot' },

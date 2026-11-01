@@ -84,6 +84,7 @@ import { replay as replayRun, runStars, type RunState } from '../game/src/sim/ru
 import { RULES_VERSION } from '../game/src/sim/types';
 import { PushStore, PushError, validateHour, validateSubscription } from './push';
 import { COMMUNITY_DB, CommunityStore, MAX_INBOX_PAGE, type InboxRow } from './community';
+import { cosmeticById, lookFrom, unlockedBy, type Progress } from '../game/src/content/cosmetics';
 import { isReaction } from '../game/src/content/reactions';
 import {
   LINK_PER_ADDRESS,
@@ -1619,9 +1620,15 @@ export class Verifier {
     if (!player) return null;
     const owned = new Set(ids);
     const hot = this.data.entries.filter((e) => !!e.playerId && owned.has(e.playerId) && e.rulesVersion === RULES_VERSION);
-    const cold = ids.flatMap((id) => this.cold.bestOf(id, RULES_VERSION));
+    const cold = ids.flatMap((id) => this.cold.summaryOf(id, RULES_VERSION).best);
     const best = topGames([...hot, ...cold].filter((e) => !this.revealGate(e.seed, viewer, now)));
     return { joined: player.createdAt.slice(0, 7), best: best.map((e) => ({ hash: e.replayHash, seed: e.seed, score: e.score })) };
+  }
+  /** Days with a checked daily, whatever the rules were then (0.11.12). `ids` as for a card. */
+  dailiesOf(ids: string[]): number {
+    const owned = new Set(ids);
+    const hot = new Set(this.data.entries.filter((e) => !!e.playerId && owned.has(e.playerId) && isMintedDailySeed(e.seed)).map((e) => e.seed));
+    return ids.reduce((n, id) => n + this.cold.summaryOf(id, RULES_VERSION).dailies, hot.size);
   }
   /** How these players did on a board, best first, for the friends on a histogram (0.11.8). */
   scoresOn(seed: string, players: ReadonlySet<string>, now = new Date()): { player: string; score: number }[] {
@@ -2387,6 +2394,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       id: p.id,
       author: verifier.playerLabel(p.authorId, now),
       card: !!verifier.player(p.authorId ?? ''), // a deleted player has none (0.11.13)
+      badge: p.authorId ? (community?.titlesOf([p.authorId]).get(p.authorId) ?? null) : null,
       body: p.body,
       createdAt: p.createdAt,
       edited: p.editedAt !== null,
@@ -2481,10 +2489,37 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     const about = thread ? threadTarget(thread.key, now) : null;
     return about && !(about.seed && verifier.revealGate(about.seed, viewer, now)) ? post.authorId : null;
   };
-  const withReactions = <T extends { replayHash: string }>(entries: T[]): T[] => {
+  /** How far a player has come, across every device they have played on (0.11.12). */
+  const progressOf = (player: string): Progress => {
+    const ids = [player, ...(community?.deviceKeysOf(player) ?? [])];
+    const trophies: Record<string, number> = {};
+    for (const id of ids) for (const [k, n] of Object.entries(community?.trophiesOf(id) ?? {})) trophies[k] = (trophies[k] ?? 0) + n;
+    return { days: verifier.dailiesOf(ids), trophies };
+  };
+  /** What a player has earned goes on their account, with one line in the inbox for each new thing. */
+  const earnCosmetics = (player: string): Progress => {
+    const progress = progressOf(player);
+    for (const id of community?.grantCosmetics(player, unlockedBy(progress)) ?? []) community?.notify(player, 'cosmetic', { id });
+    return progress;
+  };
+  const lookOf = (player: string | null | undefined) =>
+    lookFrom(
+      (player &&
+        community
+          ?.cosmeticsOf(player)
+          .filter((c) => c.equipped)
+          .map((c) => c.id)) ||
+        [],
+    );
+  /** What a board adds to its rows: reactions (0.11.3) and the title beside the name (0.11.12). */
+  const withReactions = <T extends { replayHash: string; playerId?: string }>(entries: T[]): T[] => {
     if (!community || !entries.length) return entries;
     const counts = community.reactionsOn(entries.map((e) => e.replayHash));
-    return entries.map((e) => (counts.has(e.replayHash) ? { ...e, reactions: counts.get(e.replayHash) } : e));
+    const titles = community.titlesOf(entries.flatMap((e) => e.playerId ?? []));
+    return entries.map((e) => {
+      const title = e.playerId ? titles.get(e.playerId) : undefined;
+      return { ...e, ...(counts.has(e.replayHash) ? { reactions: counts.get(e.replayHash) } : {}), ...(title ? { badge: title } : {}) };
+    });
   };
   const par = opts.par ?? null;
   const verify = opts.verify ?? null;
@@ -2659,7 +2694,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const gate = verifier.revealGate(r.seed, bearer, new Date((opts.now ?? Date.now)()));
         if (gate) return json(403, { ok: false, reason: 'reveal-gate', ...gate });
         if (community && bearer && runOwner(r.hash) !== bearer) community.sawRun(r.hash, bearer); // 0.11.4: a device with a key, never the run's own player
-        return json(200, { ok: true, ...r });
+        return json(200, { ok: true, ...r, look: lookOf(runOwner(r.hash)) }); // a recording plays in its author's paint (0.11.12)
       }
       // group scope (PLAN-v4 0.7.2): ?group=<code> needs the bearer of a member; one refusal for unknown codes and non-members so codes cannot be probed
       const groupScope = ():
@@ -3063,7 +3098,8 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const base = { ok: true, player: verifier.playerLabel(other, now), friendable: canFriend(bearerId, other) };
         const own = other === bearerId;
         if (!own && (community.cardPrivate(other) || community.blockedWith(other).has(bearerId ?? ''))) return json(200, { ...base, private: true });
-        return json(200, { ...base, private: false, own, hidden: own && community.cardPrivate(other), trophies: community.trophiesOf(other), ...card });
+        const about = { own, hidden: own && community.cardPrivate(other), trophies: progressOf(other).trophies, badge: lookOf(other).title };
+        return json(200, { ...base, private: false, ...about, ...card });
       }
       if (url.pathname === '/me/card') {
         if (!community || !bearerId) {
@@ -3235,7 +3271,35 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         return json(200, {
           ok: true,
           divisions: community.divisionsOf(bearerId, clampInt(url.searchParams.get('limit'), 7, 50)),
-          trophies: community.trophiesOf(bearerId),
+          trophies: earnCosmetics(bearerId).trophies,
+          look: lookOf(bearerId),
+        });
+      }
+      if (url.pathname === '/me/cosmetics') {
+        // 0.11.12: yard colours, machine paint and a title, earned by playing and never touching play
+        if (!community || !bearerId) {
+          req.resume();
+          return json(community ? 401 : 503, { ok: false, error: community ? 'token required' : 'the community store is not enabled on this verifier' });
+        }
+        if (req.method === 'GET') {
+          const progress = earnCosmetics(bearerId);
+          const owned = community.cosmeticsOf(bearerId).filter((c) => cosmeticById(c.id));
+          return json(200, { ok: true, owned: owned.map((c) => c.id), look: lookOf(bearerId), progress });
+        }
+        if (req.method !== 'POST') {
+          req.resume();
+          return json(405, { ok: false, error: 'method not allowed' });
+        }
+        const w = writeLimited();
+        if (w != null) {
+          req.resume();
+          return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) });
+        }
+        return withBody(256, (p) => {
+          if (typeof p.id !== 'string' || !cosmeticById(p.id)) return json(422, { ok: false, code: 'bad-cosmetic', error: 'no such thing to wear' });
+          earnCosmetics(bearerId);
+          if (!community.equipCosmetic(bearerId, p.id, p.on !== false)) return json(403, { ok: false, code: 'locked', error: 'not earned yet' });
+          return json(200, { ok: true, look: lookOf(bearerId) });
         });
       }
       if (url.pathname === '/division' && req.method === 'GET') {

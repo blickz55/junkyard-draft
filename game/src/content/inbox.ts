@@ -4,6 +4,7 @@ import { money, utcDateTime } from './format';
 import { reactionLine, reactionTotal, type ReactionCounts } from './reactions';
 import { t, type StringKey } from './strings';
 import { MORE_STRINGS } from './strings-more';
+import { lookName } from './title';
 import { yardLabel } from './yard';
 import type { DivisionMedal } from '../daily/divisions';
 
@@ -26,6 +27,7 @@ export function inboxText(kind: string, p: Record<string, unknown>): string | nu
       until: typeof p.until === 'number' ? utcDateTime(new Date(p.until).toISOString()) : '',
     });
   }
+  if (kind === 'cosmetic') return lookName(p.id as string) ? t('inbox.cosmetic', { name: lookName(p.id as string) }) : null;
   if (kind === 'message') return t('inbox.message', { player: p.player as string });
   if (kind === 'friend-request') return t('inbox.friendRequest', { player: p.player as string });
   if (kind === 'friend-accepted') return t('inbox.friendAccepted', { player: p.player as string });

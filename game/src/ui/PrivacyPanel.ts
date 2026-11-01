@@ -11,7 +11,8 @@ import type Phaser from 'phaser';
 import { h, btn, ui, dialog } from './dom';
 import { loadIdentity, exportMyData, deleteMyData, bearerAllowed } from '../render/identity';
 import { cardHidden, setCardHidden } from '../render/playercard';
-import { savePlayer } from '../render/storage';
+import { recordLook, savePlayer } from '../render/storage';
+import { PLAIN } from '../content/cosmetics';
 import { saveGroup } from '../render/groups';
 import { telemetry } from '../render/telemetry';
 import { labelFor } from '../identity/identity';
@@ -157,6 +158,7 @@ export async function openPrivacy(scene: Phaser.Scene, verifierUrl: string, tab:
         savePlayer('');
         saveGroup(null);
         profileSlot.replaceChildren();
+        recordLook(PLAIN);
         if (telemetry.enabled) telemetry.setEnabled(false);
         status.classList.remove('jd-red');
         status.textContent = t('privacy.deleted', { n: r.anonymisedEntries, r: r.coldReplaysDropped, days: legalBackupDays(DOCS) });

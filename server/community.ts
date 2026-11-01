@@ -1138,6 +1138,35 @@ export class CommunityStore {
   isLinked(playerId: string): boolean {
     return this.emailOf(playerId) !== null;
   }
+  /** Record what a player has earned and answer with what is new (0.11.12). A row stays, so a later change to the list takes nothing away. */
+  grantCosmetics(playerId: string, ids: readonly string[]): string[] {
+    const insert = this.sql('INSERT INTO cosmetics (player_id, cosmetic, unlocked_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING');
+    return ids.filter((id) => Number(insert.run(playerId, id, this.now()).changes) > 0);
+  }
+  cosmeticsOf(playerId: string): { id: string; equipped: boolean }[] {
+    const rows = this.sql('SELECT cosmetic, equipped FROM cosmetics WHERE player_id = ? ORDER BY unlocked_at, cosmetic').all(playerId) as unknown as {
+      cosmetic: string;
+      equipped: number;
+    }[];
+    return rows.map((r) => ({ id: r.cosmetic, equipped: r.equipped === 1 }));
+  }
+  /** Wear one or take it off, one of a kind at a time: an id starts with its kind. False when the player has not earned it. */
+  equipCosmetic(playerId: string, id: string, on: boolean): boolean {
+    return this.transaction(() => {
+      if (!this.sql('SELECT 1 FROM cosmetics WHERE player_id = ? AND cosmetic = ?').get(playerId, id)) return false;
+      if (on) this.sql('UPDATE cosmetics SET equipped = 0 WHERE player_id = ? AND cosmetic LIKE ?').run(playerId, `${id.split('-')[0]}-%`);
+      this.sql('UPDATE cosmetics SET equipped = ? WHERE player_id = ? AND cosmetic = ?').run(on ? 1 : 0, playerId, id);
+      return true;
+    });
+  }
+  /** The title each of these players wears, by the id they were asked under: a run from an earlier device shows its player's title. */
+  titlesOf(ids: readonly string[]): Map<string, string> {
+    if (!ids.length) return new Map();
+    const rows = this.sql(
+      "SELECT j.value AS id, c.cosmetic FROM json_each(?) j LEFT JOIN device_keys k ON k.key_id = j.value JOIN cosmetics c ON c.player_id = COALESCE(k.player_id, j.value) WHERE c.equipped = 1 AND c.cosmetic LIKE 'title-%'",
+    ).all(JSON.stringify(ids)) as unknown as { id: string; cosmetic: string }[];
+    return new Map(rows.map((r) => [r.id, r.cosmetic]));
+  }
   /** Whether a player's card shows only their name (0.11.13). No row means they have not asked for that. */
   cardPrivate(playerId: string): boolean {
     return (this.sql('SELECT card_private FROM accounts WHERE player_id = ?').get(playerId) as { card_private: number } | undefined)?.card_private === 1;

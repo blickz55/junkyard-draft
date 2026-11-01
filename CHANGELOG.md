@@ -5,6 +5,12 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### 0.11.12 the paint shop — 2026-11-01 (no rules change, protocol 3: additive)
+- **Something to show for turning up.** Days of dailies, medals and days in the top division earn yard colours, machine paint and a title beside your name. Open the paint shop from More to see what you have and what the rest takes.
+- **Others see it.** Your title shows on boards, on your posts and on your profile, and your recordings play in your paint.
+- **It never changes play.** Same offers, same rules, same score, and the results and the fairness page say so.
+- A recording now says whose it is, in Sal's line: the top bar had no room for the name.
+
 ### 0.11.13 profiles — 2026-11-01 (no rules change, protocol 3: additive)
 - **See who you are up against.** Profile on a row of the board, or the name on a post, shows when a player arrived, what they have won and their three best games, with Beat this on each.
 - **Yours to hide.** Show my profile in Privacy & data leaves only your name there, for everyone. Your scores stay on the boards.

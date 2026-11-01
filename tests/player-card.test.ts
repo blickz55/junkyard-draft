@@ -337,14 +337,14 @@ test('the store forgets with the player: cold games leave the index, and a delet
   const id = await r.post(ann.token, 'hub:strategies', 'Press before the dock');
   r.tick(40 * DAY);
   r.verifier.splitCold(r.now());
-  assert.equal(r.verifier.cold.bestOf(ann.id, RULES_VERSION).length, 1);
+  assert.equal(r.verifier.cold.summaryOf(ann.id, RULES_VERSION).best.length, 1);
   await r.call('POST', '/me/card', ann.token, { private: true });
   const seen = (await r.call('GET', '/thread?key=hub:strategies', sam.token)).json as unknown as { posts: { card: boolean }[] };
   assert.equal(seen.posts[0].card, true, 'the panel may offer it');
 
   assert.equal((await r.call('DELETE', '/me', ann.token)).status, 200);
   assert.equal(r.community.cardPrivate(ann.id), false, 'the switch went with the player');
-  assert.deepEqual(r.verifier.cold.bestOf(ann.id, RULES_VERSION), []);
+  assert.deepEqual(r.verifier.cold.summaryOf(ann.id, RULES_VERSION).best, []);
   assert.equal((await r.card(`hash=${game.replayHash}`, sam.token)).status, 404);
   assert.equal((await r.card(`postId=${id}`, sam.token)).status, 404);
   const after = (await r.call('GET', '/thread?key=hub:strategies', sam.token)).json as unknown as { posts: { card: boolean; author: string }[] };

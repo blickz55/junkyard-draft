@@ -23,6 +23,11 @@ export interface ColdDay {
 export interface ColdMonth {
   days: Record<string, ColdDay>;
 }
+/** What the closed days say about one player. */
+export interface ColdPlayer {
+  best: BoardEntry[];
+  dailies: number;
+}
 export interface ColdIndex {
   seeds: Record<string, string>;
   replays: Record<string, string>;
@@ -43,7 +48,7 @@ const monthOf = (key: string) => (isWeekId(key) ? weeklyWindow(key)!.openDate : 
 export class ColdStore {
   private index: ColdIndex;
   private cache = new Map<string, ColdMonth>(); // insertion order = LRU order
-  private best: Map<string, BoardEntry[]> | null = null; // built on first use, dropped when a file changes
+  private summaries: Map<string, ColdPlayer> | null = null; // built on first use, dropped when a file changes
   constructor(
     readonly dir: string,
     private readonly lruSize = 3,
@@ -115,7 +120,7 @@ export class ColdStore {
   }
   /** Add (or overwrite, idempotently) one day; the month file and the index are rewritten atomically. */
   put(day: ColdDay, key = day.record.date) {
-    this.best = null;
+    this.summaries = null;
     const date = key,
       m = monthOf(key);
     const month = this.month(date) ?? { days: {} };
@@ -138,7 +143,7 @@ export class ColdStore {
   }
   /** A deleted player's kept replays leave every month file and the index; their entries stay anonymised as "deleted" (production roadmap 0.8.1: the policy's deletion promise now holds cold too). Returns the number of replays dropped. */
   dropPlayer(playerId: string): number {
-    this.best = null;
+    this.summaries = null;
     let dropped = 0;
     let indexChanged = false;
     for (const f of this.monthFiles()) {
@@ -169,19 +174,30 @@ export class ColdStore {
     if (indexChanged) this.writeJson(path.join(this.dir, 'index.json'), this.index);
     return dropped;
   }
-  /** A player's best games on closed days (0.11.13). A card is public, so this reads the month files once per change, never once per request. */
-  bestOf(playerId: string, rulesVersion: number): BoardEntry[] {
-    if (!this.best) {
-      const best = new Map<string, BoardEntry[]>();
+  /**
+   * A player on closed days: their best games (0.11.13) and how many dailies they played (0.11.12). A card is public, so this reads the month
+   * files once per change, never once per request.
+   */
+  summaryOf(playerId: string, rulesVersion: number): ColdPlayer {
+    if (!this.summaries) {
+      const all = new Map<string, ColdPlayer>();
+      const of = (id: string) => all.get(id) ?? (all.set(id, { best: [], dailies: 0 }), all.get(id)!);
       for (const f of this.monthFiles()) {
         const m = this.readJson<ColdMonth>(path.join(this.dir, f));
         if (!m || typeof m.days !== 'object') continue;
-        for (const day of Object.values(m.days))
-          for (const e of day.entries) if (e.playerId && e.rulesVersion === rulesVersion) best.set(e.playerId, topGames([...(best.get(e.playerId) ?? []), e]));
+        for (const [key, day] of Object.entries(m.days)) {
+          const players = new Set<string>();
+          for (const e of day.entries) {
+            if (!e.playerId) continue;
+            players.add(e.playerId);
+            if (e.rulesVersion === rulesVersion) of(e.playerId).best = topGames([...of(e.playerId).best, e]);
+          }
+          if (!isWeekId(key)) for (const id of players) of(id).dailies++;
+        }
       }
-      this.best = best;
+      this.summaries = all;
     }
-    return this.best.get(playerId) ?? [];
+    return this.summaries.get(playerId) ?? { best: [], dailies: 0 };
   }
   /** A player's entries across every month file with the kept replay when there is one (0.8.6, GET /me/export); ascending by day. */
   entriesOf(playerId: string): { key: string; seed: string; entry: BoardEntry; replay: StoredReplay | null }[] {

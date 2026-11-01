@@ -32,7 +32,9 @@ import { fit } from '../atlas';
 import { label } from '../ui';
 import { CSS, FONT } from '../palette';
 import { audio } from '../audio';
-import { clearSave, loadReadTips, loadSettings, setOnboarded, updateSettings, writeSave } from '../storage';
+import { clearSave, loadLook, loadReadTips, loadSettings, setOnboarded, updateSettings, writeSave } from '../storage';
+import { PLAIN, type Look } from '../../content/cosmetics';
+import { applyPaint } from '../paint';
 import { h, ui } from '../../ui/dom';
 import { choiceDialog } from '../../ui/choice';
 import { openJobCard } from '../../ui/JobCard';
@@ -130,11 +132,13 @@ export class GameScene extends Phaser.Scene {
     replay?: Action[];
     actions?: Action[];
     replayLabel?: string;
+    look?: Look;
     challenge?: Challenge;
     replayHash?: string;
     replayPlayer?: string;
     fork?: { origin: Omit<ForkOrigin, 'round'>; actions: Action[]; round: number };
   }) {
+    applyPaint(this.game, data.replay ? (data.look ?? PLAIN) : loadLook()); // a recording plays in its author's paint (0.11.12)
     this.challenge = data.challenge && data.challenge.seed === data.seed && !data.replay && !data.fork ? data.challenge : null;
     this.replayOrigin = data.replay ? { hash: data.replayHash ?? null, player: data.replayPlayer ?? 'replay', actions: data.replay } : null;
     let forked: ForkOrigin | null = null;
@@ -647,7 +651,7 @@ export class GameScene extends Phaser.Scene {
       tutorial: this.tutorial,
       touch: coarsePointer(),
       selected: this.inputCtl?.selectedId,
-      watching: !!this.replayLabel,
+      watching: this.replayLabel,
       mode: this.mode,
       resumeNotice: this.ctl.resumeNotice,
     });

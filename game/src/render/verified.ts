@@ -4,7 +4,9 @@
 import Phaser from 'phaser';
 import { withArt } from '../ui/opening';
 import { t } from '../content/strings';
+import { lookFrom, type Look } from '../content/cosmetics';
 import { money } from '../content/format';
+import { withTitle } from '../content/title';
 import { REPLAY_FORMAT, validateReplayFile, verifyReplay } from '../sim/replay';
 import { authHeaders } from './identity';
 import type { Action } from '../sim/run';
@@ -18,6 +20,7 @@ export interface VerifiedReplay {
   rulesVersion: number;
   actions: Action[];
   verifiedAt: string;
+  /** what its author wears: a recording plays in their paint (0.11.12) */ look: Look;
 }
 
 export async function fetchVerifiedReplay(url: string, hash: string, seed?: string): Promise<VerifiedReplay> {
@@ -47,7 +50,8 @@ export async function fetchVerifiedReplay(url: string, hash: string, seed?: stri
       t('recording.failedCheck', { hash: hash.slice(0, 8), error: v.error ?? t('recording.scoreMismatch', { score: v.score, claimed: file.claimedScore }) }),
     );
   const player = typeof raw.player === 'string' ? raw.player.slice(0, 32) : t('recording.unknownPlayer');
-  return { hash, seed: file.seed, player, score: file.claimedScore, rulesVersion: file.rulesVersion, actions: file.actions, verifiedAt: file.createdAt };
+  const look = lookFrom(Object.values((raw as { look?: Record<string, unknown> }).look ?? {}));
+  return { hash, look, seed: file.seed, player, score: file.claimedScore, rulesVersion: file.rulesVersion, actions: file.actions, verifiedAt: file.createdAt };
 }
 
 /** Report the name behind a verified replay (PLAN-v4 0.7.7): the verifier hides it as "player" pending review. Resolves with one line for the player. */
@@ -67,11 +71,20 @@ export async function reportName(url: string, hash: string, reason: ReportReason
     return t('report.noAnswer');
   }
 }
-export const replayLabel = (r: Pick<VerifiedReplay, 'player' | 'score'>) => t('recording.label', { player: r.player, score: money(r.score) });
+export const replayLabel = (r: Pick<VerifiedReplay, 'player' | 'score' | 'look'>) =>
+  t('recording.label', { player: withTitle(r.player, r.look.title), score: money(r.score) });
 
 /** Start playback. Playback never records bests or submits (the Game/Results scenes check `replay`). */
 export function playVerifiedReplay(scene: Phaser.Scene, r: VerifiedReplay) {
   withArt(scene, () =>
-    scene.scene.start('Game', { seed: r.seed, fresh: true, replay: r.actions, replayLabel: replayLabel(r), replayHash: r.hash, replayPlayer: r.player }),
+    scene.scene.start('Game', {
+      seed: r.seed,
+      fresh: true,
+      look: r.look,
+      replay: r.actions,
+      replayLabel: replayLabel(r),
+      replayHash: r.hash,
+      replayPlayer: r.player,
+    }),
   );
 }

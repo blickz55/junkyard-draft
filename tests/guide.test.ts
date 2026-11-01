@@ -7,7 +7,7 @@ import { hintFor, lessonStep, type Guidance } from '../game/src/render/guide';
 import { dropActions, smartFacing } from '../game/src/render/placement';
 
 type Run = ReturnType<typeof newRun>;
-const ctx = (mode = 'build', tutorial = false) => ({ tutorial, touch: false, watching: false, mode });
+const ctx = (mode = 'build', tutorial = false) => ({ tutorial, touch: false, watching: null, mode });
 const shelf = (s: Run, k: string) => s.bin.find((m) => m.kind === k)!;
 const doAll = (s: Run, actions: Action[]) => actions.forEach((a) => apply(s, a));
 const drop = (s: Run, kind: string, x: number, y: number) => doAll(s, dropActions(s, shelf(s, kind), x, y));
@@ -122,8 +122,8 @@ test('outside the lesson the coach says one thing per moment and names what the 
 test('a resume notice comes first, once; a watched recording gets no advice', () => {
   const s = newRun('classic-guide-seed');
   assert.equal(hintFor(s, { ...ctx(), resumeNotice: 'Saved game is gone' }).text, 'Saved game is gone');
-  const w = hintFor(s, { ...ctx(), watching: true });
-  assert.match(w.text, /watching a recording/);
+  const w = hintFor(s, { ...ctx(), watching: 'recording by Ann#AB12 · Regular ($228)' });
+  assert.equal(w.text, 'You are watching a recording by Ann#AB12 · Regular ($228).', 'whose it is: the top bar has no room to say');
   assert.deepEqual(w.spots, []);
   assert.doesNotMatch(hintFor(s, ctx()).text, /needs the/, 'a classic yard has no job to name');
 });

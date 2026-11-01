@@ -34,7 +34,7 @@ export interface LessonStep {
 export interface GuideContext {
   tutorial: boolean;
   /** a finger rather than a mouse: tap wording */ touch: boolean;
-  /** watching a recording: no advice */ watching: boolean;
+  /** the recording being watched: no advice */ watching: string | null;
   /** build | running | paused | summary, from the scene */ mode: string;
   /** the machine selected right now */ selected?: number | null;
   resumeNotice?: string | null;
@@ -140,7 +140,8 @@ export function lessonStep(run: RunState, touch = false): LessonStep {
 
 /** The coach outside the lesson: the pick, the build, the shift, the summary, each one instruction. */
 function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[] } {
-  if (ctx.mode === 'running' || ctx.mode === 'paused') return { text: ctx.watching ? t('hint.watching') : t('coach.running'), spots: [] };
+  if (ctx.mode === 'running' || ctx.mode === 'paused')
+    return { text: ctx.watching ? t('hint.watching', { label: ctx.watching }) : t('coach.running'), spots: [] };
   if (r.phase === 'result') return { text: t(r.round >= RULES.rounds ? 'hint.summaryFinal' : 'hint.summary'), spots: [{ kind: 'next' }] };
   if (r.phase === 'draft') {
     const wanted = nextNeeded(r);
@@ -167,7 +168,7 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[] } 
 /** What the coach says now. A resume notice comes first, once; the lesson runs its own script. */
 export function hintFor(run: RunState, ctx: GuideContext): Guidance {
   if (ctx.resumeNotice) return { text: ctx.resumeNotice, spots: [], step: 0 };
-  if (ctx.watching) return { text: t('hint.watching'), spots: [], step: 0 };
+  if (ctx.watching) return { text: t('hint.watching', { label: ctx.watching }), spots: [], step: 0 };
   if (ctx.tutorial && ctx.mode !== 'running' && ctx.mode !== 'paused') {
     const s = lessonStep(run, ctx.touch);
     return { text: s.text, spots: s.spots, step: s.step };

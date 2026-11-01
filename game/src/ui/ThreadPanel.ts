@@ -13,6 +13,7 @@ import { periodLabel } from '../content/division';
 import { categoryOf, isTopicKey } from '../content/hub';
 import { categoryName } from '../content/sal-posts';
 import { money, utcDateTime } from '../content/format';
+import { withTitle } from '../content/title';
 import { reasonText } from '../content/inbox';
 import { t, type StringKey } from '../content/strings';
 import '../content/strings-more';
@@ -202,7 +203,7 @@ export function openThread(scene: Phaser.Scene, verifierUrl: string, key: string
           ? h(
               'button',
               { class: 'jd-link', type: 'button', tid: `post-profile-${p.id}`, onClick: () => void openPlayerCard(scene, verifierUrl, { postId: p.id }) },
-              p.author,
+              withTitle(p.author, p.badge),
             )
           : p.author,
         ` · ${when}${p.edited ? ` · ${t('thread.edited')}` : ''}`,

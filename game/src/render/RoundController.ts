@@ -75,7 +75,7 @@ export class RoundController {
     data: ControllerInit,
     private readonly hooks: ControllerHooks = {},
   ) {
-    this.replayLabel = data.replay ? (data.replayLabel ?? 'replay playback') : null;
+    this.replayLabel = data.replay ? (data.replayLabel ?? t('recording.plain')) : null;
     let rounds: number[] | null = null;
     if (data.replay) {
       try {

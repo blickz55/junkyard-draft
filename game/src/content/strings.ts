@@ -425,7 +425,7 @@ export const STRINGS = {
 
   // ---- hints (the strip under the grid) ----
   'hint.showMe': s('Show me', "the hint strip's demo button in the lesson (0.9.3)"),
-  'hint.watching': s('You are watching a recording.', 'while watching'),
+  'hint.watching': s('You are watching a {label}.', 'while watching; {label} like: recording by Ann#8KH4 · Regular ($228)'),
   'hint.lowQuality': s('This device is struggling, so the picture will be softer next time. Change it in Settings.', 'after a slow start'),
   'hint.summaryFinal': s('Last shift done. See how the job went.', 'summary'),
   'hint.summary': s('Read what held you back, then start the next shift.', 'summary'),
@@ -452,6 +452,7 @@ export const STRINGS = {
   'recording.scoreMismatch': s('score {score} ≠ {claimed}', 'fetch error detail'),
   'recording.unknownPlayer': s('unknown', 'fallback player'),
   'recording.label': s('recording by {player} ({score})', 'HUD label while watching'),
+  'recording.plain': s('recording', 'the same for a pasted recording, whose player we do not know'),
   'recording.tryLabel': s('a try from {player} after shift {round} · practice', 'HUD label on a try'),
 
   // ---- saved offline games (title) ----
@@ -1043,6 +1044,14 @@ export const STRINGS = {
   'friends.asked': s('Asked', 'the same button after pressing it'),
   'friends.needName': s('Choose a name first', 'the same button when this device has no name'),
   'results.friendsHere': s('Friends on this yard: {list}', 'under the chart of scores'),
+  'results.paintNote': s('Paint, titles and medals never change play: same offers, same rules, same score.', 'a quiet line on the results'),
+  'title.paint': s('Paint shop', 'More menu: what you have earned to wear'),
+  'look.withTitle': s('{player} · {title}', 'a name with the title beside it'),
+  'look.titleRegular': s('Regular', 'a title, earned by playing'),
+  'look.titleOldHand': s('Old Hand', 'a title'),
+  'look.titlePodium': s('On the Podium', 'a title'),
+  'look.titleTopShelf': s('Top Shelf', 'a title'),
+  'look.titleSalsPick': s("Sal's Pick", 'a title'),
   'results.profile': s('Profile', 'button on a row of the board: who is this player'),
   'results.profileTitle': s("See {player}'s profile", 'tooltip'),
   'home.inboxUnread': s('Inbox ({n})', 'home footer, with the number of new lines'),
@@ -1088,6 +1097,9 @@ const table: Record<string, Entry> = { ...STRINGS };
 export function addStrings(more: Record<string, Entry>): void {
   Object.assign(table, more);
 }
+
+/** Whether a key the server named exists here: a newer server may name one this client does not know. */
+export const hasText = (key: string): key is StringKey => key in table;
 
 /** The string for a key, with its placeholders filled; the pseudo-locale transforms the result when it is on. */
 export function t(key: StringKey, params: Params = {}): string {

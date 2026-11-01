@@ -6,6 +6,7 @@ export interface ThreadPost {
   id: number;
   author: string;
   /** a profile to open: a deleted player has none */ card?: boolean;
+  /** the title beside the name */ badge?: string | null;
   body: string;
   createdAt: number;
   edited: boolean;
