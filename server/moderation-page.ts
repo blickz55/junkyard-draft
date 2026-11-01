@@ -128,9 +128,9 @@ function say(text) {
   $('status').textContent = text;
 }
 function act(path, body, done) {
-  call('POST', path, body).then(function () {
+  say('Working…');
+  call('POST', path, body).then(load).then(function () {
     say(done);
-    return load();
   }).catch(function (e) {
     say('Not done: ' + e.message);
   });
@@ -304,6 +304,7 @@ $('signin').addEventListener('submit', function (e) {
   });
 });
 $('refresh').addEventListener('click', function () {
+  say('Working…');
   load().then(function () {
     say('Up to date.');
   }).catch(function (err) {

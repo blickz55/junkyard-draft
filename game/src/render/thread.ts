@@ -18,10 +18,11 @@ export interface ThreadPost {
 export type WriteState = 'ok' | 'not-linked' | 'no-name' | 'muted' | 'banned';
 export interface ThreadView {
   key: string;
-  kind: 'daily' | 'weekly';
+  kind: 'daily' | 'weekly' | 'run';
   seed: string;
   closed: boolean;
-  foreman: { open: string; close: string | null };
+  /** the game a thread is about (0.11.6) */ run: { player: string; score: number } | null;
+  foreman: { open: string | null; close: string | null };
   posts: ThreadPost[];
   next: number | null;
   count: number;

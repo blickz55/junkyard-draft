@@ -112,7 +112,7 @@ async function rig() {
     }
     const out = await call('POST', '/verify', token, { replay: JSON.parse(encodeReplay(exportReplay(s, 'test'))) });
     assert.equal(out.status, 200, JSON.stringify(out.json));
-    return out.json as unknown as { entry: { replayHash: string } };
+    return out.json as unknown as { entry: { replayHash: string; score: number } };
   };
   return {
     base,
@@ -347,6 +347,42 @@ test('the others in a thread hear there is more: one unread line however much ar
   assert.equal(r.community.inbox(sam.id).unread, 0, 'nobody heard about what came down');
   const inbox = await r.call('GET', '/me/inbox', sam.token);
   assert.equal((inbox.json.items as unknown as { kind: string }[])[0].kind, 'thread-reply');
+  await r.close();
+});
+
+test('a game has a talk of its own: behind the same gate, its owner hears, and the line names the game; `/entry` says how much there is', async () => {
+  const r = await rig();
+  const sam = r.person('a', 'Sam');
+  const ann = r.person('b', 'Ann');
+  const cal = r.person('c', 'Cal');
+  const seed = r.verifier.periodRecord(OPEN_DAY, r.now())!.seed;
+  const { entry } = await r.play(sam.token, seed);
+  const hash = entry.replayHash;
+  assert.equal((await r.call('GET', `/thread?key=${hash}`, ann.token)).status, 403, 'an open yard, no game of their own');
+  assert.equal((await r.call('POST', '/posts', ann.token, { key: hash, body: 'nice' })).status, 403);
+  assert.equal((await r.call('GET', `/thread?key=${'f'.repeat(64)}`, ann.token)).status, 404);
+  await r.play(ann.token, seed, 1);
+  await r.play(cal.token, seed, 2);
+  const open = await r.call('GET', `/thread?key=${hash}`, ann.token);
+  assert.equal(open.status, 200);
+  assert.deepEqual([open.json.kind, open.json.foreman], ['run', { open: null, close: null }]);
+  assert.deepEqual(open.json.run, { player: `Sam#${r.verifier.player(sam.id)!.tag}`, score: entry.score });
+  assert.deepEqual((await r.call('GET', `/entry?hash=${hash}`, ann.token)).json.talk, { posts: 0 });
+  assert.equal((await r.call('POST', '/posts', ann.token, { key: hash, body: 'that press is clever' })).status, 200);
+  await r.moderation.idle();
+  assert.deepEqual((await r.call('GET', `/entry?hash=${hash}`, ann.token)).json.talk, { posts: 1 });
+  const line = ((await r.call('GET', '/me/inbox', sam.token)).json.items as unknown as { kind: string; payload: Record<string, unknown> }[])[0];
+  assert.equal(line.kind, 'thread-reply');
+  assert.deepEqual(
+    { ...line.payload },
+    { kind: 'run', key: hash, seed, score: entry.score, player: (open.json.run as unknown as { player: string }).player, own: true },
+    'the owner never wrote, and still hears',
+  );
+  assert.equal(r.community.inbox(ann.id).items.length, 0, 'not for your own words');
+  assert.equal((await r.call('POST', '/posts', cal.token, { key: hash, body: 'seconded' })).status, 200);
+  await r.moderation.idle();
+  const other = ((await r.call('GET', '/me/inbox', ann.token)).json.items as unknown as { payload: Record<string, unknown> }[])[0];
+  assert.equal(other.payload.own, false, 'someone who wrote there hears too, and it is not their game');
   await r.close();
 });
 

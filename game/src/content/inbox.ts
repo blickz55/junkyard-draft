@@ -27,7 +27,11 @@ export function inboxText(kind: string, p: Record<string, unknown>): string | nu
     });
   }
   if (kind === 'appeal') return p.result === 'overturned' ? t('moderation.appealOverturned') : t('moderation.appealUpheld');
-  if (kind === 'thread-reply') return t('inbox.threadReply', { yard: periodLabel(p.key as string) });
+  if (kind === 'thread-reply') {
+    if (p.kind !== 'run') return t('inbox.threadReply', { yard: periodLabel(p.key as string) });
+    const game = { score: money(p.score as number), yard: yardLabel(p.seed as string) };
+    return p.own ? t('inbox.runComment', game) : t('inbox.runReply', { ...game, player: p.player as string });
+  }
   if (kind === 'reactions') {
     const reactions = p.reactions as ReactionCounts;
     const n = reactionTotal(reactions);

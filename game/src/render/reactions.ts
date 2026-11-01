@@ -7,6 +7,7 @@ export interface RunReactions {
   mine: ReactionId | null;
   own: boolean;
   seen: { times: number; players: number };
+  /** how much talk there is on this run; absent while writing is off, and the screens then offer no way in */ talk: { posts: number } | null;
 }
 
 /** Null when the server cannot be reached or does not know the run: the screens then show nothing. */
@@ -15,7 +16,7 @@ export async function loadReactions(verifierUrl: string, hash: string): Promise<
     const res = await fetch(`${verifierUrl}/entry?hash=${encodeURIComponent(hash)}`, { headers: authHeaders(verifierUrl) });
     if (!res.ok) return null;
     const b = (await res.json()) as Partial<RunReactions>;
-    return { reactions: b.reactions ?? {}, mine: b.mine ?? null, own: !!b.own, seen: b.seen ?? { times: 0, players: 0 } };
+    return { reactions: b.reactions ?? {}, mine: b.mine ?? null, own: !!b.own, seen: b.seen ?? { times: 0, players: 0 }, talk: b.talk ?? null };
   } catch {
     return null;
   }

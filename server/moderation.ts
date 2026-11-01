@@ -501,8 +501,9 @@ export class Pipeline {
     if (post.editedAt !== null) return; // the same post with other words is not news
     const thread = this.store.threadById(post.threadId);
     if (!thread) return;
-    for (const id of this.store.threadAuthors(thread.id))
-      if (id !== post.authorId) this.store.notify(id, 'thread-reply', { kind: thread.kind, key: thread.key });
+    const told = new Set(this.store.threadAuthors(thread.id));
+    if (thread.authorId) told.add(thread.authorId); // a run's owner hears, whether or not they have said anything
+    for (const id of told) if (id !== post.authorId) this.store.notify(id, 'thread-reply', { kind: thread.kind, key: thread.key });
   }
 
   /** One decision on a post: the database, the log and, unless nothing changed for them, the author's inbox. */

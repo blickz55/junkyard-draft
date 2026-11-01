@@ -576,7 +576,7 @@ export class GamePanel {
       );
       this.side.append(h('div', { class: 'jd-blue', style: 'font-size:0.75em; margin-top:0.3em; overflow-wrap:anywhere' }, s.replayLabel));
       if (s.replayHash) {
-        if (this.reactions?.hash !== s.replayHash) this.reactions = { hash: s.replayHash, bar: reactionBar(resolveVerifierUrl(), s.replayHash) };
+        if (this.reactions?.hash !== s.replayHash) this.reactions = { hash: s.replayHash, bar: reactionBar(this.scene, resolveVerifierUrl(), s.replayHash) };
         this.side.append(this.reactions.bar); // one bar for the whole recording: the panel redraws, the counts stay
       }
     }

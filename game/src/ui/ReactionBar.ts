@@ -1,14 +1,21 @@
 /**
  * The eight reactions under a recording (0.11.3). Tap one to leave it, tap another to change it, tap it again to take it back.
  * Counts only: there is nothing to write and nothing to moderate. The bar loads its own counts, and stays empty when the server
- * cannot be reached; on the viewer's own run it shows the counts and offers nothing.
+ * cannot be reached; on the viewer's own run it shows the counts and offers nothing. While writing is open it offers the talk on
+ * this game too (0.11.6).
  */
+import type Phaser from 'phaser';
 import { REACTIONS, reactionLine, type ReactionCounts, type ReactionId } from '../content/reactions';
 import { t, type StringKey } from '../content/strings';
 import { loadReactions, sendReaction } from '../render/reactions';
-import { h } from './dom';
+import { btn, h } from './dom';
+import { openThread } from './panels';
 
-export function reactionBar(verifierUrl: string, hash: string): HTMLElement {
+/** The way into the talk on a run; the results of your own run use it too. */
+export const talkButton = (scene: Phaser.Scene, verifierUrl: string, hash: string, posts: number): HTMLElement =>
+  btn(posts ? t('results.gameTalkCount', { n: posts }) : t('results.gameTalk'), 'game-talk', () => openThread(scene, verifierUrl, hash), { small: true });
+
+export function reactionBar(scene: Phaser.Scene, verifierUrl: string, hash: string): HTMLElement {
   const box = h('div', { class: 'jd-reactions', tid: 'reactions' });
   let counts: ReactionCounts = {};
   let mine: ReactionId | null = null;
@@ -38,6 +45,7 @@ export function reactionBar(verifierUrl: string, hash: string): HTMLElement {
     mine = r.mine;
     if (r.own) {
       box.append(h('div', { class: 'jd-dim', tid: 'reactions-own' }, reactionLine(counts, REACTIONS.length)));
+      if (r.talk) box.append(talkButton(scene, verifierUrl, hash, r.talk.posts));
       return;
     }
     const row = h('div', { class: 'jd-reaction-row', role: 'group', ariaLabel: t('reaction.head') });
@@ -52,6 +60,7 @@ export function reactionBar(verifierUrl: string, hash: string): HTMLElement {
       row.append(b);
     }
     box.append(h('div', { class: 'jd-dim jd-reaction-head' }, t('reaction.head')), row, note);
+    if (r.talk) box.append(talkButton(scene, verifierUrl, hash, r.talk.posts));
     paint();
   });
   return box;

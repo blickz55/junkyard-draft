@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### 0.11.6 comments on games — 2026-11-01 (no rules change, protocol 3: additive)
+- **Talk about one game.** A recording has Talk about this game beside its reactions, behind the same gate as the recording itself. Its owner hears in the inbox even if they never wrote there, and the talk shows on the results of a game of yours.
+
 ### 0.11.5 the day's talk — 2026-11-01 (no rules change, protocol 3: additive)
 - **Each yard has a place to talk about it.** Once your game is checked, Talk about this yard opens the day's thread, and Home shows Today's talk with how much there is. Until the day closes only players with a game on it can read it, so nobody copies a line. After that anyone can, in the game and on a plain web page.
 - **Sal opens and closes each day.** His closing post is built from the final board: how many games, the middle of the pack, the top three and the game everyone reacted to.

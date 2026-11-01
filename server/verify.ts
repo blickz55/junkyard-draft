@@ -2302,6 +2302,10 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       return e && reactions ? { ...r, payload: { hash: p.hash, seed: e.seed, score: e.score, reactions } } : null;
     }
     if (r.kind === 'challenge') return { ...r, payload: { ...p, by: undefined, player: verifier.playerLabel(p.by as string, now) } };
+    if (r.kind === 'thread-reply' && p.kind === 'run') {
+      const e = verifier.entry(String(p.key), null, now);
+      return e ? { ...r, payload: { ...p, seed: e.seed, score: e.score, player: e.player, own: verifier.ownerOf(e.replayHash) === playerId } } : null;
+    }
     if (r.kind === 'crew-day')
       return { ...r, payload: { ...p, code: undefined, crew: verifier.group(String(p.code))?.name ?? null, top: verifier.playerLabel(p.top as string, now) } };
     return r;
@@ -2340,9 +2344,25 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     closings.set(key, { at: now.getTime(), text });
     return text;
   };
-  /** What `/daily` and `/weekly` add while writing is open: how much talk there is, which is also how the game knows there is any. */
-  const talkOf = (kind: 'daily' | 'weekly', key: string) =>
+  /** What `/daily`, `/weekly` and `/entry` add while writing is open: how much talk there is, which is also how the game knows there is any. */
+  const talkOf = (kind: 'daily' | 'weekly' | 'run', key: string) =>
     community && moderation?.enabled ? { talk: { posts: community.findThread(kind, key)?.postCount ?? 0 } } : {};
+  /** What a thread is about: a day, a week, or one checked game (0.11.6). The reveal gate of its yard covers it either way. */
+  const threadTarget = (key: string, now: Date) => {
+    if (/^[0-9a-f]{64}$/.test(key)) {
+      const e = verifier.entry(key, null, now);
+      return e ? { kind: 'run' as const, seed: e.seed, closed: false, owner: verifier.ownerOf(key), run: { player: e.player, score: e.score } } : null;
+    }
+    const rec = verifier.periodRecord(key, now);
+    if (!rec) return null;
+    return {
+      kind: isWeekId(key) ? ('weekly' as const) : ('daily' as const),
+      seed: rec.seed,
+      closed: Date.parse(rec.closesAt) <= now.getTime(),
+      owner: null,
+      run: null,
+    };
+  };
   /** Reaction counts on a board's rows (0.11.3): a run nobody reacted to carries no field. */
   const withReactions = <T extends { replayHash: string }>(entries: T[]): T[] => {
     if (!community || !entries.length) return entries;
@@ -2580,6 +2600,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           mine: viewer ? (community?.reactionOf(e.replayHash, viewer) ?? null) : null,
           own: !!viewer && verifier.ownerOf(e.replayHash) === viewer,
           seen: community?.seenBy(e.replayHash) ?? { times: 0, players: 0 },
+          ...talkOf('run', e.replayHash),
         });
       }
       if (req.method === 'GET' && url.pathname === '/weekly') {
@@ -3183,14 +3204,13 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         // a day's talk (0.11.5): the reveal gate covers the words as it covers the recordings
         if (!community || !moderation?.enabled) return json(503, { ok: false, code: 'writing-off', error: 'writing is not enabled on this verifier' });
         const now = new Date((opts.now ?? Date.now)());
-        const key = (url.searchParams.get('key') || '').slice(0, 16);
-        const rec = verifier.periodRecord(key, now);
-        if (!rec) return json(404, { ok: false, code: 'no-thread', error: 'no such day' });
-        const gate = verifier.revealGate(rec.seed, bearerId, now);
+        const key = (url.searchParams.get('key') || '').slice(0, 64);
+        const target = threadTarget(key, now);
+        if (!target) return json(404, { ok: false, code: 'no-thread', error: 'no such thread' });
+        const gate = verifier.revealGate(target.seed, bearerId, now);
         if (gate) return json(403, { ok: false, code: 'reveal-gate', ...gate });
-        const weekly = isWeekId(key);
-        const closed = Date.parse(rec.closesAt) <= now.getTime();
-        const thread = community.findThread(weekly ? 'weekly' : 'daily', key);
+        const { kind, seed, closed, run } = target;
+        const thread = community.findThread(kind, key);
         const page = thread
           ? community.threadPage(thread.id, { after: clampInt(url.searchParams.get('after'), 0, Number.MAX_SAFE_INTEGER, 0), viewer: bearerId })
           : { posts: [], next: null };
@@ -3198,10 +3218,11 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         return json(200, {
           ok: true,
           key,
-          kind: weekly ? 'weekly' : 'daily',
-          seed: rec.seed,
+          kind,
+          seed,
           closed,
-          foreman: { open: openingPost(key), close: closed ? closingOf(key, rec.seed, now) : null },
+          run,
+          foreman: { open: run ? null : openingPost(key), close: closed ? closingOf(key, seed, now) : null },
           posts: page.posts.map((p) => postView(p, bearerId, now)),
           next: page.next,
           count: thread?.postCount ?? 0,
@@ -3239,9 +3260,10 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
             const out = moderation.edit(bearerId, p.id, p.body);
             return out.ok ? json(200, { ok: true, post: postView(out.post, bearerId, now) }) : refusal(out);
           }
-          const key = typeof p.key === 'string' ? p.key.slice(0, 16) : '';
-          const seed = verifier.periodRecord(key, now)?.seed;
-          if (!seed) return json(404, { ok: false, code: 'no-thread', error: 'no such day' });
+          const key = typeof p.key === 'string' ? p.key.slice(0, 64) : '';
+          const target = threadTarget(key, now);
+          if (!target) return json(404, { ok: false, code: 'no-thread', error: 'no such thread' });
+          const { seed } = target;
           const gate = verifier.revealGate(seed, bearerId, now);
           if (gate) return json(403, { ok: false, code: 'reveal-gate', ...gate });
           if (!verifier.player(bearerId)) return json(422, { ok: false, code: 'no-name', error: 'choose a name before writing' });
@@ -3249,7 +3271,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           const hash = typeof p.hash === 'string' ? p.hash.slice(0, 64) : null;
           if (hash && verifier.entry(hash, null, now)?.seed !== seed)
             return json(422, { ok: false, code: 'bad-run', error: 'no checked game of this yard with that hash' });
-          const out = moderation.write(bearerId, community.threadFor(isWeekId(key) ? 'weekly' : 'daily', key).id, p.body, hash);
+          const out = moderation.write(bearerId, community.threadFor(target.kind, key, null, target.owner).id, p.body, hash);
           return out.ok ? json(200, { ok: true, post: postView(out.post, bearerId, now) }) : refusal(out);
         });
       }

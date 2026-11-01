@@ -39,7 +39,7 @@ import { medalFor, medalsLine, type Medals } from '../daily/medals';
 import { openPolicy, openPrivacy, openThread } from './panels';
 import { reactionLine, reactionTotal, type ReactionCounts } from '../content/reactions';
 import { loadReactions } from '../render/reactions';
-import { reactionBar } from './ReactionBar';
+import { reactionBar, talkButton } from './ReactionBar';
 import { syncNow } from '../render/link';
 import { recordWatched } from '../render/storage';
 import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
@@ -189,6 +189,7 @@ export function mountResults(
     : null;
   const social = h('div', { class: 'jd-dim', tid: 'results-social', style: 'font-size:0.8125em; margin-top:0.25em' });
   const talkSlot = h('div', { tid: 'results-talk-slot', style: 'margin-top:0.25em' });
+  const gameTalkSlot = h('div', { tid: 'results-game-talk-slot', style: 'margin-top:0.25em' });
   const header = h(
     'div',
     { style: 'text-align:center' },
@@ -197,8 +198,9 @@ export function mountResults(
     headline,
     rankBlock,
     social,
+    gameTalkSlot,
     talkSlot,
-    o.replayed && o.replayHash ? reactionBar(verifierUrl, o.replayHash) : null,
+    o.replayed && o.replayHash ? reactionBar(scene, verifierUrl, o.replayHash) : null,
     deltas,
     h(
       'div',
@@ -367,6 +369,7 @@ export function mountResults(
       .filter(Boolean)
       .join(' · ');
     if (r.seen.players) recordWatched({ seed: run.seed, score: run.score, times: r.seen.times, players: r.seen.players, at: new Date().toISOString() });
+    if (r.talk && !o.replayed) gameTalkSlot.replaceChildren(talkButton(scene, verifierUrl, hash, r.talk.posts)); // the talk on a game of yours shows on its results (0.11.6)
   };
 
   /** Everyone today, first (PLAN-v1 0.4.1): where this game sits among real checked games; with fewer than five, the entries that exist and never an invented population. */

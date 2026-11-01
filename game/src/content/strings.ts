@@ -59,6 +59,8 @@ export const STRINGS = {
   'home.talk': s("Today's talk", 'link in the footer of Home while writing is open'),
   'home.talkCount': s("Today's talk ({n})", 'the same with the number of posts'),
   'results.talk': s('Talk about this yard', 'button once a game is checked on a daily or a weekly'),
+  'results.gameTalk': s('Talk about this game', 'button on a recording and on your own checked game'),
+  'results.gameTalkCount': s('Talk about this game ({n})', 'the same with the number of posts'),
   'title.reportedNote': s(
     'Your name was reported. It shows as "{label}" on the boards until a person reviews it. Your scores are safe.',
     'under the player button',

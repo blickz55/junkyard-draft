@@ -82,6 +82,7 @@ export interface Thread {
   kind: ThreadKind;
   key: string;
   title: string | null;
+  /** whose thread it is: a run's owner, a topic's author */ authorId: string | null;
   postCount: number;
   lastPostAt: number | null;
   createdAt: number;
@@ -182,6 +183,7 @@ const threadOf = (r: Record<string, unknown>): Thread => ({
   kind: r.kind as ThreadKind,
   key: r.key as string,
   title: r.title as string | null,
+  authorId: r.author_id as string | null,
   postCount: r.post_count as number,
   lastPostAt: r.last_post_at as number | null,
   createdAt: r.created_at as number,
@@ -303,8 +305,14 @@ export class CommunityStore {
   }
 
   /** The thread for a daily, a week, a run or a hub topic, made on first use. */
-  threadFor(kind: ThreadKind, key: string, title: string | null = null): Thread {
-    this.sql('INSERT INTO threads (kind, key, title, created_at) VALUES (?, ?, ?, ?) ON CONFLICT (kind, key) DO NOTHING').run(kind, key, title, this.now());
+  threadFor(kind: ThreadKind, key: string, title: string | null = null, authorId: string | null = null): Thread {
+    this.sql('INSERT INTO threads (kind, key, title, author_id, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (kind, key) DO NOTHING').run(
+      kind,
+      key,
+      title,
+      authorId,
+      this.now(),
+    );
     return threadOf(this.sql('SELECT * FROM threads WHERE kind = ? AND key = ?').get(kind, key) as Record<string, unknown>);
   }
   /** `post_count` counts what others can read, so a post joins it when it goes up and leaves when it comes down. */

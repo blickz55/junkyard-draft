@@ -9,7 +9,7 @@ import { choiceDialog } from './choice';
 import { openEmailLink } from './EmailLink';
 import { CSS } from '../render/palette';
 import { periodLabel } from '../content/division';
-import { utcDateTime } from '../content/format';
+import { money, utcDateTime } from '../content/format';
 import { reasonText } from '../content/inbox';
 import { t, type StringKey } from '../content/strings';
 import '../content/strings-more';
@@ -65,18 +65,15 @@ export function openThread(scene: Phaser.Scene, verifierUrl: string, key: string
     layer.remove();
     prev?.focus?.();
   };
+  const isGame = /^[0-9a-f]{64}$/.test(key);
+  const head = h('div', { class: 'jd-head', tid: 'thread-head' }, isGame ? t('thread.headGame') : t('thread.head', { yard: periodLabel(key) }));
   const salBox = h('div', { class: 'jd-thread-salbox', tid: 'thread-sal' });
   const list = h('div', { class: 'jd-thread-list', tid: 'thread-list' }, t('thread.loading'));
   const foot = h('div', { class: 'jd-thread-foot', tid: 'thread-foot' });
   const box = h(
     'div',
     { class: 'jd-dialog jd-panel jd-thread', role: 'dialog', ariaLabel: t('thread.aria'), tid: 'thread-dialog' },
-    h(
-      'div',
-      { class: 'jd-row jd-between' },
-      h('div', { class: 'jd-head' }, t('thread.head', { yard: periodLabel(key) })),
-      btn(t('common.close'), 'thread-close', close, { small: true }),
-    ),
+    h('div', { class: 'jd-row jd-between' }, head, btn(t('common.close'), 'thread-close', close, { small: true })),
     salBox,
     list,
     foot,
@@ -229,7 +226,7 @@ export function openThread(scene: Phaser.Scene, verifierUrl: string, key: string
     field.maxLength = POST_MAX;
     const count = h('span', { class: 'jd-dim', tid: 'thread-count' }, t('thread.count', { n: 0, max: POST_MAX }));
     field.addEventListener('input', () => (count.textContent = t('thread.count', { n: [...field.value].length, max: POST_MAX })));
-    const mine = loadSubmissions()[view.seed];
+    const mine = view.run ? undefined : loadSubmissions()[view.seed]; // a game's own talk has nothing to attach
     const attach = h('input', { type: 'checkbox', tid: 'thread-attach' });
     const status = h('div', { class: 'jd-amber jd-thread-note', tid: 'thread-status', role: 'status' });
     const send = btn(
@@ -276,6 +273,7 @@ export function openThread(scene: Phaser.Scene, verifierUrl: string, key: string
         list.textContent = t('thread.noLoad');
         return;
       }
+      if (view.run) head.textContent = t('thread.headRun', { player: view.run.player, score: money(view.run.score) });
       salBox.replaceChildren(
         ...[view.foreman.close, view.foreman.open]
           .filter((line): line is string => !!line)

@@ -185,6 +185,30 @@ test('a game can be attached, and another player watches it from the post', { ti
   assert.deepEqual(unexpected(ann), []);
 });
 
+test('a comment on a recording lands in the inbox of its owner, and the talk on a game shows on their results', { timeout: 60000 }, async () => {
+  // Ann is watching Sam's game from the last test
+  await ann.getByTestId('game-talk').click();
+  await ann.getByTestId('thread-dialog').waitFor();
+  await ann.jd.textMatches('thread-head', /^The talk on Sam#\w+'s \$\d+$/, 5000);
+  assert.equal(await ann.getByTestId('thread-attach').count(), 0, 'nothing to attach to a game');
+  await write(ann, 'That press is clever');
+  await row(ann, 'That press is clever').waitFor();
+  assert.deepEqual(unexpected(ann), []);
+
+  await sam.getByTestId('thread-close').click();
+  await sam.goto(f.gameUrl());
+  await sam.jd.title();
+  await sam.getByTestId('inbox').click();
+  const line = sam.getByTestId('inbox-thread-reply').filter({ hasText: 'New words on your' });
+  await line.waitFor();
+  assert.match(await line.textContent(), /New words on your \$\d+ on today's yard/);
+  await line.getByText('Read').click();
+  await row(sam, 'That press is clever').waitFor();
+  await sam.getByTestId('thread-close').click();
+  await sam.getByTestId('inbox-close').click();
+  assert.deepEqual(unexpected(sam), []);
+});
+
 test('a device with no email is shown the way in, and a closed day can be read with no game at all', { timeout: 60000 }, async () => {
   const guest = await f.page();
   await guest.goto(f.gameUrl());
