@@ -119,6 +119,8 @@ If anything sexual involving a minor ever reaches the queue: remove it, do not c
 Caddy can serve the game too. Add a second site block to the Caddyfile with `root * /srv/game`, `file_server`, `encode zstd gzip` and `header` lines copied from `dist/_headers` (the CSP line is the long one; `@bundle path /main-*.js` with `header @bundle Cache-Control "public, max-age=31536000, immutable"`), mount the unpacked `junkyard-draft-web-<version>.tar.gz` from the Release at `/srv/game`, and set `CORS_ORIGIN` to the apex as before. The deploy workflow's web job then does not apply; copy the bundle over SSH instead.
 
 ## Operations in one place
+- Runbooks for an incident, a leaked secret, a request about someone's data and a restore, and the patch cadence, are in `server/README.md`.
+- A scraper reads `/metrics` with `METRICS_TOKEN` (`deploy/verifier.env`): the numbers `/health` gives, in OpenMetrics text. A dashboard over it is yours to choose ⚑; nothing here depends on one.
 - Logs: `docker compose logs -f verifier` (JSON request lines, hashed addresses, no group codes; `tools/log-check.ts` proves it) and `docker compose logs -f caddy`.
 - Moderation: `node --import tsx tools/moderate.ts http://127.0.0.1:4400 list --token "$MODERATION_TOKEN"` on the VPS (the token never leaves it).
 - Health fields for the SQLite trigger (`hotFileBytes`, `lastCommitMs`): `curl -s https://verify.<domain>/health`.

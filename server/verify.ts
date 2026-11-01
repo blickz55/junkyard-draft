@@ -82,6 +82,7 @@ import { Rng } from '../game/src/sim/rng';
 import { decodeReplay, canonicalReplayJson, type ReplayFile } from '../game/src/sim/replay';
 import { replay as replayRun, runStars, type RunState } from '../game/src/sim/run';
 import { RULES_VERSION } from '../game/src/sim/types';
+import { openMetrics, OPENMETRICS_TYPE, type Metric } from './metrics';
 import { PushStore, PushError, validateHour, validateOffset, validateSocial, validateSubscription } from './push';
 import { COMMUNITY_DB, CommunityStore, MAX_INBOX_PAGE, type InboxRow } from './community';
 import { cosmeticById, lookFrom, unlockedBy, type Progress } from '../game/src/content/cosmetics';
@@ -2184,6 +2185,7 @@ export interface ServerOptions {
   announcer?: Announcer | null;
   /** moderator token (PLAN-v4 0.7.7): X-Moderation-Token on /moderation/*; null or empty leaves those endpoints answering 403 */
   moderationToken?: string | null;
+  /** turns on GET /metrics (0.12.5) */ metricsToken?: string | null;
   /** POST /verify limit per client IP per window (default 60 per 60 s); null disables */
   rateLimit?: { limit: number; windowMs: number } | null;
   /** honour X-Forwarded-For (only behind a proxy you control) */
@@ -2495,6 +2497,51 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       const social = ({ 'thread-reply': 'reply', challenge: 'challenge' } as const)[kind];
       if (social) void push.social([player, ...community.deviceKeysOf(player)], social);
     };
+  const metricsToken = opts.metricsToken || null;
+  /** What /metrics says (0.12.5): the numbers /health gives, and nothing that names anyone. */
+  const metricsNow = (): Metric[] => {
+    const h = verifier.health;
+    const c = community?.health();
+    const r = verify?.stats;
+    return [
+      { name: 'jd_up', help: 'The verifier is answering.', type: 'gauge', value: 1 },
+      { name: 'jd_uptime_seconds', help: 'Seconds since this process started.', type: 'gauge', value: Math.round((Date.now() - started) / 1000) },
+      { name: 'jd_entries', help: 'Checked games on the boards under the current rules.', type: 'gauge', value: verifier.size },
+      { name: 'jd_entries_stored', help: 'Checked games kept, under any rules.', type: 'gauge', value: verifier.sizeAllVersions },
+      { name: 'jd_players', help: 'Players with a claimed name.', type: 'gauge', value: h.players },
+      { name: 'jd_hot_file_bytes', help: 'Size of the board file: the SQLite trigger is 5 MB.', type: 'gauge', value: h.hotFileBytes },
+      { name: 'jd_last_commit_ms', help: 'How long the last board write took: the SQLite trigger is 50 ms.', type: 'gauge', value: h.lastCommitMs },
+      { name: 'jd_commits', help: 'Board writes since this process started.', type: 'counter', value: h.commits },
+      { name: 'jd_cold_bytes', help: 'Size of closed days on disk.', type: 'gauge', value: h.coldBytes },
+      { name: 'jd_cold_days', help: 'Closed days in cold storage.', type: 'gauge', value: verifier.cold.dayCount },
+      {
+        name: 'jd_limiter_keys',
+        help: 'Addresses or players each rate limiter is tracking.',
+        type: 'gauge',
+        label: 'limiter',
+        value: { ip: rl?.keys ?? 0, player: prl.keys, read: readRl?.keys ?? 0, write: writeRl?.keys ?? 0, events: erl?.keys ?? 0 },
+      },
+      ...(r
+        ? ([
+            { name: 'jd_resim_jobs', help: 'Replays re-simulated since this process started.', type: 'counter', value: r.jobs },
+            { name: 'jd_resim_timeouts', help: 'Re-simulations that ran past the cap.', type: 'counter', value: r.timeouts },
+            { name: 'jd_resim_queued', help: 'Replays waiting to be re-simulated.', type: 'gauge', value: r.queued },
+          ] as Metric[])
+        : []),
+      ...(c
+        ? ([
+            { name: 'jd_community_accounts', help: 'Accounts in the community store.', type: 'gauge', value: c.accounts },
+            { name: 'jd_community_threads', help: 'Threads.', type: 'gauge', value: c.threads },
+            { name: 'jd_community_posts', help: 'Posts.', type: 'gauge', value: c.posts },
+            { name: 'jd_community_bytes', help: 'Size of the community store.', type: 'gauge', value: c.bytes },
+          ] as Metric[])
+        : []),
+      ...(moderation?.enabled
+        ? ([{ name: 'jd_queue_waiting', help: 'Posts waiting for a person.', type: 'gauge', value: community?.queueStats().waiting ?? 0 }] as Metric[])
+        : []),
+      ...(push ? ([{ name: 'jd_push_subscriptions', help: 'Devices with the reminder on.', type: 'gauge', value: push.count }] as Metric[]) : []),
+    ];
+  };
   /** How far a player has come, across every device they have played on (0.11.12). */
   const progressOf = (player: string): Progress => {
     const ids = [player, ...(community?.deviceKeysOf(player) ?? [])];
@@ -2675,6 +2722,16 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           historyStart: verifier.historyStart(new Date((opts.now ?? Date.now)())),
           log: 'json',
         }); // 0.8.1: the SQLite trigger's inputs, the par queue and limiter cardinalities, visible
+      if (req.method === 'GET' && url.pathname === '/metrics') {
+        // 0.12.5: the same numbers for a scraper; no token set, no endpoint
+        if (!metricsToken) return json(404, { ok: false, error: 'not found' });
+        const given = Buffer.from(req.headers.authorization ?? '');
+        const want = Buffer.from(`Bearer ${metricsToken}`);
+        if (given.length !== want.length || !timingSafeEqual(given, want))
+          return json(401, { ok: false, error: 'token required' }, { 'WWW-Authenticate': 'Bearer' });
+        res.writeHead(200, { 'Content-Type': OPENMETRICS_TYPE, 'Cache-Control': 'no-store', 'X-Request-Id': reqId });
+        return res.end(openMetrics(metricsNow()));
+      }
       if (req.method === 'GET' && readRl) {
         const r = readRl.take(ip);
         if (!r.ok)
@@ -4230,6 +4287,7 @@ if (isMain) {
     verify,
     announcer,
     moderationToken,
+    metricsToken: process.env.METRICS_TOKEN || null,
   });
   server.listen(port, host, () =>
     console.log(

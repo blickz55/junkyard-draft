@@ -1,8 +1,9 @@
 /**
  * Smoke test for a running verifier (the Docker image in CI, or any URL): waits for /health, builds a legal finished
  * replay with the real simulation, submits it, and checks the board. With --expect-entries N it only checks that the
- * board for the smoke seed holds N entries (used after a container restart to prove the volume persisted).
- *   node --import tsx tools/image-smoke.ts http://127.0.0.1:4400 [--expect-entries 1] [--seed image-smoke]
+ * board for the smoke seed holds N entries (used after a container restart to prove the volume persisted). With --metrics-token T it also scrapes
+ * /metrics once and reads the entries back from it (0.12.5).
+ *   node --import tsx tools/image-smoke.ts http://127.0.0.1:4400 [--expect-entries 1] [--seed image-smoke] [--metrics-token T]
  * Exit 0 on success, 1 on any failed check, 2 on usage.
  */
 import { apply, newRun } from '../game/src/sim/run';
@@ -91,6 +92,16 @@ async function main() {
   if (wk.minted !== true || !/^weekly-\d{4}-W\d{2}-[a-z2-7]{8}$/.test(wk.seed ?? '') || !/^[0-9a-f]{64}$/.test(wk.commitment ?? ''))
     fail(`/weekly is not a minted weekly: ${JSON.stringify(wk)}`);
   console.log(`weekly ${wk.week} minted as ${wk.seed}`);
+  const metricsToken = flag('metrics-token');
+  if (metricsToken) {
+    const res = await fetch(`${url}/metrics`, { headers: { Authorization: `Bearer ${metricsToken}` } });
+    const text = await res.text();
+    if (res.status !== 200 || !res.headers.get('content-type')?.startsWith('application/openmetrics-text') || !text.endsWith('# EOF\n'))
+      fail(`/metrics answered ${res.status}: ${text.slice(0, 200)}`);
+    if (!/^jd_up 1$/m.test(text) || !/^jd_entries [1-9]\d*$/m.test(text)) fail(`/metrics does not read back the entry: ${text.slice(0, 400)}`);
+    if ((await fetch(`${url}/metrics`)).status !== 401) fail('/metrics answered without its token');
+    console.log(`metrics scraped: ${text.split('\n').filter((l) => l.startsWith('# TYPE')).length} metrics`);
+  }
   const twoBack = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
   const old = (await (await fetch(`${url}/daily?date=${twoBack}`)).json()) as { final?: boolean; frozenAt?: string | null };
   if (old.final !== true || !old.frozenAt) fail(`a day two days back should be final: ${JSON.stringify(old)}`);

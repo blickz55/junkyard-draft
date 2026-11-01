@@ -24,6 +24,7 @@ Protocol level 3 (PLAN-v3 §1, reported by `/health`; 3 since 0.11.3, every step
 | GET | `/me/cosmetics` (bearer) | what is earned (0.11.12): `{ ok, owned, look: { yard, skin, title }, progress: { days, trophies } }`. Asking also writes what has just been earned, with one inbox line each; `/me/divisions` does the same and adds `look`. A board row carries `badge`, a post `badge`, a card `badge`, `GET /replay` the author's `look` |
 | POST | `/me/cosmetics` `{ id, on }` (bearer) | wear one or take it off, one of a kind at a time: 403 `locked` when not earned, 422 `bad-cosmetic` when no such thing. Needs a key, not an email |
 | GET/POST | `/me/card` `{ private }` (bearer) | read or set the switch. Needs a key, not an email |
+| GET | `/metrics` (`Authorization: Bearer <METRICS_TOKEN>`) | what `/health` says, as OpenMetrics text (0.12.5): counts, sizes and durations, nothing that names anyone. 404 with no token set, 401 with the wrong one. CI scrapes it once on the image |
 | GET | `/hub` · `/community/` · `/community/hub/<category>` · `/community/topic/<id>` | the hub for the game, and as plain pages with no script (0.11.10): `{ ok, open, categories: [{ key, posts, topics }], days }`; a 503, or a 404 page, while writing is off |
 | POST | `/hub/topic` `{ category, title, body }` (bearer, linked, with a name) | a topic of a player's own: 403 `hub-closed` until 50 people have posted in seven days; the title passes the filter and the classifier reads it with the first post; `{ ok, key, post }` |
 | POST | `/moderation/thread` `{ id, pinned?, locked? }` (moderator) | pin or close a thread; a closed thread answers 403 `locked` to a post |
@@ -143,6 +144,8 @@ The hot file is now bounded by players, not days: ≈ players × 30 days × 310 
 
 What the earlier whole-board numbers say: an entry costs ~310 bytes and a stored replay ~700 bytes; the per-seed caps bound each day, but every daily is a new seed, so the file grows without bound in *days* (about 85 KB per day per 100 players). A web beta of up to ~100 daily players stays under the trigger for roughly two months; 1,000 players cross the size trigger inside a month while commit latency is still fine (~30 ms at 11 MB on this machine, slower on a small VPS). Decision recorded here, not guessed: **storage stays JSON for the 0.6.8 beta; the first v0.7 storage item is either SQLite or archive compaction** (keep every frozen day's entries, drop stored replays below the top 10 once a day is older than ~30 days: replays are two thirds of the year-long file), to be chosen with the beta's real numbers. Re-run the tool after any change to retention or the entry shape.
 
+**The decision, recorded again (0.12.5):** no beta month has run, so `/health` has not crossed the trigger, and the board stays on the JSON file with the hot/cold split. The arithmetic above says the size trigger comes at about 550 daily players. `jd_hot_file_bytes` and `jd_last_commit_ms` on `/metrics` are the numbers to watch, and the first beta month that crosses either starts the move.
+
 ## Policy
 The fairness and verification policy players see in the game (title and results: "Fairness policy") is generated from this code by `npm run policy` into `game/public/policy.json` and `docs/POLICY.md` (PLAN-v3 0.6.5). The limits above are the exported `DEFAULT_*` constants; changing one regenerates the policy or fails `tests/policy.test.ts`.
 
@@ -168,6 +171,50 @@ A rules bump (`RULES_VERSION`) changes what the verifier accepts; entries and re
 3. Publish the web build and the desktop installer the same hour; the title's archived-bests block tells upgrading players that old replays and saves no longer verify.
 4. Rollback: redeploy the previous bundle over the same data. Expect: the old version ranks again with replays intact; new-version entries stay stored and refused. Nothing is deleted in either direction.
 `node --import tsx tools/rehearse-rollback.ts` performs steps 2 and 4 against bundles built from `main` (previous version) and the working tree, on a temporary data directory, and writes `docs/baselines/0.5/rollback-rehearsal.json`; run it before every rules release.
+
+## Runbooks (0.12.5)
+Each starts in the same place, on the VPS: `curl -s http://127.0.0.1:4400/health` and `docker compose logs -f verifier`. Each ends the same way: a dated line in `docs/STATUS.md` saying what happened and what changed.
+
+### Incident: down, slow or wrong
+1. **Is it the verifier or the game?** The game is static on Cloudflare Pages and keeps working offline; a verifier that is down costs boards and writing, not play. `node --import tsx tools/hosted-check.ts https://<domain>` says which.
+2. **Down:** `docker compose ps`, then `docker compose restart verifier`. Writes are atomic, so a crash loses at most the request in flight. A boot loop with a corrupt `board.json` goes to the restore runbook below.
+3. **Slow:** read `lastCommitMs`, `hotFileBytes`, `resim` and `limiters` in `/health`, or `/metrics` if a scraper is on it. Under a flood, lower `RATE_LIMIT` and `READ_RATE_LIMIT` in `verifier.env` and restart; the baseline to compare with is `docs/baselines/0.8/load-0.8.2.json`.
+4. **Wrong scores:** stop and read before touching anything. The rules version must match the game (`/health`, `build.json`); a mismatch is a deployment problem and "Rules-version deployment and rollback" above covers it. A bug that made a day unfair is not fixed by re-scoring: it is voided and re-issued, never re-scored.
+5. **Say so.** Players read the Discord channel and the status line; a known outage announced beats a silent one fixed.
+
+### A secret leaked
+What each one lets someone do, and what rotating it costs:
+| Secret | With it someone can | To rotate | What breaks |
+|---|---|---|---|
+| `DAILY_SECRET` | pre-play every future day | a new value in `verifier.env`, restart | the commitment chain, once, the next day: announce it, and `tools/mint-check.ts` fails for that one day as it should |
+| `MODERATION_TOKEN` | decide reports, hide and rename players, ban, change the thresholds | a new value, restart | nothing for players. Read `moderation.jsonl` for what was done with it, and undo it |
+| `METRICS_TOKEN` | read how busy the server is | a new value, restart, the scraper's too | nothing |
+| VAPID private key | send your players a push notification | new keys, restart | every subscription: players turn the reminder on again |
+| `RESEND_API_KEY` | send mail as you | revoke in Resend first, then a new key, restart | sign-in links, for the minutes in between |
+| `ANTHROPIC_API_KEY` | spend your budget | revoke in the Anthropic console first, then a new key, restart | triage: posts wait in the queue and none goes past a person |
+| A device key or recovery code | play as that one player | the player signs in on a new device | that player only |
+
+A secret that reached a commit is leaked, whatever the history says after: rotate it, then clean up.
+
+### A request about someone's data (DSAR)
+The verifier knows a player by the hash of a device key, so the request has to come from the device, or from a device signed in to the same email.
+1. **Access and portability:** Privacy & data, Download my data; that is `GET /me/export`, and it holds everything under the player, earlier devices included.
+2. **Erasure:** Privacy & data, Delete my data; that is `DELETE /me`. Entries stay on the boards as "deleted", because other players' ranks rest on them; the name, the kept replays and the player id go. Backups age out after `backupKeepDays`, and the notice says so.
+3. **Someone who has lost the device:** with a linked email, sign in on a new device and do the same. With neither there is nothing that proves whose data it is, so nothing is released and nothing deleted on a name alone. Say so, kindly, and offer to rename or hide a name that is a real name (`tools/moderate.ts`).
+4. **Answer within a month** at `contactEmail`, and note the date, not the content, in a private log.
+
+### Restore
+1. Pick the archive: the newest `jd-backup-*.tar.gz`.
+2. `node --import tsx tools/restore-drill.ts <archive> --live http://127.0.0.1:4400` proves it before you need it: hashes, a verifier started on the copy, counts and sampled scores, and how far the live service has moved.
+3. `docker compose stop verifier`, unpack over the volume, `docker compose start verifier`. `DAILY_SECRET` is not in any backup: it comes from the password manager.
+4. `node --import tsx tools/mint-check.ts http://127.0.0.1:4400` and `tools/hosted-check.ts`. On a clean restore both pass. If the secret was lost, the chain breaks once: announce it.
+5. Anything accepted between the archive and the restore is gone. Say how long that was.
+
+## Keeping it patched (0.12.5)
+- **Node:** the image follows `node:24-alpine`, so a rebuild picks up the latest 24.x. Rebuild and deploy on the first Monday of each month, and within 72 hours of a Node security release that touches `http`, `crypto` or `sqlite`. Moving to the next LTS is a release of its own, with the full suite and the load test.
+- **Electron:** ships only with a desktop release. Move to the newest supported major at least every eight weeks while the desktop edition is offered, and within a week of a Chromium zero-day: the packaged-app smoke test and `tools/perf.ts` run on it first.
+- **Dependencies:** Dependabot opens npm and Actions updates weekly, and `npm audit --audit-level=high` fails CI. `web-push` is the one runtime dependency, so it is the one to read before merging.
+- **Phaser** stays pinned: it is built from source into `game/phaser-entry.cjs`, and an update goes through the perf gate and the golden corpus like a rules change.
 
 ## Operational notes
 - The default data directory is `<cwd>/server/data` for both the source run and the bundled run; set `DATA_DIR` (or `--data-dir`) in production.
