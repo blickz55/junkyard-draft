@@ -38,11 +38,12 @@ import { PLAIN, type Look } from '../../content/cosmetics';
 import { applyPaint } from '../paint';
 import { h, ui } from '../../ui/dom';
 import { choiceDialog } from '../../ui/choice';
+import { openFeedback } from '../../ui/panels';
 import { openJobCard } from '../../ui/JobCard';
 import { openHowTo } from '../../ui/HowTo';
 import { machineCard, rubbleCard } from '../../ui/Inspector';
 import { todaysYard } from '../daily';
-import { verifierUrl } from '../config';
+import { isTestEdition, verifierUrl } from '../config';
 import { BIN_H, BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y, binSlotXY, boardCameraCenter, fitBoard } from '../layout';
 import { installDevApi } from '../devapi';
 import { prefs } from '../prefs';
@@ -387,6 +388,7 @@ export class GameScene extends Phaser.Scene {
     this.tutorial = false;
     setOnboarded();
     recordLesson(lesson.n);
+    telemetry.track('lesson_done', { n: lesson.n });
     clearSave();
     choiceDialog(this, {
       title: t('lesson.doneTitle', { n: lesson.n }),
@@ -414,6 +416,7 @@ export class GameScene extends Phaser.Scene {
             });
           },
         },
+        ...(isTestEdition() ? [{ label: t('test.feedback'), tid: 'lesson-feedback', run: () => openFeedback(this, () => this.scene.start('Title')) }] : []),
         { label: t('lesson.doneHome'), tid: 'lesson-home', run: () => this.scene.start('Title') },
       ],
     });

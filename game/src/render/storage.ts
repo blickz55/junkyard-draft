@@ -21,6 +21,7 @@ const K = {
   bestsLegacy: 'jd.bests.v1',
   onboarded: 'jd.onboarded.v1',
   lessons: 'jd.lessons.v1',
+  feedback: 'jd.feedback.v1',
   player: 'jd.player',
   submissions: 'jd.submissions.v2',
   submissionsLegacy: 'jd.submissions.v1',
@@ -576,6 +577,21 @@ export const markTipRead = (id: string) => {
   }
 };
 
+/** The completion code a tester build's survey gave this device; the survey is one set of answers per device. */
+export function loadFeedbackCode(): string | null {
+  try {
+    return localStorage.getItem(K.feedback);
+  } catch {
+    return null;
+  }
+}
+export function saveFeedbackCode(code: string): void {
+  try {
+    localStorage.setItem(K.feedback, code);
+  } catch {
+    /* the server answers the same code again */
+  }
+}
 /** The lessons finished on this device, by number. */
 export function lessonsDone(): number[] {
   try {

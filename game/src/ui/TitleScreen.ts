@@ -45,6 +45,7 @@ import {
   openHub,
   openInbox,
   openLinkLanding,
+  openFeedback,
   openPaint,
   openPolicy,
   openPrivacy,
@@ -403,9 +404,12 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
       inboxLink.classList.add('jd-amber');
     });
   }
+  const feedbackLink = testing ? link(t('test.feedback'), 'feedback', () => openFeedback(scene)) : null;
+  feedbackLink?.classList.add('jd-amber');
   const footer = h(
     'nav',
     { class: 'jd-home-foot', tid: 'home-foot' },
+    feedbackLink,
     link(t('home.howto'), 'howto', () => openHowTo(scene, tips)),
     link(t('title.record'), 'record', () => openRecord(scene), t('title.recordTitle')),
     testing ? null : link(t('title.crews'), 'groups', () => openGroups(scene, verifierUrl, () => scene.scene.restart()), t('title.crewsTitle')),

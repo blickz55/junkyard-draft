@@ -16,6 +16,7 @@ phaserjs/
 node_modules/
 dist/
 dist-test/
+.test-link.json
 release/
 
 # control room raw telemetry (summaries live in docs/STATUS.md)

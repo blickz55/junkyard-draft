@@ -21,6 +21,8 @@ export const EVENTS = {
   first_run_complete: ['money'],
   round_complete: ['n'],
   game_complete: ['mode'],
+  game_begin: ['kind'],
+  lesson_done: ['n'],
   second_game_start: [],
   daily_start: [],
   daily_submit_result: ['result'],

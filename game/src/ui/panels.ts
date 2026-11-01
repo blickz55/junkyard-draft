@@ -21,6 +21,7 @@ export const openThread = (...args: Parameters<Panels['openThread']>) => opening
 export const openHub = (...args: Parameters<Panels['openHub']>) => opening(args[0], (m) => m.openHub(...args));
 export const openPlayerCard = (...args: Parameters<Panels['openPlayerCard']>) => opening(args[0], (m) => m.openPlayerCard(...args));
 export const openPaint = (...args: Parameters<Panels['openPaint']>) => opening(args[0], (m) => m.openPaint(...args));
+export const openFeedback = (...args: Parameters<Panels['openFeedback']>) => opening(args[0], (m) => m.openFeedback(...args));
 export const openKeys = (...args: Parameters<Panels['openKeys']>) => opening(args[0], (m) => m.openKeys(...args));
 export const openSettings = (...args: Parameters<Panels['openSettings']>) => opening(args[0], (m) => m.openSettings(...args));
 export const openRecord = (...args: Parameters<Panels['openRecord']>) => opening(args[0], (m) => m.openRecord(...args));

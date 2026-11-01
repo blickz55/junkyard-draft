@@ -7,6 +7,10 @@ older replays and saves on purpose.
 
 ### A private test link — 2026-11-01 (no rules change)
 - **A tester build:** the lessons, today's yard and practice yards on a private link, with no server. It says it is a test, and never tells anyone they are offline. Leaderboards, sharing, crews and the talk stay out of sight until there is a server and an address to share.
+- **Where testers stop:** the link records how far each tester got, step by step, within seconds and as the page closes, so someone who quits still leaves a mark. It is anonymous, Home says so, and Settings turns it off.
+- **A minute of questions:** six questions from Home, the end of a lesson or the results, ending in a completion code to paste back where the tester signed up. One set of answers per device, and the code can always be seen again.
+- **A report for the owner:** `npm run playtest:report` prints how far testers got, where they stopped, the slowest lesson steps and every answer next to what that person played.
+- **Privacy and Settings on the link:** a short notice saying what this build does replaces one that named a server which is not there, and the name and email sign-in, which need one, are gone from Settings.
 
 ### Rules version 5: belts and lessons — 2026-11-01 (the owner's second playtest; saves and scores from version 4 do not carry over)
 - **Three lessons, and every step is guided.** Each step says which part to take, lights the spot it goes on and says in plain words what it does. Every part in the game is placed by hand in one of them: lesson 1 the first line, lesson 2 plates and a second feed, lesson 3 finding the slowest machine. A lesson ends with its job done, with nothing left to finish alone. Home shows how many you have done, and any of them can be taken again.

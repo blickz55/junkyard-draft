@@ -61,7 +61,7 @@ pwa.register(import.meta.env.DEV || isTestEdition()); // 0.10.3: the service wor
 
 // opt-in funnel events go to the same verifier the boards use; nothing is sent unless the player turned it on
 if (isTestEdition()) useTestWords();
-telemetry.configure({ url: () => resolveVerifierUrl() });
+telemetry.configure({ url: () => (isTestEdition() ? location.origin : resolveVerifierUrl()), eager: isTestEdition() });
 telemetry.init();
 
 // Expose for dev tooling only (scene key lookups), behind the same gate as window.__jd; competitive authority never lives here.

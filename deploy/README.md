@@ -128,13 +128,32 @@ Caddy can serve the game too. Add a second site block to the Caddyfile with `roo
 
 ## A private test link for paid playtests
 
-A tester build needs no server, no domain and no secrets, so it can go out long before the rest of this page. `npm run build:test` writes `dist-test/`: the lessons, today's yard and practice yards, with everything that needs a server out of sight, and `noindex` so search engines stay away. There is no leaderboard, no talk and no record of what testers did, so what you learn comes from what you ask them.
+A tester build needs no game server, no domain and no secrets, so it can go out long before the rest of this page. `npm run build:test` writes `dist-test/`: the lessons, today's yard and practice yards, with everything that needs a server out of sight, and `noindex` so search engines stay away. A small worker (`deploy/test-link/worker.ts`) and a D1 database stand behind it and keep two things: anonymous play data from the game's fixed list, and a one-minute survey that ends in a completion code a tester pastes back where they signed up. There is no leaderboard and no talk.
 
-    npm run build:test
-    cp -r dist-test <an empty folder outside this repository>
-    cd <that folder>
-    npx wrangler@3 pages deploy dist-test --project-name <project> --branch main --commit-dirty=true
+The first time, from an empty folder outside this repository:
 
-Use version 3, and run it outside this repository. Since 2026, version 4 turns `pages project create` into a Workers deployment: it writes `wrangler.jsonc`, adds itself to `package.json` and publishes `dist/` on the account's `workers.dev` address, which also carries the name of the account's other project. A new project is `npx wrangler@3 pages project create <project> --production-branch main`.
+    npx wrangler@3 pages project create <project> --production-branch main
+    npx wrangler@3 d1 create <database>
+    npx wrangler@3 d1 execute <database> --remote --file <this repository>/deploy/test-link/schema.sql
 
-A fix goes out the same way and reaches a tester on their next load, because this build has no service worker. The address is unlisted, not protected: anyone who has it can play. Keep it out of this repository, which is public. To take it down, delete the project in the Cloudflare dashboard.
+Then write `.test-link.json` at the top of this repository, which Git ignores:
+
+    { "project": "<project>", "database": "<database>", "databaseId": "<the id d1 create printed>" }
+
+After that one command builds it and puts it online, and a fix reaches a tester on their next load, because this build has no service worker:
+
+    npm run deploy:test
+
+Use wrangler version 3, and run it outside this repository; the script does both. Since 2026, version 4 turns `pages project create` into a Workers deployment: it writes `wrangler.jsonc`, adds itself to `package.json` and publishes `dist/` on the account's `workers.dev` address, which also carries the name of the account's other project.
+
+Send testers the address. A service that gives each person an id can add it as `?tester=<id>`, and it is stored with their answers.
+
+    npm run playtest:report
+
+prints how far testers got, where they stopped, which lesson steps held them up, and every survey answer with its code and what that person played, so a code from someone who never played shows up as one. It reads the database with the Cloudflare login on this machine.
+
+The game tells testers that none of this outlives the test. When the test is over, save what you want (`reports/` is not in Git) and delete every row:
+
+    npm run playtest:report -- --json reports/playtest.json --wipe
+
+The address is unlisted, not protected: anyone who has it can play, and can write rows. Keep it out of this repository, which is public. To take it down, delete the project and the database in the Cloudflare dashboard.

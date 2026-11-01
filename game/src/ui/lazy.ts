@@ -3,6 +3,7 @@ export { openArchive } from './ArchivePanel';
 export { makeCard, saveCard } from '../render/card';
 export { recordClip, renderGif, saveClip } from '../render/clip';
 export { openDivision } from './DivisionPanel';
+export { openFeedback } from './FeedbackPanel';
 export { openFriends } from './FriendsPanel';
 export { openEmailLink, openLinkLanding } from './EmailLink';
 export { openGroups } from './GroupsPanel';

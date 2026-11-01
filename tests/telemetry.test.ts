@@ -1,5 +1,5 @@
 // Opt-in funnel client (PLAN-v1 0.3.7): nothing leaves the device until consent; once-per-install events; no seeds.
-import { test } from 'node:test';
+import { mock, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 const store = new Map<string, string>();
@@ -18,7 +18,7 @@ const store = new Map<string, string>();
   },
 } as Storage;
 
-const { telemetry } = await import('../game/src/render/telemetry');
+const { telemetry, gameKind } = await import('../game/src/render/telemetry');
 const { validateEvent, validateBatch, EVENTS, ONCE_EVENTS } = await import('../game/src/telemetry/events');
 
 test('validateEvent is total (review F01): any JSON shape for name, props or at yields a rejection string, never a throw', () => {
@@ -183,6 +183,52 @@ test('telemetry opt-out (review F12): a send in flight when consent is withdrawn
   );
   assert.ok(!after.some((b) => b.events.some((e) => e.name === 'tip_opened')), 'the pre-opt-out event is never resent');
   telemetry.setEnabled(false);
+});
+
+test('a game says what kind it is and never which yard', () => {
+  assert.equal(gameKind('tutorial-1'), 'lesson-1');
+  assert.equal(gameKind('tutorial-3'), 'lesson-3');
+  assert.equal(gameKind('daily-2026-11-01'), 'daily');
+  assert.equal(gameKind('some-yard'), 'practice');
+});
+
+test('a tester build (eager) sends within seconds and on leaving: a tester who quits never opens the page again', async () => {
+  store.clear();
+  const sends: { body: string; beacon: boolean }[] = [];
+  const quiet = () => Promise.resolve(true);
+  telemetry.configure({
+    eager: true,
+    url: () => 'https://link.test',
+    sender: async (_url, body, beacon) => {
+      sends.push({ body, beacon });
+      return true;
+    },
+  });
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    telemetry.track('undo_used');
+    mock.timers.tick(1999);
+    assert.equal(sends.length, 0);
+    mock.timers.tick(1);
+    await Promise.resolve();
+    assert.equal(sends.length, 1);
+    assert.equal(sends[0].beacon, false);
+    assert.match(sends[0].body, /undo_used/);
+    await telemetry.flush();
+    const page = new EventTarget();
+    (globalThis as unknown as { window: EventTarget }).window = page;
+    telemetry.init();
+    await telemetry.flush();
+    page.dispatchEvent(new Event('pagehide'));
+    const last = sends[sends.length - 1];
+    assert.equal(last.beacon, true, 'what happened last goes out as the page closes');
+    assert.match(last.body, /session_end/);
+  } finally {
+    mock.timers.reset();
+    delete (globalThis as unknown as { window?: EventTarget }).window;
+    telemetry.configure({ eager: false, sender: quiet });
+    await telemetry.flush();
+  }
 });
 
 test('telemetry vocabulary: every once-event is in the list; validateBatch enforces consent, id shape and bounds', () => {

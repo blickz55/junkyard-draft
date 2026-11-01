@@ -10,6 +10,7 @@ import { prefs } from '../render/prefs';
 import { telemetry } from '../render/telemetry';
 import { diagnostics } from '../render/errlog';
 import { loadSettings, updateSettings } from '../render/storage';
+import { isTestEdition } from '../render/config';
 import { chatter } from '../content/foreman';
 import { t, type StringKey } from '../content/strings';
 import { playerLabel, identityDialog } from './identityDialog';
@@ -230,7 +231,9 @@ export function openSettings(scene: Phaser.Scene, verifierUrl: string, restart: 
         btn(t('keys.open'), 'settings-keys', () => openKeys(scene), { small: true }),
       ),
     ),
-    section(t('settings.player'), row(t('home.name'), playerBtn), playerNote, row(t('settings.email'), linkBtn), row(t('settings.sal'), chatterBtn)),
+    isTestEdition() // a name and a sign-in both need a server
+      ? section(t('settings.player'), row(t('settings.sal'), chatterBtn))
+      : section(t('settings.player'), row(t('home.name'), playerBtn), playerNote, row(t('settings.email'), linkBtn), row(t('settings.sal'), chatterBtn)),
     section(
       t('settings.data'),
       h('div', { class: 'jd-set-row' }, statsBtn, privacyBtn, diagBtn),

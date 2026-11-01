@@ -36,7 +36,7 @@ import { labelFor } from '../identity/identity';
 import { todaySeed, revealGate, todayUTC } from '../render/daily';
 import { shiftUtcDate } from '../daily/streak';
 import { medalFor, medalsLine, type Medals } from '../daily/medals';
-import { openPlayerCard, openPolicy, openPrivacy, openThread } from './panels';
+import { openFeedback, openPlayerCard, openPolicy, openPrivacy, openThread } from './panels';
 import { reactionLine, reactionTotal, type ReactionCounts } from '../content/reactions';
 import { loadReactions } from '../render/reactions';
 import { friendButton, reactionBar, talkButton } from './ReactionBar';
@@ -1097,6 +1097,7 @@ export function mountResults(
       canSubmit ? submitBtn : null,
       retryBtn,
       testing ? null : (shareNativeBtn ?? shareBtn),
+      testing ? btn(t('test.feedback'), 'feedback', () => openFeedback(scene)) : null,
       btn(t('common.titleScreen'), 'home', () => scene.scene.start('Title')),
     ),
     status,

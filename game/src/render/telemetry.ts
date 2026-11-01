@@ -14,6 +14,7 @@ import { loadSettings, updateSettings, loadTelemetryState, saveTelemetryState, c
 export type Sender = (url: string, body: string, beacon: boolean) => Promise<boolean>;
 
 const FLUSH_MS = 8000;
+const EAGER_FLUSH_MS = 2000;
 const MAX_QUEUE = 200;
 
 const defaultSender: Sender = async (url, body, beacon) => {
@@ -38,6 +39,12 @@ const browserOptedOut = (): boolean =>
   typeof navigator !== 'undefined' &&
   ((navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl === true || navigator.doNotTrack === '1');
 
+/** What kind of game a yard is, without naming the yard. */
+export function gameKind(seed: string): string {
+  const lesson = /^tutorial-(\d)/.exec(seed);
+  return lesson ? `lesson-${lesson[1]}` : seed.startsWith('daily-') ? 'daily' : 'practice';
+}
+
 class Telemetry {
   private queue: TelemetryEvent[] = [];
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -46,6 +53,8 @@ class Telemetry {
   private dropped = 0;
   private sender: Sender = defaultSender;
   private urlProvider: () => string = () => '';
+  /** a tester build sends every couple of seconds and on leaving, because a tester who quits never opens the page again */
+  private eager = false;
   private flushing: Promise<boolean> | null = null;
   /** bumped on every opt-out: completions from an older generation must not touch the queue or counters (review F12) */
   private generation = 0;
@@ -56,9 +65,10 @@ class Telemetry {
     if (st.installId) saveTelemetryState({ ...st, pending: this.queue.slice(-MAX_QUEUE) });
   }
   /** Wire the transport (the game sets the verifier URL provider; tests inject a sender). */
-  configure(o: { url?: () => string; sender?: Sender }) {
+  configure(o: { url?: () => string; sender?: Sender; eager?: boolean }) {
     if (o.url) this.urlProvider = o.url;
     if (o.sender) this.sender = o.sender;
+    if (o.eager != null) this.eager = o.eager;
   }
 
   get enabled(): boolean {
@@ -124,10 +134,13 @@ class Telemetry {
     this.persistQueue();
     if (this.queue.length >= 20) void this.flush();
     else if (!this.timer)
-      this.timer = setTimeout(() => {
-        this.timer = null;
-        void this.flush();
-      }, FLUSH_MS);
+      this.timer = setTimeout(
+        () => {
+          this.timer = null;
+          void this.flush();
+        },
+        this.eager ? EAGER_FLUSH_MS : FLUSH_MS,
+      );
     return true;
   }
 
@@ -137,6 +150,7 @@ class Telemetry {
     const st = loadTelemetryState();
     const games = st.games + 1;
     saveTelemetryState({ ...st, games });
+    this.track('game_begin', { kind: gameKind(seed) });
     if (games === 2) this.track('second_game_start');
     if (seed.startsWith('daily-')) this.track('daily_start');
   }
@@ -177,6 +191,7 @@ class Telemetry {
       window.addEventListener('pagehide', () => {
         if (!this.enabled) return;
         this.track('session_end', { minutes: Math.round((Date.now() - this.startedAt) / 60000) });
+        if (this.eager) void this.flush(true);
       });
     }
   }

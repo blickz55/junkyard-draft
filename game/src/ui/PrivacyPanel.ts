@@ -8,7 +8,8 @@
  * results screen. A modal layer like the policy panel. The legal documents are exact texts outside the string table.
  */
 import type Phaser from 'phaser';
-import { h, btn, ui, dialog } from './dom';
+import { h, btn, ui, dialog, alertText } from './dom';
+import { isTestEdition } from '../render/config';
 import { loadIdentity, exportMyData, deleteMyData, bearerAllowed } from '../render/identity';
 import { cardHidden, setCardHidden } from '../render/playercard';
 import { recordLook, savePlayer } from '../render/storage';
@@ -28,6 +29,7 @@ interface LegalDoc {
 }
 
 export async function openPrivacy(scene: Phaser.Scene, verifierUrl: string, tab: LegalId = 'privacy', onChanged?: () => void): Promise<void> {
+  if (isTestEdition()) return alertText(scene, t('privacy.head'), t('test.privacy')); // no server here: the notice below would name one, and its two buttons could not work
   const { default: legal } = await import('../../public/legal.json');
   const DOCS = legal.docs as LegalDoc[];
   const prev = document.activeElement as HTMLElement | null;

@@ -56,7 +56,7 @@ function keepFocusIn(layer: HTMLElement, e: KeyboardEvent) {
   const first = all[0],
     last = all[all.length - 1];
   const at = document.activeElement as HTMLElement | null;
-  const outside = !at || !layer.contains(at);
+  const outside = !at || !layer.contains(at) || at.getAttribute('tabindex') === '-1'; // a dialog that holds focus itself: Tab starts from its ends, not from what comes before it
   if (outside || (e.shiftKey ? at === first : at === last)) {
     e.preventDefault();
     (e.shiftKey ? last : first).focus();
