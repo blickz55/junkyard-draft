@@ -2,7 +2,7 @@
 // Puts the tester build online: `npm run deploy:test`. Builds dist-test/, then deploys it from a scratch folder outside this repository
 // with wrangler 3, because wrangler 4 turns Pages commands into a Workers deployment and rewrites the repository to do it. The project
 // and database names live in .test-link.json, which is not in Git: this repository is public and the link is meant to stay unlisted.
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -19,10 +19,6 @@ fs.writeFileSync(
   path.join(cwd, 'wrangler.toml'),
   `name = "${project}"\npages_build_output_dir = "./dist-test"\ncompatibility_date = "2026-10-01"\n\n[[d1_databases]]\nbinding = "DB"\ndatabase_name = "${database}"\ndatabase_id = "${databaseId}"\n`,
 );
-execFileSync('npx', ['--yes', 'wrangler@3', 'pages', 'deploy', 'dist-test', '--project-name', project, '--branch', 'main', '--commit-dirty=true'], {
-  cwd,
-  shell: true,
-  stdio: 'inherit',
-});
+execSync(`npx --yes wrangler@3 pages deploy dist-test --project-name ${project} --branch main --commit-dirty=true`, { cwd, stdio: 'inherit' });
 fs.rmSync(cwd, { recursive: true, force: true });
 console.log(`deployed commit ${commit} to https://${project}.pages.dev/`);

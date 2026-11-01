@@ -5,7 +5,7 @@
  *   npm run playtest:report [-- --json out.json] [--wipe]
  * --wipe deletes every row after printing them: the promise the test version makes is that nothing outlives the test.
  */
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -17,18 +17,25 @@ const { database } = JSON.parse(fs.readFileSync('.test-link.json', 'utf8')) as {
 const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-playtest-'));
 
 function query<T>(sql: string): T[] {
-  const out = execFileSync('npx', ['--yes', 'wrangler@3', 'd1', 'execute', database, '--remote', '--json', '--command', `"${sql}"`], {
+  // wrangler's complaints stay on screen: an expired Cloudflare login has to say so
+  const out = execSync(`npx --yes wrangler@3 d1 execute ${database} --remote --json --command "${sql}"`, {
     cwd,
-    shell: true,
     encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore'],
+    stdio: ['ignore', 'pipe', 'inherit'],
     maxBuffer: 256 * 1024 * 1024,
   });
   return (JSON.parse(out.slice(out.indexOf('['))) as { results: T[] }[])[0].results;
 }
 
-const events = query<EventRow>('SELECT install, name, props, at FROM events ORDER BY install, at');
-const feedback = query<FeedbackRow>('SELECT code, install, tester, answers, received FROM feedback ORDER BY received');
+let events: EventRow[];
+let feedback: FeedbackRow[];
+try {
+  events = query<EventRow>('SELECT install, name, props, at FROM events ORDER BY install, at');
+  feedback = query<FeedbackRow>('SELECT code, install, tester, answers, received FROM feedback ORDER BY received');
+} catch {
+  console.error('Could not read the test link. If the Cloudflare login has expired, run this and try again:\n  npx wrangler@3 login');
+  process.exit(1);
+}
 const summary = summarize(events, feedback);
 console.log(render(summary));
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(summary, null, 2) + '\n');
