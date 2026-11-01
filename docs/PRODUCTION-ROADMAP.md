@@ -40,6 +40,7 @@
 | Weekly email digest (asked 2026-11-01) | **Dropped for 1.0.** Push and the inbox carry what it would have said. | Policy 3 and the privacy notice stand as written: no address is stored. The only mail the game sends is a sign-in link, so Resend's free plan covers it. The weekly division summary lived in the digest and goes with it. Listed in §10 so it is not lost. |
 | Buying belts (asked 2026-11-01) | **Yes: $20 each while building, out of the score, and conveyors leave the offers.** | Rules v5. Being short of belts was not the puzzle: extra belts added nothing to the autoplayer's score and a belt card was taken once in two games. Every card is now a machine. `docs/DESIGN.md` has the numbers. |
 | The lesson (asked 2026-11-01) | **Three lessons, every step guided, every part placed by hand.** | Rules v5, because lessons are scenario seeds. The lesson no longer ends in free shifts: it ends with its job done. |
+| The name (asked 2026-11-01) | **Decided after a name test with six people.** Day Job leads the research, Junkyard Draft is the fallback. | No domain is bought until then, so 0.8.5 waits for it. A US filing and one lawyer's opinion would add about $1,500–3,700, which §6.3 has no line for yet. The test is in `docs/ROADMAP.md`. |
 
 ## 2. Where we are: the evaluation digest
 

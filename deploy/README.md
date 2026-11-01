@@ -27,7 +27,7 @@ What is in this directory:
 `.env` and `verifier.env` are ignored by Git. Nothing in this directory holds a secret.
 
 ## 1. Domain ⚑
-1. Register the domain (`junkyarddraft.com` was free on 2026-10-29) at any registrar; point its nameservers at Cloudflare (free plan).
+1. **Wait for the name test** (`docs/ROADMAP.md`): the name decides the domain, so nothing is bought before it. Then register the domain at any registrar (`junkyarddraft.com` and `dayjobgame.com` were free on 2026-11-01) and point its nameservers at Cloudflare (free plan).
 2. In Cloudflare DNS, nothing for the apex yet (Pages adds it in step 4); for the verifier add `A verify → <VPS IPv4>` and `AAAA verify → <VPS IPv6>` with the proxy **off** (grey cloud). Caddy must see the client directly to get its certificate and the real address.
 3. Mailboxes (0.8.6): the privacy notice, the terms, the licence and the verifier's policy page print `contact@<domain>` and `moderation@<domain>` (`game/src/content/operator.ts`). Cloudflare Email Routing (free, the domain's Email tab) forwards both to your own address: add the two custom addresses, verify the destination, let it create the MX and SPF records. Send yourself a test mail to each. Then fill `OPERATOR.holder` with your legal name and `OPERATOR.jurisdiction` with where you live, run `npm run policy`, and commit: the data controller named in the notice has to be a person, not a handle.
 
