@@ -37,6 +37,7 @@ The man who has run this yard for thirty years and has seen every line a new han
 | results.* | the results screen by band: top (better than 80 %), upper (50 %), lower, few (under five checked games), offline, first game | no |
 | streak3 / streak7 / streak30 | the title, on the day a streak reaches 3, 7, 30 | no |
 | firstShare / firstCrew | once, after the first share copy and the first crew joined or created | no |
+| the day's talk | he opens every daily and weekly thread with a neutral line and closes it from the final board (0.11.5): the server writes these, so they live in `game/src/content/sal-posts.ts`, and **Sal: Quiet** does not touch them | no |
 
 Since rules v4 the instructions in a game are the coach's (`render/guide.ts`, one instruction at a time, docs/UX-STANDARD.md), so everything here is flavour: **Sal: Quiet** in Settings silences all of it.
 

@@ -344,6 +344,47 @@ export class CommunityStore {
     return { posts, next: rows.length > limit ? posts[limit - 1].id : null };
   }
 
+  /** A thread if it exists: reading never makes one. */
+  findThread(kind: ThreadKind, key: string): Thread | null {
+    const r = this.sql('SELECT * FROM threads WHERE kind = ? AND key = ?').get(kind, key) as Record<string, unknown> | undefined;
+    return r ? threadOf(r) : null;
+  }
+  threadById(id: number): Thread | null {
+    const r = this.sql('SELECT * FROM threads WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    return r ? threadOf(r) : null;
+  }
+  /** Who has words up in a thread, for the line that says there are more. Bounded, so a huge thread cannot make one post slow. */
+  threadAuthors(threadId: number, limit = 200): string[] {
+    return (
+      this.sql("SELECT DISTINCT author_id FROM posts WHERE thread_id = ? AND author_id IS NOT NULL AND state IN ('published', 'queued') LIMIT ?").all(
+        threadId,
+        limit,
+      ) as unknown as { author_id: string }[]
+    ).map((r) => r.author_id);
+  }
+  /** New words on a post: it comes down and goes back through the classifier, and whatever a person said about the old words no longer applies. */
+  rewritePost(id: number, body: string): Post | null {
+    return this.transaction(() => {
+      const before = this.post(id);
+      if (!before) return null;
+      const r = this.sql(
+        "UPDATE posts SET body = ?, edited_at = ?, state = 'hidden', triage_category = NULL, triage_score = NULL, triaged_at = NULL, reason_code = NULL, reviewed_at = NULL WHERE id = ? RETURNING *",
+      ).get(body, this.now(), id) as Record<string, unknown>;
+      if (VISIBLE.includes(before.state)) this.tally(before.threadId, -1, null);
+      return postOf(r);
+    });
+  }
+  /** A player takes their own post back: the words go at once, the row stays so a thread keeps its order. */
+  erasePost(id: number): Post | null {
+    return this.transaction(() => {
+      const before = this.post(id);
+      if (!before) return null;
+      const r = this.sql("UPDATE posts SET body = '', state = 'deleted', reason_code = 'author' WHERE id = ? RETURNING *").get(id) as Record<string, unknown>;
+      if (VISIBLE.includes(before.state)) this.tally(before.threadId, -1, null);
+      return postOf(r);
+    });
+  }
+
   /** Posts the classifier has not answered for, oldest first. */
   pendingPosts(limit: number): Post[] {
     return (this.sql("SELECT * FROM posts WHERE state = 'hidden' AND triaged_at IS NULL ORDER BY id LIMIT ?").all(limit) as Record<string, unknown>[]).map(
@@ -645,6 +686,22 @@ export class CommunityStore {
     ).all(JSON.stringify(hashes)) as unknown as { replay_hash: string; emote: string; n: number }[];
     for (const r of rows) out.set(r.replay_hash, { ...out.get(r.replay_hash), [r.emote]: r.n });
     return out;
+  }
+  /** The run with the most reactions among these, and how many; on a tie the first of the list, so a fixed board always answers the same. */
+  mostReacted(hashes: readonly string[]): { hash: string; n: number } | null {
+    const counts = new Map(
+      (
+        this.sql('SELECT replay_hash, COUNT(*) AS n FROM reactions WHERE replay_hash IN (SELECT value FROM json_each(?)) GROUP BY replay_hash').all(
+          JSON.stringify(hashes),
+        ) as unknown as { replay_hash: string; n: number }[]
+      ).map((r) => [r.replay_hash, r.n]),
+    );
+    let best: { hash: string; n: number } | null = null;
+    for (const hash of hashes) {
+      const n = counts.get(hash) ?? 0;
+      if (n && (!best || n > best.n)) best = { hash, n };
+    }
+    return best;
   }
   reactionOf(hash: string, playerId: string): string | null {
     const r = this.sql('SELECT emote FROM reactions WHERE replay_hash = ? AND player_id = ?').get(hash, playerId) as { emote: string } | undefined;

@@ -1029,6 +1029,10 @@ test('no free text outside the pipeline: a blocked string is refused by every fr
   const BLOCKED = `${BLOCKED_WORDS[0]}`;
   const pushes: Record<(typeof TEXT_FIELDS)[number], () => Promise<number>> = {
     'post (POST /posts)': async () => (await s.call('POST', '/posts', { bearer: s.sam, body: { key: CLOSED_DAY, body: BLOCKED } })).status,
+    'post edit (POST /posts/edit)': async () => {
+      const mine = await s.call('POST', '/posts', { bearer: s.sam, body: { key: CLOSED_DAY, body: 'fine words' } });
+      return (await s.call('POST', '/posts/edit', { bearer: s.sam, body: { id: (mine.json.post as unknown as { id: number }).id, body: BLOCKED } })).status;
+    },
     'appeal (POST /me/appeal)': async () => (await s.call('POST', '/me/appeal', { bearer: s.sam, body: { action, body: BLOCKED } })).status,
   };
   assert.deepEqual(Object.keys(pushes).sort(), [...TEXT_FIELDS].sort());

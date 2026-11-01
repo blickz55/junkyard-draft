@@ -9,7 +9,6 @@
  */
 import type Phaser from 'phaser';
 import { h, btn, ui, dialog } from './dom';
-import legal from '../../public/legal.json';
 import { loadIdentity, exportMyData, deleteMyData, bearerAllowed } from '../render/identity';
 import { savePlayer } from '../render/storage';
 import { saveGroup } from '../render/groups';
@@ -25,9 +24,10 @@ interface LegalDoc {
   summary: string;
   sections: { title: string; items: string[] }[];
 }
-const DOCS = legal.docs as LegalDoc[];
 
-export function openPrivacy(scene: Phaser.Scene, verifierUrl: string, tab: LegalId = 'privacy', onChanged?: () => void): void {
+export async function openPrivacy(scene: Phaser.Scene, verifierUrl: string, tab: LegalId = 'privacy', onChanged?: () => void): Promise<void> {
+  const { default: legal } = await import('../../public/legal.json');
+  const DOCS = legal.docs as LegalDoc[];
   const prev = document.activeElement as HTMLElement | null;
   const close = () => {
     layer.remove();
@@ -135,7 +135,7 @@ export function openPrivacy(scene: Phaser.Scene, verifierUrl: string, tab: Legal
         saveGroup(null);
         if (telemetry.enabled) telemetry.setEnabled(false);
         status.classList.remove('jd-red');
-        status.textContent = t('privacy.deleted', { n: r.anonymisedEntries, r: r.coldReplaysDropped, days: legalBackupDays() });
+        status.textContent = t('privacy.deleted', { n: r.anonymisedEntries, r: r.coldReplaysDropped, days: legalBackupDays(DOCS) });
         status.dataset.deleted = '1';
         (box.querySelector('[data-testid=privacy-close]') as HTMLElement | null)?.focus(); // the disabled delete button cannot keep focus: Esc must still close the panel (0.9.5)
         onChanged?.();
@@ -186,8 +186,9 @@ export function openPrivacy(scene: Phaser.Scene, verifierUrl: string, tab: Legal
 }
 
 /** The backup retention the privacy notice states, read from its own text so the two never disagree (the notice is generated from OPERATOR.backupKeepDays). */
-function legalBackupDays(): number {
-  const m = DOCS.find((d) => d.id === 'privacy')
+function legalBackupDays(docs: LegalDoc[]): number {
+  const m = docs
+    .find((d) => d.id === 'privacy')
     ?.sections.flatMap((sec) => sec.items)
     .join(' ')
     .match(/kept for (\d+) days/);

@@ -5,6 +5,13 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### 0.11.5 the day's talk — 2026-11-01 (no rules change, protocol 3: additive)
+- **Each yard has a place to talk about it.** Once your game is checked, Talk about this yard opens the day's thread, and Home shows Today's talk with how much there is. Until the day closes only players with a game on it can read it, so nobody copies a line. After that anyone can, in the game and on a plain web page.
+- **Sal opens and closes each day.** His closing post is built from the final board: how many games, the middle of the pack, the top three and the game everyone reacted to.
+- **Write up to 280 characters.** Your words show to you at once and to everyone else a few seconds later. Change a post for five minutes, take one back whenever you like, and attach your game so others can watch it. New words go back through the same checks.
+- **Report a post** with the same fixed reasons as a name. If people write where you wrote, your inbox says so, one line per day however much arrives.
+- With writing off, none of this shows: Home is as it was.
+
 ### 0.11.2 the moderation pipeline — 2026-11-01 (no rules change, protocol 3: additive)
 - **Writing can open safely, and stays shut until it can.** With no `ANTHROPIC_API_KEY` and `MODERATION_TOKEN`, nothing can be written and the game is unchanged.
 - **Every post is read before most people see it.** A filter refuses blocked words, links, email addresses, phone numbers and home addresses at once. Then Claude Haiku 5.5 reads the words, with no name and no id on them, and answers a category and a score. Under 40 the post stays up. From 40 it stays up and a person looks. From 80 it comes down until a person looks. Its author can read it the whole time.

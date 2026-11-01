@@ -124,7 +124,7 @@ test('offline: the title loads from the cache and says so; a practice game plays
   await page.screenshot({ path: path.join(SHOTS, `pwa-offline-title-${Date.now()}.png`) });
   await page.goto(`${srv.url}/?dev=1&scene=game&seed=classic-pwa-offline`);
   await playOut();
-  assert.match(await page.textContent('[data-testid=headline]'), /offline/i, 'the results say the game was offline (no board)');
+  await when(() => /offline/i.test(document.querySelector('[data-testid=headline]')?.textContent || '')); // the results say the game was offline (no board), once the board has failed to answer
   await page.screenshot({ path: path.join(SHOTS, `pwa-offline-results-${Date.now()}.png`) });
   assert.deepEqual(errors, [], 'no page errors offline');
 });

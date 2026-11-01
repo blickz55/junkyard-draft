@@ -3,44 +3,12 @@
 // settings and the trusted role, and the monthly counts on the policy page.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import http from 'node:http';
 import path from 'node:path';
-import { fixture, freePort, until, SHOTS } from './e2e/fixture.mjs';
+import { fixture, until, SHOTS } from './e2e/fixture.mjs';
+import { signIn, standIns } from './e2e/standins.mjs';
 
-/** The Messages API as the verifier sees it: a word in the post picks the answer; "unreadable" is the classifier failing. */
-const mails = [];
-const stub = http.createServer((req, res) => {
-  let raw = '';
-  req.on('data', (c) => (raw += c));
-  req.on('end', () => {
-    const body = JSON.parse(raw);
-    const send = (status, json) => {
-      res.writeHead(status, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(json));
-    };
-    if (req.url === '/emails') {
-      mails.push(body);
-      return send(200, { id: 'stub' });
-    }
-    const words = body.messages[0].content;
-    if (words.includes('unreadable')) return send(400, { type: 'error', error: { type: 'invalid_request_error', message: 'stand-in' } });
-    const answer = words.includes('nasty')
-      ? { category: 'hate', score: 95 }
-      : words.includes('pushy')
-        ? { category: 'spam', score: 55 }
-        : { category: 'ok', score: 2 };
-    send(200, {
-      id: 'msg',
-      type: 'message',
-      role: 'assistant',
-      content: [{ type: 'text', text: JSON.stringify(answer) }],
-      stop_reason: 'end_turn',
-      usage: { input_tokens: 700, output_tokens: 20 },
-    });
-  });
-});
-const STUB = await freePort();
-await new Promise((r) => stub.listen(STUB, '127.0.0.1', r));
+const stand = await standIns();
+const { mails } = stand;
 
 const TOKEN = 'e2e-moderation-token';
 const f = await fixture({
@@ -51,15 +19,12 @@ const f = await fixture({
     BOT_PAR: '0',
     MODERATION_TOKEN: TOKEN,
     POST_RATE_LIMIT: '1000',
-    ANTHROPIC_API_KEY: 'sk-test',
-    ANTHROPIC_API_URL: `http://127.0.0.1:${STUB}/v1/messages`,
-    RESEND_API_KEY: 're_test',
-    RESEND_API_URL: `http://127.0.0.1:${STUB}/emails`,
+    ...stand.env,
   },
 });
 after(async () => {
   await f.close();
-  await new Promise((r) => stub.close(r));
+  await stand.close();
 });
 
 const CLOSED_DAY = new Date(Date.now() - 5 * 86_400_000).toISOString().slice(0, 10);
@@ -107,23 +72,7 @@ test('the queue page opens with the token and nothing else; it runs under its ow
 });
 
 test('a player signs in, writes, and each post lands where its score says; the classifier failing lands in the queue', { timeout: 90000 }, async () => {
-  await author.goto(f.gameUrl());
-  await author.jd.title();
-  await author.evaluate(() => localStorage.setItem('jd.onboarded.v1', '1'));
-  await author.getByTestId('settings').click();
-  await author.getByTestId('link-email').click();
-  await author.getByTestId('link-email-field').fill('sam@example.com');
-  await author.keyboard.press('Enter');
-  await author.jd.textMatches('link-status', /^Check your email\./, 10000);
-  await author.getByTestId('link-close').click();
-  const link = /#link=([\w-]+)/.exec(mails.at(-1).text)[1];
-  await author.goto('about:blank');
-  await author.goto(`${f.gameUrl()}#link=${link}`);
-  await author.jd.title();
-  await author.getByTestId('link-confirm-yes').click();
-  await author.getByTestId('dialog-ok').click();
-  await author.jd.noDialog('dialog');
-  await author.jd.title();
+  await signIn(f, author, mails, 'sam@example.com');
   const { token } = await identity();
   await fetch(`${f.vurl}/identity`, {
     method: 'POST',

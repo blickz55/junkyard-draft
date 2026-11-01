@@ -36,7 +36,7 @@ import { labelFor } from '../identity/identity';
 import { todaySeed, revealGate, todayUTC } from '../render/daily';
 import { shiftUtcDate } from '../daily/streak';
 import { medalFor, medalsLine, type Medals } from '../daily/medals';
-import { openPolicy, openPrivacy } from './panels';
+import { openPolicy, openPrivacy, openThread } from './panels';
 import { reactionLine, reactionTotal, type ReactionCounts } from '../content/reactions';
 import { loadReactions } from '../render/reactions';
 import { reactionBar } from './ReactionBar';
@@ -188,6 +188,7 @@ export function mountResults(
       )
     : null;
   const social = h('div', { class: 'jd-dim', tid: 'results-social', style: 'font-size:0.8125em; margin-top:0.25em' });
+  const talkSlot = h('div', { tid: 'results-talk-slot', style: 'margin-top:0.25em' });
   const header = h(
     'div',
     { style: 'text-align:center' },
@@ -196,6 +197,7 @@ export function mountResults(
     headline,
     rankBlock,
     social,
+    talkSlot,
     o.replayed && o.replayHash ? reactionBar(verifierUrl, o.replayHash) : null,
     deltas,
     h(
@@ -680,6 +682,7 @@ export function mountResults(
           player?: string;
           late?: boolean;
           closesAt?: string;
+          talk?: { key: string };
         };
         try {
           const res = await fetch(`${verifierUrl}/verify`, {
@@ -726,6 +729,10 @@ export function mountResults(
         verified = true;
         scoreIsIn();
         telemetry.track('daily_submit_result', { result: 'verified' });
+        if (body.talk) {
+          const key = body.talk.key;
+          talkSlot.replaceChildren(btn(t('results.talk'), 'results-talk', () => openThread(scene, verifierUrl, key), { small: true }));
+        }
         if (isMintedDailySeed(run.seed)) {
           const dd = dailyDateOf(run.seed);
           if (dd) recordDailyDate(dd);

@@ -1,13 +1,12 @@
 /**
  * Fairness and verification policy panel (PLAN-v3 0.6.5). Renders game/public/policy.json, which tools/make-policy.ts
  * generates from the rules module and the verifier's constants, so what the player reads is what the code does.
- * The JSON is bundled at build time (no fetch: it works in the packaged app and offline). A modal layer like the tips panel.
+ * The JSON is bundled at build time, as a chunk of its own (no fetch: it works in the packaged app and offline). A modal layer like the tips panel.
  * The policy page is the one place the glossary allows the technical words (verified, protocol, rules version). The monthly
  * moderation counts are live: they come from the server when it can be reached (0.11.2) and the page reads the same without them.
  */
 import type Phaser from 'phaser';
 import { h, btn, ui } from './dom';
-import policy from '../../public/policy.json';
 import { t } from '../content/strings';
 import '../content/strings-more';
 import { verifierUrl } from '../render/config';
@@ -32,7 +31,8 @@ async function moderationCounts(): Promise<{ slaHours: number; medianReviewHours
   }
 }
 
-export function openPolicy(scene: Phaser.Scene): void {
+export async function openPolicy(scene: Phaser.Scene): Promise<void> {
+  const { default: policy } = await import('../../public/policy.json');
   const prev = document.activeElement as HTMLElement | null;
   const close = () => {
     layer.remove();

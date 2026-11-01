@@ -9,7 +9,7 @@
  * the rendered string, so the layout can be checked with every label a third longer.
  */
 import { locale, pseudo } from './locale';
-import { int } from './format';
+import { render, type Params } from './template';
 import type { MORE_STRINGS } from './strings-more';
 
 export interface Entry {
@@ -56,6 +56,9 @@ export const STRINGS = {
   'title.installBtn': s('Add it', 'the install strip button'),
   'title.installLater': s('Not now', 'the install strip: quiet for two weeks'),
   'title.installIOS': s('On iPhone or iPad: tap Share, then Add to Home Screen.', 'the install strip where the browser offers no prompt'),
+  'home.talk': s("Today's talk", 'link in the footer of Home while writing is open'),
+  'home.talkCount': s("Today's talk ({n})", 'the same with the number of posts'),
+  'results.talk': s('Talk about this yard', 'button once a game is checked on a daily or a weekly'),
   'title.reportedNote': s(
     'Your name was reported. It shows as "{label}" on the boards until a person reviews it. Your scores are safe.',
     'under the player button',
@@ -1065,7 +1068,7 @@ export const STRINGS = {
 } as const satisfies Record<string, Entry>;
 
 export type StringKey = keyof typeof STRINGS | keyof typeof MORE_STRINGS;
-export type Params = Record<string, string | number>;
+export { render, type Params };
 
 /** Every key of the first-visit table, for the lint and the pseudo-locale tests. */
 export const STRING_KEYS = Object.keys(STRINGS) as (keyof typeof STRINGS)[];
@@ -1074,63 +1077,6 @@ const table: Record<string, Entry> = { ...STRINGS };
 /** A chunk behind import() brings its own strings (strings-more.ts). */
 export function addStrings(more: Record<string, Entry>): void {
   Object.assign(table, more);
-}
-
-/** Render a template: `{name}` placeholders and `{n, plural, one {…} other {…}}` with `#` for the number. */
-export function render(template: string, params: Params): string {
-  let out = '';
-  let i = 0;
-  while (i < template.length) {
-    const open = template.indexOf('{', i);
-    if (open < 0) {
-      out += template.slice(i);
-      break;
-    }
-    out += template.slice(i, open);
-    const close = matchBrace(template, open);
-    if (close < 0) {
-      out += template.slice(open);
-      break;
-    }
-    const inner = template.slice(open + 1, close);
-    const plural = /^\s*(\w+)\s*,\s*plural\s*,([\s\S]*)$/.exec(inner);
-    if (plural) {
-      const n = Number(params[plural[1]] ?? 0);
-      out += render(pluralBranch(plural[2], n).replace(/#/g, int(n)), params);
-    } else {
-      const name = inner.trim();
-      const v = params[name];
-      out += v === undefined ? `{${name}}` : String(v);
-    }
-    i = close + 1;
-  }
-  return out;
-}
-function matchBrace(s: string, open: number): number {
-  let depth = 0;
-  for (let k = open; k < s.length; k++) {
-    if (s[k] === '{') depth++;
-    else if (s[k] === '}') {
-      depth--;
-      if (depth === 0) return k;
-    }
-  }
-  return -1;
-}
-/** `one {…} other {…}` (and `=N {…}`): the branch for n, English rules. */
-function pluralBranch(spec: string, n: number): string {
-  const branches: Record<string, string> = {};
-  let i = 0;
-  while (i < spec.length) {
-    const m = /\s*(=\d+|\w+)\s*\{/.exec(spec.slice(i));
-    if (!m) break;
-    const start = i + m.index + m[0].length - 1;
-    const end = matchBrace(spec, start);
-    if (end < 0) break;
-    branches[m[1]] = spec.slice(start + 1, end);
-    i = end + 1;
-  }
-  return branches[`=${n}`] ?? (n === 1 ? branches.one : undefined) ?? branches.other ?? '';
 }
 
 /** The string for a key, with its placeholders filled; the pseudo-locale transforms the result when it is on. */

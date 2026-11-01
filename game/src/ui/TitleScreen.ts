@@ -35,7 +35,7 @@ import { HIDDEN_LABEL } from '../identity/identity';
 import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWeekly, todaysYard } from '../render/daily';
 import { openArchive } from './ArchivePanel';
 import { openRecord } from './RecordPanel';
-import { openDivision, openInbox, openLinkLanding, openPolicy, openPrivacy } from './panels';
+import { openDivision, openInbox, openLinkLanding, openPolicy, openPrivacy, openThread } from './panels';
 import { syncNow, takeLinkToken } from '../render/link';
 import { hasInbox, loadInbox } from '../render/inbox';
 import { isFresh, latestPlacement } from '../render/divisions';
@@ -332,6 +332,10 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     }),
   );
   inboxLink.style.display = 'none';
+  // the day's talk (0.11.5): the server says there is one, or there is no way in
+  let talkKey = '';
+  const talkLink = link(t('home.talk'), 'talk', () => openThread(scene, verifierUrl, talkKey));
+  talkLink.style.display = 'none';
   if (hasInbox(verifierUrl)) {
     inboxLink.style.display = '';
     void loadInbox(verifierUrl).then((inbox) => {
@@ -347,6 +351,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     link(t('title.record'), 'record', () => openRecord(scene), t('title.recordTitle')),
     link(t('title.crews'), 'groups', () => openGroups(scene, verifierUrl, () => scene.scene.restart()), t('title.crewsTitle')),
     inboxLink,
+    talkLink,
     link(t('home.more'), 'more', () => {
       const r = pushSupported() ? loadReminder() : null;
       choiceDialog(scene, {
@@ -431,6 +436,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
         closesAt?: string;
         now?: string;
         final?: boolean;
+        talk?: { posts: number };
       }) => {
         if (!alive()) return;
         const info = acceptDaily(d);
@@ -440,6 +446,11 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
           return;
         }
         const seed = info.seed;
+        if (d.talk) {
+          talkKey = info.date;
+          talkLink.style.display = '';
+          if (d.talk.posts) talkLink.textContent = t('home.talkCount', { n: d.talk.posts });
+        }
         showJob(seed);
         todayCard.dataset.seed = seed;
         if (!(streak === 3 || streak === 7 || streak === 30)) setForeman(foreman, foremanSays(d.final ? 'dailyFinal' : 'dailyOpen'));

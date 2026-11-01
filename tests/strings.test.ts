@@ -6,12 +6,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { STRINGS, render, t, type Entry } from '../game/src/content/strings';
 import { MORE_STRINGS } from '../game/src/content/strings-more';
+import { SAL_STRINGS } from '../game/src/content/sal-posts';
 import { BANNED_WORDS, bannedWordsIn, GLOSSARY } from '../game/src/content/glossary';
 import { pseudo, setLocale, PSEUDO_GROWTH } from '../game/src/content/locale';
 import { money, int, utcDateTime, utcDate, utcDay } from '../game/src/content/format';
 import { lintProseLiterals, LINTED_DIRS } from '../tools/strings-lint';
 
-const ALL: Record<string, Entry> = { ...STRINGS, ...MORE_STRINGS };
+const ALL: Record<string, Entry> = { ...STRINGS, ...MORE_STRINGS, ...SAL_STRINGS };
 const KEYS = Object.keys(ALL);
 
 test('string table: every entry has text and a note; keys are grouped by screen; the renderer fills placeholders and English plurals', () => {

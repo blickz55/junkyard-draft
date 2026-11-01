@@ -11,6 +11,8 @@
 export const TOKEN_HEX = /^[0-9a-f]{32}$/;
 export const TAG_ALPHABET = 'ABCDEFGHJKMNPQRSTVWXYZ23456789'; // 30 symbols, no 0/O/1/I/L/U
 export const NAME_MAX = 32;
+/** The longest post (0.11.5). */
+export const POST_MAX = 280;
 const B32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
 /** Four tag characters from the first 20 bits of the player id (hex). Deterministic. */

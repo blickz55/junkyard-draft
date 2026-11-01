@@ -128,6 +128,9 @@ import {
   type ReportReason,
 } from '../game/src/identity/identity';
 import { claudeClassifier, DEFAULT_SETTINGS, OWNER, POST_RATE_LIMIT, Pipeline, REASON_CODES, REVIEW_SLA_HOURS, type Refused } from './moderation';
+import { closingPost, openingPost, type DayFacts } from '../game/src/content/sal-posts';
+import { dayPage, missingPage, SITE_CSS, SITE_POLICY } from './community-page';
+import type { Post } from './community';
 import { PAGE_CSS, PAGE_HTML, PAGE_JS, PAGE_POLICY } from './moderation-page';
 
 /** Protocol level of this server's HTTP surface (PLAN-v3 §1): 2 adds identity (bearer tokens, /identity, DELETE /me, keep-best per player); GET /me/export (0.8.6) only grows it. */
@@ -353,7 +356,7 @@ export const USER_WRITTEN_FIELDS = [
   'forced group name (POST /moderation/rename-group)',
 ] as const;
 /** Every field of free text a player writes (0.11.2). Each passes textProblem; tests/moderation.test.ts pushes a blocked string through each and counts the call sites. A moderator's note is not here: it is an operator's, never shown to a player. */
-export const TEXT_FIELDS = ['post (POST /posts)', 'appeal (POST /me/appeal)'] as const;
+export const TEXT_FIELDS = ['post (POST /posts)', 'post edit (POST /posts/edit)', 'appeal (POST /me/appeal)'] as const;
 /** Defaults the policy page publishes (PLAN-v3 0.6.5); env/flags override the rate limits at runtime. */
 export const DEFAULT_RATE_LIMIT = 60,
   DEFAULT_PLAYER_RATE_LIMIT = 2,
@@ -1581,9 +1584,21 @@ export class Verifier {
     const rec = this.issuedRecordForSeed(seed);
     return rec && rec.frozenAt ? (rec.medals ?? null) : null;
   }
-  /** The seed of an opened daily or weekly by its date or week id; null for anything else. */
-  seedOfPeriod(key: string, now = new Date()): string | null {
-    return (isWeekId(key) ? this.weeklyRecord(key, now) : isUtcDate(key) ? this.dailyRecord(key, now) : null)?.seed ?? null;
+  /** An opened daily or weekly by its date or week id; null for anything else. */
+  periodRecord(key: string, now = new Date()): DailyRecord | null {
+    return isWeekId(key) ? this.weeklyRecord(key, now) : isUtcDate(key) ? this.dailyRecord(key, now) : null;
+  }
+  /** The facts of a board for Sal's closing post (0.11.5). The hashes go best first, so a tie over reactions goes to the better game. */
+  dayFacts(seed: string, mostReacted: (hashes: string[]) => { hash: string } | null, now = new Date()): DayFacts {
+    const ranked = this.rank(seed, this.data, null, now);
+    const hit = mostReacted(ranked.map((e) => e.replayHash));
+    const reacted = hit ? ranked.find((e) => e.replayHash === hit.hash) : undefined;
+    return {
+      runs: ranked.length,
+      median: ranked.length ? ranked[Math.floor(ranked.length / 2)].score : null,
+      top: ranked.slice(0, 3).map((e) => ({ player: e.player, score: e.score })),
+      reacted: reacted ? { player: reacted.player, score: reacted.score } : null,
+    };
   }
   /** Today's minted seed (the one bot par computes first). */
   todaySeed(now = new Date()): string {
@@ -2296,6 +2311,38 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     const key = playerIdFromToken(bearerOf(req));
     return key ? (community?.playerOfKey(key) ?? key) : null;
   };
+  /** A post as someone reads it (0.11.5): a name at read time and no id, and to its author what state it is in. */
+  const postView = (p: Post, viewer: string | null, now: Date) => {
+    const own = !!viewer && p.authorId === viewer;
+    return {
+      id: p.id,
+      author: verifier.playerLabel(p.authorId, now),
+      body: p.body,
+      createdAt: p.createdAt,
+      edited: p.editedAt !== null,
+      hash: p.replayHash,
+      own,
+      ...(own
+        ? { state: p.state, waiting: p.state === 'hidden' && p.triagedAt === null, reason: p.reasonCode, editable: !!moderation?.canEdit(p, viewer) }
+        : {}),
+    };
+  };
+  /** Sal's closing post, built from the final board; the names in it follow renames, so it is built on reading, at most once a minute per day. */
+  const closings = new Map<string, { at: number; text: string }>();
+  const closingOf = (key: string, seed: string, now: Date): string => {
+    const known = closings.get(key);
+    if (known && now.getTime() - known.at < 60_000) return known.text;
+    const text = closingPost(
+      key,
+      verifier.dayFacts(seed, (hashes) => community?.mostReacted(hashes) ?? null, now),
+    );
+    if (closings.size >= 64) closings.clear();
+    closings.set(key, { at: now.getTime(), text });
+    return text;
+  };
+  /** What `/daily` and `/weekly` add while writing is open: how much talk there is, which is also how the game knows there is any. */
+  const talkOf = (kind: 'daily' | 'weekly', key: string) =>
+    community && moderation?.enabled ? { talk: { posts: community.findThread(kind, key)?.postCount ?? 0 } } : {};
   /** Reaction counts on a board's rows (0.11.3): a run nobody reacted to carries no field. */
   const withReactions = <T extends { replayHash: string }>(entries: T[]): T[] => {
     if (!community || !entries.length) return entries;
@@ -2505,7 +2552,15 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
                 }
               : { ok: false, error: `the daily for ${dateQ} has not opened yet (dailies open at 00:00 UTC)`, today: utcDate(now) },
           );
-        return json(200, { ok: true, ...d, entries: withReactions(d.entries), group: gs.group, botPar: withPar(d.seed), tieBreak: TIE_BREAK });
+        return json(200, {
+          ok: true,
+          ...d,
+          entries: withReactions(d.entries),
+          group: gs.group,
+          botPar: withPar(d.seed),
+          tieBreak: TIE_BREAK,
+          ...talkOf('daily', d.date),
+        });
       }
       if (req.method === 'GET' && url.pathname === '/entry') {
         // challenge links (PLAN-v4 0.7.1): earnings, never actions
@@ -2546,7 +2601,15 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
                 }
               : { ok: false, error: `the weekly ${weekQ} has not opened yet (weeklies open Friday 18:00 UTC)`, currentWeek: currentWeekId(now) },
           );
-        return json(200, { ok: true, ...w, entries: withReactions(w.entries), group: gs.group, botPar: withPar(w.seed), tieBreak: TIE_BREAK });
+        return json(200, {
+          ok: true,
+          ...w,
+          entries: withReactions(w.entries),
+          group: gs.group,
+          botPar: withPar(w.seed),
+          tieBreak: TIE_BREAK,
+          ...talkOf('weekly', w.week!),
+        });
       }
       if (req.method === 'GET' && url.pathname === '/archive') {
         const now = new Date((opts.now ?? Date.now)());
@@ -3081,7 +3144,72 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         );
         return;
       }
-      if (req.method === 'POST' && url.pathname === '/posts') {
+      if (req.method === 'GET' && (url.pathname === '/community/site.css' || url.pathname.startsWith('/community/day/'))) {
+        // a closed day's talk as a plain page (0.11.5); an open day's stays behind its reveal gate, in the game
+        const send = (status: number, type: string, body: string) => {
+          res.writeHead(status, {
+            'Content-Type': `${type}; charset=utf-8`,
+            'Cache-Control': 'public, max-age=60',
+            'Content-Security-Policy': SITE_POLICY,
+            'X-Content-Type-Options': 'nosniff',
+            'Referrer-Policy': 'no-referrer',
+            'X-Request-Id': reqId,
+          });
+          return void res.end(body);
+        };
+        if (url.pathname === '/community/site.css') return send(200, 'text/css', SITE_CSS);
+        const now = new Date((opts.now ?? Date.now)());
+        const key = url.pathname.slice('/community/day/'.length, 64);
+        const rec = community && moderation?.enabled ? verifier.periodRecord(key, now) : null;
+        if (!rec) return send(404, 'text/html', missingPage());
+        const weekly = isWeekId(key);
+        const closed = Date.parse(rec.closesAt) <= now.getTime();
+        const thread = community!.findThread(weekly ? 'weekly' : 'daily', key);
+        const posts = closed ? (thread ? community!.threadPage(thread.id, { limit: 100 }).posts : []) : null;
+        return send(
+          200,
+          'text/html',
+          dayPage({
+            key,
+            weekly,
+            opening: openingPost(key),
+            closing: closed ? closingOf(key, rec.seed, now) : null,
+            posts:
+              posts && posts.map((p) => ({ author: verifier.playerLabel(p.authorId, now), body: p.body, createdAt: p.createdAt, edited: p.editedAt !== null })),
+          }),
+        );
+      }
+      if (req.method === 'GET' && url.pathname === '/thread') {
+        // a day's talk (0.11.5): the reveal gate covers the words as it covers the recordings
+        if (!community || !moderation?.enabled) return json(503, { ok: false, code: 'writing-off', error: 'writing is not enabled on this verifier' });
+        const now = new Date((opts.now ?? Date.now)());
+        const key = (url.searchParams.get('key') || '').slice(0, 16);
+        const rec = verifier.periodRecord(key, now);
+        if (!rec) return json(404, { ok: false, code: 'no-thread', error: 'no such day' });
+        const gate = verifier.revealGate(rec.seed, bearerId, now);
+        if (gate) return json(403, { ok: false, code: 'reveal-gate', ...gate });
+        const weekly = isWeekId(key);
+        const closed = Date.parse(rec.closesAt) <= now.getTime();
+        const thread = community.findThread(weekly ? 'weekly' : 'daily', key);
+        const page = thread
+          ? community.threadPage(thread.id, { after: clampInt(url.searchParams.get('after'), 0, Number.MAX_SAFE_INTEGER, 0), viewer: bearerId })
+          : { posts: [], next: null };
+        const block = bearerId ? (community.writeBlock(bearerId) ?? null) : null;
+        return json(200, {
+          ok: true,
+          key,
+          kind: weekly ? 'weekly' : 'daily',
+          seed: rec.seed,
+          closed,
+          foreman: { open: openingPost(key), close: closed ? closingOf(key, rec.seed, now) : null },
+          posts: page.posts.map((p) => postView(p, bearerId, now)),
+          next: page.next,
+          count: thread?.postCount ?? 0,
+          write: !bearerId ? 'not-linked' : block ? block.code : verifier.player(bearerId) ? 'ok' : 'no-name',
+          ...(block?.code === 'muted' ? { until: block.until } : {}),
+        });
+      }
+      if (req.method === 'POST' && (url.pathname === '/posts' || url.pathname === '/posts/edit' || url.pathname === '/posts/delete')) {
         // writing (0.11.2): a device key that signed in with email, on a day the player has played or that has closed
         if (!community || !moderation?.enabled) {
           req.resume();
@@ -3103,15 +3231,26 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         }
         return withBody(2048, (p) => {
           const now = new Date((opts.now ?? Date.now)());
+          if (url.pathname === '/posts/delete') {
+            const out = moderation.remove(bearerId, p.id);
+            return out.ok ? json(200, out) : refusal(out);
+          }
+          if (url.pathname === '/posts/edit') {
+            const out = moderation.edit(bearerId, p.id, p.body);
+            return out.ok ? json(200, { ok: true, post: postView(out.post, bearerId, now) }) : refusal(out);
+          }
           const key = typeof p.key === 'string' ? p.key.slice(0, 16) : '';
-          const seed = verifier.seedOfPeriod(key, now);
+          const seed = verifier.periodRecord(key, now)?.seed;
           if (!seed) return json(404, { ok: false, code: 'no-thread', error: 'no such day' });
           const gate = verifier.revealGate(seed, bearerId, now);
           if (gate) return json(403, { ok: false, code: 'reveal-gate', ...gate });
           if (!verifier.player(bearerId)) return json(422, { ok: false, code: 'no-name', error: 'choose a name before writing' });
-          const out = moderation.write(bearerId, community.threadFor(isWeekId(key) ? 'weekly' : 'daily', key).id, p.body);
-          if (!out.ok) return refusal(out);
-          return json(200, { ok: true, post: { id: out.post.id, body: out.post.body, state: out.post.state, createdAt: out.post.createdAt } });
+          // a run is attached by its hash: a checked game of this yard, which everyone reading the thread is allowed to watch
+          const hash = typeof p.hash === 'string' ? p.hash.slice(0, 64) : null;
+          if (hash && verifier.entry(hash, null, now)?.seed !== seed)
+            return json(422, { ok: false, code: 'bad-run', error: 'no checked game of this yard with that hash' });
+          const out = moderation.write(bearerId, community.threadFor(isWeekId(key) ? 'weekly' : 'daily', key).id, p.body, hash);
+          return out.ok ? json(200, { ok: true, post: postView(out.post, bearerId, now) }) : refusal(out);
         });
       }
       if (req.method === 'POST' && url.pathname === '/me/appeal') {
@@ -3344,7 +3483,10 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
                         by: bearerId,
                       });
                   }
-                  json(result.ok ? 200 : 422, result);
+                  // the talk on this yard (0.11.5): a checked game is what opens it
+                  const seed = result.entry?.seed ?? '';
+                  const key = isMintedDailySeed(seed) ? dailyDateOf(seed) : isWeeklySeed(seed) ? weeklyIdOf(seed) : null;
+                  json(result.ok ? 200 : 422, { ...result, ...(key && result.ok && !result.late && moderation?.enabled ? { talk: { key } } : {}) });
                 } catch (e) {
                   if (e instanceof StorageError)
                     return json(503, { ok: false, error: 'storage unavailable, nothing was recorded; try again', code: 'storage' }, { 'Retry-After': '5' });

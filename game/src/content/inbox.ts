@@ -11,7 +11,7 @@ import type { DivisionMedal } from '../daily/divisions';
 const keyWord = (code: unknown) => String(code).replace(/-(\w)/g, (_, c: string) => c.toUpperCase());
 const known = (key: string): key is StringKey => key in MORE_STRINGS;
 /** The sentence for a reason; a reason this client does not know yet still says something true. */
-const reasonText = (code: unknown) => {
+export const reasonText = (code: unknown) => {
   const key = `moderation.reason.${keyWord(code)}`;
   return t(known(key) ? key : 'moderation.reason.other');
 };
@@ -27,6 +27,7 @@ export function inboxText(kind: string, p: Record<string, unknown>): string | nu
     });
   }
   if (kind === 'appeal') return p.result === 'overturned' ? t('moderation.appealOverturned') : t('moderation.appealUpheld');
+  if (kind === 'thread-reply') return t('inbox.threadReply', { yard: periodLabel(p.key as string) });
   if (kind === 'reactions') {
     const reactions = p.reactions as ReactionCounts;
     const n = reactionTotal(reactions);

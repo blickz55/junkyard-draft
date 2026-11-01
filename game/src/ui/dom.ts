@@ -285,6 +285,15 @@ const STYLE = `
 #ui .jd-around .jd-mine { color: ${CSS.amber}; font-weight: 700; }
 `;
 
+/** A panel behind import() brings its own rules, once, so they weigh nothing on a first visit. */
+export function addStyle(id: string, css: string) {
+  if (document.getElementById(id)) return;
+  const st = document.createElement('style');
+  st.id = id;
+  st.textContent = css;
+  document.head.append(st);
+}
+
 class UiLayer {
   private root: HTMLDivElement | null = null;
   private screen: HTMLElement | null = null;

@@ -400,8 +400,8 @@ test('verifier bundles to a single file that exports the server pieces (what the
   assert.equal(typeof mod.Verifier, 'function');
   assert.equal(typeof mod.RateLimiter, 'function');
   assert.ok(
-    fs.statSync(out).size < 300_000,
-    'bundle stays small (sim + server only: 0.11.0 added the store, v0.11 will add routes, Phaser would be megabytes)',
+    fs.statSync(out).size < 400_000,
+    'bundle stays small (sim + server only, not minified: v0.11 adds the store, the routes and the queue page; Phaser would be megabytes)',
   );
   // alone in a folder it starts and migrates: nothing has to sit beside it
   const port = await new Promise<number>((resolve) => {

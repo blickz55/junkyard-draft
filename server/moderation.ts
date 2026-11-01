@@ -14,17 +14,19 @@
  * and no classifier in front of it is not a pipeline. The call is one HTTPS POST, so the verifier gains no dependency (roadmap §4.6).
  * Scores never move here: moderating a post says nothing about a run.
  */
-import { foldName, REPORT_REASONS, type ReportReason } from '../game/src/identity/identity';
+import { foldName, POST_MAX, REPORT_REASONS, type ReportReason } from '../game/src/identity/identity';
 import { COUNTS_TTL_MS, type CommunityStore, type ModerationAction, type MonthCounts, type Post, type TriageUsage, type WriteBlock } from './community';
 
 // ---------- the filter ----------
-/** The longest post (the daily thread's limit, roadmap 0.11.5) and the longest appeal. */
-export const POST_MAX = 280,
-  APPEAL_MAX = 500;
+export { POST_MAX };
+/** The longest appeal. */
+export const APPEAL_MAX = 500;
 /** The same words twice in a row within this long are refused: a repeat is spam or a double tap. */
 export const REPEAT_WINDOW_MS = 10 * 60_000;
 /** Posts per minute per player. */
 export const POST_RATE_LIMIT = 6;
+/** How long a post can still be changed (roadmap 0.11.5). */
+export const EDIT_WINDOW_MS = 5 * 60_000;
 
 export type TextProblem = 'empty' | 'too-long' | 'blocked' | 'link' | 'email' | 'phone' | 'address';
 
@@ -410,6 +412,38 @@ export class Pipeline {
     return { ok: true, post };
   }
 
+  /** Whether a player can still change a post: theirs, in time, and not something a person or the classifier took down. */
+  canEdit(post: Post, playerId: string): boolean {
+    return post.authorId === playerId && this.now() - post.createdAt < EDIT_WINDOW_MS && !this.heldDown(post);
+  }
+  /** Taken down by the pipeline, as against waiting for its first answer. */
+  private heldDown(post: Post): boolean {
+    return post.state === 'deleted' || (post.state === 'hidden' && post.triagedAt !== null);
+  }
+  /** New words on a post, within five minutes: the same filter, and the classifier reads them again. */
+  edit(authorId: string, id: unknown, raw: unknown): { ok: true; post: Post } | Refused {
+    if (!this.classify) return refused(503, 'writing-off', 'writing is not enabled on this server');
+    const post = typeof id === 'number' ? this.store.post(id) : null;
+    if (!post || post.authorId !== authorId || post.state === 'deleted') return refused(404, 'no-post', 'no such post');
+    const block = this.store.writeBlock(authorId);
+    if (block) return blocked(block);
+    if (!this.canEdit(post, authorId)) return refused(409, 'too-late', 'that can no longer be changed');
+    const problem = textProblem(raw);
+    if (problem) return refused(422, problem, TEXT_MESSAGES[problem]);
+    const rewritten = this.store.rewritePost(post.id, normaliseText(raw))!;
+    this.drain();
+    return { ok: true, post: rewritten };
+  }
+  /** A player takes their own post back, unless it is down for a person to look at: a post under review stays as it is. */
+  remove(authorId: string, id: unknown): { ok: true } | Refused {
+    const post = typeof id === 'number' ? this.store.post(id) : null;
+    if (!post || post.authorId !== authorId || post.state === 'deleted') return refused(404, 'no-post', 'no such post');
+    if (this.heldDown(post)) return refused(409, 'under-review', 'a person has to look at that first');
+    this.store.erasePost(post.id);
+    this.store.resolveReports('post', post.id);
+    return { ok: true };
+  }
+
   /** Reads what waits, a few at a time. Safe to call at any moment. */
   drain(): void {
     if (!this.classify) {
@@ -441,7 +475,8 @@ export class Pipeline {
     const s = this.settings();
     const day = this.day();
     if (this.store.usageSince(day).calls >= s.dailyCalls) {
-      this.store.settlePost(post.id, 'queued', UNREAD, null); // over the budget: a person reads it instead
+      const up = this.store.settlePost(post.id, 'queued', UNREAD, null); // over the budget: a person reads it instead
+      if (up) this.tellThread(up);
       return;
     }
     let t: Triage;
@@ -450,7 +485,8 @@ export class Pipeline {
     } catch (e) {
       this.store.recordUsage(day, { calls: 1, failures: 1 });
       this.logError(JSON.stringify({ ts: this.at(), error: `triage: ${(e as Error).message}`, post: post.id }));
-      this.store.settlePost(post.id, 'queued', UNREAD, null);
+      const up = this.store.settlePost(post.id, 'queued', UNREAD, null);
+      if (up) this.tellThread(up);
       return;
     }
     this.store.recordUsage(day, { calls: 1, inputTokens: t.inputTokens, outputTokens: t.outputTokens });
@@ -458,6 +494,15 @@ export class Pipeline {
     const code: ReasonCode | null = band !== 'hide' ? null : t.category === 'ok' ? 'other' : t.category;
     const settled = this.store.settlePost(post.id, STATE[band], t.category, t.score, code);
     if (settled && band === 'hide') this.decided('triage', 'auto-hide', settled, code, '', { score: t.score });
+    else if (settled) this.tellThread(settled);
+  }
+  /** A post came up: whoever else has words in the thread hears there is more, one unread line per thread however much arrives. */
+  private tellThread(post: Post) {
+    if (post.editedAt !== null) return; // the same post with other words is not news
+    const thread = this.store.threadById(post.threadId);
+    if (!thread) return;
+    for (const id of this.store.threadAuthors(thread.id))
+      if (id !== post.authorId) this.store.notify(id, 'thread-reply', { kind: thread.kind, key: thread.key });
   }
 
   /** One decision on a post: the database, the log and, unless nothing changed for them, the author's inbox. */
