@@ -7,8 +7,9 @@
  *     software-rendered CI runner that always drops some frames still gates on a *higher share* of drops than its own
  *     baseline, and a run that happened to render more frames than the baseline is not failed for dropping them at the
  *     same rate; 0.8.4 armed the gate with a baseline whose WebGL sample dropped every one of its 34 frames).
- * When both sides carry `calibrationMs` (a fixed workload timed in the page) script time is the whole run's divided by it, so hosts of different
- * speeds compare: per frame would not, because a slow host draws fewer frames at a fixed game speed and each one does more. Without it, per frame as before.
+ * Script time is the whole run's, not per frame: at a fixed game speed a slow host draws fewer frames and each does more, so per frame reads the host as
+ * much as the code (twenty runs of the same code: 2.5× per frame, 1.9× for the run). A yardstick timed in the page was tried and made it worse: on six runs
+ * of identical code it varied 2× and did not track script time at all, so hosts still differ, and a baseline must come from several (tools/perf-baseline.ts).
  * Samples with no baseline label are reported, never failed by the baseline rules; `--p95 <ms>` (production roadmap 0.10.2,
  * preset D) is an absolute budget every sample in the report must meet, baseline or not. The comparison is a pure function (tested).
  */
@@ -21,15 +22,12 @@ export interface GateSample {
   scriptMsPerFrame: number | null;
   /** frame time p95 in ms (perf.ts reports it; the absolute budget reads it) */
   p95?: number;
-  /** how long the fixed workload took on this host */
-  calibrationMs?: number;
 }
-/** The run's script time in units of the host's own speed; null when the sample has no yardstick. */
-export const scriptLoad = (s: GateSample): number | null =>
-  s.scriptMsPerFrame != null && s.calibrationMs ? +((s.scriptMsPerFrame * s.frames) / s.calibrationMs).toFixed(2) : null;
 export interface GateReport {
   samples: GateSample[];
 }
+/** The whole run's script time, in ms; null when the report has none. */
+export const scriptTotal = (s: GateSample): number | null => (s.scriptMsPerFrame != null ? s.scriptMsPerFrame * s.frames : null);
 export interface GateOptions {
   tolerance?: number;
   droppedSlack?: number;
@@ -68,16 +66,12 @@ export function compare(report: GateReport, baseline: GateReport, opts: GateOpti
     const base = baseline.samples.find((b) => b.label === sample.label) ?? null;
     const reasons: string[] = [];
     if (base) {
-      const load = scriptLoad(sample),
-        baseLoad = scriptLoad(base);
-      if (load != null && baseLoad != null) {
-        if (load > baseLoad * (1 + tolerance))
-          reasons.push(`script load ${load} > ${(baseLoad * (1 + tolerance)).toFixed(2)} (baseline ${baseLoad} + ${Math.round(tolerance * 100)} %)`);
-      } else if (sample.scriptMsPerFrame != null && base.scriptMsPerFrame != null && sample.scriptMsPerFrame > base.scriptMsPerFrame * (1 + tolerance)) {
+      const total = scriptTotal(sample),
+        baseTotal = scriptTotal(base);
+      if (total != null && baseTotal != null && total > baseTotal * (1 + tolerance))
         reasons.push(
-          `scriptMsPerFrame ${sample.scriptMsPerFrame} > ${(base.scriptMsPerFrame * (1 + tolerance)).toFixed(2)} (baseline ${base.scriptMsPerFrame} + ${Math.round(tolerance * 100)} %)`,
+          `script ${Math.round(total)} ms > ${Math.round(baseTotal * (1 + tolerance))} (baseline ${Math.round(baseTotal)} + ${Math.round(tolerance * 100)} %)`,
         );
-      }
       const baseRate = base.frames > 0 ? base.dropped / base.frames : 0;
       const allowedDropped = Math.ceil(baseRate * sample.frames) + Math.ceil(slack * sample.frames);
       if (sample.dropped > allowedDropped)
@@ -119,7 +113,7 @@ if (isMain) {
   for (const v of verdicts) {
     const base = v.baseline;
     console.log(
-      `${v.ok ? 'PASS' : 'FAIL'} ${v.label}: script ${v.sample.scriptMsPerFrame ?? '-'} ms (baseline ${base?.scriptMsPerFrame ?? 'none'}), load ${scriptLoad(v.sample) ?? '-'} (baseline ${(base && scriptLoad(base)) ?? 'none'}), dropped ${v.sample.dropped}/${v.sample.frames} (baseline ${base?.dropped ?? 'none'}), p95 ${v.sample.p95 ?? '-'} ms${v.reasons.length ? '\n  ' + v.reasons.join('\n  ') : ''}`,
+      `${v.ok ? 'PASS' : 'FAIL'} ${v.label}: script ${Math.round(scriptTotal(v.sample) ?? 0)} ms (baseline ${base ? Math.round(scriptTotal(base) ?? 0) : 'none'}), ${v.sample.scriptMsPerFrame ?? '-'} per frame, dropped ${v.sample.dropped}/${v.sample.frames} (baseline ${base?.dropped ?? 'none'}), p95 ${v.sample.p95 ?? '-'} ms${v.reasons.length ? '\n  ' + v.reasons.join('\n  ') : ''}`,
     );
   }
   process.exit(ok ? 0 : 1);

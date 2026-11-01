@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { compare, scriptLoad, type GateReport } from '../tools/perf-gate';
+import { baselineFrom } from '../tools/perf-baseline';
+import { compare, scriptTotal, type GateReport } from '../tools/perf-gate';
 
 const baseline: GateReport = {
   samples: [
@@ -47,21 +48,40 @@ test('perf gate: a 30 % script-time regression fails, 10 % passes, and dropped f
   assert.equal(compare(report(3.9), baseline, { tolerance: 0.5 }).ok, true, 'tolerance is configurable');
 });
 
-test('perf gate: with a yardstick a slower host is not a regression, and a faster host cannot hide one', () => {
-  const base = { samples: [{ label: 'device B canvas', frames: 200, dropped: 0, scriptMsPerFrame: 5, calibrationMs: 10 }] };
-  const run = (scriptMsPerFrame: number, frames: number, calibrationMs: number) => ({
-    samples: [{ label: 'device B canvas', frames, dropped: 0, scriptMsPerFrame, calibrationMs }],
-  });
-  assert.equal(scriptLoad(base.samples[0]), 100);
-  assert.equal(compare(run(10, 200, 20), base).ok, true, 'twice as slow a host, the same code');
-  assert.equal(compare(run(13, 150, 20), base).ok, true, 'and it drew fewer frames, each doing more: the same work per run');
-  assert.equal(compare(run(5, 200, 5), base).ok, false, 'twice as fast a host and twice the work: per frame looks unchanged');
-  assert.match(compare(run(5, 200, 5), base).verdicts[0].reasons[0], /^script load 200 > 125\.00 \(baseline 100 \+ 25 %\)$/);
-  assert.equal(compare(run(6, 200, 10), base).ok, true, 'twenty per cent more work is inside the tolerance');
-  const noYardstick = { samples: [{ label: 'device B canvas', frames: 200, dropped: 0, scriptMsPerFrame: 5 }] };
-  assert.equal(scriptLoad(noYardstick.samples[0]), null);
-  assert.equal(compare(run(5, 200, 5), noYardstick).ok, true, 'a baseline from before calibration falls back to per frame');
-  assert.equal(compare(run(7, 200, 5), noYardstick).ok, false, 'and still gates');
+test('perf gate: it reads the whole run, so a slow host drawing fewer frames is not a regression', () => {
+  const base = { samples: [{ label: 'device B canvas', frames: 200, dropped: 0, scriptMsPerFrame: 5 }] };
+  const run = (scriptMsPerFrame: number, frames: number) => ({ samples: [{ label: 'device B canvas', frames, dropped: 0, scriptMsPerFrame }] });
+  assert.equal(scriptTotal(base.samples[0]), 1000);
+  assert.equal(compare(run(6.5, 155), base).ok, true, 'fewer frames, each doing more: about the same work');
+  assert.equal(compare(run(7, 200), base).ok, false, 'the same frames at 40 % more each');
+  assert.match(compare(run(7, 200), base).verdicts[0].reasons[0], /^script 1400 ms > 1250 \(baseline 1000 \+ 25 %\)$/);
+  assert.equal(scriptTotal({ label: 'x', frames: 10, dropped: 0, scriptMsPerFrame: null }), null);
+  assert.equal(
+    compare({ samples: [{ label: 'device B canvas', frames: 200, dropped: 0, scriptMsPerFrame: null }] }, base).ok,
+    true,
+    'no script number, nothing to compare',
+  );
+});
+
+test('the baseline comes from several hosts: the middle run, at the worst drop rate seen', () => {
+  const sample = (scriptMsPerFrame: number, frames: number, dropped: number) => ({ label: 'b', frames, dropped, scriptMsPerFrame, p95: 33 });
+  const out = baselineFrom([
+    { samples: [sample(5, 200, 2)] },
+    { samples: [sample(9, 150, 44)] },
+    { samples: [sample(6, 190, 10), { ...sample(1, 800, 1), label: 'd' }] },
+  ]);
+  const b = out.samples.find((s) => s.label === 'b')!;
+  assert.equal(scriptTotal(b), 1140, 'the middle of 1000, 1140 and 1350');
+  assert.equal(b.frames, 190);
+  assert.equal(b.dropped, Math.ceil((44 / 150) * 190), 'so a slow host at that rate still passes');
+  assert.equal(out.samples.find((s) => s.label === 'd')!.frames, 800, 'each label on its own');
+  assert.equal(compare({ samples: [sample(9, 150, 44)] }, out, { droppedSlack: 0.15 }).ok, true, 'the slowest host passes');
+  assert.deepEqual(baselineFrom([]).samples, []);
+  assert.deepEqual(
+    baselineFrom([{ samples: [{ label: 'x', frames: 0, dropped: 0, scriptMsPerFrame: 1 }] }]).samples,
+    [],
+    'a sample with no frames says nothing',
+  );
 });
 
 // 0.8.4: the gate is armed with the CI baseline (docs/baselines/ci/perf-ci.json), whose WebGL sample on the software-GL runner
@@ -70,23 +90,23 @@ test('perf gate: with a yardstick a slower host is not a regression, and a faste
 test("perf gate: dropped frames gate by rate, not count, so frame-count differences between runs do not fail a run at the baseline's rate", () => {
   const allDropped = { samples: [{ label: 'device B webgl', frames: 34, dropped: 34, scriptMsPerFrame: 15.45 }] };
   assert.equal(
-    compare({ samples: [{ label: 'device B webgl', frames: 60, dropped: 60, scriptMsPerFrame: 15.45 }] }, allDropped, { strict: true }).ok,
+    compare({ samples: [{ label: 'device B webgl', frames: 60, dropped: 60, scriptMsPerFrame: 8.75 }] }, allDropped, { strict: true }).ok,
     true,
     'all dropped against an all-dropped baseline is the same rate',
   );
   const clean = { samples: [{ label: 'device B webgl', frames: 34, dropped: 0, scriptMsPerFrame: 15.45 }] };
   assert.equal(
-    compare({ samples: [{ label: 'device B webgl', frames: 60, dropped: 60, scriptMsPerFrame: 15.45 }] }, clean, { strict: true }).ok,
+    compare({ samples: [{ label: 'device B webgl', frames: 60, dropped: 60, scriptMsPerFrame: 8.75 }] }, clean, { strict: true }).ok,
     false,
     'all dropped against a clean baseline fails',
   );
   assert.equal(
-    compare({ samples: [{ label: 'device B webgl', frames: 60, dropped: 3, scriptMsPerFrame: 15.45 }] }, clean, { strict: true }).ok,
+    compare({ samples: [{ label: 'device B webgl', frames: 60, dropped: 3, scriptMsPerFrame: 8.75 }] }, clean, { strict: true }).ok,
     true,
     '3 of 60 is within the 5 % slack',
   );
   assert.equal(
-    compare({ samples: [{ label: 'device B webgl', frames: 60, dropped: 4, scriptMsPerFrame: 15.45 }] }, clean, { strict: true }).ok,
+    compare({ samples: [{ label: 'device B webgl', frames: 60, dropped: 4, scriptMsPerFrame: 8.75 }] }, clean, { strict: true }).ok,
     false,
     '4 of 60 is over it',
   );

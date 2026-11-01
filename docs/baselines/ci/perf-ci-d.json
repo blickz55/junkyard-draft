@@ -1,0 +1,24 @@
+{
+  "samples": [
+    {
+      "label": "device D canvas 915x412@2.6 cpu×4 @1×",
+      "renderer": "canvas",
+      "frames": 802,
+      "p50": 16.7,
+      "p95": 16.8,
+      "max": 33.4,
+      "dropped": 141,
+      "cpuMsPerFrame": 15.65,
+      "scriptMsPerFrame": 1.78,
+      "drawsPerFrame": null,
+      "bindsPerFrame": null,
+      "maxObjects": 29,
+      "textObjectsCreated": 3,
+      "heapMB": 42.6,
+      "runMs": 13603,
+      "machines": 8,
+      "peakItems": 2,
+      "withinBudget": false
+    }
+  ]
+}

@@ -8,10 +8,10 @@
 # the job, because the Canvas sample's drop count has twice exceeded the slack on commits that touched no rendering code
 # (65 % of frames on 19ccabd against a 16 % baseline) while a real regression fails both. The baseline was committed from
 # this workflow's own artifact on 2026-10-30 (production roadmap 0.8.4), so the gate is armed; to re-baseline after a
-# deliberate rendering change, download the perf-ci artifact of a green run on main and commit it at that path.
-# Calibration: each sample carries calibrationMs, a fixed workload timed in the page at the same throttle, and when both sides have it the gate
-# compares the whole run's script time over it. Identical code ranged 2.5x per frame across these runners (fourteen runs, 3.4 to 8.4 ms on the Canvas
-# sample), because a slow host draws fewer frames and each does more: a slow host failed clean commits, and a fast one could have hidden a real regression.
+# deliberate rendering change, run a green main run a few times, download the perf-ci artifacts, and feed them to tools/perf-baseline.ts.
+# The gate reads the whole run's script time, not per frame: at a fixed game speed a slow host draws fewer frames and each does more. Runners still differ, so
+# the baseline is built by tools/perf-baseline.ts from several runs, the middle total and the worst drop rate, never one artifact. A yardstick timed in the
+# page was tried and made things worse: over six runs of identical code it varied 2x and did not track script time.
 # 0.10.2 adds three absolute budgets for weak phones: device preset D (915x412, DPR 2.6, CPU x4; the Canvas renderer, since
 # the runner's software WebGL is not a phone's GPU) at 1x speed must keep its frame-time p95 at or under 33 ms (perf-gate
 # --p95 34: two 60 Hz frames read 33.4, see the step; the D baseline at docs/baselines/ci/perf-ci-d.json, when committed, adds the relative rules); the production
@@ -68,8 +68,12 @@ jobs:
           node -e "const r=require('./perf-ci-d.json'); for (const s of r.samples) console.log(s.label, JSON.stringify({p50:s.p50,p95:s.p95,dropped:s.dropped,frames:s.frames,script:s.scriptMsPerFrame,cpu:s.cpuMsPerFrame}))"
           BASE=docs/baselines/ci/perf-ci-d.json
           if [ ! -f "$BASE" ]; then echo '{"samples":[]}' > empty-baseline.json; BASE=empty-baseline.json; echo "::notice::no D baseline committed yet: the absolute p95 budget alone gates this sample"; fi
+          # the two-run rule, as for preset B: the first failure on a slow runner measures again, and only a second failure fails the job
           # 34, not the roadmap's 33: at 60 Hz a frame is 16.7 ms, so a p95 of two frames reads 33.4 and a budget of 33 fails every run whose worst 5 % are double frames (282c45b: 33.4 with 106 of 706 dropped); three frames (50 ms) still fail
-          node --import tsx tools/perf-gate.ts perf-ci-d.json "$BASE" --strict --dropped-slack 0.15 --p95 34
+          if node --import tsx tools/perf-gate.ts perf-ci-d.json "$BASE" --strict --dropped-slack 0.15 --p95 34; then exit 0; fi
+          echo "::warning::preset D failed its first measurement; measuring once more"
+          node --import tsx tools/perf.ts --device D --speed 1 --renderer canvas --skip-electron --json perf-ci-d-2.json > /dev/null
+          node --import tsx tools/perf-gate.ts perf-ci-d-2.json "$BASE" --strict --dropped-slack 0.15 --p95 34
       - name: "Bundle weight (0.10.2): the production bundle gzips under 300 KiB"
         run: |
           npm run build
@@ -84,6 +88,7 @@ jobs:
             perf-ci.json
             perf-ci-2.json
             perf-ci-d.json
+            perf-ci-d-2.json
             bundle-size.json
             first-interactive.json
           if-no-files-found: ignore
