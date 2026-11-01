@@ -27,6 +27,9 @@ export const INBOX_READ_DAYS = 60;
 export const COUNTS_TTL_MS = 60_000;
 /** The text of a removed post stays this long, for an appeal; then only the row is left. */
 export const REMOVED_TEXT_DAYS = 90;
+/** How long a direct message lasts, and how many a page shows (0.11.9). */
+export const MESSAGE_DAYS = 90,
+  MESSAGE_PAGE = 50;
 /** Friends and pending requests per player, what the feed keeps per player and the most players one feed reads (0.11.8). */
 export const MAX_FRIENDS = 200,
   ACTIVITY_PER_PLAYER = 50,
@@ -126,11 +129,28 @@ export interface QueueItem extends Post {
   threadKey: string;
   reports: { reason: string; n: number }[];
 }
+export interface Message {
+  id: number;
+  senderId: string;
+  recipientId: string;
+  body: string;
+  createdAt: number;
+  readAt: number | null;
+  removedAt: number | null;
+  reasonCode: string | null;
+}
+/** A reported message, with what surrounds it and what the classifier made of it. */
+export interface ReportedMessage extends Message {
+  reports: { reason: string; n: number }[];
+  triageCategory: string | null;
+  triageScore: number | null;
+  context: Message[];
+}
 export interface ModerationAction {
   id: number;
   actor: string;
   action: string;
-  targetKind: 'post' | 'player' | 'settings';
+  targetKind: 'post' | 'player' | 'settings' | 'message';
   targetRef: string;
   playerId: string | null;
   reasonCode: string | null;
@@ -219,6 +239,16 @@ const postOf = (r: Record<string, unknown>): Post => ({
   reviewedAt: r.reviewed_at as number | null,
   editedAt: r.edited_at as number | null,
   createdAt: r.created_at as number,
+});
+const messageOf = (r: Record<string, unknown>): Message => ({
+  id: r.id as number,
+  senderId: r.sender_id as string,
+  recipientId: r.recipient_id as string,
+  body: r.body as string,
+  createdAt: r.created_at as number,
+  readAt: r.read_at as number | null,
+  removedAt: r.removed_at as number | null,
+  reasonCode: r.reason_code as string | null,
 });
 const actionOf = (r: Record<string, unknown>): ModerationAction => ({
   id: r.id as number,
@@ -442,6 +472,86 @@ export class CommunityStore {
       return postOf(r);
     });
   }
+  addMessage(senderId: string, recipientId: string, body: string): Message {
+    const at = this.now();
+    return messageOf(
+      this.sql('INSERT INTO messages (sender_id, recipient_id, body, created_at, expires_at) VALUES (?, ?, ?, ?, ?) RETURNING *').get(
+        senderId,
+        recipientId,
+        body,
+        at,
+        at + MESSAGE_DAYS * 86_400_000,
+      ) as Record<string, unknown>,
+    );
+  }
+  message(id: number): Message | null {
+    const r = this.sql('SELECT * FROM messages WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    return r ? messageOf(r) : null;
+  }
+  /** A page of what two players said, oldest first; `before` walks back from the newest. `next` is the `before` of the page before this one. */
+  conversation(a: string, b: string, before = Number.MAX_SAFE_INTEGER): { messages: Message[]; next: number | null } {
+    const rows = this.sql(
+      'SELECT * FROM messages WHERE ((sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?)) AND id < ? ORDER BY id DESC LIMIT ?',
+    ).all(a, b, b, a, before, MESSAGE_PAGE + 1) as Record<string, unknown>[];
+    const page = rows.slice(0, MESSAGE_PAGE).map(messageOf).reverse();
+    return { messages: page, next: rows.length > MESSAGE_PAGE ? page[0].id : null };
+  }
+  /** Who a player talks to, latest first, with how much is unread. */
+  conversations(playerId: string): { otherId: string; last: Message; unread: number }[] {
+    const rows = this.sql(
+      `SELECT CASE WHEN sender_id = ? THEN recipient_id ELSE sender_id END AS other, MAX(id) AS last, SUM(recipient_id = ? AND read_at IS NULL) AS unread
+       FROM messages WHERE sender_id = ? OR recipient_id = ? GROUP BY other ORDER BY last DESC LIMIT ?`,
+    ).all(playerId, playerId, playerId, playerId, MESSAGE_PAGE) as unknown as { other: string; last: number; unread: number }[];
+    return rows.map((r) => ({ otherId: r.other, last: this.message(r.last)!, unread: r.unread }));
+  }
+  markConversationRead(reader: string, other: string): void {
+    this.sql('UPDATE messages SET read_at = ? WHERE recipient_id = ? AND sender_id = ? AND read_at IS NULL').run(this.now(), reader, other);
+  }
+  setMessageRemoved(id: number, code: string | null): void {
+    this.sql('UPDATE messages SET removed_at = ?, reason_code = ? WHERE id = ?').run(code === null ? null : this.now(), code, id);
+  }
+  /** Messages last ninety days, whoever reads them. Returns how many went; a report on one goes with it. */
+  purgeExpiredMessages(): number {
+    return this.transaction(() => {
+      const at = this.now();
+      this.sql("DELETE FROM reports WHERE target_kind = 'message' AND target_ref IN (SELECT id FROM messages WHERE expires_at <= ?)").run(at);
+      return Number(this.sql('DELETE FROM messages WHERE expires_at <= ?').run(at).changes);
+    });
+  }
+  /** What the classifier made of a reported message: messages are read on report, never before. */
+  setReportTriage(kind: 'post' | 'message', ref: number, category: string, score: number | null): void {
+    this.sql('UPDATE reports SET triage_category = ?, triage_score = ? WHERE target_kind = ? AND target_ref = ? AND resolved_at IS NULL').run(
+      category,
+      score,
+      kind,
+      ref,
+    );
+  }
+  /** The messages waiting for a person, oldest first, each with what was said around it. */
+  reportedMessages(limit = MAX_QUEUE_PAGE): ReportedMessage[] {
+    const rows = this.sql(
+      `SELECT m.*, MAX(r.triage_category) AS triage_category, MAX(r.triage_score) AS triage_score FROM messages m
+       JOIN reports r ON r.target_kind = 'message' AND r.target_ref = m.id AND r.resolved_at IS NULL
+       GROUP BY m.id ORDER BY m.id LIMIT ?`,
+    ).all(Math.min(Math.max(1, limit), MAX_QUEUE_PAGE)) as Record<string, unknown>[];
+    return rows.map((r) => {
+      const m = messageOf(r);
+      const near = this.sql(
+        'SELECT * FROM messages WHERE ((sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?)) AND id BETWEEN ? AND ? ORDER BY id',
+      ).all(m.senderId, m.recipientId, m.recipientId, m.senderId, m.id - 50, m.id + 50) as Record<string, unknown>[];
+      const at = near.findIndex((x) => x.id === m.id);
+      const reports = new Map<string, number>();
+      for (const { reason } of this.openReports('message', m.id)) reports.set(reason, (reports.get(reason) ?? 0) + 1);
+      return {
+        ...m,
+        reports: [...reports].map(([reason, n]) => ({ reason, n })),
+        triageCategory: r.triage_category as string | null,
+        triageScore: r.triage_score as number | null,
+        context: near.slice(Math.max(0, at - 5), at + 6).map(messageOf),
+      };
+    });
+  }
+
   /** What a player last wrote and when, so the same words twice in a row can be refused. */
   lastPostOf(authorId: string): Pick<Post, 'body' | 'createdAt'> | null {
     const r = this.sql('SELECT body, created_at FROM posts WHERE author_id = ? ORDER BY id DESC LIMIT 1').get(authorId) as

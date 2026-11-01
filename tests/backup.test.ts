@@ -123,7 +123,7 @@ test(
     assert.equal(drill.ok, true);
     assert.equal(drill.manifestFiles, 6);
     assert.deepEqual(drill.hashMismatches, []);
-    assert.deepEqual(drill.community, { integrity: 'ok', schema: 4, accounts: 0, threads: 1, posts: 40 });
+    assert.deepEqual(drill.community, { integrity: 'ok', schema: 5, accounts: 0, threads: 1, posts: 40 });
     assert.equal((drill.restoredHealth as { community: { posts: number } }).community.posts, 40, 'the restored service reads the database');
     assert.equal(drill.archiveEntries, hot, "the cold day left the hot board; the archive's hot entries are what /health counts");
     assert.equal(drill.restoredEntries, hot);

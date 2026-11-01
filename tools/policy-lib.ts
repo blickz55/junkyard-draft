@@ -43,8 +43,8 @@ import {
   APPEAL_CONTACT,
 } from '../server/verify';
 import { LINK_PER_ADDRESS, LINK_PER_IP, LINK_PER_PLAYER, LINK_TTL_MS } from '../server/link';
-import { APPEAL_DAYS, DEFAULT_SETTINGS, EDIT_WINDOW_MS, POST_MAX, POST_RATE_LIMIT, REVIEW_SLA_HOURS, TRIAGE_MODEL } from '../server/moderation';
-import { ACTIVITY_PER_PLAYER, FEED_MEMBERS, MAX_FRIENDS, REMOVED_TEXT_DAYS } from '../server/community';
+import { APPEAL_DAYS, DEFAULT_SETTINGS, EDIT_WINDOW_MS, MESSAGE_MAX, POST_MAX, POST_RATE_LIMIT, REVIEW_SLA_HOURS, TRIAGE_MODEL } from '../server/moderation';
+import { ACTIVITY_PER_PLAYER, FEED_MEMBERS, MAX_FRIENDS, MESSAGE_DAYS, REMOVED_TEXT_DAYS } from '../server/community';
 
 export interface PolicySection {
   title: string;
@@ -140,6 +140,7 @@ export function buildPolicy(): Policy {
       lines: [
         `Friends need a linked email on both sides. You add someone from a game of theirs or a post of theirs, so nobody can be searched for or listed; a request reaches their inbox and they accept it or leave it. At most ${MAX_FRIENDS} friends and open requests, ${FRIEND_RATE_LIMIT} friend actions a minute.`,
         'A block ends what was there and hides you from each other in the talk, in the feed and on the chart of scores, both ways. Boards stay as they are, because scores are public. Removing or blocking someone tells them nothing, and a request to someone who has blocked you reads like any other.',
+        `Direct messages go between friends only, up to ${MESSAGE_MAX} characters, and last ${MESSAGE_DAYS} days. They pass the write-time filter and nothing else: neither the classifier nor a person reads a message unless the player it was sent to reports it. Then the classifier reads that one message, and a person sees it with the messages around it and can clear it, remove it, or mute or ban its sender; a removed message can be appealed like any decision. A block ends the conversation for both.`,
         `The feed shows your friends and crew mates: their games on dailies and weeklies, their posts and their division results, newest first, with the same reveal gate as the talk. Each player keeps their last ${ACTIVITY_PER_PLAYER} lines, and a feed reads at most ${FEED_MEMBERS} players.`,
       ],
     },

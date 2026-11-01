@@ -6,6 +6,7 @@
 import type Phaser from 'phaser';
 import { addStyle, btn, h, ui } from './dom';
 import { withArt } from './opening';
+import { openMessages } from './MessagesPanel';
 import { openThread } from './ThreadPanel';
 import { periodLabel, placeLine } from '../content/division';
 import { money } from '../content/format';
@@ -125,6 +126,9 @@ export function openFriends(scene: Phaser.Scene, verifierUrl: string): void {
         lists.friends.map((f) =>
           person(
             f,
+            ...(lists.messages
+              ? [btn(t('friends.message'), `friend-message-${f.handle}`, () => openMessages(scene, verifierUrl, f.handle), { small: true })]
+              : []),
             btn(t('friends.remove'), `friend-remove-${f.handle}`, () => act(removeFriend(verifierUrl, f.handle)), { small: true }),
             btn(t('friends.block'), `friend-block-${f.handle}`, () => act(blockPlayer(verifierUrl, { handle: f.handle })), { small: true }),
           ),

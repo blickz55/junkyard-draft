@@ -39,7 +39,7 @@ import {
   type Triage,
 } from '../server/moderation';
 import { PAGE_HTML, PAGE_JS } from '../server/moderation-page';
-import { createServer, playerIdFromToken, TEXT_FIELDS, Verifier } from '../server/verify';
+import { createServer, friendHandle, playerIdFromToken, TEXT_FIELDS, Verifier } from '../server/verify';
 import { foldName, nameProblem, recoveryCodeFor } from '../game/src/identity/identity';
 
 const FIXTURE = JSON.parse(fs.readFileSync('tests/fixtures/moderation-corpus.json', 'utf8')) as {
@@ -1034,6 +1034,12 @@ test('no free text outside the pipeline: a blocked string is refused by every fr
       return (await s.call('POST', '/posts/edit', { bearer: s.sam, body: { id: (mine.json.post as unknown as { id: number }).id, body: BLOCKED } })).status;
     },
     'appeal (POST /me/appeal)': async () => (await s.call('POST', '/me/appeal', { bearer: s.sam, body: { action, body: BLOCKED } })).status,
+    'direct message (POST /messages/send)': async () => {
+      s.community.bindEmail(s.annId, 'hash-ann');
+      s.community.requestFriend(s.samId, s.annId);
+      s.community.answerFriend(s.annId, s.samId, true);
+      return (await s.call('POST', '/messages/send', { bearer: s.sam, body: { handle: friendHandle(s.samId, s.annId), body: BLOCKED } })).status;
+    },
   };
   assert.deepEqual(Object.keys(pushes).sort(), [...TEXT_FIELDS].sort());
   for (const field of TEXT_FIELDS) assert.equal(await pushes[field](), 422, field);

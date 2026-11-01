@@ -7,6 +7,7 @@ import type Phaser from 'phaser';
 import { btn, h, ui } from './dom';
 import { choiceDialog } from './choice';
 import { withArt } from './opening';
+import { openMessages } from './MessagesPanel';
 import { openThread } from './ThreadPanel';
 import { openDivision } from './DivisionPanel';
 import { inboxText } from '../content/inbox';
@@ -71,6 +72,8 @@ export function openInbox(scene: Phaser.Scene, verifierUrl: string, onRead: () =
     prev?.focus?.();
   };
   const action = (line: InboxLine): HTMLElement | null => {
+    if (line.kind === 'message')
+      return btn(t('inbox.threadOpen'), `inbox-message-${line.id}`, () => openMessages(scene, verifierUrl, line.payload.handle as string), { small: true });
     if (line.kind === 'friend-request' && line.payload.pending) {
       const handle = line.payload.handle as string;
       const answer = (accept: boolean) => void answerFriend(verifierUrl, handle, accept).then((done) => done && both.remove());

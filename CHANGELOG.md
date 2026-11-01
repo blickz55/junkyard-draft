@@ -5,6 +5,11 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### 0.11.9 direct messages — 2026-11-01 (no rules change, protocol 3: additive)
+- **Write to a friend.** Message sits beside each friend, and a new message lands in your inbox. Friends only, up to 500 characters, and messages go after 90 days.
+- **Private by default.** The filter still refuses links and contact details, but neither the classifier nor a person reads a message unless the player it was sent to reports it. Then a person sees that message and the ones around it.
+- A removed message shows as removed to both of you and can be appealed. A block ends the conversation for both.
+
 ### 0.11.8 friends and the feed — 2026-11-01 (no rules change, protocol 3: additive)
 - **Add a friend** from a recording you watched, a post in the talk or a challenge you played. They answer in their inbox. Nobody can be searched for or listed.
 - **See what they have been up to.** Friends on Home shows your friends and crew mates: their games, their posts and how their divisions went, with Beat this in one tap. Their scores show on the chart of a yard you both played.

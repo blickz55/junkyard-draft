@@ -12,6 +12,7 @@ export interface FriendLists {
   incoming: FriendRow[];
   sent: FriendRow[];
   blocked: FriendRow[];
+  /** whether messages can be written here: the moderation pipeline is on */ messages: boolean;
 }
 export type FeedItem = { id: number; player: string; at: number } & (
   | { kind: 'run'; hash: string; seed: string; score: number }

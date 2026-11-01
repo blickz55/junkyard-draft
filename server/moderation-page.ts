@@ -31,6 +31,8 @@ export const PAGE_HTML = `<!doctype html>
   <div class="row"><button type="button" id="refresh" data-testid="mod-refresh">Refresh</button><span id="status" role="status" data-testid="mod-status"></span></div>
   <h2>Waiting for a person</h2>
   <div id="queue" data-testid="mod-queue"></div>
+  <h2>Reported messages</h2>
+  <div id="messages" data-testid="mod-messages"></div>
   <h2>Appeals</h2>
   <div id="appeals" data-testid="mod-appeals"></div>
   <h2>Reported names</h2>
@@ -189,6 +191,41 @@ function queueCard(item) {
     ),
   );
 }
+function messageCard(m) {
+  var reason = reasonSelect('m' + m.id, data.reasons.indexOf(m.triageCategory) >= 0 ? m.triageCategory : 'other');
+  var note = el('input', { placeholder: 'Note for the log (the player does not see it)', tid: 'mod-note-m' + m.id });
+  var post = function (action, done) {
+    return function () {
+      act('message', { id: m.id, action: action, code: reason.value, note: note.value }, done);
+    };
+  };
+  var player = function (action, done) {
+    return function () {
+      act('player', { id: m.senderId, action: action, code: reason.value, note: note.value }, done);
+    };
+  };
+  var reports = m.reports.map(function (r) { return r.reason + ' × ' + r.n; }).join(', ');
+  var why = m.triageCategory === 'unread' || !m.triageCategory ? 'the classifier did not read this' : 'classifier: ' + m.triageCategory + ' ' + m.triageScore;
+  return el(
+    'div',
+    { className: 'card', tid: 'mod-message-' + m.id },
+    el('div', { className: 'meta' }, m.from + ' to ' + m.to + ' · ' + ago(m.createdAt) + ' · reports: ' + reports + ' · ' + why),
+    ...m.context.map(function (c) {
+      var who = c.senderId === m.senderId ? m.from : m.to;
+      return el('div', { className: 'body' + (c.id === m.id ? ' appeal' : ' dim'), tid: 'mod-context-' + c.id }, who + ': ' + c.body);
+    }),
+    el('div', { className: 'row' }, reason, note),
+    el(
+      'div',
+      { className: 'row' },
+      el('button', { type: 'button', className: 'good', tid: 'mod-clear-m' + m.id, onClick: post('clear', 'Cleared.') }, 'Fine, clear it'),
+      el('button', { type: 'button', className: 'danger', tid: 'mod-delete-m' + m.id, onClick: post('delete', 'Removed.') }, 'Remove'),
+      el('button', { type: 'button', tid: 'mod-mute24-m' + m.id, onClick: player('mute-24h', 'Muted for 24 hours.') }, 'Mute 24 h'),
+      el('button', { type: 'button', tid: 'mod-mute7-m' + m.id, onClick: player('mute-7d', 'Muted for 7 days.') }, 'Mute 7 days'),
+      data.who === 'owner' && el('button', { type: 'button', className: 'danger', tid: 'mod-ban-m' + m.id, onClick: player('ban', 'Banned.') }, 'Ban'),
+    ),
+  );
+}
 function appealCard(a) {
   var note = el('input', { placeholder: 'Note for the log', tid: 'mod-appeal-note-' + a.id });
   var answer = function (result, done) {
@@ -251,11 +288,12 @@ function field(name, label, value) {
 function render() {
   var s = data.stats;
   $('summary').textContent =
-    s.waiting + ' waiting' + (s.oldest ? ', the oldest ' + ago(s.oldest) : '') + '. Target: every item within ' + s.slaHours + ' hours' +
+    (s.waiting + data.messages.length + data.appeals.length) + ' waiting' + (s.oldest ? ', the oldest ' + ago(s.oldest) : '') + '. Target: every item within ' + s.slaHours + ' hours' +
     (s.medianReviewHours === null ? '.' : ', lately ' + s.medianReviewHours + ' hours.') +
     (s.away ? ' The queue has been left alone, so the bar for hiding is lower until someone reviews it.' : '');
   $('off').hidden = data.enabled;
   $('queue').replaceChildren(...(data.queue.length ? data.queue.map(queueCard) : [el('p', { className: 'dim' }, 'Nothing waiting.')]));
+  $('messages').replaceChildren(...(data.messages.length ? data.messages.map(messageCard) : [el('p', { className: 'dim' }, 'No reported messages.')]));
   $('appeals').replaceChildren(...(data.appeals.length ? data.appeals.map(appealCard) : [el('p', { className: 'dim' }, 'No open appeals.')]));
   $('names').replaceChildren(...(data.names.length ? data.names.map(nameCard) : [el('p', { className: 'dim' }, 'No reported names.')]));
   $('recent').replaceChildren(...(data.recent.length ? data.recent.map(recentRow) : [el('p', { className: 'dim' }, 'Nothing decided yet.')]));

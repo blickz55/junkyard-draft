@@ -51,11 +51,12 @@ const refusedKey: Record<string, StringKey> = {
   banned: 'thread.banned',
   'no-name': 'thread.noName',
   'not-linked': 'thread.signIn',
+  'not-friends': 'messages.notFriends',
 };
-const refusedText = (code: string) => t(refusedKey[code] ?? 'thread.refused.failed');
+export const refusedText = (code: string) => t(refusedKey[code] ?? 'thread.refused.failed');
 
 /** The words a report offers for each reason: the same fixed list the server takes. */
-const reasonLabel = (reason: string) => t(`thread.report.${reason.replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}` as StringKey);
+export const reasonLabel = (reason: string) => t(`thread.report.${reason.replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}` as StringKey);
 
 export function openThread(scene: Phaser.Scene, verifierUrl: string, key: string): void {
   addStyle('jd-thread-style', STYLE);

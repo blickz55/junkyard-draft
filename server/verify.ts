@@ -130,7 +130,7 @@ import {
 import { claudeClassifier, DEFAULT_SETTINGS, excerpt, OWNER, POST_RATE_LIMIT, Pipeline, REASON_CODES, REVIEW_SLA_HOURS, type Refused } from './moderation';
 import { closingPost, openingPost, type DayFacts } from '../game/src/content/sal-posts';
 import { dayPage, missingPage, SITE_CSS, SITE_POLICY } from './community-page';
-import type { ActivityRow, Post } from './community';
+import type { ActivityRow, Message, Post } from './community';
 import { PAGE_CSS, PAGE_HTML, PAGE_JS, PAGE_POLICY } from './moderation-page';
 
 /** Protocol level of this server's HTTP surface (PLAN-v3 §1): 2 adds identity (bearer tokens, /identity, DELETE /me, keep-best per player); GET /me/export (0.8.6) only grows it. */
@@ -359,7 +359,7 @@ export const USER_WRITTEN_FIELDS = [
 /** A friend as one player knows them: this handle means something only to that viewer, so no player id leaves the server (0.11.8). */
 export const friendHandle = (viewer: string, other: string): string => createHash('sha256').update(`${viewer}|${other}`).digest('hex').slice(0, 16);
 /** Every field of free text a player writes (0.11.2). Each passes textProblem; tests/moderation.test.ts pushes a blocked string through each and counts the call sites. A moderator's note is not here: it is an operator's, never shown to a player. */
-export const TEXT_FIELDS = ['post (POST /posts)', 'post edit (POST /posts/edit)', 'appeal (POST /me/appeal)'] as const;
+export const TEXT_FIELDS = ['post (POST /posts)', 'post edit (POST /posts/edit)', 'appeal (POST /me/appeal)', 'direct message (POST /messages/send)'] as const;
 /** Defaults the policy page publishes (PLAN-v3 0.6.5); env/flags override the rate limits at runtime. */
 export const DEFAULT_RATE_LIMIT = 60,
   DEFAULT_PLAYER_RATE_LIMIT = 2,
@@ -2323,6 +2323,11 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
       };
     }
     if (r.kind === 'friend-accepted') return { ...r, payload: { player: verifier.playerLabel(p.by as string, now) } };
+    if (r.kind === 'message') {
+      const from = p.from as string;
+      if (community?.blockedWith(playerId).has(from)) return null;
+      return { ...r, payload: { handle: friendHandle(playerId, from), player: verifier.playerLabel(from, now) } };
+    }
     if (r.kind === 'thread-reply' && p.kind === 'run') {
       const e = verifier.entry(String(p.key), null, now);
       return e ? { ...r, payload: { ...p, seed: e.seed, score: e.score, player: e.player, own: verifier.ownerOf(e.replayHash) === playerId } } : null;
@@ -2347,6 +2352,14 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     if (!seed || verifier.revealGate(seed, viewer, now)) return null;
     return { ...base, key: thread.key, thread: thread.kind, excerpt: excerpt(post.body) };
   };
+  /** A direct message as one side reads it (0.11.9). */
+  const messageView = (m: Message, viewer: string) => ({
+    id: m.id,
+    mine: m.senderId === viewer,
+    at: m.createdAt,
+    removed: m.removedAt !== null,
+    body: m.removedAt === null ? m.body : '',
+  });
   /** A post as someone reads it (0.11.5): a name at read time and no id, and to its author what state it is in. */
   const postView = (p: Post, viewer: string | null, now: Date) => {
     const own = !!viewer && p.authorId === viewer;
@@ -2973,6 +2986,77 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         if (w != null) return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) });
         return json(200, { ok: true, read: community.markRead(bearerId) });
       }
+      if (url.pathname === '/messages' || url.pathname.startsWith('/messages/')) {
+        // direct messages (0.11.9): friends only, and private: nothing reads one unless the player it was sent to reports it
+        if (!community || !moderation?.enabled) {
+          req.resume();
+          return json(503, { ok: false, code: 'writing-off', error: 'writing is not enabled on this verifier' });
+        }
+        if (!bearerId) {
+          req.resume();
+          return json(401, { ok: false, error: 'token required' });
+        }
+        const blocked = community.blockedWith(bearerId);
+        /** The other side of a conversation, from a handle: friends, and whoever a friendship once had words with. */
+        const otherOf = (handle: unknown) =>
+          typeof handle === 'string'
+            ? ([...community.friendRows(bearerId).map((x) => x.otherId), ...community.conversations(bearerId).map((c) => c.otherId)].find(
+                (id) => friendHandle(bearerId, id) === handle && !blocked.has(id),
+              ) ?? null)
+            : null;
+        const now = new Date((opts.now ?? Date.now)());
+        if (req.method === 'GET' && url.pathname === '/messages')
+          return json(200, {
+            ok: true,
+            conversations: community
+              .conversations(bearerId)
+              .filter((c) => !blocked.has(c.otherId))
+              .map((c) => ({
+                handle: friendHandle(bearerId, c.otherId),
+                player: verifier.playerLabel(c.otherId, now),
+                last: messageView(c.last, bearerId),
+                unread: c.unread,
+              })),
+          });
+        if (req.method === 'GET' && url.pathname === '/messages/with') {
+          const other = otherOf(url.searchParams.get('handle'));
+          if (!other) return json(404, { ok: false, code: 'no-player', error: 'no such conversation' });
+          const page = community.conversation(bearerId, other, clampInt(url.searchParams.get('before'), Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER));
+          community.markConversationRead(bearerId, other);
+          return json(200, {
+            ok: true,
+            player: verifier.playerLabel(other, now),
+            messages: page.messages.map((m) => messageView(m, bearerId)),
+            next: page.next,
+            friends: community.relation(bearerId, other) === 'friend',
+          });
+        }
+        const action = url.pathname.slice('/messages/'.length);
+        if (req.method !== 'POST' || (action !== 'send' && action !== 'report')) {
+          req.resume();
+          return json(404, { ok: false, error: 'not found' });
+        }
+        const r = friendRl.take(bearerId);
+        if (!r.ok) {
+          req.resume();
+          return json(429, { ok: false, code: 'rate-limited', error: 'slow down' }, { 'Retry-After': String(r.retryAfterSec) });
+        }
+        const w = writeLimited();
+        if (w != null) {
+          req.resume();
+          return json(429, { ok: false, error: 'rate limited: too many writes from this address' }, { 'Retry-After': String(w) });
+        }
+        return withBody(2048, (p) => {
+          if (action === 'report') {
+            const out = moderation.reportMessage(bearerId, p.id, p.reason);
+            return out.ok ? json(200, out) : refusal(out);
+          }
+          const other = otherOf(p.handle);
+          if (!other) return json(403, { ok: false, code: 'not-friends', error: 'you can only write to your friends' });
+          const out = moderation.send(bearerId, other, p.body);
+          return out.ok ? json(200, { ok: true, message: messageView(out.message, bearerId) }) : refusal(out);
+        });
+      }
       if (url.pathname === '/friends' || url.pathname.startsWith('/friends/') || url.pathname === '/feed') {
         // friends and the feed (0.11.8): a player is reached through a run or a post, and known afterwards by a handle only they can use
         if (!community) {
@@ -2997,6 +3081,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
             incoming: rows.filter((r) => r.incoming).map(view),
             sent: rows.filter((r) => r.state === 'requested' && !r.incoming).map(view),
             blocked: rows.filter((r) => r.state === 'blocked').map(view),
+            messages: !!moderation?.enabled,
           });
         }
         if (req.method === 'GET' && url.pathname === '/feed') {
@@ -3470,6 +3555,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
             queue: community
               .moderationQueue()
               .map((q) => ({ ...q, author: label(q.authorId), record: q.authorId ? community.authorRecord(q.authorId) : null })),
+            messages: community.reportedMessages().map((m) => ({ ...m, from: label(m.senderId), to: label(m.recipientId) })),
             appeals: community.openAppeals().map((a) => ({ ...a, player: label(a.playerId) })),
             recent: community.recentActions().map((a) => ({
               ...a,
@@ -3484,7 +3570,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
           });
         }
         const decision = url.pathname.slice('/moderation/'.length);
-        if (req.method === 'POST' && ['post', 'player', 'appeal', 'settings', 'trust'].includes(decision)) {
+        if (req.method === 'POST' && ['post', 'message', 'player', 'appeal', 'settings', 'trust'].includes(decision)) {
           if (!moderation) {
             req.resume();
             return json(503, { ok: false, error: 'the community store is not enabled on this verifier' });
@@ -3497,13 +3583,15 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
             const out =
               decision === 'post'
                 ? moderation.decidePost(who, p.id, p.action, p.code, p.note)
-                : decision === 'player'
-                  ? moderation.decidePlayer(who, p.id, p.action, p.code, p.note)
-                  : decision === 'appeal'
-                    ? moderation.answerAppeal(who, p.id, p.result, p.note)
-                    : decision === 'settings'
-                      ? moderation.saveSettings(who, p)
-                      : moderation.setTrusted(who, p.playerId, p.trusted);
+                : decision === 'message'
+                  ? moderation.decideMessage(who, p.id, p.action, p.code, p.note)
+                  : decision === 'player'
+                    ? moderation.decidePlayer(who, p.id, p.action, p.code, p.note)
+                    : decision === 'appeal'
+                      ? moderation.answerAppeal(who, p.id, p.result, p.note)
+                      : decision === 'settings'
+                        ? moderation.saveSettings(who, p)
+                        : moderation.setTrusted(who, p.playerId, p.trusted);
             return out.ok ? json(200, out) : refusal(out);
           });
         }

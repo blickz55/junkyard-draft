@@ -15,7 +15,16 @@
  * Scores never move here: moderating a post says nothing about a run.
  */
 import { foldName, POST_MAX, REPORT_REASONS, type ReportReason } from '../game/src/identity/identity';
-import { COUNTS_TTL_MS, type CommunityStore, type ModerationAction, type MonthCounts, type Post, type TriageUsage, type WriteBlock } from './community';
+import {
+  COUNTS_TTL_MS,
+  type CommunityStore,
+  type Message,
+  type ModerationAction,
+  type MonthCounts,
+  type Post,
+  type TriageUsage,
+  type WriteBlock,
+} from './community';
 
 // ---------- the filter ----------
 export { POST_MAX };
@@ -25,6 +34,8 @@ export const APPEAL_MAX = 500;
 export const REPEAT_WINDOW_MS = 10 * 60_000;
 /** Posts per minute per player. */
 export const POST_RATE_LIMIT = 6;
+/** The longest direct message (0.11.9). */
+export const MESSAGE_MAX = 500;
 /** How long a post can still be changed (roadmap 0.11.5). */
 export const EDIT_WINDOW_MS = 5 * 60_000;
 
@@ -301,7 +312,7 @@ const STATE: Record<Band, Post['state']> = { publish: 'published', queue: 'queue
 /** The category recorded when the classifier gave no answer, so the queue page can say so. */
 export const UNREAD = 'unread';
 /** Decisions the player they are about can appeal. */
-const APPEALABLE = new Set(['auto-hide', 'report-hide', 'hide', 'delete', 'mute-24h', 'mute-7d', 'ban']);
+const APPEALABLE = new Set(['auto-hide', 'report-hide', 'hide', 'delete', 'mute-24h', 'mute-7d', 'ban', 'message-delete']);
 /** An excerpt in an inbox line, so a player can tell which post it means. */
 export const excerpt = (body: string) => ([...body].length > 80 ? `${[...body].slice(0, 77).join('')}…` : body);
 
@@ -373,6 +384,7 @@ export class Pipeline {
       this.sweeper = setInterval(() => {
         this.drain();
         this.store.purgeRemoved();
+        this.store.purgeExpiredMessages();
       }, o.sweepMs ?? 60_000);
       this.sweeper.unref();
     }
@@ -410,6 +422,78 @@ export class Pipeline {
     const post = this.store.addPost(threadId, authorId, body, replayHash, 'hidden');
     this.drain();
     return { ok: true, post };
+  }
+
+  /** A direct message: friends only, through the same filter, and nothing reads it unless the one it was sent to reports it. */
+  send(senderId: string, recipientId: string, raw: unknown): { ok: true; message: Message } | Refused {
+    if (!this.classify) return refused(503, 'writing-off', 'writing is not enabled on this server');
+    const block = this.store.writeBlock(senderId);
+    if (block) return blocked(block);
+    if (this.store.relation(senderId, recipientId) !== 'friend') return refused(403, 'not-friends', 'you can only write to your friends');
+    const problem = textProblem(raw, MESSAGE_MAX);
+    if (problem) return refused(422, problem, TEXT_MESSAGES[problem]);
+    const message = this.store.addMessage(senderId, recipientId, normaliseText(raw));
+    this.store.notify(recipientId, 'message', { from: senderId });
+    return { ok: true, message };
+  }
+  /** The one a message was sent to reports it: only now does anything read it. It goes in front of a person with what was said around it. */
+  reportMessage(reporterId: string, id: unknown, reason: unknown): { ok: true; duplicate: boolean } | Refused {
+    if (typeof reason !== 'string' || !(REPORT_REASONS as readonly string[]).includes(reason))
+      return refused(422, 'bad-reason', `reason must be one of ${REPORT_REASONS.join(', ')}`);
+    const message = typeof id === 'number' ? this.store.message(id) : null;
+    if (!message || message.recipientId !== reporterId) return refused(404, 'no-message', 'no such message');
+    const added = this.store.addReport('message', message.id, reporterId, reason);
+    this.audit({ at: this.at(), action: 'report-message', by: reporterId, message: message.id, playerId: message.senderId, reason, added });
+    if (added) this.readReported(message);
+    return { ok: true, duplicate: !added };
+  }
+  private readReported(message: Message) {
+    const task = -message.id; // beside the posts being read, so idle() waits for both
+    const answer = (category: string, score: number | null) => this.store.setReportTriage('message', message.id, category, score);
+    const day = this.day();
+    if (!this.classify || this.store.usageSince(day).calls >= this.settings().dailyCalls) return answer(UNREAD, null);
+    this.inFlight.add(task);
+    void this.classify(message.body)
+      .then(
+        (t) => {
+          this.store.recordUsage(day, { calls: 1, inputTokens: t.inputTokens, outputTokens: t.outputTokens });
+          answer(t.category, t.score);
+        },
+        (e: unknown) => {
+          this.store.recordUsage(day, { calls: 1, failures: 1 });
+          this.logError(JSON.stringify({ ts: this.at(), error: `triage: ${(e as Error).message}`, message: message.id }));
+          answer(UNREAD, null);
+        },
+      )
+      .finally(() => {
+        this.inFlight.delete(task);
+        if (!this.inFlight.size) for (const w of this.waiters.splice(0)) w();
+      });
+  }
+  /** A person decides on a reported message. Removed, it shows as removed to both; the words stay for an appeal until the message expires. */
+  decideMessage(actor: Actor, id: unknown, action: unknown, code: unknown, note: unknown): { ok: true; action: number } | Refused {
+    const message = typeof id === 'number' ? this.store.message(id) : null;
+    if (!message) return refused(404, 'no-message', 'no such message');
+    if (message.senderId === actor || message.recipientId === actor) return refused(403, 'yourself', 'someone else has to decide on this one');
+    const text = typeof note === 'string' ? note.slice(0, 500) : '';
+    if (action !== 'clear' && action !== 'delete') return refused(422, 'bad-action', 'clear or delete');
+    if (action === 'delete' && !isReasonCode(code)) return refused(422, 'bad-reason', `reason must be one of ${REASON_CODES.join(', ')}`);
+    this.store.resolveReports('message', message.id);
+    const name = action === 'clear' ? 'message-clear' : 'message-delete';
+    const reason = action === 'clear' ? null : (code as ReasonCode);
+    if (reason) this.store.setMessageRemoved(message.id, reason);
+    const row = this.store.addAction({
+      actor,
+      action: name,
+      targetKind: 'message',
+      targetRef: message.id,
+      playerId: message.senderId,
+      code: reason,
+      note: text,
+    });
+    this.audit({ at: this.at(), action: name, by: actor, message: message.id, playerId: message.senderId, code: reason, note: text });
+    if (reason) this.store.notify(message.senderId, 'moderation', { action: row, what: name, code: reason, excerpt: excerpt(message.body) });
+    return { ok: true, action: row };
   }
 
   /** Whether a player can still change a post: theirs, in time, and not something a person or the classifier took down. */
@@ -611,12 +695,14 @@ export class Pipeline {
       const state = this.store.post(Number(a.targetRef))?.state;
       return state === 'hidden' || state === 'deleted';
     }
+    if (a.targetKind === 'message') return !!this.store.message(Number(a.targetRef))?.removedAt;
     const block = this.store.writeBlock(a.targetRef)?.code;
     return a.action === 'ban' ? block === 'banned' : block === 'muted';
   }
   /** What the queue page offers to undo a decision that still stands. */
   undoFor(a: ModerationAction): 'unhide' | 'unmute' | 'unban' | null {
     if ((!APPEALABLE.has(a.action) && a.action !== 'ban-hide') || !this.inEffect(a)) return null;
+    if (a.targetKind === 'message') return null; // the words are back through an appeal, not a button
     return a.targetKind === 'post' ? 'unhide' : a.action === 'ban' ? 'unban' : 'unmute';
   }
   /** Whether a player can still appeal a decision. */
@@ -650,6 +736,11 @@ export class Pipeline {
     // an appeal asks someone else to look; the owner works alone until there are moderators, and is the last resort after that
     if (actor !== OWNER && (actor === a.actor || actor === a.playerId)) return refused(403, 'yourself', 'someone else has to answer this one');
     const text = typeof note === 'string' ? note.slice(0, 500) : '';
+    if (a.targetKind === 'message') {
+      if (result === 'overturned') this.store.setMessageRemoved(Number(a.targetRef), null);
+      this.answered(a.id, result, actor, text);
+      return { ok: true };
+    }
     if (a.targetKind !== 'post') {
       if (result === 'overturned' && a.action === 'ban') {
         // the ban was wrong, so what it took down was never judged: it goes back up. A ban lifted as mercy leaves those posts down
