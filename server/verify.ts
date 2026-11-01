@@ -104,7 +104,7 @@ import {
   type Mailer,
 } from './link';
 import { isMintedDailySeed, dailyDateOf } from '../game/src/sim/daily';
-import { mintSeed, mintWeeklySeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS, base32Lower } from './mint';
+import { mintReissue, mintSeed, mintWeeklySeed, commitmentFor, shiftDate, utcDate, dayStartMs, isUtcDate, DAILY_WINDOW_MS, base32Lower } from './mint';
 import { isWeekId, isWeeklySeed, weeklyIdOf, weeklyWindow, currentWeekId, nextWeekId, prevWeekId, isoWeekId } from '../game/src/sim/weekly';
 import { Announcer, type AnnounceEvent } from './webhook';
 export { Announcer, formatAnnouncement, announceKey, retryAfterMs, type AnnounceEvent } from './webhook';
@@ -172,6 +172,7 @@ export interface BoardEntry {
   replayAvailable?: boolean;
   finalMachines?: number;
   /** claimed identity (PLAN-v3 0.6.0); absent on anonymous entries, which are never claimable */ playerId?: string;
+  /** a tool played it (0.12.5): it keeps a board of its own and never ranks on the people's */ origin?: 'tool';
   /** per-round earnings derived at verification (PLAN-v4 0.7.1); absent on entries verified before and without a stored replay */ rounds?: number[];
   /** stars on the yard's job (rules v4), derived from the re-simulated replay; additive; absent on a yard with no job and on older entries */ stars?: number;
 }
@@ -281,6 +282,8 @@ export interface DailyRecord {
   /** set once the window closed (= closesAt); the board is final from then on (PLAN-v3 0.6.2) */ frozenAt?: string;
   /** computed once at freeze from the final board (PLAN-v3 0.6.4): thresholds, or null when fewer than MEDAL_MIN_N runs; absent while open */
   medals?: Medals | null;
+  /** what this day was before it was voided (0.12.5): the first seed is the one the day before committed to */
+  voided?: { seed: string; at: string; reason: string }[];
   /** a weekly (PLAN-v4 0.7.5): keyed by its ISO week, `date` is the Friday it opened, `opensAt` Friday 18:00 UTC; dailies have no kind */ kind?: 'weekly';
   week?: string;
   opensAt?: string;
@@ -391,7 +394,7 @@ export interface PlayerExport {
   playerId: string;
   tag: string;
   player: { name: string; tag: string; createdAt: string; renamedAt: string; hidden: boolean } | null;
-  entries: (BoardEntry & { storage: 'hot' | 'cold'; replay: StoredReplay | null })[];
+  entries: (BoardEntry & { storage: 'hot' | 'cold' | 'voided'; replay: StoredReplay | null })[];
   groups: { code: string; name: string; members: number; creator: boolean }[];
   moderation: { name: string; hidden: boolean; hiddenAt: string | null; confirmedAt: string | null; clears: number; reports: number } | null;
   reportsFiled: { reason: ReportReason; at: string }[];
@@ -606,7 +609,7 @@ export class Verifier {
     }
     return this.index.get(seed) ?? [];
   }
-  private rank(seed: string, data: Board = this.data, members?: ReadonlySet<string> | null, now = new Date()): BoardEntry[] {
+  private rank(seed: string, data: Board = this.data, members?: ReadonlySet<string> | null, now = new Date(), assisted = false): BoardEntry[] {
     const hot = this.sortedSeed(seed, data).map((e) => this.withLabel(e, now));
     const all =
       hot.length || data !== this.data
@@ -614,7 +617,8 @@ export class Verifier {
         : this.coldEntries(seed, now)
             .filter((e) => e.rulesVersion === RULES_VERSION)
             .sort(byRank);
-    return members ? all.filter((e) => !!e.playerId && members.has(e.playerId)) : all; // a group board: members' verified entries only, ranks recomputed over them (PLAN-v4 0.7.2)
+    const side = all.filter((e) => !!e.origin === assisted); // every board, medal and chart reads this, so a tool's game reaches none of them (0.12.5)
+    return members ? side.filter((e) => !!e.playerId && members.has(e.playerId)) : side; // a group board: members' verified entries only, ranks recomputed over them (PLAN-v4 0.7.2)
   }
   /** A cold day's entries with labels resolved against the current identities (renames and deletions follow the player without rewriting cold files). */
   private coldEntries(seed: string, now = new Date()): BoardEntry[] {
@@ -1012,6 +1016,13 @@ export class Verifier {
     } catch (e) {
       console.error(`cold deletion for ${playerId.slice(0, 8)}… failed: ${(e as Error).message}`);
     } // 0.8.1: the kept cold replays go too (the policy promised it)
+    for (const { file, day } of this.voidedDays()) {
+      const theirs = day.entries.filter((e) => e.playerId === playerId);
+      if (!theirs.length) continue;
+      for (const e of theirs) delete day.replays[e.replayHash];
+      day.entries = day.entries.map((e) => (e.playerId === playerId ? { ...e, player: 'deleted', playerId: undefined } : e));
+      fs.writeFileSync(file, JSON.stringify(day));
+    } // 0.12.5: and so does a day kept aside
     return { entries: mine.length, coldReplays };
   }
   /**
@@ -1029,6 +1040,9 @@ export class Verifier {
     const cold = this.cold
       .entriesOf(playerId)
       .map((c) => ({ ...c.entry, player: player ? this.labelOf(playerId, player, now) : c.entry.player, storage: 'cold' as const, replay: c.replay }));
+    const voided = this.voidedDays().flatMap(({ day }) =>
+      day.entries.filter((e) => e.playerId === playerId).map((e) => ({ ...e, storage: 'voided' as const, replay: day.replays[e.replayHash] ?? null })),
+    );
     const mod = this.data.moderation?.[playerId];
     const reportsFiled = Object.values(this.data.moderation ?? {})
       .flatMap((m) => m.reports.filter((r) => r.reporterId === playerId).map((r) => ({ reason: r.reason, at: r.at })))
@@ -1040,7 +1054,7 @@ export class Verifier {
       playerId,
       tag: tagFor(playerId),
       player: player ? { name: player.name, tag: player.tag, createdAt: player.createdAt, renamedAt: player.renamedAt, hidden: this.isHidden(mod, now) } : null,
-      entries: [...hot, ...cold].sort((a, b) => a.verifiedAt.localeCompare(b.verifiedAt)),
+      entries: [...hot, ...cold, ...voided].sort((a, b) => a.verifiedAt.localeCompare(b.verifiedAt)),
       groups: this.groupsOf(playerId),
       moderation: mod
         ? {
@@ -1269,7 +1283,15 @@ export class Verifier {
     return resimulate(replay);
   }
   /** Step 3, synchronous: judge the re-simulation, apply the window, keep-best and retention, commit. Throws StorageError if it cannot persist. */
-  record(replay: ReplayFile, replayHash: string, sim: Resim, player = 'anonymous', playerId: string | null = null, now = new Date()): SubmitResult {
+  record(
+    replay: ReplayFile,
+    replayHash: string,
+    sim: Resim,
+    player = 'anonymous',
+    playerId: string | null = null,
+    now = new Date(),
+    origin: 'tool' | null = null,
+  ): SubmitResult {
     if (!sim.ok) return { ok: false, error: `rejected: ${sim.error}`, code: sim.code };
     if (this.data.entries.some((e) => e.replayHash === replayHash)) return { ok: false, error: 'rejected: duplicate replay', code: 'duplicate' }; // two copies in flight: the second finds the first
     const claimed = playerId ? this.data.players?.[playerId] : undefined;
@@ -1297,12 +1319,13 @@ export class Verifier {
       ...(sim.stars != null ? { stars: sim.stars } : {}),
       rounds: sim.rounds,
       ...(playerId ? { playerId } : {}),
+      ...(origin ? { origin } : {}),
     };
-    // keep-best per (seed, player): a worse or equal run is verified but not recorded; a better one replaces the old entry and its replay
+    // keep-best per (seed, player, board): a worse or equal run is verified but not recorded; a better one replaces the old entry and its replay
     let entries = this.data.entries;
     const replays = { ...(this.data.replays ?? {}) };
     if (playerId) {
-      const mine = entries.find((e) => e.seed === replay.seed && e.playerId === playerId && e.rulesVersion === RULES_VERSION);
+      const mine = entries.find((e) => e.seed === replay.seed && e.playerId === playerId && e.rulesVersion === RULES_VERSION && (e.origin ?? null) === origin);
       if (mine && byRank(mine, entry) <= 0) return { ok: true, score: sim.score, entry: mine, recorded: false, player: label };
       if (mine) {
         entries = entries.filter((e) => e !== mine);
@@ -1339,9 +1362,9 @@ export class Verifier {
     if (!p.ok) return { ok: false, error: p.error, code: p.code };
     return this.record(p.replay, p.replayHash, this.resimulate(p.replay), player, playerId, now);
   }
-  board(seed: string, limit = 20, members?: ReadonlySet<string> | null, now = new Date()): BoardEntry[] {
+  board(seed: string, limit = 20, members?: ReadonlySet<string> | null, now = new Date(), assisted = false): BoardEntry[] {
     const n = Math.min(MAX_BOARD_LIMIT, Math.max(1, Math.floor(limit) || 1));
-    return this.rank(seed, this.data, members, now)
+    return this.rank(seed, this.data, members, now, assisted)
       .slice(0, n)
       .map((e) => ({ ...e, replayAvailable: !!this.data.replays?.[e.replayHash] || !!this.cold.dateOfReplay(e.replayHash) }));
   }
@@ -1629,6 +1652,97 @@ export class Verifier {
   openedAt(seed: string): number | null {
     const issued = this.issuedRecordForSeed(seed)?.issuedAt;
     return issued ? Date.parse(issued) : null;
+  }
+  assistedCount(seed: string, now = new Date()): number {
+    return this.rank(seed, this.data, null, now, true).length;
+  }
+  /**
+   * Move a game between the people's board and the Assisted one (0.12.5), with a reason in the audit log. A closed day's board is final, and a player
+   * keeps one game on each board, so neither can be undone by accident here.
+   */
+  reclassify(
+    hash: unknown,
+    origin: unknown,
+    reason: unknown,
+    now = new Date(),
+  ): { ok: true; entry: BoardEntry } | { ok: false; status: number; error: string } {
+    if (origin !== 'tool' && origin !== 'human') return { ok: false, status: 422, error: 'origin must be tool or human' };
+    if (typeof reason !== 'string' || !reason.trim()) return { ok: false, status: 422, error: 'a reason is required' };
+    const e = this.data.entries.find((x) => x.replayHash === hash);
+    if (!e) return { ok: false, status: 404, error: 'no such game on an open board' };
+    const rec = this.issuedRecordForSeed(e.seed);
+    if (rec && (rec.frozenAt || Date.parse(rec.closesAt) <= now.getTime())) return { ok: false, status: 409, error: 'that board is final' };
+    const next: BoardEntry = { ...e };
+    if (origin === 'tool') next.origin = 'tool';
+    else delete next.origin;
+    const clash = this.data.entries.some(
+      (x) => x !== e && !!e.playerId && x.playerId === e.playerId && x.seed === e.seed && x.rulesVersion === e.rulesVersion && !!x.origin === !!next.origin,
+    );
+    if (clash) return { ok: false, status: 409, error: 'that player already has a game on that board' };
+    if (!!e.origin === !!next.origin) return { ok: true, entry: e };
+    this.commit({ ...this.data, entries: this.data.entries.map((x) => (x === e ? next : x)) });
+    this.audit({
+      at: now.toISOString(),
+      action: 'reclassify',
+      hash: e.replayHash,
+      playerId: e.playerId ?? null,
+      to: origin,
+      reason: reason.trim().slice(0, 200),
+      by: 'moderator',
+    });
+    return { ok: true, entry: next };
+  }
+  /**
+   * A day a bug compromised is voided and re-issued, never re-scored (0.12.5). Its games leave the board for a file beside it, with the reason, and the
+   * day starts again on a new seed with a full window. The chain stays checkable: the day before still commits to the first seed, which this record names.
+   */
+  voidDay(
+    date: unknown,
+    reason: unknown,
+    now = new Date(),
+  ): { ok: true; record: DailyRecord; games: number; seed: string } | { ok: false; status: number; error: string } {
+    if (!isUtcDate(date)) return { ok: false, status: 422, error: 'date must be YYYY-MM-DD' };
+    if (typeof reason !== 'string' || !reason.trim()) return { ok: false, status: 422, error: 'a reason is required' };
+    const rec = this.data.dailies?.[date];
+    if (!rec) return { ok: false, status: 404, error: `no issued day ${date} on the board: a day in cold storage stays as it closed` };
+    const games = this.data.entries.filter((e) => e.seed === rec.seed);
+    const kept = Object.entries(this.data.replays ?? {});
+    const voided = [...(rec.voided ?? []), { seed: rec.seed, at: now.toISOString(), reason: reason.trim().slice(0, 200) }];
+    const dir = path.join(path.dirname(this.file), 'voided');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, `${date}-${voided.length}.json`),
+      JSON.stringify({ record: rec, voided: voided.at(-1), entries: games, replays: Object.fromEntries(kept.filter(([, r]) => r.seed === rec.seed)) }),
+    );
+    const { frozenAt: _frozen, medals: _medals, ...open } = rec;
+    const closesAt = new Date(Math.max(Date.parse(rec.closesAt), now.getTime() + DAILY_WINDOW_MS)).toISOString();
+    const record: DailyRecord = { ...open, seed: mintReissue(this.dailySecret, date, voided.length), issuedAt: now.toISOString(), closesAt, voided };
+    this.commit({
+      ...this.data,
+      entries: this.data.entries.filter((e) => e.seed !== rec.seed),
+      replays: Object.fromEntries(kept.filter(([, r]) => r.seed !== rec.seed)),
+      dailies: { ...this.data.dailies, [date]: record },
+    });
+    this.audit({
+      at: now.toISOString(),
+      action: 'void',
+      date,
+      from: rec.seed,
+      to: record.seed,
+      games: games.length,
+      reason: voided.at(-1)!.reason,
+      by: 'owner',
+    });
+    return { ok: true, record, games: games.length, seed: rec.seed };
+  }
+  /** The days kept aside: what a person may need to read, and what an export and forgetting a player have to reach. */
+  private voidedDays(): { file: string; day: { entries: BoardEntry[]; replays: Record<string, StoredReplay> } }[] {
+    const dir = path.join(path.dirname(this.file), 'voided');
+    if (!fs.existsSync(dir)) return [];
+    return fs.readdirSync(dir).map((f) => {
+      const file = path.join(dir, f);
+      return { file, day: JSON.parse(fs.readFileSync(file, 'utf8')) as { entries: BoardEntry[]; replays: Record<string, StoredReplay> } };
+    });
   }
   /** Days with a checked daily, whatever the rules were then (0.11.12). `ids` as for a card. */
   dailiesOf(ids: string[]): number {
@@ -2898,12 +3012,14 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         const gs = groupScope();
         if (!gs.ok) return json(gs.status, { ok: false, error: gs.error });
         const seed = (url.searchParams.get('seed') || '').slice(0, 64);
+        const when = new Date((opts.now ?? Date.now)());
         return json(200, {
           seed,
           verified: true,
           entries: withReactions(
-            verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT), gs.members, new Date((opts.now ?? Date.now)())),
+            verifier.board(seed, clampInt(url.searchParams.get('limit'), 20, MAX_BOARD_LIMIT), gs.members, when, url.searchParams.get('assisted') === '1'),
           ),
+          assistedCount: verifier.assistedCount(seed, when),
           group: gs.group,
           botPar: withPar(seed),
           tieBreak: TIE_BREAK,
@@ -3932,9 +4048,13 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
             policy: verifier.reportPolicy,
           });
         const action = url.pathname.slice('/moderation/'.length);
-        if (req.method !== 'POST' || !['clear', 'confirm', 'rename', 'rename-group'].includes(action)) {
+        if (req.method !== 'POST' || !['clear', 'confirm', 'rename', 'rename-group', 'reclassify', 'void'].includes(action)) {
           req.resume();
           return json(404, { ok: false, error: 'not found' });
+        }
+        if (action === 'void' && who !== OWNER) {
+          req.resume();
+          return json(403, { ok: false, error: 'only the owner voids a day' });
         }
         let body = '';
         req.on('data', (c) => {
@@ -3947,7 +4067,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         req.on('end', () =>
           guarded(() => {
             if (res.writableEnded) return;
-            type ModBody = { playerId?: unknown; code?: unknown; name?: unknown };
+            type ModBody = { playerId?: unknown; code?: unknown; name?: unknown; hash?: unknown; origin?: unknown; reason?: unknown; date?: unknown };
             let parsed: ModBody | null;
             try {
               parsed = JSON.parse(body || '{}') as ModBody | null;
@@ -3957,6 +4077,12 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
             if (!parsed || typeof parsed !== 'object') return json(400, { ok: false, error: 'bad request' });
             try {
               const now = new Date((opts.now ?? Date.now)());
+              if (action === 'void') {
+                const done = verifier.voidDay(parsed.date, parsed.reason, now);
+                if (!done.ok) return json(done.status, { ok: false, error: done.error });
+                community?.voidPeriod(done.record.date, done.seed); // what the day earned goes with it, and its close counts again when it comes
+                return json(200, done);
+              }
               const out =
                 action === 'clear'
                   ? verifier.clearReports(parsed.playerId, now)
@@ -3964,7 +4090,9 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
                     ? verifier.confirmHide(parsed.playerId, now)
                     : action === 'rename'
                       ? verifier.forceRename(parsed.playerId, parsed.name, now)
-                      : verifier.forceRenameGroup(parsed.code, parsed.name, now);
+                      : action === 'reclassify'
+                        ? verifier.reclassify(parsed.hash, parsed.origin, parsed.reason, now)
+                        : verifier.forceRenameGroup(parsed.code, parsed.name, now);
               if (!out.ok) return json(out.status, { ok: false, error: out.error });
               json(200, out);
             } catch (e) {
@@ -4009,7 +4137,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         req.on('end', () =>
           guarded(() => {
             if (res.writableEnded) return;
-            let parsed: { replay: unknown; player?: string; challenge?: unknown };
+            let parsed: { replay: unknown; player?: string; challenge?: unknown; origin?: unknown };
             try {
               parsed = JSON.parse(body) as typeof parsed;
             } catch (e) {
@@ -4026,7 +4154,8 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
             const finish = (sim: Resim) =>
               guarded(() => {
                 try {
-                  const result = verifier.record(prep.replay, prep.replayHash, sim, player, bearerId, new Date((opts.now ?? Date.now)()));
+                  const origin = parsed.origin === 'tool' ? 'tool' : null;
+                  const result = verifier.record(prep.replay, prep.replayHash, sim, player, bearerId, new Date((opts.now ?? Date.now)()), origin);
                   if (result.ok && result.entry) par?.request(result.entry.seed);
                   if (sim.ok && !result.late) noteGame(bearerId, prep.replay.seed, prep.replayHash, sim.score, null);
                   // friends and crew see a game on a day's or a week's board (0.11.8); a better one replaces the line
@@ -4034,6 +4163,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
                     result.ok &&
                     result.recorded &&
                     result.entry &&
+                    !origin &&
                     bearerId &&
                     community &&
                     (isMintedDailySeed(result.entry.seed) || isWeeklySeed(result.entry.seed))

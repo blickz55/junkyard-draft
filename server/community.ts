@@ -1066,6 +1066,29 @@ export class CommunityStore {
       return placed.length;
     });
   }
+  /** A voided day (0.12.5): its placements go, what they earned goes with them, and the day's close counts again when it comes. What was earned to wear stays. */
+  voidPeriod(period: string, seed: string): number {
+    return this.transaction(() => {
+      const rows = this.sql('SELECT player_id, division, medal FROM divisions WHERE period = ?').all(period) as unknown as {
+        player_id: string | null;
+        division: number;
+        medal: string | null;
+      }[];
+      const several = rows.some((r) => r.division > 0);
+      const take = this.sql('UPDATE trophies SET count = count - 1 WHERE player_id = ? AND kind = ?');
+      for (const r of rows) {
+        if (!r.player_id) continue;
+        if (r.medal) take.run(r.player_id, `medal-${r.medal}`);
+        if (several && r.division === 0) take.run(r.player_id, 'top-division');
+      }
+      this.sql('DELETE FROM trophies WHERE count <= 0').run();
+      this.sql('DELETE FROM divisions WHERE period = ?').run(period);
+      this.sql("DELETE FROM notifications WHERE kind = 'division' AND json_extract(payload, '$.period') = ?").run(period);
+      this.sql("DELETE FROM activity WHERE kind = 'division' AND json_extract(payload, '$.period') = ?").run(period);
+      this.sql("DELETE FROM activity WHERE kind = 'run' AND json_extract(payload, '$.seed') = ?").run(seed);
+      return rows.length;
+    });
+  }
   /** A player's latest placements, newest first. */
   divisionsOf(playerId: string, limit = 7): DivisionRow[] {
     return this.sql(

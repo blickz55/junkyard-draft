@@ -5,6 +5,11 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### 0.12.5 a fair board, and what happens when one is not — 2026-11-01 (no rules change, protocol 3: additive)
+- **Two boards.** The main board is for people. A game played by a tool has a board of its own beside it, and earns no medal.
+- **When a day goes wrong**, it is voided and played again on a new yard. It is never re-scored, and the commitment from the day before still checks out.
+- For operators: `/metrics`, runbooks, `tools/review.ts`, `tools/void-day.ts`.
+
 ### 0.12.4 keys, a yard you can hear, and focus that behaves — 2026-11-01 (no rules change, protocol 3)
 - **Choose your keys.** Settings, Keys: click a key, press the new one. A key already in use says so. One button puts them all back.
 - **The yard reads aloud.** A screen reader now gets every machine, which way it faces and whether it leads anywhere, and the keyboard's cursor says where it is.

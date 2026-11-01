@@ -1039,6 +1039,8 @@ export const STRINGS = {
   'friends.asked': s('Asked', 'the same button after pressing it'),
   'friends.needName': s('Choose a name first', 'the same button when this device has no name'),
   'results.friendsHere': s('Friends on this yard: {list}', 'under the chart of scores'),
+  'results.assisted': s('{n, plural, one {# game} other {# games}} on the Assisted board', 'button under the board'),
+  'results.assistedTitle': s('Games a tool helped play. They keep a board of their own.', 'tooltip'),
   'results.paintNote': s('Paint, titles and medals never change play: same offers, same rules, same score.', 'a quiet line on the results'),
   'title.paint': s('Paint shop', 'More menu: what you have earned to wear'),
   'keys.space': s('Space', 'a key'),

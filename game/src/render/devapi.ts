@@ -58,6 +58,12 @@ export interface DevApi {
 }
 
 export const devEnabled = () => import.meta.env.DEV || new URLSearchParams(location.search).get('dev') === '1';
+/**
+ * A game sent from a production build with the dev API open was driven by a script, or could have been, so it goes on the Assisted board (0.12.5). A dev
+ * build is our own, and its browser tests read the people's board.
+ */
+export const originOf = (devBuild: boolean, apiOpen: boolean): { origin?: 'tool' } => (apiOpen && !devBuild ? { origin: 'tool' } : {});
+export const submissionOrigin = () => originOf(import.meta.env.DEV, devEnabled());
 
 export function installDevApi(scene: GameScene) {
   if (!devEnabled()) return;

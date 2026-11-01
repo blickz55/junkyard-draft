@@ -41,6 +41,11 @@ export function mintSeed(secret: string, date: string): string {
   if (!isUtcDate(date)) throw new Error(`bad date ${String(date)}`);
   return `daily-${date}-${base32Lower(createHmac('sha256', secret).update(date).digest()).slice(0, 8)}`;
 }
+/** The seed a voided day is played again on (0.12.5): the same secret and date, told apart by the count, so nothing about the new one follows from the old. */
+export function mintReissue(secret: string, date: string, n: number): string {
+  if (!secret) throw new Error('daily secret required');
+  return `daily-${date}-${base32Lower(createHmac('sha256', secret).update(`${date}#${n}`).digest()).slice(0, 8)}`;
+}
 export const commitmentFor = (seed: string): string => createHash('sha256').update(seed).digest('hex');
 /** The weekly seed for an ISO week id (PLAN-v4 0.7.5): the same secret, a distinct domain so a daily never equals a weekly. */
 export function mintWeeklySeed(secret: string, week: string): string {

@@ -50,6 +50,7 @@ import { loadForkBests } from '../render/storage';
 import { t } from '../content/strings';
 import { money, int, utcDateTime } from '../content/format';
 import { withTitle } from '../content/title';
+import { submissionOrigin } from '../render/devapi';
 import { yardLabel } from '../content/yard';
 import { machineName, materialName } from '../content/machines';
 
@@ -593,6 +594,7 @@ export function mountResults(
           badge?: string;
         }[];
         tieBreak?: string;
+        assistedCount?: number;
       };
       if (!body.entries.length) entriesBox.append(h('div', { class: 'jd-mono jd-dim jd-board-note', style: 'font-size:0.75em' }, t('results.noScores')));
       const gate = revealGate(run.seed); // PLAN-v3 0.6.6: on an open daily, recordings open up once this device has submitted (loadBoard runs again after a submission)
@@ -638,6 +640,32 @@ export function mountResults(
         }
         entriesBox.append(line);
       });
+      // the Assisted board (0.12.5): games a tool played, beside the people's, one press away
+      if (body.assistedCount) {
+        const show: HTMLButtonElement = btn(
+          t('results.assisted', { n: body.assistedCount }),
+          'board-assisted',
+          () => {
+            show.disabled = true;
+            void fetch(`${verifierUrl}/board?seed=${encodeURIComponent(run.seed)}&limit=5&assisted=1`)
+              .then((r) => r.json() as Promise<{ entries: { player: string; score: number }[] }>)
+              .then((b) =>
+                show.replaceWith(
+                  ...b.entries.map((e, i) =>
+                    h(
+                      'div',
+                      { class: 'jd-mono jd-board-note', tid: `assisted-entry-${i}` },
+                      t('results.entry', { n: i + 1, score: money(e.score), player: e.player }),
+                    ),
+                  ),
+                ),
+              )
+              .catch(() => (show.disabled = false));
+          },
+          { small: true, title: t('results.assistedTitle') },
+        );
+        entriesBox.append(show);
+      }
       if (body.entries.some((e) => e.replayAvailable))
         entriesBox.append(
           h(
@@ -720,7 +748,7 @@ export function mountResults(
           const res = await fetch(`${verifierUrl}/verify`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHeaders(verifierUrl) },
-            body: JSON.stringify({ replay: exportReplay(run, import.meta.env.BUILD), player, challenge: o.challenge?.hash }),
+            body: JSON.stringify({ replay: exportReplay(run, import.meta.env.BUILD), player, challenge: o.challenge?.hash, ...submissionOrigin() }),
           });
           body = (await res.json()) as typeof body;
           if (res.status === 503 || res.status === 429) {
@@ -736,6 +764,7 @@ export function mountResults(
             replay: exportReplay(run, import.meta.env.BUILD),
             player,
             savedAt: new Date().toISOString(),
+            ...submissionOrigin(),
           });
           queued = true;
           submitBtn.textContent = t('results.savedButton');

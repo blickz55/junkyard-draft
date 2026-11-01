@@ -24,6 +24,7 @@ Protocol level 3 (PLAN-v3 §1, reported by `/health`; 3 since 0.11.3, every step
 | GET | `/me/cosmetics` (bearer) | what is earned (0.11.12): `{ ok, owned, look: { yard, skin, title }, progress: { days, trophies } }`. Asking also writes what has just been earned, with one inbox line each; `/me/divisions` does the same and adds `look`. A board row carries `badge`, a post `badge`, a card `badge`, `GET /replay` the author's `look` |
 | POST | `/me/cosmetics` `{ id, on }` (bearer) | wear one or take it off, one of a kind at a time: 403 `locked` when not earned, 422 `bad-cosmetic` when no such thing. Needs a key, not an email |
 | GET/POST | `/me/card` `{ private }` (bearer) | read or set the switch. Needs a key, not an email |
+| POST | `/moderation/reclassify` `{ hash, origin, reason }` (moderator) · `/moderation/void` `{ date, reason }` (the owner's token) | move a game between the people's board and the Assisted one, with the reason in the audit log: 409 on a closed day or a clash · void a day and re-issue it (0.12.5, runbook below) |
 | GET | `/metrics` (`Authorization: Bearer <METRICS_TOKEN>`) | what `/health` says, as OpenMetrics text (0.12.5): counts, sizes and durations, nothing that names anyone. 404 with no token set, 401 with the wrong one. CI scrapes it once on the image |
 | GET | `/hub` · `/community/` · `/community/hub/<category>` · `/community/topic/<id>` | the hub for the game, and as plain pages with no script (0.11.10): `{ ok, open, categories: [{ key, posts, topics }], days }`; a 503, or a 404 page, while writing is off |
 | POST | `/hub/topic` `{ category, title, body }` (bearer, linked, with a name) | a topic of a player's own: 403 `hub-closed` until 50 people have posted in seven days; the title passes the filter and the classifier reads it with the first post; `{ ok, key, post }` |
@@ -202,6 +203,14 @@ The verifier knows a player by the hash of a device key, so the request has to c
 2. **Erasure:** Privacy & data, Delete my data; that is `DELETE /me`. Entries stay on the boards as "deleted", because other players' ranks rest on them; the name, the kept replays and the player id go. Backups age out after `backupKeepDays`, and the notice says so.
 3. **Someone who has lost the device:** with a linked email, sign in on a new device and do the same. With neither there is nothing that proves whose data it is, so nothing is released and nothing deleted on a name alone. Say so, kindly, and offer to rename or hide a name that is a real name (`tools/moderate.ts`).
 4. **Answer within a month** at `contactEmail`, and note the date, not the content, in a private log.
+
+### A day went wrong
+A day a bug compromised is voided and re-issued, never re-scored.
+1. Fix the bug first, or the next attempt fails the same way, and deploy it.
+2. `node --import tsx tools/void-day.ts https://verify.<domain> <YYYY-MM-DD> --reason "what went wrong"` says what it would do; add `--yes` to do it. It takes the owner's `MODERATION_TOKEN`, a trusted player's key will not do, and it cannot be undone.
+3. The day's games leave the board for `voided/<date>-<n>.json` next to it, with the reason. What the day earned, medals, trophies, division lines, is taken back. Paint already earned stays. The day starts again on a new yard with a full 48-hour window.
+4. `tools/mint-check.ts` still passes: the day before committed to the voided seed, and the new record names it. It prints a NOTE saying so.
+5. Announce it the same hour, with what went wrong. A day in cold storage, older than 30 days, stays as it closed.
 
 ### Restore
 1. Pick the archive: the newest `jd-backup-*.tar.gz`.

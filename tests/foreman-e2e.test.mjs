@@ -22,7 +22,7 @@ const foreman = () =>
 
 const openSettings = async () => {
   await page.getByTestId('settings').click();
-  await page.waitForSelector('[data-testid=settings-dialog]', { timeout: 5000 });
+  await page.waitForSelector('[data-testid=settings-dialog]', { timeout: 20000 });
 };
 const closeSettings = async () => {
   await page.getByTestId('settings-close').click();

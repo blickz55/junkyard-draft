@@ -51,7 +51,7 @@ async function flushOne(verifierUrl: string, p: PendingSubmission, fetchFn: type
     const res = await fetchFn(`${verifierUrl}/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders(verifierUrl) },
-      body: JSON.stringify({ replay: p.replay, player: p.player || 'anonymous' }),
+      body: JSON.stringify({ replay: p.replay, player: p.player || 'anonymous', ...(p.origin ? { origin: p.origin } : {}) }),
     });
     status = res.status;
     body = (await res.json()) as typeof body;

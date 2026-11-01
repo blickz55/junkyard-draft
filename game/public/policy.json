@@ -212,6 +212,18 @@
       ]
     },
     {
+      "title": "When a day goes wrong",
+      "lines": [
+        "A day a bug made unfair is voided and played again on a new yard with a full window. It is never re-scored. What the voided day earned is taken back, its games are kept aside for a person to read, and the day before's commitment still matches the voided yard, so nobody has to take our word for what happened."
+      ]
+    },
+    {
+      "title": "Two boards",
+      "lines": [
+        "The main board is for people, on your word. A game played by a script or a tool goes on the Assisted board beside it: anything sent with the game's test hooks open goes there by itself, and a moderator can move a game either way with a reason that is logged. An Assisted game earns no medal and no place in a division. A closed day's board is final."
+      ]
+    },
+    {
       "title": "What a person may look at",
       "lines": [
         "For each game on a daily or a weekly the server notes when it arrived, how many tries that player has had on that yard, and whether someone else already holds the same game, and keeps that for 90 days. A person may read it, with the recording, when something looks wrong. Nothing acts on it by itself: no score is removed and nobody is banned by a number."

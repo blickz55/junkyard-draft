@@ -5,7 +5,7 @@
  * With --secret the seeds are also recomputed locally from the secret (operator-side check that the deployment uses
  * the backed-up secret). Exit 0 when every check passes, 1 on a failed check, 2 on usage.
  */
-import { commitmentFor, isUtcDate, mintSeed, mintWeeklySeed, shiftDate, utcDate } from '../server/mint';
+import { commitmentFor, isUtcDate, mintReissue, mintSeed, mintWeeklySeed, shiftDate, utcDate } from '../server/mint';
 import { currentWeekId, prevWeekId, isWeekId } from '../game/src/sim/weekly';
 
 const args = process.argv.slice(2);
@@ -38,6 +38,7 @@ interface Daily {
   closesAt?: string;
   minted?: boolean;
   error?: string;
+  voided?: { seed: string; reason: string }[];
 }
 const get = async (d: string): Promise<Daily> => {
   const r = await fetch(`${url}/daily?date=${d}&limit=1`);
@@ -49,9 +50,11 @@ async function main() {
   const [today, yesterday] = await Promise.all([get(date), get(prev)]);
   if (!today.minted || !today.seed || !today.commitment) fail(`no minted daily for ${date}: ${JSON.stringify(today)}`);
   if (!yesterday.minted || !yesterday.seed || !yesterday.commitment) fail(`no minted daily for ${prev}: ${JSON.stringify(yesterday)}`);
-  if (commitmentFor(today.seed!) !== yesterday.commitment)
-    fail(`the seed for ${date} (${today.seed}) does not match the commitment published on ${prev} (${yesterday.commitment})`);
-  console.log(`OK   ${date}: seed ${today.seed} matches the commitment published on ${prev}`);
+  const firstSeed = today.voided?.[0]?.seed ?? today.seed!; // a voided day (0.12.5): the day before committed to the seed it opened on
+  if (commitmentFor(firstSeed) !== yesterday.commitment)
+    fail(`the seed for ${date} (${firstSeed}) does not match the commitment published on ${prev} (${yesterday.commitment})`);
+  console.log(`OK   ${date}: seed ${firstSeed} matches the commitment published on ${prev}`);
+  if (today.voided?.length) console.log(`NOTE ${date}: voided ${today.voided.length} time(s) and re-issued as ${today.seed}: ${today.voided.at(-1)!.reason}`);
   // the weekly chain (PLAN-v4 0.7.5): this week's seed hashes to the previous week's published commitment
   const week = flag('week') ?? currentWeekId(new Date());
   if (!isWeekId(week)) fail(`bad --week ${week}`);
@@ -72,7 +75,8 @@ async function main() {
       [date, today.seed],
       [prev, yesterday.seed],
     ] as const) {
-      const want = mintSeed(secret, d);
+      const times = (d === date ? today : yesterday).voided?.length ?? 0;
+      const want = times ? mintReissue(secret, d, times) : mintSeed(secret, d);
       if (want !== got) fail(`seed for ${d} is ${got}, the secret mints ${want}`);
     }
     if (commitmentFor(mintSeed(secret, shiftDate(date, 1))) !== today.commitment)

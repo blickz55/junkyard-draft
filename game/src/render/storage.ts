@@ -448,6 +448,7 @@ export interface PendingSubmission {
   replay: ReplayFile;
   player: string;
   savedAt: string;
+  /** a tool played it (0.12.5) */ origin?: 'tool';
 }
 export const PENDING_MAX = 5;
 export function validatePending(raw: unknown): PendingSubmission[] {

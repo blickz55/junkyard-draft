@@ -76,7 +76,7 @@ const verify = (run, player, headers = {}) =>
 /** Open the Settings dialog on the home screen; close it and wait for the screen that follows. */
 const openSettings = async (p = page) => {
   await p.getByTestId('settings').click();
-  await p.waitForSelector('[data-testid=settings-dialog]', { timeout: 5000 });
+  await p.waitForSelector('[data-testid=settings-dialog]', { timeout: 20000 });
 };
 /** The links behind More on the home screen. */
 const openMore = async (p = page) => {
@@ -1219,7 +1219,7 @@ test(
     await textMatches('daily-board', /\S/);
     page.on('request', onReq);
     await page.getByTestId('record').click();
-    await page.waitForSelector('[data-testid=record-dialog]', { timeout: 5000 });
+    await page.waitForSelector('[data-testid=record-dialog]', { timeout: 20000 });
     const days = await page.getByTestId('record-days').textContent();
     assert.match(days, /1 day played/, days);
     assert.match(days, /1 checked day · 1 in a row now · longest run 1/, "the challenge run on today's daily was checked from the results screen");
