@@ -37,6 +37,7 @@
 | Simplicity | **Plain-language everything.** (Quick daily, guided first week and hiding advanced options were not chosen.) | A glossary and a jargon lint on the string table (0.9.0). The full daily stays the only official mode. |
 | Platforms in the 1.0 window | **Phone-friendly web (touch, portrait) + installable web app (PWA).** Steam/desktop and native stores after 1.0. | v0.10 is the phone milestone; the fixed 1120×700 canvas goes. |
 | Tone | **A foreman character.** | Text first (0.9.1), face and lines with the art commission (0.12.2). The foreman opens every daily thread. |
+| Weekly email digest (asked 2026-11-01) | **Dropped for 1.0.** Push and the inbox carry what it would have said. | Policy 3 and the privacy notice stand as written: no address is stored. The only mail the game sends is a sign-in link, so Resend's free plan covers it. The weekly division summary lived in the digest and goes with it. Listed in §10 so it is not lost. |
 
 ## 2. Where we are: the evaluation digest
 
@@ -116,7 +117,7 @@ Surfaces arrive in the order they work at ten players, not the order they impres
 2. **Seen-by counts**: "watched 14 times by 9 players". Works at ten.
 3. **The daily thread** with the foreman's opening and closing posts, readable after you submit or the day closes. The foreman guarantees it is never empty.
 4. **Comments on runs**, the same component on a replay.
-5. **Inbox and notifications**: replies, reactions (batched), beaten challenges, division results, moderation outcomes; push and a weekly email digest, both opt-in.
+5. **Inbox and notifications**: replies, reactions (batched), beaten challenges, division results, moderation outcomes; push, opt-in per kind. (A weekly email digest was dropped for 1.0, §1.)
 6. **Friends** (requests from groups, challenge links and comments), a friends view on the histogram, an activity feed.
 7. **Direct messages** between friends.
 8. **The community hub**: four categories as web pages and an in-game panel; threads embed verified runs by hash. Hub v1 opens with the pinned categories; user-created threads, search and author pages switch on at 50 weekly posters so the hub never looks dead.
@@ -239,7 +240,7 @@ Dependencies in brackets. "Accept" is the acceptance line.
 
 **0.11.6 Comments on runs** — S/M, R [0.11.5]. The same comment component on any verified replay; the run's owner is notified; the thread of a run shows on the results card when the run is yours. *Accept:* e2e: comment on a replay, see it in the owner's inbox.
 
-**0.11.7 Inbox and notifications** — M, R [0.10.4, 0.11.5]. An in-game inbox (reply, reaction batch, challenge beaten, group day closed, division result, moderation outcome, appeal result); push for replies and beaten challenges (opt-in per kind); a weekly email digest (opt-in, linked accounts: your week, your friends, next weekly seed). *Accept:* each event type produces one row (test); push and digest respect the per-kind opt-ins; unsubscribe from the digest in one click.
+**0.11.7 Inbox and notifications** — M, R [0.10.4, 0.11.5]. An in-game inbox (reply, reaction batch, challenge beaten, group day closed, division result, moderation outcome, appeal result); push for replies and beaten challenges (opt-in per kind). The weekly email digest was dropped for 1.0 (§1). *Accept:* each event type produces one row (test); push respects the per-kind opt-ins.
 
 **0.11.8 Friends and the activity feed** — M, R [0.11.1]. Friend requests from a group, a challenge link or a comment; accept/decline/remove/block; the histogram shows friends' bars; the feed (runs, medals, comments, division results of friends and group members, newest first) with one-tap "beat this"; a cap per player. *Accept:* blocking hides both ways (test); the feed query is bounded; e2e adds a friend and sees their run.
 
@@ -247,7 +248,7 @@ Dependencies in brackets. "Accept" is the acceptance line.
 
 **0.11.10 The community hub, v1** — M, R [0.11.5]. Four categories (Strategies, Show your yard, Help and bugs, Off-shift) as web pages served by the verifier at `/community/` and as an in-game panel; the daily threads listed under a fifth tab; posts embed verified runs by hash with the card; the owner and trusted moderators can pin and lock; hub v2 (user-created threads in every category, search, author pages) switches on by a flag when weekly posters ≥ 50. *Accept:* the pages render server-side with no client script required to read; the flag test; posting goes through the same pipeline.
 
-**0.11.11 Divisions at freeze and trophies** — M, R [0.11.0]. At freeze the day's verified players are bucketed by score into divisions of 16–64 (the top division ≤ 16 when the population allows; the rest as even as possible; fewer than 16 players make one division); each division gets a name, a mini-board and a medal for its top three; placements and medals accumulate into trophies that never decay; a weekly summary in the digest; shown on the results card the next day, the stats page and the share text; computed once at freeze and stored (additive protocol fields). *Accept:* the bucketing is pure and unit-tested for 5, 17, 64, 65, 1,000 players; a fake-clock freeze test; the results card shows the division the morning after.
+**0.11.11 Divisions at freeze and trophies** — M, R [0.11.0]. At freeze the day's verified players are bucketed by score into divisions of 16–64 (the top division ≤ 16 when the population allows; the rest as even as possible; fewer than 16 players make one division); each division gets a name, a mini-board and a medal for its top three; placements and medals accumulate into trophies that never decay; shown on the results card the next day, the stats page and the share text; computed once at freeze and stored (additive protocol fields). *Accept:* the bucketing is pure and unit-tested for 5, 17, 64, 65, 1,000 players; a fake-clock freeze test; the results card shows the division the morning after.
 
 **0.11.12 Cosmetics** — M, R + art. Yard themes, machine skins and title badges unlocked by trophies, medals and days played; stored per player on the server and shown to others on boards, in replays, in the hub; a "never changes play" sentence on the results card and the policy page; the first set drawn from the commission (0.12.0), placeholder tints until then. *Accept:* unlock rules unit-tested; a replay renders with the author's skin; the sentence present.
 
@@ -293,7 +294,7 @@ Brief at the same time. Three loopable stems (build: sparse and warm; run: drivi
 | VPS (Hetzner CX23 class) | v0.8 | ≈ €4 a month; €8–15 after 10k DAU |
 | Off-box backup storage | v0.8 | ≈ €3–4 a month |
 | Cloudflare Pages, uptime monitor, Discord, GHCR | v0.8 | €0 |
-| Transactional email provider: Resend (the owner, 2026-10-31) | v0.11 | €0 on the free plan (100 a day), $20 a month once the digest needs more |
+| Transactional email provider: Resend (the owner, 2026-10-31) | v0.11 | €0 on the free plan (100 a day; the only mail is a sign-in link, §1), $20 a month if a launch day ever needs more |
 | AI triage API | v0.11 | expected under $20 a month at beta volumes; measured and reported in STATUS monthly |
 | Legal templates or a one-hour review | v0.8 | $0–500 |
 | Capsule/key art | included in 6.1 | — |
@@ -374,6 +375,7 @@ Not scheduled, listed so nothing is lost. The owner found all three money paths 
 - **Live formats**: same-seed races and watch-together over a relay (DOSSIER §5.2) once daily submitters pass about 300.
 - **Localisation**: the string table is ready; CJK first if the desktop edition ships (China was 48 % of Backpack Battles' and 32 % of Stacklands' sales).
 - **Gamepad and the Linux build** (PLAN-v5 0.8.3, 0.8.8) with the desktop edition.
+- **A weekly email digest** (dropped from 1.0 on 2026-11-01, §1): your week, your friends, the next weekly yard, the weekly division summary. It would mean keeping addresses for those who opt in, encrypted, a change to policy 3 and the privacy notice, unsubscribe in one click, and Resend's paid plan past about 100 subscribers.
 - **Depth, if the numbers ask for it**: the four declined systems remain fully specified in `docs/reviews/2026-10-30-eval/product.md` §9 and `market-premium.md` §5; each is a rules bump with a golden regeneration and a balance gate, and the version-pinned verifier makes such drops safer here than for any comparable.
 - **Cadence**: one visible update every 6–8 weeks after 1.0 (a theme, a foreman season, a community feature, a tuning pass), announced on the site and in the hub, because "abandoned" is the review theme that kills comparables within 18 months.
 

@@ -92,7 +92,7 @@ Without it the game plays as before, and Settings says signing in is not availab
 2. Add the records Resend lists to Cloudflare DNS, proxy **off**, and wait for it to say Verified.
 3. Create an API key with sending access only. Put it in `verifier.env` as `RESEND_API_KEY` and in the password manager; `MAIL_FROM` is already set for `send.<domain>`. Restart the verifier: the log says `email sign-in: on` and `/health` says `"email": true`.
 4. Sign in from the game with a Gmail, an Outlook and an iCloud address, and record in `docs/STATUS.md` whether each mail reached the inbox. If they land in spam, Postmark is the fallback: `server/link.ts` has one function to change.
-The free plan sends 100 mails a day. Sign-in links fit in that; the weekly digest (0.11.7) will not past about 100 subscribers, and then it is the $20 plan.
+The free plan sends 100 mails a day, and the only mail the game sends is a sign-in link, so it fits. If a launch day ever goes past that, it is the $20 plan.
 
 ## 8. Writing and moderation ⚑ (Anthropic)
 Without it nothing can be written: `POST /posts` answers 503, `/health` says `"moderation": false` and the rest of the game is unaffected. It needs `MODERATION_TOKEN` from §3 as well, because a post nobody can review should not exist.

@@ -78,7 +78,7 @@ older replays and saves on purpose.
 - Resend carries the mail, off until `RESEND_API_KEY` is set. The privacy notice names it, and the summary and the fairness page no longer say there are no accounts.
 
 ### 0.11.7 the inbox, first part — 2026-10-31 (no rules change, protocol 3: additive)
-- **Find out what happened while you were away.** An Inbox link on Home, amber with a number when something is new: reactions on your games (one line per game however many arrive), someone beating your score from your challenge link, with a button to beat it back, your division's result with a button to its board, and your crew's day. Opening it reads it. Read lines go after 60 days. The first part of 0.11.7: replies, moderation outcomes, push per kind and the weekly digest wait for what they depend on.
+- **Find out what happened while you were away.** An Inbox link on Home, amber with a number when something is new: reactions on your games (one line per game however many arrive), someone beating your score from your challenge link, with a button to beat it back, your division's result with a button to its board, and your crew's day. Opening it reads it. Read lines go after 60 days. The first part of 0.11.7: replies, moderation outcomes and push per kind wait for what they depend on.
 - A line this version of the game does not know is left out, so a newer server cannot break an older game. Names are looked up when you read, so a rename or a moderation decision follows, and no player id or crew code reaches the client.
 
 ### 0.11.11 divisions at freeze and trophies — 2026-10-31 (no rules change, protocol 3: additive)
