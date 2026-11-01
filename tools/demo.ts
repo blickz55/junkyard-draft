@@ -96,7 +96,7 @@ async function fill(route: '/daily' | '/weekly') {
   for (const [n, e] of entries.slice(0, 5).entries())
     for (let i = 0; i < 3 + n; i++)
       await call('POST', '/react', token((n + i + 1) % NAMES.length), { hash: e.replayHash, emote: REACTIONS[(n + i) % REACTIONS.length].id });
-  for (const [i, body] of TALK.entries()) await call('POST', '/posts', token(i), { key: board.date, body });
+  if ((board.talk?.posts ?? 0) < TALK.length) for (const [i, body] of TALK.entries()) await call('POST', '/posts', token(i), { key: board.date, body }); // a restart keeps the talk it had
 }
 
 /** A person's game on today's board gets an answer, so the inbox, the reactions and the friends list can be seen working. */

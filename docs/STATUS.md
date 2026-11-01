@@ -9,6 +9,8 @@
 - **The first visit hit 299.4 KiB of 300**, so the share card and the clips moved behind the lazy entry: they load when asked for, and a first visit never gets that far. 294.1 KiB now.
 - **Browser tests hard-coded version 4** in three places (link, social). They read `RULES_VERSION` now. One full run lost 12 tests to a page load that timed out under load, a cascade in `game-e2e`; the next full run was clean.
 - Stars recalibrated, no change: `docs/baselines/0.12/job-study-v5.json`, the plain recipe still earns two on every yard. Golden corpus regenerated (15 replays, including all three lessons and `golden-belts`), policy and legal regenerated.
+- **Built in a separate worktree so the owner's running game was not reloaded or broken while it was in pieces, and merged once whole.** Removing that worktree went through its `node_modules` junction and deleted the start of the real one, stopping at the esbuild binary the dev server had open. No source was touched, and `npm install` restored it with the lockfile unchanged. The memory `worktree-junction-danger` says how to remove one.
+- `npm run demo` no longer posts the day's talk twice after a restart.
 - Verified: unit 472 pass, last full coverage run 97.22 / 91.77 / 94.94, timing 3 pass, browser 158 pass, 2 skipped (no packaged app in the working copy, Firefox locally), first visit 294.1 KiB gzip against 300, first interactive 2504 ms against 4000. The lessons' words are mine and no person has been through them yet. Perf baselines predate rules v5: the offers changed, so a perf failure on this push means re-baseline, not regression, until shown otherwise.
 
 ## Session 2026-11-01 (92) — the owner's second playtest, first notes (main, no rules change)
