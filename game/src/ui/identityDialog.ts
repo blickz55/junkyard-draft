@@ -37,7 +37,7 @@ export async function identityDialog(scene: Phaser.Scene, verifierUrl: string, o
   const typed = await dialog(scene, {
     title: id.name ? t('identity.button', { label: labelFor(id.name, tag) }) : t('identity.dialogTitle'),
     label: t('identity.dialogLabel', { tag, max: NAME_MAX }),
-    value: current || 'player',
+    value: current,
     maxLength: NAME_MAX,
     ok: t('identity.save'),
     extra: [
@@ -74,6 +74,6 @@ export async function identityDialog(scene: Phaser.Scene, verifierUrl: string, o
       },
     ],
   });
-  if (typed === null) return onDone(null);
+  if (typed === null || (!typed.trim() && !current)) return onDone(null); // an empty box on a first go says nothing
   onDone(await applyName(verifierUrl, typed));
 }

@@ -174,7 +174,7 @@ const STYLE = `
 #ui .jd-btn-steel { background: linear-gradient(180deg, #a2adb8, #828e9a); color: #1a1612; }
 #ui .jd-btn-dark { background: linear-gradient(180deg, #4d463c, #3a342c); color: ${CSS.text}; border-color: #5f574a; }
 #ui .jd-btn-small { font-size: 0.8125em; padding: 0.35em 0.8em; }
-#ui .jd-choice { width: min(92%, 26em); gap: 0.65em; padding: 1em 1.1em; }
+#ui .jd-choice { width: min(92%, 26em); max-height: 96%; overflow-y: auto; gap: 0.65em; padding: 1em 1.1em; }
 #ui .jd-choice .jd-head { font-size: 1.125em; }
 #ui .jd-choice-buttons { display: flex; flex-direction: column; gap: 0.45em; margin-top: 0.2em; }
 #ui .jd-choice-buttons .jd-btn { width: 100%; font-size: 1em; padding: 0.6em 1em; }
@@ -196,7 +196,7 @@ const STYLE = `
 #ui .jd-hero-name { flex: 0 1 auto; min-width: 0; }
 #ui .jd-hero-side { flex: 0 1 26em; min-width: 0; display: flex; flex-direction: column; gap: 0.4em; }
 #ui .jd-hero-corner { display: flex; gap: 0.6em; align-items: center; justify-content: flex-end; }
-#ui .jd-player { font-size: 0.8125em; color: ${CSS.text}; white-space: nowrap; text-shadow: 0 1px 3px #1a1612; }
+#ui .jd-player { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #ui .jd-home-main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 0.6em; align-items: stretch; flex: 0 0 auto; }
 #ui .jd-home-lead, #ui .jd-home-side { display: flex; flex-direction: column; gap: 0.6em; min-width: 0; }
 #ui .jd-hero { min-height: 6.5em; }

@@ -32,7 +32,7 @@ import { MAX_SEED_LENGTH, sanitizeSeed, TUTORIAL_SEED } from '../sim/run';
 import { yardFor } from '../sim/yard';
 import { decodeReplay, verifyReplay } from '../sim/replay';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
-import { playerLabel } from './identityDialog';
+import { identityDialog, playerLabel } from './identityDialog';
 import { loadIdentity, fetchClaimed, bearerAllowed } from '../render/identity';
 import { HIDDEN_LABEL } from '../identity/identity';
 import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWeekly, todaysYard } from '../render/daily';
@@ -182,7 +182,21 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const foremanText =
     streak === 30 ? foremanSays('streak30') : streak === 7 ? foremanSays('streak7') : streak === 3 ? foremanSays('streak3') : foremanSays('welcome');
   const foreman = foremanBox(foremanText, 'foreman', '', t('foreman.nameLong'));
-  const playerName = h('span', { class: 'jd-player', tid: 'player-name' }, playerLabel());
+  const playerName = btn(
+    playerLabel(),
+    'player-name',
+    () => {
+      void identityDialog(scene, verifierUrl, (note) => {
+        playerName.textContent = playerLabel();
+        if (!note) return;
+        playerNote.textContent = note;
+        playerNote.style.display = '';
+        playerNote.dataset.testid = 'player-note';
+      });
+    },
+    { small: true },
+  );
+  playerName.classList.add('jd-player');
   const hero = h(
     'header',
     { class: 'jd-hero', tid: 'hero' },

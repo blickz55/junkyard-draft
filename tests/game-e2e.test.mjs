@@ -957,6 +957,15 @@ test(
       await page.getByTestId('challenge-line').textContent(),
       new RegExp(`^Beat e2e player: they made \\$${entry.rounds[0]} in shift 1, \\$${entry.rounds[0]} so far\\. You have \\$0\\.$`),
     );
+    // starting over keeps the challenge, as a second go from the results does
+    await page.getByTestId('job-start').click();
+    await page.jd.noDialog('job-card');
+    await api('pick', 0);
+    await page.getByTestId('menu').click();
+    await page.getByTestId('menu-start-over').click();
+    await page.getByTestId('start-over-yes').click();
+    await when(() => window.__jd?.state().actions === 0);
+    await page.waitForSelector('[data-testid=challenge-line]');
     await playThrough();
     await results();
     const cr = await page.getByTestId('challenge-result').textContent();

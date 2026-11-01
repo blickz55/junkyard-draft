@@ -5,7 +5,7 @@ import { h, btn, ui, textureImg, promptText, showText, foremanBox, setForeman } 
 import { foremanSays, resultsBand } from '../content/foreman';
 import { runStars, shippedTotal, type RunState } from '../sim/run';
 import { priceOf } from '../sim/yard';
-import { jobTarget, materialMany, starMarks } from '../content/job';
+import { jobTarget, materialMany, materialOf, starMarks } from '../content/job';
 import { rankFor, rankLine, rankNext } from '../content/ranks';
 import { encodeReplay, exportReplay } from '../sim/replay';
 import { RULES } from '../sim/rules';
@@ -171,7 +171,7 @@ export function mountResults(
             { class: 'jd-results-jobline', tid: 'results-jobline' },
             earned === 3
               ? t('results.allStars')
-              : t('results.nearMiss', { n: int(job.stars[earned] - n), mat: materialMany(job.material), stars: starMarks(earned + 1) }),
+              : t('results.nearMiss', { n: int(job.stars[earned] - n), mat: materialOf(job.material, job.stars[earned] - n), stars: starMarks(earned + 1) }),
           ),
           h(
             'div',

@@ -19,6 +19,12 @@ The owner played and asked "what's the goal, what's the point?". **What changed,
 
 **What the owner's other notes became, all without touching rules:** tap anything to see what it does, in any phase (`ui/Inspector.ts`); one instruction at a time with what to touch lit (`render/guide.ts`); last shift's advice pinned through the pick and the build; drop on the belt swaps, one Undo reverses it (`render/placement.ts`, `RoundController.actAll`); a Menu and a Home instead of "Title"; Pick ONE said out loud and shown by the cards that leave.
 
+## Decision: start over, never rewind (the owner's second playtest, 2026-11-01)
+
+The owner asked for a restart in the lesson and wondered about every level. **Every game can go back to its first shift**, from the Menu at any moment, and the lesson shows the way beside "Skip the lesson". It asks first, because it drops the game in hand. The offers are the same, because they come from the yard. Nothing about the rules changed: an unfinished game was never sent anywhere, and leaving for Home and starting again already did this in more steps.
+
+**It is never "this shift again".** On a scored yard the price of a second go is playing it again from the start. A one-shift rewind would make every shift free to retry until it came out right, and the board would reward patience over judgement. Undo still covers the build in hand, as it always has.
+
 ## Loop
 
 1. **Draft** — three seeded offers; pick one (shift 1 always includes a Crusher, shift 2 the job's machine, so the job can always be started).

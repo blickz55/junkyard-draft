@@ -31,10 +31,10 @@ import { isDailySeed, isMintedDailySeed, dailyDateOf } from '../sim/daily';
 import { isWeeklySeed, weeklyClosed } from '../sim/weekly';
 import { challengerTotal, type Challenge } from '../render/challenge';
 import type { Spot } from '../render/guide';
-import { t, type StringKey } from '../content/strings';
+import { t } from '../content/strings';
 import { money, int } from '../content/format';
 import { machineName, machineBlurb, materialName } from '../content/machines';
-import { jobLine, jobRecipe, jobTarget, materialMany, missingForJob, nextNeeded, paceOf, starMarks } from '../content/job';
+import { jobLine, jobRecipe, jobTarget, materialMany, materialOf, missingForJob, nextNeeded, paceOf, starMarks, starWords } from '../content/job';
 import { yardLabel } from '../content/yard';
 import { recipeRow } from './JobCard';
 import { reactionBar } from './ReactionBar';
@@ -80,6 +80,7 @@ export interface PanelActions {
   nextRound(): void;
   openMenu(): void;
   skipLesson(): void;
+  /** back to the first shift of this yard; it asks first */ startOver(): void;
   /** light a machine and say what it does: the "Show me" of the advice card */ showMachine(id: number): void;
   toggleMute(): boolean;
   /** a star mark was passed during a shift */ starReached(n: number): void;
@@ -310,11 +311,12 @@ export class GamePanel {
     j.reached = reached;
   }
   private starPop(n: number) {
+    const words = starWords(n);
     const el = h(
       'div',
-      { class: 'jd-star-pop', tid: 'star-pop' },
+      { class: `jd-star-pop${words ? '' : ' jd-star-pop-quiet'}`, tid: 'star-pop' },
       h('span', { class: 'jd-gold' }, starMarks(n)),
-      h('span', {}, t(`job.star${n}` as StringKey)),
+      words ? h('span', {}, words) : null,
     );
     this.boardEl.append(el);
     setTimeout(() => el.remove(), prefs.reducedMotion ? 2600 : 1900);
@@ -537,8 +539,17 @@ export class GamePanel {
     else if (r.phase === 'draft') this.renderPick(s, r);
     else if (r.phase === 'build') this.renderBuild(s, r);
     else if (r.phase === 'result') this.renderSummary(s, r);
-    if (s.lesson)
-      this.side.append(h('button', { class: 'jd-link jd-skip', tid: 'skip-lesson', type: 'button', onClick: () => this.actions.skipLesson() }, t('menu.skip')));
+    if (s.lesson) {
+      const way = (tid: string, text: string, onClick: () => void) => h('button', { class: 'jd-link jd-skip', tid, type: 'button', onClick }, text);
+      this.side.append(
+        h(
+          'div',
+          { class: 'jd-lesson-ways' },
+          r.actions.length ? way('restart-lesson', t('menu.startOverLesson'), () => this.actions.startOver()) : null,
+          way('skip-lesson', t('menu.skip'), () => this.actions.skipLesson()),
+        ),
+      );
+    }
     this.applySpots();
   }
 
@@ -852,9 +863,11 @@ export class GamePanel {
   private jobNote(r: RunState): string {
     const p = paceOf(r);
     if (!p || !r.job) return '';
-    const done = t('job.shift', { n: int(p.thisShift), mat: materialMany(r.job.material) });
+    const done = t('job.shift', { n: int(p.thisShift), mat: materialOf(r.job.material, p.thisShift) });
     if (p.nextStar == null) return `${done} · ${t('job.got')}`;
-    return p.perShift == null ? done : `${done} · ${t('job.more', { n: int(p.perShift), mat: materialMany(r.job.material), stars: starMarks(p.nextStar) })}`;
+    return p.perShift == null
+      ? done
+      : `${done} · ${t('job.more', { n: int(p.perShift), mat: materialOf(r.job.material, p.perShift), stars: starMarks(p.nextStar) })}`;
   }
   /** The shift's result: what it made, where the job stands, and the way on. */
   private shiftCard(r: RunState): HTMLElement {
@@ -1052,6 +1065,7 @@ export const GAME_STYLE = `
 @keyframes jd-spot { 50% { outline-color: rgba(111,224,255,0.35); box-shadow: 0 0 0.4em rgba(111,224,255,0.3); } }
 #ui.jd-reduced-motion .jd-ring, #ui.jd-reduced-motion .jd-spot, #ui.jd-reduced-motion .jd-offer-gone, #ui.jd-reduced-motion .jd-star-pop { animation: none; }
 #ui .jd-star-pop { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 0.1em; padding: 0.5em 1.4em; border-radius: 0.8em; background: rgba(20, 17, 13, 0.92); border: 2px solid #f5c542; font-family: var(--jd-display); font-weight: 700; font-size: 1.5em; white-space: nowrap; box-shadow: 0 0 2em rgba(245,197,66,0.5); animation: jd-star-pop 1.9s ease-out forwards; }
+#ui .jd-star-pop-quiet { padding: 0; border: 0; background: none; box-shadow: none; font-size: 2.25em; text-shadow: 0 0 0.5em rgba(245,197,66,0.8), 0 2px 4px #1a1612; }
 @keyframes jd-star-pop { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; } 12% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; } 20% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { transform: translate(-50%, -80%) scale(1); opacity: 0; } }
 #ui .jd-grid-dim { position: absolute; inset: 0; background: rgba(0,0,0,0.3); }
 #ui .jd-grid-dim-strong { background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; }
@@ -1079,6 +1093,7 @@ export const GAME_STYLE = `
 #ui .jd-run-row { margin-top: 0.6em; }
 #ui .jd-run { width: 100%; font-family: var(--jd-display); font-size: 1.375em; padding: 0.5em 0; letter-spacing: 0.02em; }
 #ui .jd-run.jd-spot { background: linear-gradient(180deg, #ffc24d, #e0932a); color: #1a1612; border-color: rgba(0, 0, 0, 0.35); }
+#ui .jd-lesson-ways { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 1.4em; }
 #ui .jd-skip { align-self: center; margin-top: 0.5em; font-size: 0.8125em; color: #a89d88; }
 #ui .jd-legend { margin-top: auto; padding-top: 0.75em; }
 #ui .jd-legend-head { font-size: 0.75em; cursor: pointer; list-style-position: inside; }

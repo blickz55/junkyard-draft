@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { newRun, TUTORIAL_SEED, type RunState } from '../game/src/sim/run';
-import { jobFlavour, jobLine, jobRecipe, jobTarget, missingForJob, nextNeeded, paceOf, starMarks } from '../game/src/content/job';
+import { jobFlavour, jobLine, jobRecipe, jobTarget, materialOf, missingForJob, nextNeeded, paceOf, starMarks, starWords } from '../game/src/content/job';
 import { machineBlurb } from '../game/src/content/machines';
 import { RANK_STARS, rankFor, rankLine, rankNext } from '../game/src/content/ranks';
 import { shareText } from '../game/src/render/share';
@@ -80,4 +80,17 @@ test('share text carries the stars only when the yard has a job', () => {
   const base = { seed: 'daily-2026-10-25', score: 1234, rulesVersion: 4, rounds: [50, 150, 300, 350, 200, 184] };
   assert.match(shareText({ ...base, stars: 2 }).split('\n')[0], /· ★★☆$/);
   assert.doesNotMatch(shareText(base), /★/);
+});
+
+test('a star says only what the stars do not: the first two nothing, the third that the job is done', () => {
+  assert.equal(starWords(1), null);
+  assert.equal(starWords(2), null);
+  assert.equal(starWords(3), 'Job done.');
+});
+
+test('the word after a count agrees with it', () => {
+  assert.equal(materialOf('ingot', 1), 'ingot');
+  assert.equal(materialOf('ingot', 2), 'ingots');
+  assert.equal(materialOf('plate', 1), 'plate');
+  assert.equal(materialOf('plate', 0), 'plates');
 });

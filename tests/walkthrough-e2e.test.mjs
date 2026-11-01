@@ -5,6 +5,8 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { fixture, SHOTS, settle, cellCenter, binSlotCenter } from './e2e/fixture.mjs';
+import { playSeed } from '../tools/autoplay-lib.ts';
+import { Rng } from '../game/src/sim/rng.ts';
 
 const f = await fixture();
 after(() => f.close());
@@ -137,6 +139,129 @@ test('the menu pauses a running shift, says sound, saves and goes home, and home
   await frames();
   assert.ok(await page.locator('[data-testid=continue]').count(), 'home offers the game back');
   assert.equal(await page.evaluate(() => document.querySelector('[data-testid=continue]').classList.contains('jd-btn-primary')), true);
+  await page.ctx.close();
+});
+
+test(
+  'any game can go back to its first shift: only once there is something to lose, it says what that costs, and a running shift waits for the answer',
+  { timeout: 60000 },
+  async () => {
+    const page = await f.page();
+    const { api, mode, when, draft, noDialog } = page.jd;
+    await page.goto(f.gameUrl('scene=game&seed=classic-over'));
+    await draft();
+    const offers = (await api('state')).offers;
+    await page.getByTestId('menu').click();
+    assert.equal(await page.getByTestId('menu-start-over').count(), 0, 'nothing to lose yet');
+    await page.getByTestId('menu-resume').click();
+    await noDialog('menu-dialog');
+    await api('pick', 0);
+    await api('run');
+    await mode('running');
+    await page.getByTestId('menu').click();
+    await mode('paused');
+    assert.equal(await page.getByTestId('menu-start-over').textContent(), 'Start this yard over');
+    await page.getByTestId('menu-start-over').click();
+    assert.equal(await page.getByTestId('start-over-text').textContent(), 'Back to shift 1 with the same offers. This game is dropped.');
+    await page.getByTestId('start-over-no').click();
+    await mode('running');
+    await page.getByTestId('menu').click();
+    await mode('paused');
+    await page.getByTestId('menu-start-over').click();
+    await page.keyboard.press('Escape');
+    await mode('running');
+    await page.getByTestId('menu').click();
+    await mode('paused');
+    await page.getByTestId('menu-start-over').click();
+    await page.getByTestId('start-over-yes').click();
+    await when(() => window.__jd.state().actions === 0 && window.__jd.phase() === 'draft', null, 10000);
+    const st = await api('state');
+    assert.equal(st.round, 1);
+    assert.deepEqual(st.offers, offers, 'the same offers: they come from the yard');
+    assert.equal(await api('mode'), 'build', 'the new game is not paused');
+    assert.deepEqual(page.errors, [], 'no page errors');
+    await page.ctx.close();
+  },
+);
+
+test('the lesson can be started over from beside the skip, and it does not ask you to read the job again', { timeout: 60000 }, async () => {
+  const page = await f.page();
+  const { api, title, when, noDialog } = page.jd;
+  await page.goto(f.gameUrl());
+  await title();
+  await page.getByTestId('learn').click();
+  await page.getByTestId('job-start').click();
+  await noDialog('job-card');
+  assert.equal(await page.getByTestId('restart-lesson').count(), 0, 'nothing to lose yet');
+  await api('run');
+  await page.waitForSelector('[data-testid=restart-lesson]');
+  assert.equal(await page.getByTestId('restart-lesson').textContent(), 'Start the lesson over');
+  await page.getByTestId('restart-lesson').click();
+  assert.equal(await page.getByTestId('start-over-text').textContent(), 'Back to the first step of the lesson.');
+  await page.getByTestId('start-over-yes').click();
+  await when(() => window.__jd.state().actions === 0, null, 10000);
+  await page.waitForSelector('[data-testid=skip-lesson]');
+  assert.equal(await page.locator('[data-testid=job-card]').count(), 0, 'a second go goes straight in');
+  assert.deepEqual(page.errors, [], 'no page errors');
+  await page.ctx.close();
+});
+
+test('the name on Home is a control: it asks, the box starts empty, and an empty answer changes nothing', { timeout: 60000 }, async () => {
+  const page = await f.page();
+  const { title, noDialog, textMatches } = page.jd;
+  await page.goto(f.gameUrl());
+  await title();
+  assert.equal(await page.getByTestId('player-name').evaluate((e) => e.tagName), 'BUTTON');
+  assert.equal(await page.getByTestId('player-name').textContent(), 'Choose a name');
+  await page.getByTestId('player-name').click();
+  assert.equal(await page.getByTestId('dialog-input').inputValue(), '');
+  await page.keyboard.press('Enter');
+  await noDialog();
+  assert.equal(await page.getByTestId('player-name').textContent(), 'Choose a name');
+  assert.equal(await page.locator('[data-testid=player-note]').count(), 0, 'nothing to say');
+  await page.getByTestId('player-name').click();
+  await page.getByTestId('dialog-input').fill('Home Tester');
+  await page.keyboard.press('Enter');
+  await textMatches('player-name', /^Home Tester/, 5000);
+  assert.equal(await page.evaluate(() => localStorage.getItem('jd.player')), 'Home Tester');
+  await textMatches('player-note', /^Saved on this device\./, 5000);
+  await page.ctx.close();
+});
+
+test('a star says nothing the job bar does not: the first two are only stars, the third says the job is done', { timeout: 120000 }, async () => {
+  const seed = 'star-e'; // our player reaches all three stars on this yard
+  const { actions } = playSeed(seed, new Rng(`${seed}:x`), 12);
+  const page = await f.page();
+  const { api, mode, when, draft, noDialog } = page.jd;
+  await page.goto(f.gameUrl(`scene=game&seed=${seed}`));
+  await draft();
+  await page.getByTestId('job-start').click();
+  await noDialog('job-card');
+  await page.evaluate(() => {
+    window.__pops = [];
+    new MutationObserver((changes) => {
+      for (const c of changes)
+        for (const n of c.addedNodes)
+          if (n.dataset?.testid === 'star-pop') window.__pops.push({ text: n.textContent, quiet: n.classList.contains('jd-star-pop-quiet') });
+    }).observe(document.querySelector('[data-testid=board-slot]'), { childList: true });
+  });
+  for (const a of actions) {
+    if (a.t === 'pick') await api('pick', a.i);
+    else if (a.t === 'run') {
+      await api('run');
+      await mode('running');
+      await page.getByTestId('speed-4').click();
+      await mode('summary');
+    } else if (a.t === 'next') {
+      await api('next');
+      await when(() => window.__jd.scene() !== 'Game' || window.__jd.mode() !== 'summary', null, 5000);
+    } else assert.equal(await api('act', a), true, `${a.t} is legal`);
+  }
+  assert.deepEqual(await page.evaluate(() => window.__pops), [
+    { text: '★', quiet: true },
+    { text: '★★', quiet: true },
+    { text: '★★★Job done.', quiet: false },
+  ]);
   await page.ctx.close();
 });
 

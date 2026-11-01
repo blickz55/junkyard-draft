@@ -5,6 +5,12 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### The owner's second playtest — 2026-11-01 (no rules change)
+- **Start over.** Every game can go back to its first shift from the Menu, and the lesson shows the way beside "Skip the lesson". It says what that costs first. It is never just one shift back.
+- **The stars stop stating the obvious.** The first two flash on the yard with no words; the third says "Job done." A star that lands in the last seconds of a shift, or in a skipped shift, now gets its moment and its sound; it used to pass in silence.
+- **The name on Home is a button.** "Choose a name" looked like one and was only text. The box now starts empty instead of holding the word "player".
+- "1 ingot" and "1 plate" read properly after a count, and a tall menu scrolls on a short screen.
+
 ### 0.12.5 a fair board, and what happens when one is not — 2026-11-01 (no rules change, protocol 3: additive)
 - **Two boards.** The main board is for people. A game played by a tool has a board of its own beside it, and earns no medal.
 - **When a day goes wrong**, it is voided and played again on a new yard. It is never re-scored, and the commitment from the day before still checks out.

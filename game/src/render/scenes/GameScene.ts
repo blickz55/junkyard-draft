@@ -251,6 +251,7 @@ export class GameScene extends Phaser.Scene {
         nextRound: () => this.nextRound(),
         openMenu: () => this.openMenu(),
         skipLesson: () => this.skipLesson(),
+        startOver: () => this.askStartOver(),
         showMachine: (id) => this.inspect({ kind: 'machine', id }),
         starReached: (n) => audio.star(n as 1 | 2 | 3),
         toggleMute: () => {
@@ -300,11 +301,7 @@ export class GameScene extends Phaser.Scene {
   /** The way out of any moment: a running shift waits while the menu is open, and nothing is lost by leaving. */
   openMenu() {
     if (ui.dialogOpen) return;
-    const wasRunning = this.mode === 'running';
-    if (wasRunning) this.setPaused(true);
-    const resume = () => {
-      if (wasRunning) this.setPaused(false);
-    };
+    const resume = this.holdShift();
     const soundLabel = () => t(audio.muted ? 'menu.soundOff' : 'menu.soundOn');
     const watching = this.replayLabel != null;
     choiceDialog(this, {
@@ -323,6 +320,9 @@ export class GameScene extends Phaser.Scene {
             this.panel.syncMute();
           },
         },
+        ...(!watching && this.run.actions.length > 0
+          ? [{ label: t(this.tutorial ? 'menu.startOverLesson' : 'menu.startOver'), tid: 'menu-start-over', run: () => this.askStartOver(resume) }]
+          : []),
         ...(this.tutorial ? [{ label: t('menu.skip'), tid: 'menu-skip', run: () => this.skipLesson() }] : []),
         { label: t(watching ? 'menu.leave' : 'menu.home'), tid: 'menu-home', run: () => this.goHome() },
       ],
@@ -334,6 +334,36 @@ export class GameScene extends Phaser.Scene {
     audio.resume();
     if (this.replayLabel) this.stopReplay();
     else this.scene.start('Title');
+  }
+  /** A running shift waits while a dialog is up; what comes back lets it go on. */
+  private holdShift(): () => void {
+    const wasRunning = this.mode === 'running';
+    if (wasRunning) this.setPaused(true);
+    return () => {
+      if (wasRunning) this.setPaused(false);
+    };
+  }
+  /** Back to the first shift, on any yard. It costs the game in hand, so it says so first. Never just this shift: docs/DESIGN.md. */
+  private askStartOver(resume = this.holdShift()) {
+    choiceDialog(this, {
+      title: t('menu.startOverTitle'),
+      tid: 'start-over-dialog',
+      lead: [h('div', { tid: 'start-over-text' }, t(this.tutorial ? 'menu.startOverLessonText' : 'menu.startOverText'))],
+      choices: [
+        {
+          label: t('menu.startOverYes'),
+          tid: 'start-over-yes',
+          primary: true,
+          run: () => {
+            clearSave();
+            audio.resume();
+            this.scene.start('Game', { seed: this.run.seed, fresh: true, challenge: this.challenge ?? undefined });
+          },
+        },
+        { label: t('menu.resume'), tid: 'start-over-no', run: resume },
+      ],
+      onDismiss: resume,
+    });
   }
   /** Out of the lesson at any moment: it counts as done and its game is dropped. */
   skipLesson() {
@@ -410,9 +440,9 @@ export class GameScene extends Phaser.Scene {
     audio.resume();
     this.scene.start('Title');
   }
-  private updateHud() {
+  private updateHud(live = false) {
     this.panel.setHud(this.run, this.run.score, false);
-    if (this.run.job) this.panel.setJob(shippedTotal(this.run, this.run.job.material), false);
+    if (this.run.job) this.panel.setJob(shippedTotal(this.run, this.run.job.material), live);
   }
 
   private cellXY(x: number, y: number) {
@@ -561,7 +591,7 @@ export class GameScene extends Phaser.Scene {
       const tip = kind ? tipForMachine(kind, loadReadTips()) : null;
       if (tip) this.suggestedTip = tip.id;
     }
-    this.updateHud();
+    this.updateHud(a?.t === 'run'); // the end of a shift counts as live: the last seconds and a skipped shift may pass a star too
     this.renderSide(); // rotations too: the panel's picture must always face the way the machine on the yard faces
   }
   pick(i: number) {
@@ -724,7 +754,6 @@ export class GameScene extends Phaser.Scene {
     this.clearStallMark();
     audio.humStop(true); // the drone resolves to the fanfare's root under the settle
     audio.settle();
-    if (this.run.job) this.panel.setJob(shippedTotal(this.run, this.run.job.material), true); // the last seconds may pass a star too
     this.showSummary();
   }
 

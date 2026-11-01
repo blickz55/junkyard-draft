@@ -12,10 +12,14 @@ import { int } from './format';
 import { machineName } from './machines';
 
 export const materialMany = (m: Material): string => t(`material.${m}.many` as StringKey);
+/** The word after a count: 1 ingot, 2 ingots. */
+export const materialOf = (m: Material, n: number): string => (n === 1 ? t(`material.${m}` as StringKey) : materialMany(m));
 /** The job's target is its third star. */
 export const jobTarget = (job: Job): number => job.stars[2];
 export const jobLine = (job: Job): string => t('job.ship', { n: int(jobTarget(job)), mat: materialMany(job.material) });
 export const starMarks = (n: number): string => '★'.repeat(n);
+/** What a star says as it lands. The first two say nothing: the stars on the bar are the news. The third says the job is done. */
+export const starWords = (n: number): string | null => (n === 3 ? t('job.done') : null);
 
 const FLAVOURS = 6;
 function nameHash(seed: string): number {
