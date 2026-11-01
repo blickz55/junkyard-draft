@@ -9,4 +9,5 @@ export { openPaint } from './PaintPanel';
 export { openPlayerCard } from './PlayerCardPanel';
 export { openPolicy } from './PolicyPanel';
 export { openPrivacy } from './PrivacyPanel';
+export { openReminder } from './ReminderPanel';
 export { openThread } from './ThreadPanel';

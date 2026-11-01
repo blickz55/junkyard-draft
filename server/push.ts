@@ -2,8 +2,9 @@
  * Push for the daily (production roadmap 0.10.4). A player who turns the reminder on gives the verifier the push
  * subscription their browser issued (an endpoint at the browser maker's push service and two keys) and the UTC hour they
  * chose; once a day at that hour the verifier sends one message, "The yard is open", the same for everyone, encrypted to
- * the browser with web-push (the first runtime dependency, recorded in server/README.md). Nothing else is ever sent through
- * it (the social notifications are 0.11.7). A subscription the push service reports gone (404, 410) is dropped, as is one
+ * the browser with web-push (the first runtime dependency, recorded in server/README.md). A device can also ask to hear when
+ * someone answers them or beats their score (0.11.7): a line that says neither who nor what, at most SOCIAL_PER_DAY a day, and
+ * none at night by the clock of that device. A subscription the push service reports gone (404, 410) is dropped, as is one
  * that fails MAX_FAILURES times; unsubscribe and DELETE /me remove rows. Rows live in push.json next to the board.
  * The sender is injectable so the daily rule runs under a fake clock in tests; the default sender builds the request with
  * web-push and posts it itself, so a loopback http endpoint stands in for a push service in a test.
@@ -41,6 +42,13 @@ export interface PushSubscriptionRow {
   /** the UTC day (YYYY-MM-DD) of the last message, so a day gets one */
   lastSentDay: string | null;
   failures: number;
+  /** what else this device asked to hear (0.11.7) */
+  social: SocialKind[];
+  /** minutes behind UTC, as the browser counts them, so a night stays quiet */
+  offsetMin: number;
+  /** the UTC day of `socialSent` */
+  socialDay: string | null;
+  socialSent: number;
 }
 export interface PushMessage {
   title: string;
@@ -50,6 +58,21 @@ export interface PushMessage {
 }
 /** the one message (the service worker shows it; the texts are what the roadmap fixed) */
 export const DAILY_MESSAGE: PushMessage = { title: 'Junkyard Draft', body: 'The yard is open.', url: './', tag: 'jd-daily' };
+/** What a device can ask to hear besides the daily. The words go on a lock screen, so they say neither who nor what. */
+export type SocialKind = 'reply' | 'challenge';
+export const SOCIAL_MESSAGES: Record<SocialKind, PushMessage> = {
+  reply: { title: 'Junkyard Draft', body: 'Someone answered you in the talk.', url: './', tag: 'jd-reply' },
+  challenge: { title: 'Junkyard Draft', body: 'Someone beat your score.', url: './', tag: 'jd-challenge' },
+};
+/** The most a device hears of these in a day. The inbox holds the rest. */
+export const SOCIAL_PER_DAY = 3;
+const QUIET_FROM = 22,
+  QUIET_UNTIL = 8;
+/** Whether it is night where this device is. */
+export function isQuiet(offsetMin: number, now: Date): boolean {
+  const hour = Math.floor(((((now.getUTCHours() * 60 + now.getUTCMinutes() - offsetMin) % 1440) + 1440) % 1440) / 60);
+  return hour >= QUIET_FROM || hour < QUIET_UNTIL;
+}
 export const MAX_SUBSCRIPTIONS = 50_000;
 export const MAX_FAILURES = 5;
 export const PUSH_TTL_SEC = 3600;
@@ -93,6 +116,12 @@ export function validateSubscription(raw: unknown): { endpoint: string; keys: Pu
 export function validateHour(raw: unknown): number | string {
   return Number.isInteger(raw) && (raw as number) >= 0 && (raw as number) <= 23 ? (raw as number) : 'hourUtc must be an integer from 0 to 23';
 }
+export function validateSocial(raw: unknown): SocialKind[] | string {
+  if (!Array.isArray(raw) || !raw.every((k) => k in SOCIAL_MESSAGES)) return 'kinds must be a list of reply and challenge';
+  return [...new Set(raw as SocialKind[])];
+}
+/** The browser's time zone offset; a bad one reads as UTC, because a wrong night is no reason to refuse a reminder. */
+export const validateOffset = (raw: unknown): number => (Number.isInteger(raw) && Math.abs(raw as number) <= 840 ? (raw as number) : 0);
 export const dayOf = (d: Date) => d.toISOString().slice(0, 10);
 
 /** web-push builds the VAPID-signed, aes128gcm-encrypted request; posting it here lets a loopback http endpoint stand in for a push service. */
@@ -135,6 +164,7 @@ export interface PushStoreOptions {
 
 export class PushStore {
   private rows: PushSubscriptionRow[] = [];
+  private dirty = false;
   readonly enabled: boolean;
   readonly publicKey: string | null;
   private readonly send: Sender;
@@ -157,10 +187,12 @@ export class PushStore {
     try {
       const raw = JSON.parse(fs.readFileSync(this.file, 'utf8')) as { subscriptions?: unknown };
       const list = Array.isArray(raw.subscriptions) ? raw.subscriptions : [];
-      return list.filter((r): r is PushSubscriptionRow => {
+      const rows = list.filter((r): r is PushSubscriptionRow => {
         const x = r as PushSubscriptionRow;
         return !!x && typeof x.endpoint === 'string' && typeof validateSubscription(x) === 'object' && typeof validateHour(x.hourUtc) === 'number';
       });
+      const before = { social: [] as SocialKind[], offsetMin: 0, socialDay: null, socialSent: 0 }; // a row from before 0.11.7 has none of these
+      return rows.map((r) => ({ ...before, ...r }));
     } catch {
       return [];
     }
@@ -178,7 +210,7 @@ export class PushStore {
     return this.rows;
   }
   /** Add or replace (by endpoint) a subscription; 507 when the store is full. */
-  subscribe(input: { endpoint: string; keys: PushKeys; hourUtc: number; playerId: string | null }): PushSubscriptionRow {
+  subscribe(input: { endpoint: string; keys: PushKeys; hourUtc: number; playerId: string | null; offsetMin?: number }): PushSubscriptionRow {
     const i = this.rows.findIndex((r) => r.endpoint === input.endpoint);
     if (i < 0 && this.rows.length >= MAX_SUBSCRIPTIONS) throw new PushError(507, 'no room for more subscriptions');
     const prev = i >= 0 ? this.rows[i] : null;
@@ -190,6 +222,10 @@ export class PushStore {
       createdAt: prev?.createdAt ?? new Date(this.now()).toISOString(),
       lastSentDay: prev?.lastSentDay ?? null,
       failures: 0,
+      social: prev?.social ?? [],
+      offsetMin: input.offsetMin ?? prev?.offsetMin ?? 0,
+      socialDay: prev?.socialDay ?? null,
+      socialSent: prev?.socialSent ?? 0,
     };
     if (i >= 0) this.rows[i] = row;
     else this.rows.push(row);
@@ -201,6 +237,14 @@ export class PushStore {
     this.rows = this.rows.filter((r) => r.endpoint !== endpoint);
     if (this.rows.length !== before) this.persist();
     return this.rows.length !== before;
+  }
+  /** What else this device asked to hear; false when there is no such subscription. */
+  setSocial(endpoint: string, kinds: SocialKind[]): boolean {
+    const row = this.rows.find((r) => r.endpoint === endpoint);
+    if (!row) return false;
+    row.social = kinds;
+    this.persist();
+    return true;
   }
   /** DELETE /me: every subscription that came with this player's bearer. */
   unsubscribePlayer(playerId: string): number {
@@ -215,35 +259,65 @@ export class PushStore {
       hour = now.getUTCHours();
     return this.rows.filter((r) => r.hourUtc === hour && r.lastSentDay !== day);
   }
+  /** One message to one row; a gone subscription is dropped. */
+  private async deliver(row: PushSubscriptionRow, payload: string): Promise<'sent' | 'failed' | 'removed'> {
+    try {
+      await this.send({ endpoint: row.endpoint, keys: row.keys }, payload);
+      row.failures = 0;
+      return 'sent';
+    } catch (e) {
+      const code = e instanceof PushError ? e.statusCode : 0;
+      row.failures++;
+      const gone = code === 404 || code === 410 || row.failures >= MAX_FAILURES;
+      if (gone) this.rows = this.rows.filter((r) => r !== row);
+      this.log?.(`push: ${row.endpoint.slice(0, 40)}… failed (${code || 'network'}): ${(e as Error).message}${gone ? '; dropped' : ''}`);
+      return gone ? 'removed' : 'failed';
+    }
+  }
   /** Run once a minute: one message a day per subscription at its hour; gone subscriptions dropped. */
   async tick(now = new Date(this.now())): Promise<{ sent: number; removed: number; failed: number }> {
     const out = { sent: 0, removed: 0, failed: 0 };
     if (!this.enabled) return out;
     const day = dayOf(now);
     const payload = JSON.stringify(DAILY_MESSAGE);
-    let changed = false;
+    let changed = this.dirty;
     for (const row of this.due(now)) {
-      try {
-        await this.send({ endpoint: row.endpoint, keys: row.keys }, payload);
+      const result = await this.deliver(row, payload);
+      if (result === 'sent') {
         row.lastSentDay = day;
-        row.failures = 0;
         out.sent++;
-      } catch (e) {
-        const code = e instanceof PushError ? e.statusCode : 0;
-        out.failed++;
-        row.failures++;
-        if (code === 404 || code === 410 || row.failures >= MAX_FAILURES) {
-          this.rows = this.rows.filter((r) => r !== row);
-          out.removed++;
-        }
-        this.log?.(`push: ${row.endpoint.slice(0, 40)}… failed (${code || 'network'}): ${(e as Error).message}${this.rows.includes(row) ? '' : '; dropped'}`);
-      }
+      } else out.failed++;
+      if (result === 'removed') out.removed++;
       changed = true;
     }
     if (changed) this.persist();
+    this.dirty = false;
     this.stats.sent += out.sent;
     this.stats.removed += out.removed;
     this.stats.failed += out.failed;
     return out;
+  }
+  /**
+   * Something happened for a player (0.11.7): each of their devices that asked for this kind hears, up to SOCIAL_PER_DAY a day and not at night.
+   * The file is written on the next tick: one reply must not rewrite every subscription, and a lost count costs one message at most.
+   */
+  async social(players: readonly string[], kind: SocialKind, now = new Date(this.now())): Promise<number> {
+    if (!this.enabled) return 0;
+    const day = dayOf(now);
+    const payload = JSON.stringify(SOCIAL_MESSAGES[kind]);
+    let sent = 0;
+    for (const row of this.rows.filter((r) => !!r.playerId && players.includes(r.playerId) && r.social.includes(kind))) {
+      const used = row.socialDay === day ? row.socialSent : 0;
+      if (used >= SOCIAL_PER_DAY || isQuiet(row.offsetMin, now)) continue;
+      row.socialDay = day; // counted before the send, so two at once cannot both take the last place
+      row.socialSent = used + 1;
+      this.dirty = true;
+      const result = await this.deliver(row, payload);
+      if (result === 'sent') sent++;
+      else this.stats.failed++;
+      if (result === 'removed') this.stats.removed++;
+    }
+    this.stats.sent += sent;
+    return sent;
   }
 }

@@ -1075,10 +1075,13 @@ export class CommunityStore {
   }
 
   /** A line for a player's inbox (0.11.7). The same line while it is unread is one line, so a batch stays a batch. */
+  /** Told of a new line, once: the verifier hangs push on this (0.11.7). */
+  onNotify?: (playerId: string, kind: string) => void;
   notify(playerId: string, kind: string, payload: Record<string, unknown>): void {
     const text = JSON.stringify(payload);
     if (this.sql('SELECT 1 FROM notifications WHERE player_id = ? AND kind = ? AND read_at IS NULL AND payload = ?').get(playerId, kind, text)) return;
     this.sql('INSERT INTO notifications (player_id, kind, payload, created_at) VALUES (?, ?, ?, ?)').run(playerId, kind, text, this.now());
+    this.onNotify?.(playerId, kind);
   }
   /** A player's latest lines, newest first, and how many are unread. */
   inbox(playerId: string, limit = 30): { items: InboxRow[]; unread: number } {

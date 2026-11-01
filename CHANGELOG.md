@@ -5,6 +5,9 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### 0.11.7 hear when someone answers — 2026-11-01 (no rules change, protocol 3: additive)
+- With the daily reminder on, you can also ask to hear when someone answers you in the talk or beats your score. Off until you ask, at most three a day, none at night, and never who or what. The inbox has the rest.
+
 ### 0.11.12 the paint shop — 2026-11-01 (no rules change, protocol 3: additive)
 - **Something to show for turning up.** Days of dailies, medals and days in the top division earn yard colours, machine paint and a title beside your name. Open the paint shop from More to see what you have and what the rest takes.
 - **Others see it.** Your title shows on boards, on your posts and on your profile, and your recordings play in your paint.

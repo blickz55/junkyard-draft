@@ -27,6 +27,7 @@ import {
 } from '../server/verify';
 import { INBOX_READ_DAYS, MESSAGE_DAYS, REMOVED_TEXT_DAYS } from '../server/community';
 import { APPEAL_DAYS, POST_MAX, REVIEW_SLA_HOURS } from '../server/moderation';
+import { SOCIAL_PER_DAY } from '../server/push';
 
 export type LegalId = 'privacy' | 'terms' | 'guidelines';
 export interface LegalSection {
@@ -94,7 +95,7 @@ export function buildLegal(): Legal {
           'Friends and the feed, only if you use them. Who you asked, who asked you, who your friends are and who you blocked, with the times, and the last few dozen things you did: a game on a day or a week, a post, a division result. Purpose: your friends and your crew see what you have been up to, and you see theirs. Legal basis: the agreement. A friend sees your name, your scores and those lines; nobody is told when they are removed or blocked. It stays until you remove it or delete your data.',
           `Your inbox. A line when someone reacts to a run of yours, writes on it or where you wrote, beats your score from a challenge link, or when your division or crew has a result, or when a moderator decides something about you, with the time. A line goes ${INBOX_READ_DAYS} days after you read it, or when you delete your data.`,
           `Signing in with email, only if you use it. When you ask for a link, the address goes to ${O.mailProvider} so the email can be delivered, and is not stored by the verifier. The verifier keeps the SHA-256 hash of the address, the hash of the one-time link for a day after it expires, the hashes of the device keys that signed in, and a copy of your settings, best scores, stars and record so they can follow you to another device. Purpose: signing you in on another device, which you asked for. Legal basis: the agreement. It stays until you sign out in Settings or delete your data.`,
-          'Daily reminder, only if you turn it on. The push subscription your browser issues (an address at your browser maker\'s push service and two keys that let only your browser read the message) and the hour you chose, with your player id when you have claimed a name. Purpose: one notification a day, "The yard is open", the same for everyone, nothing else. Legal basis: consent, withdrawn by turning the reminder off, which deletes the subscription; "Delete my data" removes it too, and a subscription the push service reports gone is dropped.',
+          `Daily reminder, only if you turn it on. The push subscription your browser issues (an address at your browser maker's push service and two keys that let only your browser read the message) and the hour you chose, with your player id when you have claimed a name, your time zone's offset from UTC, and whether you also asked to hear when someone answers you or beats your score. Purpose: one notification a day, "The yard is open", the same for everyone, and if you asked for them up to ${SOCIAL_PER_DAY} more a day, never at night, that say neither who nor what. Legal basis: consent, withdrawn by turning the reminder off, which deletes the subscription; "Delete my data" removes it too, and a subscription the push service reports gone is dropped.`,
           'Not collected: no e-mail address in readable form, no password, no cookies, no advertising or analytics scripts, no payment data, no precise location. The desktop edition sends nothing the web game does not.',
         ],
       },
@@ -115,7 +116,7 @@ export function buildLegal(): Legal {
           'Your profile is public too: the month you arrived, your trophies and your three best games, opened from a game or a post of yours. Show my profile in Privacy & data leaves only your name there; the verifier keeps that choice with your other data.',
           `If you sign in with email, ${O.mailProvider} delivers the link. It sees the address and that an email was sent, and keeps delivery records for up to 30 days. It holds them in the United States under the EU Standard Contractual Clauses and the Data Privacy Framework.`,
           `If you write a public post, or someone reports a message of yours, ${O.aiProvider} runs the AI classifier for the operator. It receives the words of that post or message, without your name, your tag or your player id, and answers with a category and a score. It handles them as a service provider under its commercial terms.`,
-          "If you turn the daily reminder on, your browser maker's push service (Apple, Google or Mozilla, depending on the browser) relays one encrypted message a day: it sees that a message went to your browser, not what it says.",
+          "If you turn the daily reminder on, your browser maker's push service (Apple, Google or Mozilla, depending on the browser) relays those encrypted messages: it sees that a message went to your browser, not what it says.",
         ],
       },
       {

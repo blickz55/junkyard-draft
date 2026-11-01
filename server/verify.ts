@@ -82,7 +82,7 @@ import { Rng } from '../game/src/sim/rng';
 import { decodeReplay, canonicalReplayJson, type ReplayFile } from '../game/src/sim/replay';
 import { replay as replayRun, runStars, type RunState } from '../game/src/sim/run';
 import { RULES_VERSION } from '../game/src/sim/types';
-import { PushStore, PushError, validateHour, validateSubscription } from './push';
+import { PushStore, PushError, validateHour, validateOffset, validateSocial, validateSubscription } from './push';
 import { COMMUNITY_DB, CommunityStore, MAX_INBOX_PAGE, type InboxRow } from './community';
 import { cosmeticById, lookFrom, unlockedBy, type Progress } from '../game/src/content/cosmetics';
 import { isReaction } from '../game/src/content/reactions';
@@ -2489,6 +2489,12 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
     const about = thread ? threadTarget(thread.key, now) : null;
     return about && !(about.seed && verifier.revealGate(about.seed, viewer, now)) ? post.authorId : null;
   };
+  // push for a reply and a beaten score (0.11.7): every line starts in the store, so nothing has to remember to ask
+  if (community && push)
+    community.onNotify = (player, kind) => {
+      const social = ({ 'thread-reply': 'reply', challenge: 'challenge' } as const)[kind];
+      if (social) void push.social([player, ...community.deviceKeysOf(player)], social);
+    };
   /** How far a player has come, across every device they have played on (0.11.12). */
   const progressOf = (player: string): Progress => {
     const ids = [player, ...(community?.deviceKeysOf(player) ?? [])];
@@ -3362,7 +3368,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         }
       }
       // push for the daily (0.10.4): the public key, subscribe (upsert by endpoint, the UTC hour, the bearer's player when present), unsubscribe
-      if (url.pathname === '/push/vapid' || url.pathname === '/push/subscribe' || url.pathname === '/push/unsubscribe') {
+      if (url.pathname === '/push/vapid' || url.pathname === '/push/subscribe' || url.pathname === '/push/unsubscribe' || url.pathname === '/push/social') {
         if (!push || !push.enabled) {
           req.resume();
           return json(503, { ok: false, error: 'push is not enabled on this verifier (set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY)' });
@@ -3390,7 +3396,7 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         req.on('end', () =>
           guarded(() => {
             if (res.writableEnded) return;
-            let parsed: { subscription?: unknown; hourUtc?: unknown; endpoint?: unknown };
+            let parsed: { subscription?: unknown; hourUtc?: unknown; endpoint?: unknown; kinds?: unknown; offsetMin?: unknown };
             try {
               parsed = JSON.parse(body || '{}') as typeof parsed;
             } catch (e) {
@@ -3403,11 +3409,17 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
                 if (!endpoint) return json(400, { ok: false, error: 'endpoint required' });
                 return json(200, { ok: true, removed: push.unsubscribe(endpoint) });
               }
+              if (url.pathname === '/push/social') {
+                const kinds = validateSocial(parsed.kinds);
+                if (typeof kinds === 'string') return json(422, { ok: false, error: kinds });
+                const known = typeof parsed.endpoint === 'string' && push.setSocial(parsed.endpoint, kinds);
+                return known ? json(200, { ok: true, kinds }) : json(404, { ok: false, error: 'no such subscription' });
+              }
               const sub = validateSubscription(parsed.subscription);
               if (typeof sub === 'string') return json(422, { ok: false, error: sub });
               const hour = validateHour(parsed.hourUtc);
               if (typeof hour === 'string') return json(422, { ok: false, error: hour });
-              const row = push.subscribe({ ...sub, hourUtc: hour, playerId: bearerId });
+              const row = push.subscribe({ ...sub, hourUtc: hour, playerId: bearerId, offsetMin: validateOffset(parsed.offsetMin) });
               return json(200, { ok: true, hourUtc: row.hourUtc, subscriptions: push.count });
             } catch (e) {
               if (e instanceof PushError) return json(e.statusCode, { ok: false, error: e.message });

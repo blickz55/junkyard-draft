@@ -33,7 +33,7 @@ const mock = http.createServer((req, res) => {
   const p = new URL(req.url, 'http://x').pathname;
   if (p === '/health') return json(200, { ok: true, version: 'mock', rulesVersion: 3, protocol: 2 });
   if (p === '/push/vapid') return json(200, { ok: true, publicKey: Buffer.alloc(65, 4).toString('base64url') });
-  if (p === '/push/subscribe' || p === '/push/unsubscribe') {
+  if (p === '/push/subscribe' || p === '/push/unsubscribe' || p === '/push/social') {
     let body = '';
     req.on('data', (c) => (body += c));
     req.on('end', () => {
@@ -245,6 +245,10 @@ test(
     await when(() => /Stop reminders/.test(document.querySelector('[data-testid=push]')?.textContent || ''));
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('jd.push.v1')).hourLocal), 9);
     assert.equal(await page.evaluate(() => document.querySelector('[data-testid=push-hour]').disabled), true, 'the hour is fixed while the reminder is on');
+    assert.equal(await page.getByTestId('push-reply').isChecked(), false, 'nothing but the daily until asked for');
+    await page.getByTestId('push-reply').check();
+    await until(() => pushCalls.some((c) => c.path === '/push/social'), { timeout: 15000, what: 'the choice reaching our server' });
+    assert.deepEqual(pushCalls.find((c) => c.path === '/push/social').body, { endpoint: 'https://push.example/sub/1', kinds: ['reply'] });
     await page.screenshot({ path: path.join(SHOTS, `pwa-reminder-${Date.now()}.png`) });
     await page.getByTestId('reminder-close').click();
     await when(() => !document.querySelector('[data-testid=reminder-dialog]'));
@@ -255,11 +259,14 @@ test(
     await when(() => /^Reminder: /.test(document.querySelector('[data-testid=reminder]')?.textContent || ''));
     await page.getByTestId('reminder').click();
     await when(() => /Stop reminders/.test(document.querySelector('[data-testid=push]')?.textContent || ''));
+    assert.equal(await page.getByTestId('push-reply').isChecked(), true, 'the choice stays');
+    assert.equal(await page.getByTestId('push-challenge').isChecked(), false);
     await page.getByTestId('push').click();
     await until(() => pushCalls.some((c) => c.path === '/push/unsubscribe'), { timeout: 15000, what: 'the unsubscribe reaching our server' });
     assert.equal(pushCalls.find((c) => c.path === '/push/unsubscribe').body.endpoint, 'https://push.example/sub/1');
     await when(() => /Remind me/.test(document.querySelector('[data-testid=push]')?.textContent || ''));
     assert.equal(await page.evaluate(() => window.__unsubscribed), 1, 'the browser subscription was released');
+    assert.equal(await page.getByTestId('push-reply').count(), 0, 'the choices go with the reminder');
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.push.v1')), 'null');
     await page.keyboard.press('Escape');
     await when(() => !document.querySelector('[data-testid=reminder-dialog]'));

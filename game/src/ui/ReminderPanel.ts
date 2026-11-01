@@ -5,9 +5,10 @@
  */
 import type Phaser from 'phaser';
 import { h, btn, ui } from './dom';
-import { t } from '../content/strings';
+import { t, type StringKey } from '../content/strings';
+import '../content/strings-more';
 import { localHour } from '../content/format';
-import { loadReminder, enableReminder, disableReminder, type Reminder } from '../render/push';
+import { loadReminder, enableReminder, disableReminder, setReminderSocial, type Reminder, type SocialKind } from '../render/push';
 
 export function openReminder(scene: Phaser.Scene, verifierUrl: string, onChange: (r: Reminder | null) => void): void {
   const prev = document.activeElement as HTMLElement | null;
@@ -24,8 +25,39 @@ export function openReminder(scene: Phaser.Scene, verifierUrl: string, onChange:
     hourSel.append(o);
   }
   hourSel.disabled = !!current;
-  const status = h('div', { class: 'jd-mono jd-dim', tid: 'push-note', style: 'font-size:0.75em; min-height:1.3em' }, t('title.pushNote'));
+  const status = h('div', { class: 'jd-mono jd-dim', tid: 'push-note', style: 'font-size:0.75em; min-height:1.3em' });
   const label = () => (current ? t('title.pushOff', { time: localHour(current.hourLocal) }) : t('title.pushOn'));
+  // what else this device hears (0.11.7): both off until asked for, and only once the reminder is on
+  const social = h('div', { tid: 'push-social', style: 'display:flex; flex-direction:column; gap:0.35em' });
+  const SOCIAL: [SocialKind, StringKey][] = [
+    ['reply', 'title.pushReply'],
+    ['challenge', 'title.pushChallenge'],
+  ];
+  const drawSocial = () => {
+    const on = current?.social ?? [];
+    const choice = ([kind, key]: [SocialKind, StringKey]) => {
+      const box = h('input', { type: 'checkbox', tid: `push-${kind}`, style: 'width:auto; margin:0' });
+      box.checked = on.includes(kind);
+      box.addEventListener('change', () => {
+        const kinds = SOCIAL.map(([k]) => k).filter((k) => (k === kind ? box.checked : on.includes(k)));
+        void setReminderSocial(verifierUrl, kinds).then((r) => {
+          current = r ?? current;
+          if (!r) status.textContent = t('thread.refused.failed');
+          drawSocial();
+        });
+      });
+      return h('label', { style: 'display:flex; gap:0.5em; align-items:center; font-size:0.875em' }, box, t(key));
+    };
+    social.replaceChildren(
+      ...(current
+        ? [
+            h('div', { class: 'jd-dim', style: 'font-size:0.8125em' }, t('title.pushSocial')),
+            ...SOCIAL.map(choice),
+            h('div', { class: 'jd-dim', style: 'font-size:0.75em' }, t('title.pushSocialNote')),
+          ]
+        : []),
+    );
+  };
   const pushBtn = btn(label(), 'push', () => void toggle(), { variant: 'primary', small: true });
   const toggle = async () => {
     pushBtn.disabled = true;
@@ -38,7 +70,8 @@ export function openReminder(scene: Phaser.Scene, verifierUrl: string, onChange:
         pushBtn.textContent = t('title.pushWorking');
         current = await enableReminder(verifierUrl, Number(hourSel.value));
       }
-      status.textContent = t('title.pushNote');
+      status.textContent = '';
+      drawSocial();
       onChange(current);
     } catch (e) {
       const why = e instanceof Error && /denied|permission/i.test(e.message) ? t('title.pushDenied') : ((e as Error).message ?? String(e));
@@ -62,6 +95,7 @@ export function openReminder(scene: Phaser.Scene, verifierUrl: string, onChange:
       hourSel,
       pushBtn,
     ),
+    social,
     status,
   );
   const layer = h(
@@ -81,6 +115,7 @@ export function openReminder(scene: Phaser.Scene, verifierUrl: string, onChange:
       close();
     }
   });
+  drawSocial();
   ui.layer(scene, layer);
   pushBtn.focus();
 }

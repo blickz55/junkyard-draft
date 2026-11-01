@@ -8,10 +8,12 @@ import { authHeaders } from './identity';
 import { readJson, writeJson } from './storage';
 
 export const PUSH_KEY = 'jd.push.v1';
+export type SocialKind = 'reply' | 'challenge';
 export interface Reminder {
   endpoint: string;
   hourLocal: number;
   hourUtc: number;
+  /** what else this device asked to hear (0.11.7) */ social?: SocialKind[];
 }
 
 export const pushSupported = (): boolean =>
@@ -47,7 +49,7 @@ export async function enableReminder(verifierUrl: string, hourLocal: number): Pr
   const res = await fetch(`${verifierUrl}/push/subscribe`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders(verifierUrl) },
-    body: JSON.stringify({ subscription: sub.toJSON(), hourUtc }),
+    body: JSON.stringify({ subscription: sub.toJSON(), hourUtc, offsetMin: new Date().getTimezoneOffset() }),
   });
   if (!res.ok) {
     await sub.unsubscribe().catch(() => {});
@@ -56,6 +58,24 @@ export async function enableReminder(verifierUrl: string, hourLocal: number): Pr
   const r: Reminder = { endpoint: sub.endpoint, hourLocal, hourUtc };
   writeJson(PUSH_KEY, r);
   return r;
+}
+/** What else this device hears; the new record, or null when the server did not take it. */
+export async function setReminderSocial(verifierUrl: string, kinds: SocialKind[]): Promise<Reminder | null> {
+  const r = loadReminder();
+  if (!r) return null;
+  try {
+    const res = await fetch(`${verifierUrl}/push/social`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders(verifierUrl) },
+      body: JSON.stringify({ endpoint: r.endpoint, kinds }),
+    });
+    if (!res.ok) return null;
+    const next: Reminder = { ...r, social: kinds };
+    writeJson(PUSH_KEY, next);
+    return next;
+  } catch {
+    return null;
+  }
 }
 /** Unsubscribe here and at our server; the local record goes either way. */
 export async function disableReminder(verifierUrl: string): Promise<void> {
