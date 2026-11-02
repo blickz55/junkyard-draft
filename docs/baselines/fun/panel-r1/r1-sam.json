@@ -1,0 +1,63 @@
+{
+  "persona": "Samuel",
+  "device": "phone",
+  "goalInOwnWords": "Make a line of machines that turns the rocks into gold bars and sends them to the dock to get money. More money is a better score, and shipping enough bars gives stars.",
+  "stoppedWhere": "In the real game (Play today's yard), on the result screen after shift 3 of 6 that paid $0 because my Splitter was a dead end. At that point: 25 of 160 ingots, $714, no star yet in the real game. The 3 stars and the $1008 best money were in the lessons. After that I used Menu, Save and go home, then Give feedback.",
+  "stoppedWhy": "I lost a whole shift for nothing: the game said 'Fix it' but not how, and it still let me press Start, so I made $0. I do not want to translate more words (Tuner, Splitter, dead end, held you back), I was past my 15 minutes, and the game was fine but not something I would open again. I would go back to my deliveries.",
+  "lessonsFinished": 2,
+  "gamesFinished": 0,
+  "bestStars": 3,
+  "bestMoney": 1008,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "no",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Lesson 2, shift 1 (plates): 'One belt piece points the wrong way. Tap it twice to turn it.'",
+      "what": "I tapped the lit belt piece and it did not turn: the Press I had just picked jumped onto that square and the belt piece went back to the shelf. Then Sal said 'Tap the Press, then the lit belt piece', but the Press was already on the yard, the game answered 'Not yet. Use the lit part, on the lit spot.', and the only lit part was a blue sliver cut off at the left edge of the shelf. The Start button stayed grey. About 15 taps lost, including Undo, Tips (long sentences and a big table) and a drag on the shelf.",
+      "gotOutHow": "By luck: after the Tips table said a part can be 'in hand', I used Undo, noticed the belt piece on the shelf had the orange frame, and tapped the broken belt with that belt piece. It replaced the curved piece with a straight one, and after that the lights worked again. I never actually turned anything."
+    },
+    {
+      "where": "Real game, shift 3 of 6, after picking the Splitter and putting it on the lit belt piece",
+      "what": "Sal said 'The red mark shows where the line stops. Fix it, then start.' I did not know how to fix it, the Start button was still there, so I pressed it. Result: $0 and nothing shipped. Only after the shift did it say 'The splitter is a dead end... Turn it toward the dock.'",
+      "gotOutHow": "I did not get out of it; I stopped there. I only learned afterwards that the Turn button was the fix."
+    }
+  ],
+  "confused": [
+    "'Top the board' and 'learn the ropes' on the first screens: I do not know these sayings, and I never found out what 'the board' is (the home screen says there is no leaderboard in this version).",
+    "Words I do not know: hopper, ingot, crusher, foreman, shards, slag, feed, spare, splitter, tuner, 'held you back', 'dead end', 'piled up'. Pictures helped with the first three, the rest I guessed or skipped.",
+    "Lesson 1: Sal says 'Line closed. Start the shift.' but 'Your line needs' still shows Crusher and Furnace in dotted boxes, so I did not know if my line was finished.",
+    "Lesson 2 opens with a card called 'YOUR FIRST JOB' again, although it is the second lesson.",
+    "'Ship 1 ingot a shift for a star' and 'Ship 2 plates a shift for two stars': I shipped 18 plates and got only one star, so I could not tell what this line means.",
+    "Red words on the machines ('stuck 13 s', 'waited 38 s', 'waited 25 s'): nobody explains them, they overlap each other, and I cannot tell which machine each one belongs to. 'The crusher waited 25 s' also seems to contradict 'the crusher held you back'.",
+    "The orange frame around a part on the shelf (it means the part is in my hand and the next tap puts it down) is never explained on the screen, only in the long Tips table.",
+    "Sal says tap a belt twice to turn it, but with a part in hand the first tap puts that part down instead.",
+    "A glowing sliver cut off at the left edge of the shelf, with the yard saying 'Use the lit part' when I could not see any lit part.",
+    "The Tips sentences are long and hard ('swallows one shard, holds it', 'halves the traffic behind it', 'backs a line up').",
+    "The advice 'A Tuner next to it, or a second crusher behind a Splitter, would clear it' while the three parts offered had no Tuner and I had no spare Crusher.",
+    "The Home screen still says 'Scrap Picker, 0 stars' after I got 3 stars twice in the lessons, so I do not know what the lesson stars are for."
+  ],
+  "annoyed": [
+    "Being stuck in lesson 2 in the middle of a lesson that promises to hold my hand, because the game did the opposite of what Sal said.",
+    "The game lets me start a shift with a line that goes nowhere and I lose the whole shift: $0, one third of the game, and the warning did not say how to fix it.",
+    "More tapping than watching: each shift is about 10 seconds but needs 5 to 8 taps to set up.",
+    "A lot of English text to read and translate, especially in Tips and in the 'what held you back' advice.",
+    "The big orange button on Home sends you to lessons, and after each lesson another lesson is offered; the lights do the thinking for me, so it felt like school.",
+    "Nothing to chase after the lessons: no leaderboard, 0 stars on the home screen, and each yard is the same loop."
+  ],
+  "pleased": [
+    "Lesson 1: tap the glowing thing and it just works, no reading needed.",
+    "Watching rocks become crystals and then gold bars, with +$24 popping up at the dock and the money number jumping.",
+    "The yellow 'Needed for the job' tag made picking a part easy.",
+    "Parts turn by themselves in the real game, and there are Undo and Turn buttons.",
+    "'What shipped' with the sums (37 x scrap @ $1 = $37) is easy to follow, and 'What held you back: No ingots yet. Your line still needs the Furnace.' was clear and useful.",
+    "Shifts are short and the 'skip to the end' and speed buttons are there.",
+    "Sal's short lines and the three-star bar filling up."
+  ],
+  "bestMoment": "Lesson 1, shift 3: gold bars came out of the orange machine, +$24 popped up at the dock each time, the money jumped from $148 to $724 and all three stars lit up.",
+  "worstMoment": "Lesson 2: tapping the belt exactly like Sal said and having the machine jump in instead of turning it, then 'Not yet. Use the lit part, on the lit spot.' with no lit part I could see. The $0 shift in the real game was the second worst and the reason I stopped.",
+  "oneChange": "Tell me what to do with pictures (arrows, a pointing hand, a Turn button) instead of English sentences and hard words, so I never have to translate or get stuck and one wrong tap does not cost me a whole shift.",
+  "completionCode": "DMVD-3KJV"
+}

@@ -86,7 +86,7 @@ function moveDone(m: Move, r: RunState): boolean {
     case 'place':
       return r.layout.machines.some((q) => q.kind === m.kind && q.x === m.x && q.y === m.y && q.dir === m.dir);
     case 'turn':
-      return r.layout.machines.some((q) => q.x === m.x && q.y === m.y && q.dir === m.dir);
+      return r.layout.machines.some((q) => q.kind === 'conveyor' && q.x === m.x && q.y === m.y && q.dir === m.dir);
     case 'buy':
       return r.belts >= m.belts;
     case 'sell':

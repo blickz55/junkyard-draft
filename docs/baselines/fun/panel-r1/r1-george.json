@@ -1,0 +1,62 @@
+{
+  "persona": "George",
+  "device": "phone",
+  "goalInOwnWords": "Build a line of machines that turns scrap into things worth more, get as much of it to the dock as you can, and earn stars for hitting the targets. The money is your score, though I could not say who it is scored against or what 'the board' is.",
+  "stoppedWhere": "Home screen, after finishing lesson 2 (Plates and a second feed) and the six-question survey. I did not start the third lesson ('Find the slowest machine'), today's yard, or any full game.",
+  "stoppedWhy": "I had done what I was asked for about as long as I said I would. Lesson 1 was a pleasure; lesson 2 had a long stretch where the game kept saying 'Not yet' and I could not find what it wanted. After lesson 1 I chose to go on to lesson 2 by myself, but after lesson 2 I did not want a third lesson or a real game: the lessons never let me fail, I just tapped where it glowed, so nothing was pulling me on, and the home screen then said I had 0 stars after I had earned six. If nobody were paying I would put it down here and tell my grandson it was alright but fiddly.",
+  "lessonsFinished": 2,
+  "gamesFinished": 0,
+  "bestStars": 3,
+  "bestMoney": 1008,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Lesson 2, Build step after picking the Plate Press (Sal: 'One belt piece points the wrong way. Tap it twice to turn it.')",
+      "what": "The Press I had picked still had a yellow frame, so my tap on the lit belt piece put the Press down on top of it instead of turning the belt. Sal then said 'Tap the Press, then the lit belt piece' but the Press was no longer on the shelf. Tapping it in the yard gave a grey 'Not yet. Use the lit part, on the lit spot.' I could not find any lit part (only a sliver of blue glow at the very left edge of the screen), the grey note never cleared, and 'Start shift 1' stayed greyed out with no reason given. Undo took me back to the same spot and tapping again repeated it.",
+      "gotOutHow": "Opened Tips, then 'Mouse, touch and keys', read 'Move a machine: hold it, then drag', and dragged the Press onto the lit square two squares to the left. It swapped places with the belt piece, Sal said 'Start the shift' and the button woke up. About 14 taps lost; without opening Tips I would have given up there."
+    }
+  ],
+  "confused": [
+    "Home screen 'Build a factory from scrap. Ship the job. Top the board.' - what is 'the board' and who is on it? Lesson 1 ended with 'money for the board' and I still did not know.",
+    "'Ingot', 'yard', 'shelf' and 'shift' were new words; I guessed them from the pictures.",
+    "After a shift: 'Ship 1 ingot a shift for a star' and later 'Ship 2 plates a shift for two stars' - I could not tell what that was asking of me.",
+    "'Pick the Crusher. You keep ONE part. The others go back on the truck.' - what truck?",
+    "'Your line needs Hopper > Crusher > Furnace > Dock' kept the Crusher and Furnace dotted while Sal said 'Line closed. Start the shift' - I wondered if I had skipped something.",
+    "Lesson 2 opened with the same 'YOUR FIRST JOB - A small order to learn the ropes' heading as lesson 1.",
+    "A spare Crusher and belt pieces were already sitting on the shelf at the start of lesson 2 and nothing said why (they were for the second feed, much later).",
+    "Whether a part with a yellow frame on the shelf is 'in my hand', and how to put it down again.",
+    "The Tips page says a plate is worth $8 while the job says plates pay $24.",
+    "Red striped squares on the machines and captions like 'stuck 25 s' and 'waited 38 s' after a shift, with no explanation.",
+    "The grey 'Not yet' note stayed on the yard the whole time, so I could not tell if it was old or new.",
+    "Home screen says 'Scrap Picker - 0 stars' and 'No finished games yet' after I got three stars in both lessons.",
+    "'Copy the code' gave no sign that anything had been copied."
+  ],
+  "annoyed": [
+    "The first shift of lesson 1 is over in about five seconds - no time to read or watch the machines; I only noticed the 1x/2x/4x speed buttons afterwards.",
+    "Sal said 'tap' in lesson 2 where the game needed a drag, so the words and the screen disagreed.",
+    "The grey 'Not yet. Use the lit part, on the lit spot.' note never went away and covers part of the yard.",
+    "'Start shift 1' greyed out with no reason given.",
+    "Small grey writing everywhere (the 'Test version' line, the part descriptions, the Tips table) is hard for me to read.",
+    "The Tips table is dense and has nothing about putting a held part down or what to do when you are stuck.",
+    "The stars I earned in the lessons do not count on the home screen.",
+    "Tapping 'Copy the code' did nothing visible."
+  ],
+  "pleased": [
+    "Lesson 1: Sal gives one instruction at a time and the glowing part and glowing square matched his words, so I never had to guess.",
+    "Watching the price per piece go from $1 scrap to $3 shards to $24 ingots - 'Three times the money from the same scrap' made sense at once.",
+    "Big stars popping up in the yard and the job bar filling while the shift runs.",
+    "The big orange buttons are easy to find and hard to tap by mistake.",
+    "Undo and Redo buttons: I felt safe trying things.",
+    "The second half of lesson 2 (adding a second feed that joins the belt from the side) went smoothly and was satisfying.",
+    "The survey was short, the buttons were big, and the completion code was easy to read.",
+    "A new yard every day sounds like my morning crossword."
+  ],
+  "bestMoment": "Lesson 1, shift 3: the Furnace turned shards into gold bars, two big stars popped up in the yard, the job bar filled and $576 came in on one shift - 'I built that'.",
+  "worstMoment": "Lesson 2: tapping the lit belt piece as Sal said, watching the Press jump onto it, then 'Not yet. Use the lit part, on the lit spot.' with no lit part to find and Start greyed out - about 14 taps of feeling I had broken it.",
+  "oneChange": "Give me something to puzzle out and beat that I can actually see - make 'the board' and my stars mean something I understand, so finishing a day feels like finishing a crossword - and when I get stuck, tell me in plain words what I am doing wrong.",
+  "completionCode": "T4MM-KN7A"
+}

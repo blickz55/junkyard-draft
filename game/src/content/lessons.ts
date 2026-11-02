@@ -92,8 +92,8 @@ export const LESSONS: readonly Lesson[] = [
       {
         pick: { kind: 'press', say: 'lesson.pickPress' },
         moves: [
-          { do: 'turn', x: 5, y: 2, dir: R, say: 'lesson.turn', about: [{ kind: 'conveyor', key: 'lesson.about.turn' }] },
           { do: 'place', kind: 'press', x: 4, y: 2, dir: R, say: 'lesson.dropPress', about: [{ kind: 'press', key: 'lesson.about.press' }] },
+          { do: 'turn', x: 5, y: 2, dir: R, say: 'lesson.turn', about: [{ kind: 'conveyor', key: 'lesson.about.turn' }] },
         ],
         start: 'lesson.startPress',
         after: 'lesson.afterPress',

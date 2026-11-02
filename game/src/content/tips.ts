@@ -16,8 +16,8 @@ export interface Tip extends TipDemo {
 
 const params: Record<string, Record<string, string | number>> = {
   crusher: { scrap: money(RULES.value.scrap), shards: money(RULES.value.shards) },
-  furnace: { ingot: money(RULES.value.ingot), slag: money(RULES.value.slag), time: RULES.process.furnace },
-  press: { plate: money(RULES.value.plate) },
+  furnace: { ingot: money(RULES.value.ingot), job: money(RULES.job.price), slag: money(RULES.value.slag), time: RULES.process.furnace },
+  press: { plate: money(RULES.value.plate), job: money(RULES.job.price) },
   tuner: { bonus: RULES.tunerBonus, tuned: RULES.process.furnace - RULES.tunerBonus, time: RULES.process.furnace },
   sell: { sell: money(RULES.sellValue) },
 };

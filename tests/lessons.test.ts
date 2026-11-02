@@ -112,7 +112,8 @@ test('the rail: only the step on screen counts; the wrong spot, the wrong part a
   apply(t, { t: 'pick', i: 0 });
   assert.equal(lessonPick(t), null);
   const press = t.bin.find((q) => q.kind === 'press')!;
-  assert.equal(lessonAllows(t, dropActions(t, press, 4, 2)), false, 'first the belt that points the wrong way');
+  assert.equal(lessonAllows(t, dropActions(t, press, 5, 2)), false, 'a part in hand lands where you tap, so the belt to turn is not where the Press goes');
+  assert.equal(lessonAllows(t, dropActions(t, press, 4, 2)), true, 'the Press first, with the hand then empty for the turn');
 });
 
 test('every step reads like a person talking: an instruction, a line on what the part does, and a finger reads tap', () => {

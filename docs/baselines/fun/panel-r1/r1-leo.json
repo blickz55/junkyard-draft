@@ -1,0 +1,61 @@
+{
+  "persona": "Leo, 19, college student",
+  "device": "phone",
+  "goalInOwnWords": "Build a conveyor line out of the parts it hands you so junk turns into gold bars, ship as many bars as you can before the shifts run out. The money is your score and the bars get you stars.",
+  "stoppedWhere": "On the end card of my first real game (today's yard, 6 shifts): 2 stars, 145 of 160 ingots, $3594, '15 ingots short of 3 stars'. I did the survey from there and got the code.",
+  "stoppedWhy": "About 12 minutes in and most of it was tapping and guessing, not playing. The only bit that felt like a game was the ten seconds when the gold bars run, and I got that once per shift. I lost a whole shift and 20 taps to a splitter that did nothing, and the game never said so before I ran it. Being 15 short of three stars itched a little, but there is no leaderboard to chase and nobody to show $3594 to, so I'd close it and maybe come back tomorrow.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 3594,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Today's yard, shift 3, right after I placed the Splitter",
+      "what": "What the red marks meant and how to hook up a splitter that shoots things up and down instead of forward. Nothing said where it should go or whether it would even help.",
+      "gotOutHow": "Guessed. Put belts above and below it, tapped Turn until they pointed toward the dock (it only turns one way round, so left took 3 taps), made a horseshoe around the dock. It ran, made the same 24 ingots as before, and the hint text did not change."
+    },
+    {
+      "where": "Today's yard, shift 4, Scrap Hopper placed above the crusher",
+      "what": "Why the hopper was stuck when I had turned it to face the crusher. The message said turn it toward the belt, and there was no belt near it.",
+      "gotOutHow": "Never worked it out. Left it there doing nothing and moved on."
+    }
+  ],
+  "confused": [
+    "In the lesson the list said my line needs Crusher and Furnace, but Sal said 'Line closed, start the shift' with neither in it.",
+    "The labels on the machines after a shift, like '27 out stuck 13 s' and '27 made waited 13 s', sound like something broke.",
+    "Splitter says 'one line becomes two' but it sends things left and right of the flow, which on my line meant up and down, away from the dock.",
+    "The hint 'a second furnace behind a Splitter would clear it' said what to buy but not where anything goes, and it showed up again unchanged after I did what it said.",
+    "The hopper message: 'nothing ahead takes its scrap, turn it toward the belt' when I had already pointed it at the crusher.",
+    "Sal's 'the red mark shows where the line stops, fix it' stayed on screen after the red mark was gone.",
+    "'Show me' just opened a text box about the furnace, not a demo of anything.",
+    "End card: Sal says 'First shift in the books. Try today's yard next' right after I played today's yard.",
+    "The tagline says top the board, then the game says there is no leaderboard in this version."
+  ],
+  "annoyed": [
+    "Twenty-odd taps to wire a splitter for zero extra ingots, and the game never told me before I ran the shift that it wouldn't help.",
+    "Speed starts back at 1x in every new game, so I had to hit 4x every time or sit through slow rocks.",
+    "Turn only goes one way round, so facing a belt left is three taps.",
+    "Two of my picks (splitter, hopper) did nothing and I only found out after running the shift.",
+    "On the last shift none of the three offered parts could help the furnace, so the pick felt pointless.",
+    "No way to show my score to anyone: no board, no share button that I could see."
+  ],
+  "pleased": [
+    "The first gold bars rolling down the belt in the lesson with a star flying onto the bar and the money jumping.",
+    "Money going up fast: $37, then $111, then $576 across the three lesson shifts.",
+    "The lesson only ever asked for one thing at a time, so I never felt lost there.",
+    "The 'what held you back' note after each shift is a good idea and the hopper and furnace ones were readable.",
+    "Putting the Tuner next to the furnace took me from 24 to 36 ingots, the machine said '39 sped up', and the second star landed.",
+    "Shifts are short at 4x, about ten seconds.",
+    "Belts bend their own corners, and my horseshoe around the dock looked cool.",
+    "The end card with the bar chart of my shifts and '15 ingots short of 3 stars' made me want to fix my mistakes for a second."
+  ],
+  "bestMoment": "End of lesson shift 3: the furnace lit up, gold bars ran down the belt, a big star flew onto the bar and the money jumped from $148 to $724 in a few seconds. Close second: the Tuner in shift 5 taking me from 24 to 36 ingots and landing star two.",
+  "worstMoment": "Finishing the splitter wiring after all those taps, running shift 3, and getting 24 ingots and the exact same hint back.",
+  "oneChange": "Get me to the exciting part faster: when a part is offered, show me where it goes and whether it will help, like the lesson did, so I'm not wiring things by guessing for twenty taps.",
+  "completionCode": "ZVZA-HMV4"
+}

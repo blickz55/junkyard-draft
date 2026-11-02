@@ -1,0 +1,64 @@
+{
+  "persona": "Priya",
+  "device": "desk",
+  "goalInOwnWords": "Pick one part a shift for six shifts, wire it into a conveyor line from the hopper to the dock, and ship enough of the day's item (ingots or plates) for three stars. The money you make is the score.",
+  "stoppedWhere": "The results screen of my second finished game (plates yard, three stars at exactly 135 of 135 plates, $3351), after sending the survey and getting the code.",
+  "stoppedWhy": "I had seen the whole loop twice and could predict every pick. The game tells me what the job needs and what held me back, so the decisions are real but shallow. There is no board to compare my score with, and the ranks are cosmetic. A third game would just be me proving it to myself, not enjoying it.",
+  "lessonsFinished": 0,
+  "gamesFinished": 2,
+  "bestStars": 3,
+  "bestMoney": 4478,
+  "playedAnotherByChoice": true,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Game 1, shift 3 pick screen (Dock / Splitter / Furnace)",
+      "what": "How to clear the furnace bottleneck in time: the game's fix needs two cards (a splitter and a furnace) but I get one pick per shift, and the one-card fix (a tuner) was not on offer",
+      "gotOutHow": "Paid $40 to reroll, got worse cards (Crusher / Press / Hopper), took the hopper and built a second hopper-and-crusher line, took the tuner in shift 5, and rerolled again in shift 6 to land a furnace for the second line"
+    },
+    {
+      "where": "Game 1, shift 6 build screen",
+      "what": "Could not find a cheap layout where one tuner touches both furnaces (the furnaces sit one above the other and share no neighbour cell)",
+      "gotOutHow": "Did not get out of it: left the tuner on one furnace, because rebuilding both lines for about 12 more ingots was not worth the clicks"
+    },
+    {
+      "where": "Game 2, shift 4 result (25 plates, not the 38 I expected)",
+      "what": "Why the press made 25 plates in 80 seconds when its card says 2 seconds a plate and shards were waiting on the belt",
+      "gotOutHow": "Did not work it out; took the game's advice and put a tuner next to the press the next shift, which lifted it to 37"
+    }
+  ],
+  "confused": [
+    "The debriefs said add a hopper (after shift 1 of both games and after shift 2 of the plates game), but by the numbers on screen a second hopper alone does nothing while one crusher is exactly as fast as one hopper; on the plates yard I needed a crusher with it",
+    "Why the press only did about 25 plates a shift on the plates yard when its card says 2 seconds a plate",
+    "Whether a second tuner on the same machine stacks: it did nothing and nothing said so",
+    "A crusher dropped on the bottom row faced north and needed three clicks to point west, because turning only goes clockwise",
+    "What a reroll can show: no pool, no odds, and it never brings back the cards you just threw away",
+    "Sal's results line 'First shift in the books. Try today's yard next.' after I had just finished six shifts on today's yard",
+    "'No connection, so no board' on the game 2 results, with 'This test version has no leaderboard' two lines below it",
+    "The yard is called rivet-ingot-230 on a plates job"
+  ],
+  "annoyed": [
+    "The first reroll cost $40 of score and gave me three cards that were worse for my problem, with no way back",
+    "The coach names the answer every shift ('needed for the job', 'what held you back'), so I felt I was following instructions rather than deciding",
+    "The title promises 'Top the board' but there is no board in this version, so $4478 and $3351 compare to nothing",
+    "The plates yard offered no hopper at all for three shifts while the debrief kept telling me to add one",
+    "Sal's two contradictory reasons for the missing board on the game 2 results",
+    "Parts land facing the wrong way and have to be clicked round one at a time"
+  ],
+  "pleased": [
+    "The numbers are all on screen (sell prices, machine times, shift length), so my head maths matched what the game measured",
+    "Every machine is labelled with what it made and how long it waited or was stuck, and the debrief names the bottleneck",
+    "The income climbing from $114 to $1488 over the six shifts of game 1; the last-shift jump is a good feeling",
+    "Undo and redo, pause and step, and 4x speed: nothing wastes my time, an 80-second shift takes about 5",
+    "Belts turn corners by themselves, and the game says so when a machine faces the wrong way or has no feed (speech bubble, red mark)",
+    "A new yard changed the job (plates instead of ingots), so the press went from a trap to the star: the right pick depends on the job",
+    "The reroll gamble paid off in the last shift of game 1: it showed the furnace I needed for the third star"
+  ],
+  "bestMoment": "Last shift of game 1: I paid $40 to reroll, the furnace I needed appeared, I dropped it on the second line and the shift shipped 62 ingots for $1488 and the third star I thought I had lost.",
+  "worstMoment": "Shift 3 of game 1: I paid $40 to reroll away a Splitter and a Furnace that I needed, and got Crusher, Press and Hopper, with no way back.",
+  "oneChange": "Make each pick a real trade-off instead of a fix the game names for me: parts that cost something or conflict with each other, and no coach telling me what the bottleneck needs.",
+  "completionCode": "7ETG-39GM"
+}

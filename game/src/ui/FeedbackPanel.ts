@@ -40,7 +40,10 @@ export function openFeedback(scene: Phaser.Scene, onClose: () => void = () => {}
 
   const thanks = (code: string) => {
     const copyBtn = btn(t('feedback.copy'), 'feedback-copy', () => {
-      void navigator.clipboard?.writeText(code).then(() => (copyBtn.textContent = t('feedback.copied')));
+      const said = (key: 'feedback.copied' | 'feedback.copyHold') => (copyBtn.textContent = t(key));
+      const writing = navigator.clipboard?.writeText(code);
+      if (writing) writing.then(() => said('feedback.copied')).catch(() => said('feedback.copyHold'));
+      else said('feedback.copyHold');
     });
     box.replaceChildren(
       h('div', { class: 'jd-head' }, t('feedback.doneTitle')),

@@ -70,6 +70,7 @@ export interface Settings {
   buses: Buses;
   reducedAudio: boolean;
   /** the foreman (0.9.1): every line, or the teaching lines only */ chatter: 'full' | 'less';
+  /** how fast shifts run: a player who likes 4× should not have to ask again every game */ speed: number;
 }
 /** Default for reduced motion follows the OS preference until the player chooses. */
 const systemReducedMotion = () => {
@@ -121,6 +122,7 @@ export function validateSettings(raw: unknown, fallback: Settings): Settings {
     })(),
     reducedAudio: typeof raw.reducedAudio === 'boolean' ? raw.reducedAudio : fallback.reducedAudio,
     chatter: raw.chatter === 'less' ? 'less' : fallback.chatter,
+    speed: raw.speed === 2 || raw.speed === 4 ? raw.speed : fallback.speed,
   };
 }
 export function validateSave(raw: unknown): SaveGame | null {
@@ -245,6 +247,7 @@ export const loadSettings = (): Settings =>
     buses: { ui: 1, factory: 1, music: 1 },
     reducedAudio: false,
     chatter: 'full',
+    speed: 1,
   });
 export const saveSettings = (s: Settings) => write(K.settings, s);
 /** Read-modify-write so audio and accessibility settings never clobber each other. */
@@ -626,7 +629,7 @@ export const setOnboarded = () => {
 };
 
 export function randomSeed(): string {
-  const words = ['rust', 'bolt', 'gear', 'weld', 'spark', 'scrap', 'ingot', 'belt', 'crate', 'forge', 'piston', 'rivet'];
+  const words = ['rust', 'bolt', 'gear', 'weld', 'spark', 'scrap', 'anvil', 'belt', 'crate', 'forge', 'piston', 'rivet'];
   return `${words[Math.floor(Math.random() * words.length)]}-${words[Math.floor(Math.random() * words.length)]}-${Math.floor(Math.random() * 900 + 100)}`;
 }
 

@@ -13,14 +13,14 @@
  */
 import type Phaser from 'phaser';
 import { h, btn, ui, textureImg } from './dom';
-import { canBuyBelt, canReroll, type RunState } from '../sim/run';
+import { canBuyBelt, canReroll, shippedTotal, type RunState } from '../sim/run';
 import type { Job } from '../sim/yard';
 import { analyseRound } from '../sim/bottleneck';
 import { bottleneckLine } from '../content/bottleneck';
 import type { Machine, MachineKind, Material } from '../sim/types';
 import { RULES } from '../sim/rules';
-import { priceOf } from '../sim/yard';
-import { cellIndex } from '../sim/sim';
+import { priceOf, starsFor } from '../sim/yard';
+import { cellIndex, runLayout } from '../sim/sim';
 import { CELL, machineTexture } from '../render/textures';
 import { GRID_W, GRID_H, BOARD_W, BOARD_H, GRID_X, GRID_Y, binSlotXY } from '../render/layout';
 import { prefs } from '../render/prefs';
@@ -447,7 +447,7 @@ export class GamePanel {
       s.run.score,
       s.challenge?.hash ?? null,
       s.run.bin.length,
-      s.run.layout.machines.map((m) => m.kind).join(),
+      s.run.layout.machines.map((m) => `${m.kind}${m.x}.${m.y}.${m.dir}`).join(), // where and which way: the forecast reads them
       s.lessonPick,
       s.lessonReady,
       s.lessonWants,
@@ -786,6 +786,7 @@ export class GamePanel {
       h(
         'div',
         { class: 'jd-run-row' }, // sticky at the panel's bottom on a phone: the primary action stays in reach while the panel scrolls (0.10.0)
+        this.forecast(r),
         h(
           'button',
           { class: 'jd-btn jd-btn-dark jd-run', tid: 'run', type: 'button', disabled: s.lesson && !s.lessonReady, onClick: () => this.actions.startRun() },
@@ -794,6 +795,41 @@ export class GamePanel {
       ),
     );
     this.side.append(this.legend());
+  }
+
+  /** What this line will do, worked out by running it: the shift is exact, so a part that helps or a belt that breaks the line shows at once. */
+  private forecast(r: RunState): HTMLElement {
+    const will = runLayout(r.layout);
+    const last = r.rounds[r.rounds.length - 1]?.earned;
+    const change = last === undefined ? 0 : will.earned - last;
+    const pay = t('game.forecast', { amount: money(will.earned) });
+    const job = r.job;
+    const onCourse = job ? shippedTotal(r, job.material) + will.shipped[job.material] * (shiftsOf(r.seed) - r.round + 1) : 0;
+    return h(
+      'div',
+      { class: 'jd-forecast', tid: 'forecast', role: 'status' },
+      h(
+        'div',
+        { class: will.earned > 0 ? 'jd-gold' : 'jd-red', tid: 'forecast-pay' },
+        change > 0
+          ? `${pay} ${t('game.forecastUp', { amount: money(change) })}`
+          : change < 0
+            ? `${pay} ${t('game.forecastDown', { amount: money(-change) })}`
+            : pay,
+      ),
+      job
+        ? h(
+            'div',
+            { class: 'jd-dim', tid: 'forecast-job' },
+            t('game.forecastJob', {
+              marks: starMarks(starsFor(job, onCourse)),
+              n: int(onCourse),
+              target: int(jobTarget(job)),
+              mat: materialMany(job.material),
+            }),
+          )
+        : null,
+    );
   }
 
   /** What things sell for: built once and re-appended (it never changes on one yard); closed until asked. */
@@ -1134,6 +1170,8 @@ export const GAME_STYLE = `
 #ui .jd-sel { display: flex; gap: 0.75em; align-items: flex-start; background: #2a241d; border: 1px solid #4a4235; border-radius: 0.5em; padding: 0.5em 0.7em; margin-top: 0.45em; }
 #ui .jd-sel img { width: 3.2em; height: 3.2em; flex: 0 0 auto; }
 #ui .jd-run-row { margin-top: 0.6em; }
+#ui .jd-forecast { font-size: 0.875em; font-weight: 600; margin-bottom: 0.35em; line-height: 1.25; }
+#ui .jd-forecast .jd-dim { font-size: 0.875em; font-weight: 400; }
 #ui .jd-run { width: 100%; font-family: var(--jd-display); font-size: 1.375em; padding: 0.5em 0; letter-spacing: 0.02em; }
 #ui .jd-run.jd-spot { background: linear-gradient(180deg, #ffc24d, #e0932a); color: #1a1612; border-color: rgba(0, 0, 0, 0.35); }
 #ui .jd-lesson-ways { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 1.4em; }

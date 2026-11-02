@@ -1,0 +1,65 @@
+{
+  "persona": "Marcus",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory line that turns scrap into ingots and ships them to the dock. You get to add one new part each shift, fix whatever is slowing the line down, and ship 160 ingots for three stars. The money you make is your score.",
+  "stoppedWhere": "Game 2, shift 3 of 6, on the pick-and-build screen right after taking a second Furnace. I opened Menu, chose Save and go home, then did the feedback form from Home.",
+  "stoppedWhy": "I had finished one whole game at 2 stars, 12 ingots short of the third, and I started a second game on purpose. By shift 3 I could see the third star needs a second furnace behind a splitter plus four or five belts laid and turned one at a time above and below the line, with my thumb, on a 15 minute break. Two shifts of replaying the same opening to get back to that point had already felt like a chore. I got the idea, so I put the phone down.",
+  "lessonsFinished": 0,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 3666,
+  "playedAnotherByChoice": true,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 1 of game 1, putting the first Crusher in",
+      "what": "Sal said tap the belt to put the Crusher in. My tap turned the belt sideways instead of placing the part, and Sal then said tap the Crusher then tap the belt, which is what I had just done. When the Crusher did go in, it faced the wrong way and a red mark said the line stopped.",
+      "gotOutHow": "Tapped the Crusher on the shelf again and a different belt tile, then found the Turn button and hit it three times on the belt and twice on the Crusher. About 11 taps for one part. The second game took 2 taps for the same move."
+    },
+    {
+      "where": "Shift 3 of game 1, the Splitter",
+      "what": "I took the Splitter because the note said a second crusher behind a splitter would help. Only one belt tile would take it, it sent things up and down instead of on to the next machine, and the line went dead. I had no second crusher to feed it.",
+      "gotOutHow": "Back to the shelf, put a belt back, ran the shift without it. The Splitter sat unused on the shelf for the rest of the game."
+    },
+    {
+      "where": "Shift 6 of game 1, second Scrap Hopper",
+      "what": "A red mark stayed on the new hopper wherever I turned it. Every tile in my line was a machine, so there was no belt to feed it into, and the Crusher only takes from behind. The note even said turn it toward the belt, and there was no belt.",
+      "gotOutHow": "Did not. I started the shift anyway and the hopper did nothing."
+    }
+  ],
+  "confused": [
+    "The first part I dropped in did not go where Sal said; it turned the belt, and then Sal repeated the instruction I had just followed.",
+    "The first Crusher came in facing backwards and nothing said why until a red mark appeared.",
+    "The red numbers under the machines (waited 25 s, waited 37 s, stuck 12 s): I could not tell which machine each belonged to or what waited meant.",
+    "In game 1 the note blamed the crusher for the line being slow, and when I added a crusher I made less money. In game 2 the same kind of line was blamed on the furnace. I could not tell which advice to trust.",
+    "Why the Splitter sends things up and down and not on to the next machine, and why only one belt tile lit up for it.",
+    "The game let me put two crushers back to back with no warning and said Ready. The second one made nothing. A real line would not do that.",
+    "The tip that you tap a machine twice to turn it only showed up in shift 3, long after I had needed it.",
+    "After finishing all six shifts on today's yard, Sal said First shift in the books, try today's yard next.",
+    "Ship 49 ingots a shift for three stars: I could not tell whether that was reachable with what I was offered."
+  ],
+  "annoyed": [
+    "Tapping Turn again and again to point a belt on a phone.",
+    "Following the game's own advice (second crusher, splitter) and losing a shift and some money for it.",
+    "The Splitter was dead weight on the shelf all game, and the shelf filled up with spare belts.",
+    "Sal's line stayed on Tap the Splitter then tap the belt after I had taken the Splitter out.",
+    "Replaying the same opening shifts to get back to the part where the choices are interesting.",
+    "The third star looked 12 ingots away but needed a big rebuild, not one smart pick."
+  ],
+  "pleased": [
+    "The first gold ingots with 24 dollars popping at the dock once the furnace was in. It finally looked like a factory.",
+    "The end-of-shift notes talk like a real floor: what held the line back, and Show me lights the machine.",
+    "4x speed: a whole shift is a few seconds, so a full game is only a few minutes.",
+    "The Tuner next to the furnace took a shift from 24 to 37 ingots. I could see my choice working.",
+    "The shift-by-shift bars on the results screen showed exactly where I lost the third star.",
+    "Play again drops straight into the next game with no popups.",
+    "The feedback form was one screen with six easy questions and gave a code right away."
+  ],
+  "bestMoment": "Shift 5 of game 1: dropped the Tuner next to the furnace in one tap, the shift jumped from 24 to 37 ingots, and the second star lit up.",
+  "worstMoment": "Seeing 148 of 160 and 12 ingots short of three stars, knowing it was the splitter and second crusher advice that cost me two shifts.",
+  "oneChange": "Make building quick on a phone: belts that lay themselves between two machines and parts that turn to face the flow, so adding a second line is a few taps and the third star is a smart move instead of a pile of fiddling.",
+  "completionCode": "P79T-MWNC"
+}

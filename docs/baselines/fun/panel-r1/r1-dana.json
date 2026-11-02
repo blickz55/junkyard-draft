@@ -1,0 +1,77 @@
+{
+  "persona": "Dana",
+  "device": "phone",
+  "goalInOwnWords": "Turn the scrap into the goods the job asks for (ingots, plates), ship enough of them to earn the three stars, and make as much money as I can, because the money is the score.",
+  "stoppedWhere": "On the results screen after the six shifts of today's yard (two stars, $3018, 121 of 160 ingots), then the feedback form and the completion code. I did not tap Play again.",
+  "stoppedWhy": "I had done what I came for, one lesson, a second lesson and a whole daily job, about a quarter of an hour, and my break was nearly up. The last half left me flat: I could not get past the same 24 ingots a shift, the things the game told me to add changed nothing, and the same advice kept coming back. I would not know what to do differently, so no reason to replay tonight.",
+  "lessonsFinished": 2,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 3018,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Lesson 2, first shift, building step (Press picked, last belt piece pointing the wrong way)",
+      "what": "Sal said tap the belt twice to turn it. My tap dropped the Press I had just picked onto that belt instead. Then Sal said tap the Press, then the lit belt piece, but the Press was already on the yard and the game answered Not yet, use the lit part on the lit spot. There was no lit part left to tap and the Start button stayed grey.",
+      "gotOutHow": "Undo, tried the same thing again and got the same result, tapped the Press on the shelf (nothing), opened Tips (nothing about it), then dragged the Press one square onto the glowing belt by guess. That worked. About 11 actions."
+    },
+    {
+      "where": "Today's yard, shift 4, picking and placing the Splitter",
+      "what": "The game told me twice a Splitter would help and gave me one, then said tap the belt to put it in, but no square was lit and there was no free belt on my line. I did not know how to build around it.",
+      "gotOutHow": "Tapped an empty square, got red marks and Fix it, then start. Put it back on the shelf and played on without it."
+    },
+    {
+      "where": "Today's yard, shifts 3 to 6, trying to ship more ingots",
+      "what": "Did what the advice said, a second furnace and then a Tuner next to the working furnace. Output stayed at 24 ingots a shift and the advice came back word for word (once worse, 25 of 80 seconds). I could not work out what would raise it.",
+      "gotOutHow": "Did not. Accepted two stars."
+    },
+    {
+      "where": "Today's yard, shift 6, the extra Scrap Hopper",
+      "what": "I turned the new hopper to point at the crusher, but Sal's line still said the red mark shows where the line stops, and the shift result said the hopper was stuck on 40 of 40 tries and to turn it toward the belt. It was the last shift, so I could not try again.",
+      "gotOutHow": "Did not, the job ended."
+    }
+  ],
+  "confused": [
+    "The first job card words (Hopper, Crusher, Furnace, ingots) meant nothing until the lesson showed them by doing.",
+    "After the first shift of lesson 1 it said 0 ingots and Ship 1 ingot a shift for a star, and I did not know what the star line was about until later.",
+    "Pick ONE part and the others go back on the truck: why only one, and what truck.",
+    "Spare belt pieces keep landing on my shelf and nothing says what they are for.",
+    "Lesson 2 says YOUR FIRST JOB again after I had already done one.",
+    "Tap it twice to turn it, when the thing I had picked up was a different part and my tap dropped that part instead.",
+    "Tips says a plate is worth $8 but the job card and the results say $24.",
+    "Ready? Start the shift with a second furnace placed straight after the first, with no hint it would do nothing (it said 0 made).",
+    "Splitter and Tuner in the advice, and the Show me card saying shards from behind only: I did not know what behind meant or where those parts go.",
+    "Show me only lights up the slow machine, it does not show how to fix it.",
+    "The red words on the machines (stuck 13 s, waited 25 s): is that me doing something wrong?",
+    "The blue Last shift line changes as soon as I place a part, so it reads like it is about the new line.",
+    "Sal's line on the results screen said First shift in the books, try today's yard next, right after I had played today's yard.",
+    "After I turned the hopper the red mark seemed to go but Sal still said to fix it, so I could not tell if it was fixed."
+  ],
+  "annoyed": [
+    "Being stuck for about ten taps in the second lesson, with a Not yet that did not say what was wrong, and having to guess to drag.",
+    "The tip that parts can be dragged and tapped twice to turn appeared only much later in the real game, not when I needed it in lesson 2.",
+    "The same Tuner and Splitter advice repeated every shift and started to feel like nagging when I could not act on it.",
+    "Doing exactly what the advice said changed nothing, and the game never said why.",
+    "The game handed me the Splitter and then lit no spot, after lighting every spot in the lessons.",
+    "Tapping Copy the code gave no sign that it had worked, so I had to read the code off the screen myself."
+  ],
+  "pleased": [
+    "In lesson 1 I always knew the next tap: tap this, then the lit spot.",
+    "Shifts are only 10 to 15 seconds, which fits a lunch break.",
+    "The jump from $37 to $576 in one shift when the furnace started making ingots.",
+    "Three stars in both lessons, and the line All three stars in the bag, a clear finish.",
+    "Belts bend and machines turn to fit by themselves when I place them.",
+    "The What held you back box said plainly what was wrong (your line still needs the Furnace, the hopper was stuck on 40 of 40 tries).",
+    "The results screen said exactly how close I was, 39 ingots short of three stars, with a bar for each shift.",
+    "Undo worked and nothing I did ever broke the game.",
+    "The questions at the end were short and the code was easy to find."
+  ],
+  "bestMoment": "Lesson 1, shift 3: the furnace started sending gold bars down the belt, every one popped +$24, and I went from $37 to $576 in one shift and got all three stars. That was when I understood the whole game.",
+  "worstMoment": "Lesson 2, building step: I did what Sal said, the Press jumped onto the wrong spot, then Not yet and a greyed Start button. The first time I felt stupid, and I only got out by guessing to drag it.",
+  "oneChange": "When the game tells me what would help, light up where it goes and show the money go up when I do it, the way the lessons did. In the lessons it held my hand and I loved it. In the real game it told me the answer and then left me guessing, and nothing I added changed my score.",
+  "completionCode": "4APC-9EJF"
+}

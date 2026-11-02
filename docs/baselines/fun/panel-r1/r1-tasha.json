@@ -1,0 +1,72 @@
+{
+  "persona": "Tasha",
+  "device": "phone",
+  "goalInOwnWords": "Build a little line of machines that turns scrap into ingots and ships as many as you can, to get stars and a big money number.",
+  "stoppedWhere": "In the second go at today's yard, at the build step of shift 3 of 6, just after the Splitter the game's own tip pushed me to try left red marks and a hole in my belt. I used Menu, then Save and go home, then the survey.",
+  "stoppedWhy": "It was the same six shifts with the same cards again for the same two stars, my picks never visibly changed my money, and the one time I did what the game's tip said it made a mess. Nothing sparkly happens, so I'd rather go back to my other games.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 3018,
+  "playedAnotherByChoice": true,
+  "fun": 2,
+  "clear": 3,
+  "comeBackTomorrow": "no",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Lesson 2, build step, the belt piece that points the wrong way",
+      "what": "Sal said to tap the belt piece twice to turn it, but the Press was already in my hand (glowing yellow on the shelf), so my first tap dropped the Press on that spot instead. Sal then said 'Tap the Press, then the lit belt piece' but the Press was no longer on the shelf, and tapping it in the yard gave 'Not yet. Use the lit part, on the lit spot.' Undo brought back the same trap, and tapping the Press on the shelf changed nothing I could see. Start shift stayed greyed out.",
+      "gotOutHow": "Tried Undo, the Tips button (a big table), tapping again, and Start over (same trap again), then found the Skip the lesson link, which sat below the bottom edge of the phone screen until I scrolled about 50 pixels, and skipped the lesson."
+    },
+    {
+      "where": "Today's yard, shift 4 onward, the extra Scrap Hopper I put on the floor",
+      "what": "Sal said 'The red mark shows where the line stops. Fix it, then start' but I could not see any red mark. After the shift the game said 'Turn it toward the belt', but the whole row was machines, there was no belt to turn it toward. The same warning came back for three shifts.",
+      "gotOutHow": "I never fixed it. I ignored the message and pressed Start each time."
+    },
+    {
+      "where": "Second game, shift 3, after taking the Splitter the tip suggested",
+      "what": "The Splitter showed red marks I couldn't fix with one part. I pressed Back to the shelf, which put the Splitter away but left an empty hole where the belt piece had been, so the line to the dock was broken.",
+      "gotOutHow": "Pressed Undo twice and the belt came back."
+    }
+  ],
+  "confused": [
+    "Lesson 2 opens with the same 'Your first job, a small order to learn the ropes' card as lesson 1.",
+    "In lesson 1 the 'Your line needs Hopper, Crusher, Furnace, Dock' tags showed Crusher and Furnace as missing while Sal said the line was closed and to start.",
+    "Nobody told me a part was 'in my hand' (a yellow frame on the shelf), so I didn't know why tapping the belt dropped the Press instead of turning the belt.",
+    "Three gold stars in lesson 1, but Home said 'Scrap Picker, 0 stars', so my lesson stars seem not to count.",
+    "The 'red mark' Sal talks about was not visible to me the first time I put the extra hopper down.",
+    "'Turn it toward the belt' when there is no belt left in the row, and 'Now tap the belt to put the Splitter in' when no belt was lit.",
+    "The results screen says 'First shift in the books. Try today's yard next.' right after I played today's yard.",
+    "From shift 2 to shift 6 every shift paid exactly the same, so I couldn't tell whether the Tuner, the second furnace or any pick did anything.",
+    "'Show me' only opens a stats card about the furnace, not how to fix what held me back.",
+    "'Buy a belt: $20', Undo and Redo are half hidden behind the big Start button and I didn't know what buying a belt does.",
+    "Sal's tips talk about parts and layouts I don't have (a Tuner, a second furnace behind a Splitter) when I can only take one of three cards."
+  ],
+  "annoyed": [
+    "Doing exactly what Sal said in lesson 2 and getting a loop I could not get out of.",
+    "The Start the lesson over and Skip the lesson links sit below the bottom edge of the screen where I couldn't see them.",
+    "The speed goes back to 1x every shift in the real game, so I had to tap 4x every single time.",
+    "The 'Job done' three-star card in lesson 1 vanished almost at once and I nearly missed it.",
+    "Back to the shelf leaves a hole in the belt.",
+    "Play again gives the exact same cards, so I knew what was coming.",
+    "Warnings after the shift that tell me what went wrong only after I have wasted my pick.",
+    "Everything is dark brown and murky, with lots of small grey text.",
+    "A big table of controls in the Tips when all I wanted was how to turn a belt piece."
+  ],
+  "pleased": [
+    "Lesson 1 was easy: one instruction at a time, and the big glowing orange button always showed me what to press next.",
+    "The money jumping from $37 to $111 to $576 over the lesson's three shifts.",
+    "The three gold stars on the Job done card.",
+    "The 4x and Skip to the end of the shift buttons, because I hate waiting.",
+    "The first star lighting up on the bar during my first real game.",
+    "'What held you back' says in plain words what went wrong with a shift.",
+    "The results screen: gold stars, a big gold number, '39 ingots short of three stars' and '3 more stars to Yard Hand' make me want to try for more.",
+    "Menu then Save and go home puts a big orange Keep playing button on Home, so I can leave and come back.",
+    "Undo and Redo that actually work."
+  ],
+  "bestMoment": "The end of lesson 1: after $37 and then $111, the third shift paid $576 and three gold stars popped up.",
+  "worstMoment": "Being stuck in lesson 2, doing exactly what Sal said and the Press jumping onto the belt every time.",
+  "oneChange": "Make the good moments, the money jumping and a star landing, a bright, noisy little celebration so it feels like a reward the way my other games do.",
+  "completionCode": "FTD7-ZCHA"
+}

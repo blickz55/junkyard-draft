@@ -19,8 +19,8 @@ import { StallMonitor, stallText } from '../StallMonitor';
 import { PopPool } from '../PopPool';
 import { GameTelemetry } from '../GameTelemetry';
 import { flowLinks, drawFlowLinks, type FlowLink } from '../FlowOverlay';
-import { isTutorialSeed, shippedTotal, type Action, type RoundRecord, type RunState } from '../../sim/run';
-import type { SimState } from '../../sim/sim';
+import { isTutorialSeed, runStars, shippedTotal, type Action, type RoundRecord, type RunState } from '../../sim/run';
+import { runLayout, type SimState } from '../../sim/sim';
 import { RoundController, type Mode } from '../RoundController';
 import { TipsPanel } from '../../ui/TipsPanel';
 import { GamePanel, coarsePointer, type PanelState } from '../../ui/GamePanel';
@@ -33,7 +33,7 @@ import { label } from '../ui';
 import { CSS, FONT } from '../palette';
 import { audio } from '../audio';
 import { LESSONS, lessonOf, shiftsOf } from '../../content/lessons';
-import { clearSave, loadLook, loadReadTips, loadSettings, recordLesson, setOnboarded, updateSettings, writeSave } from '../storage';
+import { clearSave, loadLook, loadReadTips, loadSettings, recordLesson, recordStars, setOnboarded, updateSettings, writeSave } from '../storage';
 import { PLAIN, type Look } from '../../content/cosmetics';
 import { applyPaint } from '../paint';
 import { h, ui } from '../../ui/dom';
@@ -191,6 +191,7 @@ export class GameScene extends Phaser.Scene {
         },
       }),
     );
+    if (!data.replay) this.ctl.speed = loadSettings().speed;
     if (forked) this.run.forkedFrom = forked; // PLAN-v4 0.7.3: the resumed state is now a labelled practice fork
     if (data.fresh && !data.replay) telemetry.gameStart(data.seed);
     if (this.ctl.resumeNotice) clearSave(); // a damaged save is dropped so the title stops offering it; the notice is shown once
@@ -227,11 +228,14 @@ export class GameScene extends Phaser.Scene {
       this,
       {
         pick: (i) => this.pick(i),
-        startRun: () => this.startRun(),
+        startRun: () => this.startRunAsked(),
         setPaused: (p) => this.setPaused(p),
         finishRun: () => this.finishRun(),
         stopReplay: () => this.stopReplay(),
-        setSpeed: (s) => this.ctl.setSpeed(s),
+        setSpeed: (s) => {
+          this.ctl.setSpeed(s);
+          updateSettings({ speed: s });
+        },
         stepTick: () => this.stepTick(),
         undo: () => this.undo(),
         redo: () => this.redo(),
@@ -388,6 +392,7 @@ export class GameScene extends Phaser.Scene {
     this.tutorial = false;
     setOnboarded();
     recordLesson(lesson.n);
+    recordStars(this.run.seed, runStars(this.run)); // a star earned in a lesson is a star: Home saying 0 after six reads as a bug
     telemetry.track('lesson_done', { n: lesson.n });
     clearSave();
     choiceDialog(this, {
@@ -538,7 +543,7 @@ export class GameScene extends Phaser.Scene {
       announce: (x, y, held) => this.panel.announceCell(this.run, x, y, held),
       focusControls: () => this.panel.focusControls(),
       renderSide: () => this.renderSide(),
-      startRun: () => this.startRun(),
+      startRun: () => this.startRunAsked(),
       nextRound: () => this.nextRound(),
       setPaused: (p) => this.setPaused(p),
       stepTick: () => this.stepTick(),
@@ -744,6 +749,20 @@ export class GameScene extends Phaser.Scene {
   startRun() {
     if (this.tutorial && !lessonReady(this.run)) return; // the panel's button waits too: the lesson's moves come first
     this.ctl.startRun();
+  }
+  /** The player pressed Start. A shift that would pay nothing costs a sixth of the game, so that one thing is asked first. */
+  private startRunAsked() {
+    if (this.tutorial || this.replayLabel || this.run.phase !== 'build' || this.mode !== 'build' || runLayout(this.run.layout).earned > 0)
+      return this.startRun();
+    choiceDialog(this, {
+      title: t('game.deadLineTitle'),
+      tid: 'dead-line',
+      lead: [h('div', {}, t('game.deadLineText'))],
+      choices: [
+        { label: t('game.deadLineFix'), tid: 'dead-line-fix', primary: true, run: () => {} },
+        { label: t('game.deadLineGo'), tid: 'dead-line-go', run: () => this.startRun() },
+      ],
+    });
   }
   setPaused(p: boolean) {
     this.ctl.setPaused(p);

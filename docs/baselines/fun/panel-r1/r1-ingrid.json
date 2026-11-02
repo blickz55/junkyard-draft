@@ -1,0 +1,62 @@
+{
+  "persona": "Ingrid",
+  "device": "desk",
+  "goalInOwnWords": "Each of six shifts I pick one machine to add to a scrap line that turns scrap into shards and then ingots. What reaches the dock is money, less whatever I spend, and I earn stars for ingots shipped (50, 100, 160). Make as much money as I can and beat my own best.",
+  "stoppedWhere": "The results screen after my second game on today's yard (4100 dollars, three stars, new personal best), right after sending the survey and getting the completion code.",
+  "stoppedWhy": "I had squeezed the puzzle. The offers are identical every time you replay a yard, so my second try, with a better plan, only gained 24 dollars. A third go would teach me nothing and I was past the 15 minutes. I would want a different yard, or a way to know whether 4100 is near the ceiling.",
+  "lessonsFinished": 0,
+  "gamesFinished": 2,
+  "bestStars": 3,
+  "bestMoney": 4100,
+  "playedAnotherByChoice": true,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "maybe",
+  "stuck": [
+    {
+      "where": "Shift 3 pick (Shipping Dock, Splitter, Furnace)",
+      "what": "I needed two parts, a Splitter and a second Furnace, but get one pick a shift, and nothing says whether the parts I send back on the truck ever come back or how offers are chosen. Also when I picked the Splitter only one useless cell on the yard lit up, so I could not tell where a splitter could go or how to wire two furnaces behind it.",
+      "gotOutHow": "I gambled on the Splitter, did not place it, then spent 40 dollars on New offers in shift 4 and got a Tuner instead, which fixed the furnace with one part. I never found out how to use the Splitter and sold it."
+    },
+    {
+      "where": "Shift 4 build, placing the Tuner",
+      "what": "I dropped the Tuner next to the furnace and it refused, with a bubble saying it was a junk pile. Nothing on the yard told me before that the rubble heaps are obstacles.",
+      "gotOutHow": "Read the bubble and dropped it on the cell below the furnace instead."
+    }
+  ],
+  "confused": [
+    "The machine demo says a furnace ingot is worth 12 dollars, while the pick card, the price list and the job all say 24. Two prices for the same ingot.",
+    "'Ship 7 ingots a shift for a star' is never explained. I worked out that it is the pace needed over the remaining shifts to reach the next star.",
+    "Sal's 'More scrap is the next step: add a hopper' appeared when the furnace was already the limit, so a second hopper would not have helped without doubling the crusher and furnace too. It reads like the fix and is not.",
+    "The 'last shift' note ('nothing held you back, add a hopper') was still on screen after I placed the furnace, so it looked like advice about the new line when it was about the old one.",
+    "When a Splitter is picked only one cell lights up, a useless one. No idea whether a part can go on an empty cell until you try.",
+    "How offers are chosen is never said. I only learned by replaying that they are fixed for the yard, and that even the 40-dollar re-roll gives the same parts each time.",
+    "After finishing today's yard, Sal said 'First shift in the books. Try today's yard next.'",
+    "The shift 6 breakdown (six shifts plus 50 dollars sold) does not add up to the total, because the 40-dollar re-roll is not listed there. It is only explained on the final screen.",
+    "Today's yard is labelled 'practice' everywhere, so I could not tell what counts and what does not."
+  ],
+  "annoyed": [
+    "Shift 1 is a throwaway: the furnace is not offered yet, so the only pick is the crusher and the shift earns 114 dollars of shards.",
+    "Sitting through an 80-second shift is dead time, I skipped every one. The watching part has little to watch once you understand it.",
+    "Junk piles are discovered only by failing a drop.",
+    "How to turn a machine or take one off the yard only appeared on screen in shift 6.",
+    "Selling spare belts is two taps for each 10 dollars, and there is no sell-all.",
+    "'Beat the day's board' has no board in this version, so the only opponent is myself.",
+    "A second try at the same yard gains almost nothing, since everything is identical."
+  ],
+  "pleased": [
+    "The prices are on the table: a price list, machine demos with real dollars, times per item. I could do my own sums and they came out right.",
+    "After each shift: 'what shipped' as quantity times price equals total, and 'what held you back' in seconds, with counters on every machine.",
+    "The final ledger adds up to the dollar (163 x 24 + shards + scrap + sold parts - re-roll = 4076).",
+    "I predicted from the numbers that a second Tuner beside the crusher would get one more ingot to the dock, and the game confirmed it exactly.",
+    "The pace hint ('ship N ingots a shift for a star') once I understood it.",
+    "Skip to end of shift, 1x/2x/4x and Pause.",
+    "Replay shows 'Your best here' and says 'new personal best' with the exact difference.",
+    "Selling any unused part for 10 dollars, so no pick is wasted."
+  ],
+  "bestMoment": "After shift 4 (re-rolled for 40 dollars, got the Tuner, 37 ingots exactly as my sums said) I saw that two more shifts of 37 would reach 161, one ingot over the third star, and then it held: 163 of 160. A one-ingot margin worked out from honest arithmetic.",
+  "worstMoment": "Starting the second game and finding out it was identical, offer for offer. A whole replay of careful planning bought 24 dollars, and I knew I was at the ceiling.",
+  "oneChange": "Tell me how good a score is. A par, or the best known score for the yard, so I can tell whether 4100 is close to the ceiling or I am missing a better build. Right now I cannot, and that is the difference between playing a third time and stopping. Also make the numbers agree (12 against 24 for an ingot).",
+  "completionCode": "8J29-VJ5H"
+}

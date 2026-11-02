@@ -1,4 +1,4 @@
-import { DIR_DX, DIR_DY, isProcessor, leftOf, opposite, rightOf, RULES, transform, type ProcessorKind } from './rules';
+import { DIR_DX, DIR_DY, isProcessor, leftOf, opposite, rightOf, RULES, transform, TRIAL, type ProcessorKind } from './rules';
 import { priceOf } from './yard';
 import type { CellStats, Dir, Item, Layout, Machine, Material, RunResult, SimEvent } from './types';
 
@@ -89,10 +89,11 @@ function accepts(s: SimState, cell: number, travel: Dir): boolean {
       return true;
     case 'conveyor':
       return travel !== opposite(m.dir); // not head-on into its output
-    case 'splitter':
     case 'crusher':
     case 'furnace':
     case 'press':
+      return TRIAL.sideEntry ? travel !== opposite(m.dir) : travel === m.dir;
+    case 'splitter':
     case 'sieve':
       return travel === m.dir; // only from behind
   }
@@ -101,6 +102,11 @@ function accepts(s: SimState, cell: number, travel: Dir): boolean {
 /** Where an item may leave `m`. A sieve (rules v3) routes by material: raw scrap forward, anything processed to the right; a blocked chosen exit waits (jam-on-full, no overflow). */
 function outputDirs(s: SimState, m: Machine, cell: number, item?: Item): Dir[] {
   if (m.kind === 'sieve') return [item && item.mat !== 'scrap' ? rightOf(m.dir) : m.dir];
+  if (m.kind === 'splitter' && TRIAL.splitterAhead) {
+    const ways = [m.dir, leftOf(m.dir), rightOf(m.dir)];
+    const t = s.splitterToggle[cell] ?? 0;
+    return [ways[t % 3], ways[(t + 1) % 3], ways[(t + 2) % 3]];
+  }
   if (m.kind === 'splitter') {
     const t = s.splitterToggle[cell] ?? 0;
     const first = t === 0 ? leftOf(m.dir) : rightOf(m.dir);
@@ -151,6 +157,12 @@ function enterProcessor(s: SimState, kind: ProcessorKind, cell: number, item: It
   return true;
 }
 
+/** A splitter has just sent something out along `dir`: the next item goes the next way round. */
+function turnSplitter(s: SimState, m: Machine, cell: number, dir: Dir) {
+  if (TRIAL.splitterAhead) s.splitterToggle[cell] = (([m.dir, leftOf(m.dir), rightOf(m.dir)].indexOf(dir) + 1) % 3) as 0 | 1;
+  else s.splitterToggle[cell] = (s.splitterToggle[cell] ?? 0) === 0 ? 1 : 0;
+}
+
 /** Try to move an item out of its cell; returns true if it moved (or was shipped). */
 function tryAdvance(s: SimState, item: Item): boolean {
   const cell = item.cell;
@@ -170,7 +182,7 @@ function tryAdvance(s: SimState, item: Item): boolean {
       st.shipped++;
       st.earned += value;
       s.tickEvents.push({ tick: s.tick, kind: 'ship', cell: target, itemId: item.id, from: item.mat, value });
-      if (m.kind === 'splitter') s.splitterToggle[cell] = (s.splitterToggle[cell] ?? 0) === 0 ? 1 : 0;
+      if (m.kind === 'splitter') turnSplitter(s, m, cell, dir);
       return true;
     }
     if (s.itemAt[target]) continue;
@@ -182,7 +194,7 @@ function tryAdvance(s: SimState, item: Item): boolean {
     stats(s, target).passed++;
     s.tickEvents.push({ tick: s.tick, kind: 'move', cell: target, itemId: item.id });
     if (isProcessor(tm.kind)) enterProcessor(s, tm.kind, target, item);
-    if (m.kind === 'splitter') s.splitterToggle[cell] = (s.splitterToggle[cell] ?? 0) === 0 ? 1 : 0;
+    if (m.kind === 'splitter') turnSplitter(s, m, cell, dir);
     return true;
   }
   return false;

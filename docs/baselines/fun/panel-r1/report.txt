@@ -1,0 +1,72 @@
+PLAYTEST: 8 testers, 8 answered the survey, about 18.6 minutes of play for the middle tester
+
+HOW FAR THEY GOT
+  Opened the game               8  100 %
+  Started lesson 1              5   63 %
+  Finished lesson 1             5   63 %
+  Finished lesson 2             3   38 %
+  Finished lesson 3             0    0 %
+  Started a real game           7   88 %
+  Finished a real game          6   75 %
+  Played again after that       4   50 %
+  Came back on a later day      0    0 %
+  Answered the survey           8  100 %
+
+WHERE THEY STOPPED
+     4  Finished a game, then left
+     2  Today's yard, shift 3
+     1  Finished lesson 2, then left
+     1  Today's yard, shift 4
+
+SLOWEST LESSON STEPS (the middle tester)
+    65 s  Lesson 2, shift 1: place the press (8 testers)
+    27 s  Lesson 1, shift 1: place the conveyor (5 testers)
+    19 s  Lesson 2, shift 1: pick the press (5 testers)
+    15 s  Lesson 1, shift 1: start the shift (5 testers)
+    15 s  Lesson 2, shift 1: reading the result (3 testers)
+
+SURVEY
+  How clear: 3.3 of 5
+  How fun: 3 of 5
+  Back tomorrow: yes 0, maybe 6, no 2
+  Would pay: yes 0, maybe 1, no 7
+
+  T4MM-KN7A: clear 3, fun 3, back maybe, pay no
+    Played 12.3 min. Stopped: Finished lesson 2, then left
+    Goal: You build a line of machines that turns rubbish into things worth more money, and the more that gets to the dock the more money you score. You earn stars for reaching the targets. I am not sure what the money is for or who it is compared with.
+    Worst: In lesson 2 Sal said to tap the belt twice to turn it, but the Press I had picked was still held, so it jumped into the belt instead. Then it said Not yet. Use the lit part, on the lit spot, and I could not find any lit part. That grey note never went away and the Start button stayed greyed out and I did not know why. I only got on by opening Tips and guessing I had to drag. Also the first shift goes by too fast to read, and ingot and the board were never explained. The small grey writing is hard for me to read.
+
+  ZVZA-HMV4: clear 3, fun 3, back maybe, pay no
+    Played 12.8 min. Stopped: Finished a game, then left
+    Goal: build a conveyor line that turns junk into gold bars and ship as many as you can. money is your score and the gold bars get you stars
+    Worst: the splitter. the game kept saying a splitter would fix it so I took one, put it by the dock, tapped like 20 times to wire it up and it did nothing, and it never says where it goes. also I pointed the hopper at the crusher and it said turn it toward the belt. and it says top the board but there is no board
+
+  P79T-MWNC: clear 3, fun 3, back maybe, pay no
+    Played 16.9 min. Stopped: Today's yard, shift 3
+    Goal: Build a line that turns scrap into ingots and ships them. Hopper then crusher then furnace then dock. You add one new part each shift and fix whatever is slowing the line down. Ship enough ingots for three stars. Money is the score.
+    Worst: Dropping my first part in did not do what Sal said. It turned the belt instead and I had to hit Turn about six times. The advice to add a second crusher cost me a shift and the splitter sat on my shelf doing nothing. The small red numbers under the machines were hard to read. I found out you tap a part twice to turn it way too late.
+
+  DMVD-3KJV: clear 3, fun 3, back no, pay no
+    Played 17.5 min. Stopped: Today's yard, shift 4
+    Goal: Make a line of machines that turn the rocks into gold bars and send them to the dock to get money. More money is a better score.
+    Worst: Too many words I dont know: hopper, ingot, crusher, foreman, splitter, tuner. In lesson 2 it said tap the belt two times to turn it, but the machine jumped on the belt place and I was stuck about 15 taps. The red words on the machines (waited 25 s, stuck 12 s) nobody says what they are. In the real game I picked the splitter, it said fix it but not how, I started and lost one shift with 0 money.
+
+  4APC-9EJF: clear 3, fun 3, back maybe, pay no
+    Played 19.2 min. Stopped: Finished a game, then left
+    Goal: Turn the scrap into ingots with the machines and ship enough of them to earn the three stars. The money you make is your score.
+    Worst: The second lesson: it said tap the belt twice to turn it, but the Press I had just picked jumped onto the belt instead and then it only said Not yet. I was stuck until I dragged the Press by guess. In the real game the advice kept telling me to add a Tuner or a Splitter, but when I added a second furnace and a Tuner my money did not change at all and the same advice came back. No spot to put the Splitter. It never explained why.
+
+  FTD7-ZCHA: clear 3, fun 2, back no, pay no
+    Played 18.6 min. Stopped: Today's yard, shift 3
+    Goal: Build a little line of machines that turns scrap into ingots and ships as many as you can, to get stars and a big money number.
+    Worst: Lesson 2 got me stuck: it said tap the belt twice to turn it, but the Press was already in my hand so it kept dropping the Press instead, and I had to skip. Later the tips after each shift told me things I could not do with one part a shift, and Back to the shelf left a hole in my belt. Also it is all brown and dull, and my lesson stars did not count.
+
+  8J29-VJ5H: clear 4, fun 4, back maybe, pay maybe
+    Played 19.6 min. Stopped: Finished a game, then left
+    Goal: Each of six shifts I pick one machine to add to a line that turns scrap into shards and then ingots. Money is what reaches the dock minus what I spend, and stars come from ingots shipped (50, 100, 160). Score as much money as I can, and beat my own best.
+    Worst: 1) The machine demo says a furnace ingot is worth 12 dollars, the game says 24. 2) Ship 7 ingots a shift for a star is never explained; I worked out it is the pace to the next star. 3) Sal says add a hopper when the furnace is already the limit, so that advice would not have helped. 4) Shift 1 is a throwaway because the furnace is not offered yet. 5) You only learn where you cannot build when a bubble says junk pile. 6) How to turn or remove a machine only appeared in shift 6. 7) After finishing today's yard Sal said try today's yard next. 8) The shift 6 breakdown does not add up to the total (the 40 dollar re-roll is missing) until the final screen. The yard offers were identical on replay, which nothing tells you.
+
+  7ETG-39GM: clear 4, fun 3, back maybe, pay no
+    Played 19.7 min. Stopped: Finished a game, then left
+    Goal: Build a conveyor line out of the parts you are dealt, one part per shift over six shifts, to ship whatever the day's job asks for (ingots or plates). Hit the quota for three stars; the money you make is your score.
+    Worst: The game hands you the answer every shift. Needed for the job and what held you back (add a tuner) mean most choices are made for you. A reroll costs 40 dollars with no hint of the odds, and my first reroll was worse than the offer I threw away. A second tuner on the same press did nothing and nothing told me why. Sal said Try today's yard next right after I finished today's yard, and No connection, so no board sat above this test version has no leaderboard, so I thought my wifi had died. Without a board my score means nothing.
