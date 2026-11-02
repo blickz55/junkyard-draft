@@ -1,0 +1,61 @@
+{
+  "persona": "Tasha",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory line out of scrap over six shifts, make as much money as you can and fill all six orders to get three stars. And try to beat the score Sal got.",
+  "stoppedWhere": "On the results screen of my second go at the last shift (two stars, 5 of 6 orders, $16,055, 'Sal beat you by $40'), after watching a bit of Sal's replay and sending the questions. The second 'game' was only a redo of shift 6 from the results screen (the game counted it as game 2 on this yard); I did not start a full third game.",
+  "stoppedWhy": "I had my ten minutes and a good run: new best $16,095, up from $9,840 yesterday, and I tied Sal. The only thing left was the third star, one order and $277 away, and I could not see a way to get it without moving machines around by guess. 'Try again from shift 6' gave me the same cards, the shuffle took $40 and my tie, and the cards that might help said 'No easy spot yet' with nothing lit. Starting the whole thing again to end up in the same place did not appeal. A new yard tomorrow might, maybe.",
+  "lessonsFinished": 0,
+  "gamesFinished": 2,
+  "bestStars": 2,
+  "bestMoney": 16095,
+  "playedAnotherByChoice": true,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 6 pick screen, and again after 'Try again from shift 6'",
+      "what": "The sixth order was $277 away and I could not work out how to find $277. The one card with a lit spot (Hopper + Crusher) left me $277 short. The other cards said 'No easy spot yet', and Sal said 'To make room, pick a machine on the yard and press Move' with nothing lit and the money promise unchanged.",
+      "gotOutHow": "I did not. I pressed New offers for $40, got the same kind of cards (one that fits, two with no easy spot), and took the Hopper + Crusher again for the same $277 short."
+    },
+    {
+      "where": "Shift 4 and shift 5 pick screens",
+      "what": "The box said a Tuner or a second furnace would clear the slow furnace, but the Tuner and Furnace + Splitter cards both said 'No easy spot yet'. I did not know whether to take them anyway.",
+      "gotOutHow": "Took the card that said something nice in green ('Adds a little', 'Gives your line room to grow'). It was a guess, not a choice."
+    }
+  ],
+  "confused": [
+    "'Lit spots: off' on the job card when I came back. I only turned it on because I remembered the lit squares from yesterday; nothing said what it does.",
+    "Mid-build on shift 1 the yellow promise dropped from $600 to $576 after I placed the furnace, which looked like I had done something wrong, then it rose to $888.",
+    "'No easy spot yet' on a card: I never knew whether that meant 'will not work', 'costs you' or 'you must fiddle'.",
+    "The advice 'A Tuner touching it would clear it' came back on shifts 4 and 5 although a Tuner was already on that furnace (the yard even said it was sped up), and the Tuner card then said no spot. Only later did the Tips say two Tuners do not stack.",
+    "On shift 5 the Dock was lit in the empty corner on its own with nothing joined to it. The promise said 'up $450' but that was just the price going up; the dock said 'nothing came'. Only shift 6 showed it was waiting for a hopper and crusher.",
+    "'You're level with Sal' after every shift: I did not know what level meant, why I could never get ahead, or how to beat him. It turned out his shifts matched mine number for number.",
+    "'Show me' opened a card about the furnace ('slag', 'shards', 'goes in from behind or the sides'), not how a Tuner fits.",
+    "'Buy a belt: $20' is on screen every shift and I never found out what a belt does for me.",
+    "The Tips box is eight tiles of small words; I did not read it until I was stuck, and then it did not help."
+  ],
+  "annoyed": [
+    "The 'New offers (-$40)' shuffle cost me the tie with Sal and gave me no better cards; the results then said 'Sal beat you by $40'.",
+    "'Try again from shift 6' with nothing new to try on it.",
+    "'No easy spot for the Plate Press yet. To make room, pick a machine on the yard and press Move.' is homework: which machine, move where, why.",
+    "The game tells me what to take and where to put it, so most of the game is tracing glowing squares, and then at the end it suddenly wants me to think with no help.",
+    "On some build steps the 'Buy a belt: $20' button was half covered by the yellow money line and looked cut off.",
+    "Sal's replay says 'You are watching a Sal's game.'",
+    "Everything is dark brown with small text; it is not a cheerful game compared with the best thing on my phone."
+  ],
+  "pleased": [
+    "The yellow promise before each shift ('This shift will pay $888, that fills the $450 order') and then the shift paying exactly that.",
+    "Jumps like '$2,664 (up $1,194)' after putting the Tuner in, and '$1,194 more than last shift' afterwards.",
+    "The lit spots with 'Step 1 of 4': I was never lost and never had to think about where things go.",
+    "The little 'held you back' label on the slow furnace in the yard: the first time the game explained why in a way I understood.",
+    "The results screen: stars, 'One more order for 3 stars', green 'NEW PERSONAL BEST', '+$6,255 since yesterday' and '1 more star to Yard Hand'.",
+    "The gold 'ORDER FILLED!' banner with stars in Sal's replay (I never caught it in my own shifts because I looked after each one finished).",
+    "'Try again from shift 6' and 'Take over from here' are the right ideas: I do not have to redo everything."
+  ],
+  "bestMoment": "Shift 3: putting the Tuner on the slow furnace, the promise jumping to $2,664 (up $1,194), the shift paying exactly that, and then the results screen with the stars, NEW PERSONAL BEST and '+$6,255 since yesterday'.",
+  "worstMoment": "Seeing 'Missed the order by $277' on the last shift, having no way to find $277, then paying $40 to shuffle and finishing with 'Sal beat you by $40'.",
+  "oneChange": "When I am one order from the third star, show me a way I can actually do it (a lit spot for the part that gets me there, or a free reshuffle) instead of 'No easy spot yet, pick a machine and press Move'.",
+  "completionCode": "Z4G6-DJDT"
+}

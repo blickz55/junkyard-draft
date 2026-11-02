@@ -86,6 +86,11 @@ function nextMove(r: RunState): Move | null {
   if (r.phase !== 'build') return null;
   return lessonOf(r.seed).shifts[r.round - 1]?.moves.find((m) => !moveDone(m, r)) ?? null;
 }
+/** The lesson's next move is to turn the piece at this spot: a first tap there turns it rather than only picking it up. */
+export function lessonTurnAt(r: RunState, x: number, y: number): boolean {
+  const m = nextMove(r);
+  return m?.do === 'turn' && m.x === x && m.y === y;
+}
 /** Every move of this shift is made: it can start. */
 export const lessonReady = (r: RunState): boolean => r.phase === 'build' && !nextMove(r);
 /** The card a lesson's pick wants; null when there is no pick on screen. */

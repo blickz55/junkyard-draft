@@ -651,6 +651,8 @@ test(
     assert.ok(before.score >= 40, `a crusher round affords a reroll (${before.score})`);
     assert.equal(await page.evaluate(() => document.querySelector('[data-testid=reroll]')?.disabled), false, 'affordable: enabled');
     await page.getByTestId('reroll').click();
+    // a card on this deal fits the line, so paying is asked first (the fifth panel)
+    await page.getByTestId('offers-pay').click();
     await when(() => window.__jd.state().rerolls === 1, null, 5000);
     const after = await api('state');
     assert.equal(after.score, before.score - 40, 'the cost left the score');

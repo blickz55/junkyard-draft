@@ -1,4 +1,5 @@
 import { t } from '../../content/strings';
+import { money } from '../../content/format';
 import { forkLabel } from '../../content/fork';
 import { tipForMachine } from '../../content/tips';
 import { explainRunError, placementWarning } from '../../content/advice';
@@ -15,7 +16,7 @@ import { decideQuality, QUALITY_PROBE_FRAMES } from '../quality';
 import { InputController, type Inspected, type InputHost } from '../InputController';
 import { SimView } from '../SimView';
 import { forkPayload, reportPlayer, type ReplayOrigin } from '../replayActions';
-import { hintFor, lessonAllows, lessonPick, lessonReady, lessonWants, nextPlanned } from '../guide';
+import { hintFor, lessonAllows, lessonPick, lessonReady, lessonWants, nextPlanned, offerWorths } from '../guide';
 import { StallMonitor, stallText } from '../StallMonitor';
 import { PopPool } from '../PopPool';
 import { GameTelemetry } from '../GameTelemetry';
@@ -289,13 +290,7 @@ export class GameScene extends Phaser.Scene {
           audio.setMuted(!audio.muted);
           return audio.muted;
         },
-        reroll: () => {
-          if (this.replayQueue) return;
-          if (this.act({ t: 'reroll' })) {
-            audio.lockIn();
-            this.renderSide();
-          }
-        },
+        reroll: () => this.rerollAsked(),
         forkHere: () => this.forkHere(),
         ...(this.replayOrigin?.hash ? { reportName: () => reportPlayer(this, this.replayOrigin!) } : {}),
       },
@@ -653,7 +648,8 @@ export class GameScene extends Phaser.Scene {
       audio.pick();
       this.reveal = false;
       // the part the coach lights first, so the frame on the shelf and the words agree (the fourth panel: a kit's Crusher was in hand while the Hopper was lit)
-      this.inputCtl.selectedId = (this.tutorial ? null : nextPlanned(this.run)?.part?.id) ?? this.run.bin[this.run.bin.length - 1]?.id ?? null;
+      // a lesson says "tap the Crusher" next, so nothing is in hand already (the fifth panel tapped it as told and put it back)
+      this.inputCtl.selectedId = this.tutorial ? null : (nextPlanned(this.run)?.part?.id ?? this.run.bin[this.run.bin.length - 1]?.id ?? null);
       this.syncMachines();
       this.renderSide();
     }
@@ -776,6 +772,27 @@ export class GameScene extends Phaser.Scene {
   startRun() {
     if (this.tutorial && !lessonReady(this.run)) return; // the panel's button waits too: the lesson's moves come first
     this.ctl.startRun();
+  }
+  private reroll() {
+    if (this.replayQueue) return;
+    if (this.act({ t: 'reroll' })) {
+      audio.lockIn();
+      this.renderSide();
+    }
+  }
+  /** New offers cost money. With a card on offer that already fits the line, that is asked first: three agents of the fourth and fifth
+   * panels paid $40 for cards no better than the ones they had, and one lost a tie with Sal by exactly that (docs/DESIGN.md). */
+  private rerollAsked() {
+    if (this.replayQueue || this.tutorial || !offerWorths(this.run).some((w) => w.gain > 0 || w.room)) return this.reroll();
+    choiceDialog(this, {
+      title: t('game.offersFitTitle'),
+      tid: 'offers-fit',
+      lead: [h('div', {}, t('game.offersFitText', { cost: money(RULES.rerollCost) }))],
+      choices: [
+        { label: t('game.offersKeep'), tid: 'offers-keep', primary: true, run: () => {} },
+        { label: t('game.offersPay', { cost: money(RULES.rerollCost) }), tid: 'offers-pay', run: () => this.reroll() },
+      ],
+    });
   }
   /** The player pressed Start. A shift that would pay nothing costs a sixth of the game, so that one thing is asked first. */
   private startRunAsked() {

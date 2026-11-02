@@ -33,6 +33,8 @@ export function explainRunError(message: string): string {
   return t('advice.other', { message });
 }
 
+const behindOnly = (kind: MachineKind) => kind === 'splitter' || kind === 'sieve';
+
 /** A legal placement that will not work as drawn, as one line; null when it looks fine. */
 export function placementWarning(layout: Layout, kind: MachineKind, x: number, y: number, dir: Dir, id: number): string | null {
   const issue = placementIssue(layout, kind, x, y, dir, id);
@@ -43,10 +45,12 @@ export function placementWarning(layout: Layout, kind: MachineKind, x: number, y
       return t('advice.tunerAlone');
     case 'conveyor-unfed':
       return t('advice.conveyorUnfed');
+    // a Splitter takes from behind only; since rules v6 a Crusher, Furnace or Press takes from either side too, and the fifth panel was
+    // told the Press "only takes things from behind"
     case 'behind-not-facing':
-      return t('advice.behindNotFacing', { name, behind: machineName(issue.behind).toLowerCase() });
+      return t(behindOnly(kind) ? 'advice.behindNotFacing' : 'advice.behindNotFacingSides', { name, behind: machineName(issue.behind).toLowerCase() });
     case 'unfed':
-      return t('advice.unfed', { name });
+      return t(behindOnly(kind) ? 'advice.unfed' : 'advice.unfedSides', { name });
     case 'off-grid':
       return t('advice.offGrid', { name });
   }

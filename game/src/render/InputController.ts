@@ -15,7 +15,7 @@ import type { Machine, MachineKind } from '../sim/types';
 import { loadKeyMap } from './storage';
 import { DIR_DX, DIR_DY, RULES } from '../sim/rules';
 import { dropActions, smartFacing, strokeActions } from './placement';
-import { nextPlanned, plannedFacing } from './guide';
+import { lessonTurnAt, nextPlanned, plannedFacing } from './guide';
 import { money } from '../content/format';
 import { inputTravelDirs, outputDirs } from '../sim/advice';
 import { explainRunError, placementWarning } from '../content/advice';
@@ -457,8 +457,11 @@ export class InputController {
       if (this.dropAt(held, cell.x, cell.y)) this.selectedId = held.id;
       else this.heldId = held.id;
     } else if (hit) {
-      if (this.selectedId === hit.m.id) {
+      // the lesson asking for this piece to turn: the first tap turns it (the fifth panel tapped once, saw only a frame, and thought it had failed)
+      if (this.selectedId === hit.m.id || (this.host.lesson && lessonTurnAt(this.run, hit.m.x, hit.m.y))) {
+        this.selectedId = hit.m.id;
         this.rotateSelected();
+        this.host.renderSide();
         return;
       }
       this.selectedId = hit.m.id;

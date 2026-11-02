@@ -1,0 +1,60 @@
+{
+  "persona": "Priya",
+  "device": "desk",
+  "goalInOwnWords": "Each shift you pick one part and build the line so scrap turns into ingots and plates and reaches the dock; money is the score. Fill the shift's order to put every price up 25 percent, fill all six orders for three stars, and beat the foreman's total.",
+  "stoppedWhere": "Second game on today's yard (same yard as the first), build phase of shift 5 of 6, right after I dragged the Plate Press next to the dock and was told it only takes things from behind. I used Menu, Save and go home, then the feedback survey.",
+  "stoppedWhy": "The second go on the same yard was turning into a solved puzzle: the same offers every time, a best line that is nearly forced, and my one new idea hit a rule I had not been told. I was also well past the 15 minutes I was asked for. I would want a different yard next, not this one a third time.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 16974,
+  "playedAnotherByChoice": true,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Second game, shift 1, build phase",
+      "what": "I tapped the same spots the lit spots had shown in game 1, but this time nothing was lit; my taps selected and turned a belt, the line broke and the forecast said this shift would pay $0.",
+      "gotOutHow": "Pressed Undo once, read the new coach line (Put the Furnace where you think), then dragged the parts from the shelf by hand."
+    },
+    {
+      "where": "Second game, shift 5, Plate Press",
+      "what": "I could not get the press to feed the dock directly: it only takes things from behind, and the one tile behind it that would work is blocked by the rail pile.",
+      "gotOutHow": "I did not; I gave up on that plan and stopped there."
+    }
+  ],
+  "confused": [
+    "Before the lesson I did not know what an order or a yard was; only the lesson explained it.",
+    "Lesson shift 3 says 'If every shift pays this: 24 of 20 ingots' and I had to think whether the 20 was per shift or the total.",
+    "I made $888 on a $450 order and nothing said whether the extra counted (it does, the score is total money).",
+    "'You're level with Sal' came up four shifts running and was never explained; it turned out to mean I was tied with the guided lit-spot line.",
+    "After shift 4 the advice said a Tuner touching the furnace would clear the hold-up when I already had a tuner touching both furnaces.",
+    "The Plate Press has a back and a front but the card does not say so; I found out by dragging one in.",
+    "The second Dock's lit spot was an empty tile in the top-left corner and I only worked out later that it was setting up crusher, press, dock in a column.",
+    "In game 2 a tap on a belt tile turned it instead of doing nothing, and I did not realise until the pay said $0."
+  ],
+  "annoyed": [
+    "In the first game the lit spots and coach text made every build four taps with no decision; I only chose between three cards and the card text nearly always said which.",
+    "Lesson shift 1 is a throw-away that ships raw scrap for $37 while the panel says the line needs a crusher and a furnace.",
+    "Hopper + Crusher was offered in shift 4 with the note 'Adds a little' and added exactly one ingot ($42).",
+    "New offers costs $40 and does not tell you what you might get; mine swapped the press for a second tuner that had no easy spot.",
+    "Most cards say 'No easy spot yet' with no hint of what to move until after you pick the card.",
+    "The stale tuner advice made me doubt the other 'what held you back' notes for a moment."
+  ],
+  "pleased": [
+    "The forecast before each shift was exactly right every time (all nine shifts in the first game, and the four I ran in the second).",
+    "'What held you back' names a real bottleneck and for how many seconds, and it named a different one as the line changed (the furnace, the dock, then the press sitting idle 53 percent of the shift).",
+    "The card shows next shift's offers, so I can plan one step ahead like in a puzzle game.",
+    "Beating Sal with my own idea in shift 5 (turned a crusher to feed the spare dock with raw shards, forecast went up $180, result said I was $180 ahead).",
+    "Putting the tuner on a belt tile where it touches both furnaces and watching the forecast jump from $1,470 to $2,664.",
+    "Game 2 took the hand-holding away by itself: lit spots off, Show me on request, Undo always one tap.",
+    "The lesson was about two minutes and the 'What things sell for' list gives exact times and prices.",
+    "The results screen is quick to read: shift by shift bars, what shipped, what I picked, and a clear score against Sal."
+  ],
+  "bestMoment": "Shift 5 of the first game: I worked out 1.5 shards a second going in and only 1.0 a second coming out of the furnaces, turned a crusher and dragged one belt to the spare dock, the forecast went up $180, and the result said I was $180 ahead of Sal. Then the press in shift 6 filled all six orders and finished $879 ahead.",
+  "worstMoment": "Second game, shift 5: dragging the Plate Press next to the dock, being told it only takes things from behind, and finding the one tile that could have fed it blocked by the rail pile, after I had already spent $40 on New offers for a second tuner nobody could place.",
+  "oneChange": "Stop printing the answer on the card. Keep the exact forecast and the what-held-you-back note, but make the yards force a different build each time so the right pick is not the one the card and the coach point at; then give me something to chase that I cannot reach by just following the lit spots.",
+  "completionCode": "MVG2-UX33"
+}

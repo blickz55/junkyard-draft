@@ -75,6 +75,11 @@ for (const device of [
           await when(() => window.__jd.mode() === 'running', null, 5000);
           await page.getByTestId('skip').click();
           await when(() => window.__jd.mode() === 'summary', null, 10000);
+          // lesson 2's first shift is short of scrap: the yard says the Press waited for it, as Sal does, never that it held anything back
+          if (lesson.n === 2 && (await api('state')).round === 1) {
+            const badges = await page.evaluate(() => [...document.querySelectorAll('.jd-badge')].map((e) => e.textContent));
+            assert.ok(badges.some((b) => b.includes('waiting for scrap')) && !badges.some((b) => b.includes('held you back')), badges.join(' | '));
+          }
         }
       }
       await page.waitForSelector('[data-testid=lesson-done]', { timeout: 5000 });
@@ -380,7 +385,10 @@ test('a real yard: the job card, then every screen answers where am I, what is t
   await page.waitForSelector('[data-testid=job-card]');
   assert.equal(await page.getByTestId('job-goal').textContent(), 'Fill six orders');
   assert.equal((await page.getByTestId('order-list').textContent()).split(' · ').length, 6, 'all six orders, in a row');
-  assert.equal(await page.getByTestId('job-why').textContent(), 'Fill an order and every price goes up 25% for the rest of the job.');
+  assert.equal(
+    await page.getByTestId('job-why').textContent(),
+    'An order is money to make in one shift. Fill it and every price goes up 25% for the rest of the job.',
+  );
   const stars = (await api('state')).job.stars;
   await page.getByTestId('job-start').click();
   await page.jd.noDialog('job-card');

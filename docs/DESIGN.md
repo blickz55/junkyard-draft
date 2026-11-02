@@ -21,6 +21,17 @@ The owner asked for trial and error against a scorecard. Rules 5 scored 55 of 10
 
 **Paid for.** The rules are harder to state: "fill the order, your prices rise" is a second number beside the money, and the card and every screen had to learn it. `tests/guide.test.ts` and the job bar's order strip carry that. The old star marks in units are gone from job yards (`orders` absent keeps them for the lessons' own marks and the tests that name them).
 
+## Decision: what the fifth panel changed (2026-11-02, no rules change)
+
+Four agents on 242b7d3 (`docs/baselines/fun/panel-r5/`): two strangers and, for the first time, two returning players whose device had done the lessons and one game the day before (`tools/panel/returning.md`, `drive.mjs start --returning`). Fun 4, 4, 3, 3; clear 4 for all four; three of four played another game by choice; back tomorrow one yes and three maybe.
+
+- **Help on request works for the players it was for.** The returning accountant kept the spots dark, built every shift herself from the forecast and the price list, and beat Sal by $2,635 with three stars (fun 4, back tomorrow: yes). The returning Candy Crush player read "Lit spots: off" as something taken away and switched it on at once. So the job card now says "Lit spots: always" or "Lit spots: when you ask", the coach's button says "Show me where", and the advice card's button names its machine ("Show the Furnace"), because a "Show me" beside a suggested Tuner was taken for a way to place the Tuner.
+- **Following the lights ties Sal, and nobody could tell why.** Three agents saw "You're level with Sal" shift after shift and found it suspicious. The lit spots are his game; the line now says so and says how to pass him.
+- **Advice that was wrong:** "A Tuner touching it would clear it" beside a Furnace that had one. The sim counts a Tuner's work on the Tuner's cell, and the advice read the Furnace's, so it never saw the Tuner (fixed in `sim/bottleneck.ts`, which also read the same field to judge a starved machine). "The Press held you back" on the yard while the lesson said the Hopper was short: a starved machine's label now says "waiting for scrap". "Only takes things from behind" for a Crusher, Furnace or Press has been false since rules 6; the warning says either side now.
+- **New offers asks first when a card fits.** Two more agents paid $40 with a card that fitted, and one lost a tie with Sal by exactly that. The rules are unchanged; the game asks before taking the money.
+- **Lessons:** a lesson's "turn this belt" turns on the first tap (one agent tapped, saw only a frame and thought it had failed), a pick in a lesson no longer puts a part in hand just before the words say to tap it, and an order is defined on the job card.
+- **What is not solved:** two agents stopped because a second yard opened exactly like the first, the same $888 and the same advice. On the card, "every yard alike" still costs nothing. The casual returning player was $277 from her last star with no way to find it. A slow reader spent 18 minutes in the three lessons before his first choice.
+
 ## Decision: the late game, help on request, and New offers stays (2026-11-02, no rules change)
 
 The fourth panel (four agents on rules 8) and a blind comparison (four more, rules 8 against rules 5) chose the new build, and named two things: the guided shifts read as filling in a form, and from shift 5 every card said "No easy spot yet". On the yard they played, every side of the Dock was taken, so nothing new could reach it.

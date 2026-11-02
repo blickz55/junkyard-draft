@@ -81,7 +81,7 @@ test('the lit spots can be turned off on the job card, and stay off: the coach s
   await page.goto(f.gameUrl('scene=game&seed=sal-lit'));
   await draft();
   await page.getByTestId('job-lights').click();
-  assert.equal(await page.getByTestId('job-lights').textContent(), 'Lit spots: off');
+  assert.equal(await page.getByTestId('job-lights').textContent(), 'Lit spots: when you ask');
   await page.getByTestId('job-start').click();
   await page.jd.noDialog('job-card');
   const worth = await page.evaluate(() => [0, 1, 2].map((i) => document.querySelector(`[data-testid=offer-worth-${i}]`)?.textContent));
@@ -107,7 +107,7 @@ test('after a first game the spots wait to be asked for: "Show me" lights the ca
   const { api, draft, mode, settled, at, when } = page.jd;
   await page.goto(f.gameUrl('scene=game&seed=sal-lit'));
   await draft();
-  assert.equal(await page.getByTestId('job-lights').textContent(), 'Lit spots: off', 'the job card says how it stands');
+  assert.equal(await page.getByTestId('job-lights').textContent(), 'Lit spots: when you ask', 'the job card says how it stands');
   await page.getByTestId('job-start').click();
   await page.jd.noDialog('job-card');
   const worth = await page.evaluate(() => [0, 1, 2].map((i) => document.querySelector(`[data-testid=offer-worth-${i}]`)?.textContent));
@@ -236,6 +236,37 @@ test('a refusal at either edge of a phone-size yard stays on the screen, its arr
     const box = await page.getByTestId('toast').boundingBox();
     assert.ok(box && box.x >= 0 && box.x + box.width <= 390, `the note at column ${x} is on the screen: ${JSON.stringify(box)}`);
   }
+  assert.deepEqual(page.errors, []);
+  await page.ctx.close();
+});
+
+test('New offers with a card that fits asks first: keeping the cards costs nothing, paying deals three more', { timeout: 90000 }, async () => {
+  const page = await f.page();
+  const { api, draft, mode, when } = page.jd;
+  await page.goto(f.gameUrl('scene=game&seed=sal-offers'));
+  await draft();
+  await page.getByTestId('job-start').click();
+  await page.jd.noDialog('job-card');
+  await api('pick', 0);
+  await api('run');
+  await mode('running');
+  await api('finishRun');
+  await mode('summary');
+  await api('next');
+  await when(() => window.__jd.state().round === 2 && window.__jd.state().phase === 'draft');
+  const before = await api('state');
+  const fits = await page.evaluate(() =>
+    [0, 1, 2].some((i) => /Fits|Adds|room/.test(document.querySelector(`[data-testid=offer-worth-${i}]`)?.textContent ?? '')),
+  );
+  assert.ok(fits, "the Hopper fits on this yard's second deal");
+  await page.getByTestId('reroll').click();
+  await page.getByTestId('offers-keep').click();
+  const kept = await api('state');
+  assert.deepEqual([kept.offers, kept.score], [before.offers, before.score], 'kept: nothing paid, nothing dealt');
+  await page.getByTestId('reroll').click();
+  await page.getByTestId('offers-pay').click();
+  await when((score) => window.__jd.state().score < score, before.score);
+  assert.equal((await api('state')).score, before.score - 40);
   assert.deepEqual(page.errors, []);
   await page.ctx.close();
 });

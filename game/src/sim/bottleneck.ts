@@ -137,6 +137,14 @@ export function analyseRound(layout: Layout, result: RunResult, nextRound: numbe
       };
   }
   // 4. a machine held the line
+  // a Tuner's work is counted on the Tuner's own cell, so whether a machine is tuned is read from its neighbours (the fifth panel: the
+  // advice asked for "a Tuner touching it" with one already there, every shift)
+  const tunerBeside = (cell: number) =>
+    ([0, 1, 2, 3] as Dir[]).some((d) => {
+      const x = (cell % W) + DIR_DX[d];
+      const y = Math.floor(cell / W) + DIR_DY[d];
+      return x >= 0 && y >= 0 && x < W && y < H && grid[cellIndex(x, y, W)]?.kind === 'tuner';
+    });
   let top = ranked.find((r) => r.kind === 'saturated' && r.ticks >= minHeld);
   // a machine waiting on the one ahead of it is not what holds the line: follow the queue to its head (the first panel: "the crusher held
   // you back", with a Furnace the limit and a Tuner beside the Crusher doing nothing)
@@ -158,7 +166,7 @@ export function analyseRound(layout: Layout, result: RunResult, nextRound: numbe
         fixes: (['dock', 'press'] as MachineKind[]).filter((k) => inPool(k, nextRound)),
       };
     const fixes: MachineKind[] = [];
-    if (inPool('tuner', nextRound) && !result.cellStats[top.cell]?.tuned) fixes.push('tuner'); // advice a player has already taken is noise
+    if (inPool('tuner', nextRound) && !tunerBeside(top.cell)) fixes.push('tuner'); // advice a player has already taken is noise: two Tuners do not stack
     if (inPool('splitter', nextRound) && inPool(m.kind, nextRound)) fixes.push('splitter');
     return { ...base, kind: 'saturated', machine: m, heldTicks: top.ticks, fixes, twins: layout.machines.filter((q) => q.kind === m.kind).length };
   }
@@ -168,7 +176,7 @@ export function analyseRound(layout: Layout, result: RunResult, nextRound: numbe
     if (!isProcessor(m.kind)) continue;
     const st = result.cellStats[cellOf(m)];
     if (!st || !st.passed) continue;
-    const hold = Math.max(1, RULES.process[m.kind] - (st.tuned > 0 ? RULES.tunerBonus : 0));
+    const hold = Math.max(1, RULES.process[m.kind] - (tunerBeside(cellOf(m)) && RULES.process[m.kind] >= RULES.tunerMinHold ? RULES.tunerBonus : 0));
     const u = Math.min(1, (st.processed * hold) / ticks);
     if (!starved || u < starved.u) starved = { m, u, passed: st.passed };
   }

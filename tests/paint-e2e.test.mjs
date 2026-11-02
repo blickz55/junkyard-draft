@@ -159,7 +159,7 @@ test("a recording plays in its author's paint, and the next game in the player's
   await sam.waitForSelector(`[data-testid=board-entry-${row}]:not([disabled])`, { timeout: 10000 });
   await sam.getByTestId(`board-entry-${row}`).click();
   await sam.jd.when(() => !!document.querySelector('[data-testid=replay-banner]'));
-  await sam.jd.textMatches('hint', /^You are watching a recording by Ann#\w+ · On the Podium \(\$[\d,]+\)\.$/, 5000);
+  await sam.jd.textMatches('hint', /^Watching: recording by Ann#\w+ · On the Podium \(\$[\d,]+\)\.$/, 5000);
   assert.equal(await art(sam, 'm-press'), annPress, "the author's machines");
   assert.equal(await art(sam, 'ground'), annGround, "and the author's yard");
   await sam.screenshot({ path: path.join(SHOTS, `paint-recording-${Date.now()}.png`) });

@@ -5,6 +5,14 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### Clearer help — 2026-11-02 (no rules change)
+
+- **"Lit spots: always" or "when you ask"** on the job card, "Show me where" in the build, and the shift's advice names the machine it shows.
+- **Level with Sal says why:** the lit spots are his game, so beating him takes finding better.
+- **New offers asks first** when a card on offer already fits your line.
+- **Advice that was wrong is right:** no Tuner suggested beside a Furnace that has one, a machine short of scrap says "waiting for scrap" instead of "held you back", and a Crusher, Furnace or Press is no longer said to take only from behind.
+- **Lessons:** a belt the lesson asks you to turn turns on the first tap, and an order is explained on the job card.
+
 ### The late game and help on request — 2026-11-02 (no rules change)
 
 - **Show me.** After your first game the lit spots wait until you ask: "Show me" lights where the card you picked pays. The job card turns them on or off for good.

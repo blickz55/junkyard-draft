@@ -1,0 +1,26 @@
+4 agents in r5
+median fun 4, median clear 4
+finished a game: 3, played another by choice: 3
+come back tomorrow: yes 1, maybe 3, no 0
+would pay: yes 0, maybe 0, no 4
+stuck at least once: 4
+
+George (phone): fun 4, clear 4, lessons 3, games 0, best 3★ $3926, again false
+  goal: Build a line of machines that turns scrap into better and better goods (shards, then plates or ingots) and sends them to the dock, to make as much money as I can, fill the orders to earn the stars, and beat the foreman's score.
+  stopped: I had said I would play up to about 15 minutes and was nearly 20 in (three lessons and one real shift). Nothing in the game stopped me: I was not bored or lost, I was interested in catching Sal and would have started the next shift, but I keep to the time I agreed and I would come back to it after the crossword. (Panel note: the session ended at the action budget, not because of boredom or confusion.)
+  one change: Let me make real choices sooner. Cut the number of lit squares I am told to tap, and put the 'what held you back and what would fix it' note, which is the best part of the game, into the first minutes, with the word explained the first time it shows up.
+
+Ingrid (desk): fun 4, clear 4, lessons 0, games 1, best 3★ $18730, again true
+  goal: Turn scrap into as much money as possible over six shifts by adding machines to a line, fill the order each shift so every price goes up, and finish ahead of the foreman's total.
+  stopped: I got what I came for: a clear sum I could work out myself, three stars, and I beat Sal by $2,635. The second board opened with the exact same $888 shift and the exact same sentence under it, so I could see how the rest would go: the same ladder of machines with the furniture moved. And I did not fancy the Turn-button dance again. I would come back for tomorrow's yard, not grind a second board tonight.
+  one change: Make each yard a different puzzle: the second board opened with the identical $888 shift and the same advice, so I could see the whole game; if each yard changed what the numbers want, I would open it every morning.
+
+Priya (desk): fun 3, clear 4, lessons 1, games 1, best 3★ $16974, again true
+  goal: Each shift you pick one part and build the line so scrap turns into ingots and plates and reaches the dock; money is the score. Fill the shift's order to put every price up 25 percent, fill all six orders for three stars, and beat the foreman's total.
+  stopped: The second go on the same yard was turning into a solved puzzle: the same offers every time, a best line that is nearly forced, and my one new idea hit a rule I had not been told. I was also well past the 15 minutes I was asked for. I would want a different yard next, not this one a third time.
+  one change: Stop printing the answer on the card. Keep the exact forecast and the what-held-you-back note, but make the yards force a different build each time so the right pick is not the one the card and the coach point at; then give me something to chase that I cannot reach by just following the lit spots.
+
+Tasha (phone): fun 3, clear 4, lessons 0, games 2, best 2★ $16095, again true
+  goal: Build a little factory line out of scrap over six shifts, make as much money as you can and fill all six orders to get three stars. And try to beat the score Sal got.
+  stopped: I had my ten minutes and a good run: new best $16,095, up from $9,840 yesterday, and I tied Sal. The only thing left was the third star, one order and $277 away, and I could not see a way to get it without moving machines around by guess. 'Try again from shift 6' gave me the same cards, the shuffle took $40 and my tie, and the cards that might help said 'No easy spot yet' with nothing lit. Starting the whole thing again to end up in the same place did not appeal. A new yard tomorrow might, maybe.
+  one change: When I am one order from the third star, show me a way I can actually do it (a lit spot for the part that gets me there, or a free reshuffle) instead of 'No easy spot yet, pick a machine and press Move'.

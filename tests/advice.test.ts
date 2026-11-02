@@ -54,10 +54,13 @@ test('a machine takes from behind or the sides (rules v6): fed either way it doe
   const hopper = mk(1, 'hopper', 1, 2, 0);
   assert.equal(placementWarning(lay(hopper), 'crusher', 2, 2, 0, 50), null);
   assert.equal(placementWarning(lay(hopper), 'crusher', 2, 2, 1, 50), null, 'fed from its side');
-  assert.match(placementWarning(lay(hopper), 'crusher', 1, 3, 0, 50) ?? '', /nothing feeds|points elsewhere|only takes/);
-  assert.match(placementWarning(lay(), 'crusher', 3, 3, 0, 50) ?? '', /nothing feeds/);
+  assert.match(placementWarning(lay(hopper), 'crusher', 1, 3, 0, 50) ?? '', /Nothing feeds|points elsewhere/);
+  assert.equal(placementWarning(lay(), 'crusher', 3, 3, 0, 50), 'Nothing feeds the Crusher. It takes things from behind or either side, never head-on.');
   assert.match(placementWarning(lay(mk(2, 'hopper', 1, 2, 3)), 'crusher', 2, 2, 0, 50) ?? '', /points elsewhere/);
-  assert.match(placementWarning(lay(hopper), 'crusher', 7, 3, 0, 50) ?? '', /^Crusher only takes things/);
+  assert.match(placementWarning(lay(hopper), 'crusher', 7, 3, 0, 50) ?? '', /^Nothing feeds the Crusher/);
+  for (const kind of ['crusher', 'furnace', 'press'] as const)
+    assert.doesNotMatch(placementWarning(lay(), kind, 3, 3, 0, 50) ?? '', /only takes/, `${kind}: the sides count since rules v6`);
+  assert.match(placementWarning(lay(), 'splitter', 3, 3, 0, 50) ?? '', /^Splitter only takes things from behind/, 'a Splitter still does');
   assert.match(placementWarning(lay(mk(2, 'conveyor', 6, 3, 0)), 'crusher', 7, 3, 0, 50) ?? '', /out of the yard/);
 });
 

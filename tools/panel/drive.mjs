@@ -1,7 +1,8 @@
 /**
  * Hands for an agent playing the game as a stranger: one real browser per session, kept open between commands. The agent looks at
  * screenshots and taps what it sees; nothing here reads the game's state, so it knows only what a person holding the phone knows.
- *   node tools/panel/drive.mjs <session> start --url http://127.0.0.1:4700/ [--device phone|desk]
+ *   node tools/panel/drive.mjs <session> start --url http://127.0.0.1:4700/ [--device phone|desk] [--returning]
+ * `--returning` opens it on a device that did the lessons and one game yesterday (`tools/panel/returning.md` is that agent's brief).
  *   node tools/panel/drive.mjs <session> look | tap X Y | hold X Y | drag X1 Y1 X2 Y2 | swipe X1 Y1 X2 Y2 | type "words" | key Enter | scroll DY | wait SECONDS | stop
  * `look` prints the screenshot's path and the buttons on screen. Coordinates are the ones on the screenshot's rulers.
  */
@@ -35,10 +36,32 @@ function ask(body) {
   });
 }
 
-async function daemon(url, device) {
+/** What a device holds after the three lessons and one finished game on yesterday's yard: written once, before the game's first load. */
+function yesterday() {
+  const day = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const seed = `daily-${day}`;
+  const at = `${day}T19:30:00.000Z`;
+  const score = 9840;
+  return {
+    'jd.onboarded.v1': '1',
+    'jd.lessons.v1': JSON.stringify([1, 2, 3]),
+    'jd.bests.v2': JSON.stringify({ byVersion: { 8: { overall: { score, seed, at }, bySeed: { [seed]: { score, at } }, runs: 1 } } }),
+    'jd.stars.v1': JSON.stringify({ 8: { [seed]: 2 } }),
+    'jd.days.v1': JSON.stringify([day]),
+    'jd.history.v1': JSON.stringify({ byVersion: { 8: { [seed]: [{ score, at }] } } }),
+  };
+}
+
+async function daemon(url, device, returning) {
   const { chromium, devices } = await import('playwright');
   const browser = await chromium.launch();
   const ctx = await browser.newContext(device === 'desk' ? { viewport: { width: 1366, height: 768 } } : { ...devices['Pixel 7'], deviceScaleFactor: 2 });
+  if (returning)
+    await ctx.addInitScript((items) => {
+      if (localStorage.getItem('jd.panel.returning')) return;
+      for (const [k, v] of Object.entries(items)) localStorage.setItem(k, v);
+      localStorage.setItem('jd.panel.returning', '1');
+    }, yesterday());
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 300)));
@@ -180,13 +203,14 @@ async function daemon(url, device) {
 }
 
 if (cmd === '--daemon') {
-  await daemon(rest[0], rest[1]);
+  await daemon(rest[0], rest[1], rest[2] === 'returning');
 } else if (cmd === 'start') {
   fs.mkdirSync(dir, { recursive: true });
   fs.rmSync(portFile, { force: true });
   const flag = (k, d) => (rest.includes(`--${k}`) ? rest[rest.indexOf(`--${k}`) + 1] : d);
   const self = fileURLToPath(import.meta.url);
-  const child = spawn(process.execPath, [self, name, '--daemon', flag('url', 'http://127.0.0.1:4700/'), flag('device', 'phone')], {
+  const args = [self, name, '--daemon', flag('url', 'http://127.0.0.1:4700/'), flag('device', 'phone'), rest.includes('--returning') ? 'returning' : 'new'];
+  const child = spawn(process.execPath, args, {
     detached: true,
     stdio: 'ignore',
     cwd: ROOT,

@@ -33,6 +33,25 @@ test('saturated furnace: hopper → crusher → furnace → dock; the furnace (3
   assert.deepEqual(analyseRound(L, runLayout(L), 4), b, 'deterministic');
 });
 
+test('a Furnace that has its Tuner and still holds the line is not told to get one: the advice names only what would help', () => {
+  // two feeds into one Furnace: a shard a second against a tuned Furnace's one every two seconds
+  const L = lay(
+    m('hopper', 1, 2),
+    m('crusher', 2, 2),
+    m('conveyor', 3, 2),
+    m('hopper', 4, 0, 1),
+    m('crusher', 4, 1, 1),
+    m('furnace', 4, 2),
+    m('dock', 5, 2),
+    m('tuner', 4, 3, 1),
+  );
+  const { b, line } = analyse(L, 4);
+  assert.equal(b.kind, 'saturated');
+  assert.equal(b.machine?.kind, 'furnace');
+  assert.deepEqual(b.fixes, ['splitter'], 'no second Tuner: they do not stack');
+  assert.doesNotMatch(line, /Tuner/);
+});
+
 test('blocked hopper: a hopper pushing head-on into a machine is blocked on every try; the fix is a rotation, not a draft', () => {
   const { b, line } = analyse(lay(m('hopper', 1, 2), m('crusher', 2, 2, 2), m('dock', 2, 1)));
   assert.equal(b.kind, 'dead-end');

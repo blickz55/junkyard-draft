@@ -1,0 +1,66 @@
+{
+  "persona": "George",
+  "device": "phone",
+  "goalInOwnWords": "Build a line of machines that turns scrap into better and better goods (shards, then plates or ingots) and sends them to the dock, to make as much money as I can, fill the orders to earn the stars, and beat the foreman's score.",
+  "stoppedWhere": "On the real yard, 'Rails for the north line', on the 'Shift 1 done' screen of shift 1 of 6 ($717 that shift, 1 of 6 orders filled, '$171 behind Sal'). I then went Menu, Save and go home, Give feedback. The bestStars and bestMoney figures are from lesson 3 (all three stars, $3,926 over four shifts); on the real yard I had no stars yet.",
+  "stoppedWhy": "I had said I would play up to about 15 minutes and was nearly 20 in (three lessons and one real shift). Nothing in the game stopped me: I was not bored or lost, I was interested in catching Sal and would have started the next shift, but I keep to the time I agreed and I would come back to it after the crossword. (Panel note: the session ended at the action budget, not because of boredom or confusion.)",
+  "lessonsFinished": 3,
+  "gamesFinished": 0,
+  "bestStars": 3,
+  "bestMoney": 3926,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Lesson 2, shift 1: 'One belt piece points the wrong way. Tap it until it points along the line.'",
+      "what": "I tapped the lit bendy belt piece and the picture did not change, only a yellow edge appeared, so I thought the tap had not worked. The first tap only selects it, the second turns it.",
+      "gotOutHow": "Tapped it a second time and it went straight."
+    },
+    {
+      "where": "Lesson 1, shift 2: 'Tap the Crusher, then the lit belt piece.'",
+      "what": "The Crusher in the shelf already had a yellow edge as if chosen, so when I tapped it as told the edge went away and I did not know if I had undone my choice.",
+      "gotOutHow": "Tapped the lit belt piece anyway and the Crusher went down fine."
+    },
+    {
+      "where": "First real yard, top bar and the big card: 'Fill six orders', 'Order $450'",
+      "what": "'Orders' had never been explained (the lessons said 'Ship 20 ingots'). I did not know what an order was or how it was filled.",
+      "gotOutHow": "Read the bar at the top ('$0 so far' against '$450'), and the pre-start line 'That fills the $450 order', and worked it out: an order is a sum of money to earn in a shift."
+    }
+  ],
+  "confused": [
+    "Lesson 1, before the first shift: 'This shift will pay $37 / If every shift pays this: 0 of 20 ingots' looked contradictory (money but no ingots) until I had seen the same line with a Furnace in it.",
+    "Lesson 1: 'Your line needs Hopper > Crusher > Furnace > Dock' showed two dashed missing machines while Sal said 'Line closed. Start the shift.'",
+    "The red 'held you back' label meant nothing in lessons 1 and 2. In lesson 2 it sat on the Press while Sal blamed the Hopper, so the two seemed to disagree. It only made sense in lesson 3.",
+    "'0 ingots this shift' next to my $37 in lesson 1 made me feel I had not done the job.",
+    "Spare parts left in the shelf (the double-arrow belt piece, the spare Crusher) were not explained when they appeared, only many taps later.",
+    "'Stars for the job, money for the board': which board? The home screen says there is no leaderboard in this test version.",
+    "Home screen words I could not place at the start: 'yard', 'Today's job', 'Scrap Picker', 'board'.",
+    "'You keep ONE part. The others go back on the truck.' The truck is an odd way to say it, I got the idea anyway.",
+    "On the real yard, three cards and no clue which is best; only 'Fits this line now' and 'No easy spot yet' to go on.",
+    "Survey: 'long-run stats' and 'supporter mark' mean nothing to me."
+  ],
+  "annoyed": [
+    "Three lessons where every single step was a lit square told to me: I made no choice of my own for about 18 minutes, and by lesson 3 I was a little tired of tapping where I was pointed.",
+    "'Tap it until it points along the line' when the first tap only selects the piece.",
+    "Building one side line took four or five separate taps each time (belt, belt, Crusher, Hopper), and I did not see the point of each until the whole picture was done."
+  ],
+  "pleased": [
+    "After each shift it says in plain money what was shipped: '37 x shards @ $3 = $111'. I can check the sum.",
+    "Before I press Start it tells me what the shift will pay and how much more than last time ('$576 (up $144)').",
+    "'Three times the money from the same scrap': the Crusher made a difference I could see and understand.",
+    "Gold bars coming out of the Furnace, '+$24' at the dock, the star bar filling: a good small reward.",
+    "Lesson 3: the red stripes where the belt backed up and the idea of the slowest machine. Like the one slow bus that makes the rest bunch up. I understood it at once.",
+    "On the real yard, 'WHAT HELD YOU BACK: The furnace held you back for 49 of 80 seconds. A second furnace behind a Splitter would clear it.' It tells me exactly what to try next.",
+    "Sal talks like a decent foreman, and 'Sal's game on this yard: $16,095. Beat it.' and '$171 behind Sal' make me want to go again.",
+    "Shifts are about ten seconds, so nothing is a long wait.",
+    "My game was kept when I went home ('Keep playing'), and my stars were counted.",
+    "The questions are one short page and easy to answer."
+  ],
+  "bestMoment": "In lesson 3, when 'held you back' finally clicked (the Furnace is the slow one) and fixing it with a Tuner and a second Furnace took a shift from $552 to $1,272. Straight after, on the real yard, the game told me what held me back and that I was $171 behind Sal.",
+  "worstMoment": "The first Start screen of lesson 1: '$37 this shift' with '0 of 20 ingots', two dashed machines I did not have, and Sal saying the line is closed. After the shift, '0 ingots this shift'. I felt I had done something wrong when I had not.",
+  "oneChange": "Let me make real choices sooner. Cut the number of lit squares I am told to tap, and put the 'what held you back and what would fix it' note, which is the best part of the game, into the first minutes, with the word explained the first time it shows up.",
+  "completionCode": "8RNT-NABY"
+}

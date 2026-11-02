@@ -605,7 +605,8 @@ export class GamePanel {
       'div',
       { class: 'jd-advice', tid: 'last-shift' },
       h('div', { class: 'jd-advice-text' }, h('b', {}, `${t('coach.lastShift')}: `), missing ?? bottleneckLine(b)),
-      here ? btn(t('hint.showMe'), 'show-me', () => this.actions.showMachine(here.id), { small: true }) : null,
+      // named, because a "Show me" beside a suggested Tuner read as a way to place the Tuner (the fifth panel)
+      here ? btn(t('coach.showMachine', { name: machineName(here.kind) }), 'show-me', () => this.actions.showMachine(here.id), { small: true }) : null,
     );
   }
   /** The recipe as a checklist, gone once the line has it all. */
@@ -1222,7 +1223,10 @@ export class GamePanel {
     const layer = this.gridLayer;
     layer.replaceChildren();
     layer.append(h('div', { class: 'jd-grid-dim' }));
-    const culprit = analyseRound(rec.layout, res, rec.round + 1).machine?.id;
+    const limit = analyseRound(rec.layout, res, rec.round + 1);
+    const culprit = limit.machine?.id;
+    // a machine that sat idle for want of scrap did not hold anything back: the badge says what it waited for, as the summary does (the fifth panel)
+    const heldUp = limit.kind === 'starved' ? t('game.badgeStarved') : t('game.badgeHeldUp');
     for (const m of g.machines) {
       const st = res.cellStats[cellIndex(m.x, m.y, g.width)];
       let line1 = '';
@@ -1245,7 +1249,7 @@ export class GamePanel {
       } else if (m.kind === 'crusher' || m.kind === 'furnace' || m.kind === 'press') {
         if (!st || !st.passed) line1 = t('game.badgeUnused'); // the rest is on the machine: a tap says what it made, and a phone has no room for it
         if (!st || !st.processed) cls = 'jd-dim';
-        if (st && m.id === culprit) line2 = t('game.badgeHeldUp');
+        if (st && m.id === culprit) line2 = heldUp;
         else if (m.kind === 'press' && st && st.stored) {
           line2 = t('game.badgeHeld', { n: int(st.stored) });
           warn = false;
@@ -1260,7 +1264,7 @@ export class GamePanel {
           cls = 'jd-dim';
         }
       } else {
-        if (st && m.id === culprit) line2 = t('game.badgeHeldUp');
+        if (st && m.id === culprit) line2 = heldUp;
         else if (!st || !st.passed) {
           line1 = t('game.badgeUnused');
           cls = 'jd-dim';

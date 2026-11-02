@@ -1,0 +1,62 @@
+{
+  "persona": "Ingrid",
+  "device": "desk",
+  "goalInOwnWords": "Turn scrap into as much money as possible over six shifts by adding machines to a line, fill the order each shift so every price goes up, and finish ahead of the foreman's total.",
+  "stoppedWhere": "On a second game on a practice yard, straight after the first shift's report ($888, 'add a hopper'), then Menu, Save and go home, then the feedback form. (All three lessons were done yesterday; I did none today. Today's yard was played to the end first: three stars, $18,730.)",
+  "stoppedWhy": "I got what I came for: a clear sum I could work out myself, three stars, and I beat Sal by $2,635. The second board opened with the exact same $888 shift and the exact same sentence under it, so I could see how the rest would go: the same ladder of machines with the furniture moved. And I did not fancy the Turn-button dance again. I would come back for tomorrow's yard, not grind a second board tonight.",
+  "lessonsFinished": 0,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 18730,
+  "playedAnotherByChoice": true,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "yes",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 1 of today's yard, turning the second furnace",
+      "what": "Which end of the furnace was in and which was out, and which way the Turn button rotates; the little orange and blue marks are tiny and I could not read them.",
+      "gotOutHow": "Pressed Turn again and again, watching Sal's 'This piece leads nowhere' line and the 'This shift will pay' figure until the line was accepted and the figure went up."
+    },
+    {
+      "where": "Shifts 2 and 4, placing a new crusher",
+      "what": "In shift 2 the first square I tried was a heap of junk and the crusher would not stay there; in shift 4 a tip said the crusher only takes things from behind and nothing fed it there, which I had no way of knowing until I had put it down.",
+      "gotOutHow": "The tips said why ('That's a junk pile. Nothing can stand here: go around it', 'Tap it to turn it'), so I moved the machine to another square and turned it to face where I wanted."
+    },
+    {
+      "where": "Shift 1 of the second yard, the belt round the corner",
+      "what": "The belt curved itself into the other furnace instead of on to the crate box, and the forecast stayed at $576.",
+      "gotOutHow": "Pressed Turn on the belt and added one more belt; the forecast went to $888."
+    }
+  ],
+  "confused": [
+    "'Lit spots: off' on the job card: I remembered the game lighting up squares yesterday and could not tell whether 'off' was how things stood now or what a tap would do, nor why they were off.",
+    "The word 'practice' beside 'Today's yard' in the top corner: I did not know if that game counted (the results page later treated it as a real game).",
+    "Which end of a machine is in and which is out (tiny orange and blue marks), and which way Turn rotates it.",
+    "The 25% rise is 25% of the original price each time ($24, then $30, then $36), not 25% on top of the new price, which is how the card can be read; I had to work that out from the price list.",
+    "Whether the Plate Press takes shards from the side: the crusher's tip said it only takes things from behind, so I expected the press to be the same (it is not).",
+    "What 'You're level with Sal' is compared against in the early shifts, since the figure on the job card is Sal's whole-game total."
+  ],
+  "annoyed": [
+    "Pressing Turn several times to face a machine the right way, on both yards.",
+    "After dropping a piece the right-hand panel rearranged itself, so a tap where Turn had been hit 'Buy a belt: $20' and my total fell from $888 to $868 with no 'are you sure' (Undo gave it back).",
+    "Every shift report hands over the cure as well as the diagnosis ('add a hopper', 'a Tuner touching it would clear it'); I would rather have only the diagnosis and work out the cure.",
+    "The second yard's first shift was identical to the first yard's, to the dollar and the sentence under it.",
+    "No way to tell if $18,730 is a good score beyond beating Sal; there is no board in this version."
+  ],
+  "pleased": [
+    "The 'This shift will pay $X' figure before pressing Start was exact: every shift of the first game paid to the dollar what it promised, so I came to trust the numbers.",
+    "The shift report is a ledger I can check: '74 x ingot @ $36 = $2,664', plus 'What held you back' with a red tag on the machine itself.",
+    "The 'What things sell for' list with the machine times let me work out the right card from the numbers, with nobody telling me.",
+    "'Put the Furnace where you think. The pay shows if it helps.' leaves the solving to me.",
+    "Tips that say why: 'That's a junk pile. Nothing can stand here: go around it', 'Furnace points out of the yard. Tap it to turn it.'",
+    "Belts turn corners by themselves, a hopper turns to face its crusher, and a placed machine can be dragged to a new square.",
+    "Undo gave me my $20 back.",
+    "The results page: three stars, 'You beat Sal by $2,635', 'Since yesterday: $9,840 ... $18,730 today (+$8,890)', and a new rank."
+  ],
+  "bestMoment": "Dropping the Tuner on the belt square that touched both furnaces and watching the forecast go from $1,764 to $2,664, a square I worked out myself, and then the shift paid exactly $2,664.",
+  "worstMoment": "Tapping where Turn had been and finding $20 gone because the panel had moved under my finger.",
+  "oneChange": "Make each yard a different puzzle: the second board opened with the identical $888 shift and the same advice, so I could see the whole game; if each yard changed what the numbers want, I would open it every morning.",
+  "completionCode": "375H-VJ83"
+}

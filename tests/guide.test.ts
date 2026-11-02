@@ -88,7 +88,7 @@ test('a resume notice comes first, once; a watched recording gets no advice', ()
   const s = newRun('classic-guide-seed');
   assert.equal(hintFor(s, { ...ctx(), resumeNotice: 'Saved game is gone' }).text, 'Saved game is gone');
   const w = hintFor(s, { ...ctx(), watching: 'recording by Ann#AB12 · Regular ($228)' });
-  assert.equal(w.text, 'You are watching a recording by Ann#AB12 · Regular ($228).', 'whose it is: the top bar has no room to say');
+  assert.equal(w.text, 'Watching: recording by Ann#AB12 · Regular ($228).', 'whose it is: the top bar has no room to say');
   assert.deepEqual(w.spots, []);
   assert.doesNotMatch(hintFor(s, ctx()).text, /needs the/, 'a classic yard has no job to name');
 });
