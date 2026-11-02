@@ -1,0 +1,69 @@
+{
+  "persona": "Leo",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory line from scrap to gold bars and make as much money as you can in 6 shifts. Ship enough bars and you get stars. The money is your score.",
+  "stoppedWhere": "The results screen after my second finished game ($3690, 2 stars, 11 ingots short of 3 stars), right after sending the survey and getting the code.",
+  "stoppedWhy": "I got a new personal best and I am done for now. The first 3 minutes were the fun part. In the middle of each game I am just waiting or guessing, there is nobody's score to beat and nothing I would show a friend. If a friend sent me a score to beat I would open it again.",
+  "lessonsFinished": 1,
+  "gamesFinished": 2,
+  "bestStars": 2,
+  "bestMoney": 3690,
+  "playedAnotherByChoice": true,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Real game, shift 3 pick screen, Splitter",
+      "what": "I put the Splitter on the lit belt tile like the tip said and the pay dropped to $0 in red. I could not see how to take it back: Undo, Turn and Back to the shelf were hidden under the pay line and the Start button.",
+      "gotOutHow": "Scrolled the bottom panel by luck, found Undo, tapped it."
+    },
+    {
+      "where": "First game, shifts 3 to 6",
+      "what": "Why every shift paid exactly $600 whatever I picked (second hopper, tuner on the crusher, nothing). The tip under my results kept saying the crusher was the problem.",
+      "gotOutHow": "Not in game 1. In game 2 I opened the Tips button (it had a dot), read that the furnace is usually the slowest thing and that a tuner makes a furnace take 2 seconds instead of 3, and put the tuner on the furnace: $888."
+    },
+    {
+      "where": "Pick screen, shifts 2 and 5, the card the foreman wants",
+      "what": "My tap on the Furnace card did nothing, the card is half off the bottom of the phone screen and the tap landed below the screen. I thought the game froze for a second.",
+      "gotOutHow": "Tapped the part of the card I could see."
+    },
+    {
+      "where": "Shift 4 pick screen, Scrap Hopper",
+      "what": "The card said 'On its own: $40 more a shift' (the only green number) but the second hopper made no extra money, and the old hopper just sat there 'stuck'.",
+      "gotOutHow": "Did not work it out. I stopped picking hoppers."
+    }
+  ],
+  "confused": [
+    "What a Splitter does: it sends things up and down, not on to the next machine, so it broke my line and nothing said that until I read it in the Tips later.",
+    "The 'what held you back' tip said the crusher held me back and to add a Tuner next to it, and it kept saying it after I had added a Tuner next to it. The real slow machine was the furnace.",
+    "'On its own: $40 more a shift' on the Scrap Hopper card, which was not true for my line either time.",
+    "In the lesson, 'Your line needs Hopper > Crusher > Furnace > Dock' had ticks on only two and the game still said 'Line closed, start the shift'.",
+    "Only the arrows on the belt told me which side of the crusher the furnace goes on, and the game never said so.",
+    "The results screen says 'this test version has no leaderboard' and a line below says 'No connection, so no board', and those are two different reasons.",
+    "I never found out why I only get one new part a shift and cannot keep two of the three offered cards."
+  ],
+  "annoyed": [
+    "Four shifts in a row of exactly $600 in the first game and nothing I could do about it.",
+    "Cards cut off at the bottom of the screen, and the card the foreman asks for is often the half-hidden one. The button list even pointed me at a spot below the screen.",
+    "Undo, Turn and Back to the shelf are hidden under the sticky 'This shift will pay' line and the Start button until you scroll.",
+    "The Start button glows orange even when the pay line says $0 or $18 in red.",
+    "No leaderboard and no share button, so my score has nobody to beat and nothing to show a friend.",
+    "A lot of small text in the bottom half of the phone. After the first lesson I stopped reading it.",
+    "The help that actually explained the machines (Tips) was hidden behind a small button and I only found it when I was already stuck."
+  ],
+  "pleased": [
+    "The first lesson: three shifts, $37 then $111 then $576, all in under 3 minutes, with all three stars at the end.",
+    "Gold bars coming out of the furnace with a burst of stars and +$24 numbers, and the score counter rolling up at 4x.",
+    "4x speed stays on from one shift to the next.",
+    "The pay preview ('This shift will pay $888 (up $288)'): moving a part and watching that number was the closest thing to a game.",
+    "Foreman Sal's one-line instructions in the lesson, one thing at a time.",
+    "The results screen: 'NEW PERSONAL BEST', '+$576 over your best', '11 ingots short of three stars' and the shift-by-shift bars.",
+    "The little moving pictures inside the Tips panel once I found it."
+  ],
+  "bestMoment": "Second game, shift 5: after reading in Tips that the furnace is the slow one, I put the Tuner under the furnace, the preview jumped from $600 to $888, and it was true when the shift ran.",
+  "worstMoment": "First game, shifts 3 to 6: doing what the tip told me, then getting exactly $600 again and again while the same tip kept repeating.",
+  "oneChange": "A board where I can see my friends' scores (or a card I can post) so a score has someone to beat.",
+  "completionCode": "5BRT-CJZ9"
+}

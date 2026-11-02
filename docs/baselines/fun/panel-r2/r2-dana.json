@@ -1,0 +1,72 @@
+{
+  "persona": "Dana",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory that turns junk into ingots and ships them to the box at the end. Fill the bar to get stars. The money you make is your score.",
+  "stoppedWhere": "Today's yard (the first real game), after shift 1 of 6: I had put the Crusher in, made $114 and was told my line still needed the Furnace. I went Menu, Save and go home, then did the feedback from the home screen.",
+  "stoppedWhy": "My lunch break was over, about 15 minutes in. I was not frustrated and not hooked either. Three easy lessons where I only tapped whatever lit up, then the real yard started with six shifts still to go, and I had to get back on the ward. I could see the next move was the Furnace, I just had no reason to hurry back to it.",
+  "lessonsFinished": 3,
+  "gamesFinished": 0,
+  "bestStars": 3,
+  "bestMoney": 3926,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Lesson 1, first build screen",
+      "what": "Sal said 'Tap this Conveyor, then the lit spot' and I could not tell which Conveyor: the glowing belt piece on the shelf or the word 'Conveyor' in the parts list below it",
+      "gotOutHow": "Guessed the glowing one on the shelf, which was right"
+    },
+    {
+      "where": "Lesson 1, shifts 1 and 2",
+      "what": "What an ingot is, and why the job bar stayed at 0 of 20 while my money went up",
+      "gotOutHow": "Only on shift 3, when Sal said the Furnace melts shards into ingots"
+    },
+    {
+      "where": "Lesson 2, turning the wrong-way belt piece",
+      "what": "Sal said tap it twice; after the first tap I could not see any change at all and thought it had not worked",
+      "gotOutHow": "Tapped a second time as told and it pointed at the box"
+    },
+    {
+      "where": "Lesson 3, last shift, selling the spare belt piece",
+      "what": "The 'Sell for $10' button was half covered by the 'This shift will pay' text",
+      "gotOutHow": "Aimed at the part I could see and it worked"
+    }
+  ],
+  "confused": [
+    "Every lesson card is headed 'Your first job', including the second and third lesson",
+    "'Tap this Conveyor': which one, the shelf piece or the word in the list",
+    "The goal says Ship 20 ingots but the first shift ships scrap and the bar stays at 0 of 20",
+    "'This shift will pay $37' shown before I had started, with '0 of 20 ingots' right under it",
+    "'You keep ONE part. The others go back on the truck.' What truck, and why only one",
+    "Red words on the machines ('stuck 13 s', 'waited 38 s') look like I did something wrong until lesson 3 explained the queue",
+    "'2 ingots a shift from here earns a star' reads as nonsense; I only half understood it at the end of lesson 3",
+    "Lesson names like 'Plates and a second feed' and 'Find the slowest machine' mean nothing before you have done them",
+    "The grey rocks and the junk piles on the yard look like parts but did nothing as far as I could tell",
+    "The 'spare Crusher' meant the one waiting on the shelf; I had to guess"
+  ],
+  "annoyed": [
+    "The row 'Your line needs Hopper > Crusher > Furnace > Dock' is cut off at the bottom on the first build screen and the red 'This shift will pay $0' crowds it",
+    "The Sell button on the last lesson shift was half hidden under the forecast text",
+    "For about 15 minutes every tap was lit up for me and I never made a single choice of my own",
+    "'This shift will pay $0' in red looks like an error when it is just the starting state",
+    "Buying a belt took $20 off my score ($1392 to $1372) with no pause; I was told, but it still made me wince",
+    "The way out of a game is Menu then 'Save and go home'; I would not have guessed that without being told"
+  ],
+  "pleased": [
+    "The forecast before pressing Start ('This shift will pay $576, up $465') so I always knew what I was getting",
+    "Sal's one line after each shift explains what happened ('The Furnace cannot keep up, so everything behind it waits')",
+    "The lit squares and pieces: I never missed a tap and never once felt stupid",
+    "Shifts are about 10 seconds and every lesson ended with three stars and a clear finish",
+    "The red hatched squares showing the traffic jam in front of the Furnace: a picture worth a paragraph",
+    "The 'What held you back' box in today's yard, and the 'On its own: $76 more a shift' line on the cards, the first real reason to choose",
+    "The rank on the home screen, 'Yard Hand, 9 stars, 6 more stars to Line Boss', gave me a small target",
+    "Selling the spare belt piece for $10 felt like a small win"
+  ],
+  "bestMoment": "Lesson 3, the shift after I added the Splitter, the second Furnace and the Tuner: the forecast said three stars, the line ran, the bar filled and I shipped 53 ingots for $1272 in one shift. It felt like I had actually fixed something.",
+  "worstMoment": "About 15 minutes in, at the end of lesson 3, realising I had not made one choice of my own and that the real game was only just starting, with six shifts still to go and my break gone.",
+  "oneChange": "Let me make a real choice in the first five minutes: after the first lesson stop lighting every tap and give me two or three parts to pick from with a hint like 'on its own: $76 more a shift' (the best thing in the game, and it only showed up at the very end), and keep today's yard short enough to finish on a break, like my daily puzzle.",
+  "completionCode": "6DT9-AY62"
+}

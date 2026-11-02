@@ -181,7 +181,33 @@ export function solve(
       if (!laid) continue;
       nextPool = pool.slice();
       for (const kind of chain.slice(0, laid)) nextPool.splice(nextPool.indexOf(kind), 1);
-    } else if (roll < 0.67) {
+    } else if (roll < 0.65) {
+      // a second machine on a branch: a Splitter on the belt behind one, its twin beside it, and belts round the twin back into the line
+      const held = pool.find((k) => k !== 'splitter' && FEED_ORDER.includes(k) && pool.includes('splitter'));
+      const twin = held ? c.machines.filter((m) => m.kind === held) : [];
+      if (!held || !twin.length) continue;
+      const m = twin[rng.int(twin.length)];
+      const bx = m.x - DIR_DX[m.dir],
+        by = m.y - DIR_DY[m.dir];
+      const behind = c.machines.find((q) => q.x === bx && q.y === by);
+      if (!behind || behind.kind !== 'conveyor') continue;
+      const side = ((m.dir + (rng.next() < 0.5 ? 1 : 3)) % 4) as Dir;
+      const sx = DIR_DX[side],
+        sy = DIR_DY[side];
+      const fx = DIR_DX[m.dir],
+        fy = DIR_DY[m.dir];
+      if (!open(c, bx + sx, by + sy) || !open(c, m.x + sx, m.y + sy) || !open(c, m.x + sx + fx, m.y + sy + fy)) continue;
+      c.machines.splice(c.machines.indexOf(behind), 1);
+      c.machines.push(
+        { id: nextPart++, kind: 'splitter', x: bx, y: by, dir: m.dir },
+        { id: nextPart++, kind: 'conveyor', x: bx + sx, y: by + sy, dir: m.dir },
+        { id: nextPart++, kind: held, x: m.x + sx, y: m.y + sy, dir: m.dir },
+        { id: nextPart++, kind: 'conveyor', x: m.x + sx + fx, y: m.y + sy + fy, dir: ((side + 2) % 4) as Dir },
+      );
+      nextPool = pool.slice();
+      nextPool.splice(nextPool.indexOf('splitter'), 1);
+      nextPool.splice(nextPool.indexOf(held), 1);
+    } else if (roll < 0.68) {
       // a machine one step back along its belt, which frees the cell ahead of it
       const bx = pick.x - DIR_DX[pick.dir],
         by = pick.y - DIR_DY[pick.dir];
@@ -258,6 +284,40 @@ export interface YardTree {
 const setKey = (parts: readonly MachineKind[]) => parts.slice().sort().join('+');
 const POLISH_PATHS = 12;
 const POLISH_FACTOR = 6;
+
+/**
+ * A player who never rearranges: each shift a card, then its parts in their best spots one at a time, and no more thought than that. Two
+ * ways of choosing the card: at random, or the one that adds most right now, which is what the cards themselves say. Works under any rules,
+ * which a scripted recipe does not.
+ */
+export function plainGame(seed: string, choose: 'random' | 'best'): PathResult {
+  const run = newRun(seed);
+  const rng = new Rng(`${seed}:fun:plain:${choose}`);
+  const free = run.layout.machines.filter((m) => m.kind === 'conveyor').length + run.bin.filter((m) => m.kind === 'conveyor').length;
+  const anchors: ReadonlySet<number> = new Set(run.layout.machines.filter((m) => m.kind === 'hopper' || m.kind === 'dock').map((m) => m.id));
+  let layout = run.layout;
+  let spare: MachineKind[] = [];
+  const picks: MachineKind[] = [];
+  const rounds: number[] = [];
+  const units: number[] = [];
+  let belts = 0;
+  for (let round = 1; round <= RULES.rounds; round++) {
+    const terms = shiftTerms(seed, round, run.job);
+    const tryCard = (kind: MachineKind) => solve({ ...layout, ...terms }, [...spare, ...cardParts(kind)], free, 0, 0, rng, anchors, run.job);
+    const offers = draftOffers(seed, round);
+    const kind = choose === 'random' ? offers[rng.int(offers.length)] : offers.map((k) => ({ k, v: tryCard(k).value })).sort((a, b) => b.v - a.v)[0].k;
+    const p = tryCard(kind);
+    layout = p.layout;
+    spare = p.spare;
+    picks.push(kind);
+    rounds.push(p.earned);
+    units.push(run.job ? p.shipped[run.job.material] : 0);
+    belts = Math.max(belts, p.belts - free);
+  }
+  const score = rounds.reduce((a, b) => a + b, 0) - belts * RULES.beltCost;
+  const shipped = units.reduce((a, b) => a + b, 0);
+  return { picks, rounds, units, score, stars: run.job ? starsFor(run.job, shipped) : 0, belts };
+}
 
 /** Search every set of parts on a yard and add up every path through its offers. `budget` is the annealing steps per set. */
 export function yardTree(seed: string, budget: number, keepPaths = false): YardTree {

@@ -133,7 +133,15 @@ export function analyseRound(layout: Layout, result: RunResult, nextRound: numbe
       };
   }
   // 4. a machine held the line
-  const top = ranked.find((r) => r.kind === 'saturated' && r.ticks >= minHeld);
+  let top = ranked.find((r) => r.kind === 'saturated' && r.ticks >= minHeld);
+  // a machine waiting on the one ahead of it is not what holds the line: follow the queue to its head (the first panel: "the crusher held
+  // you back", with a Furnace the limit and a Tuner beside the Crusher doing nothing)
+  for (let i = 0; top && i < W * H; i++) {
+    const next = blocker(top.cell);
+    const ahead = next?.kind === 'saturated' ? ranked.find((r) => r.kind === 'saturated' && r.cell === next.cell && r.ticks >= minHeld) : undefined;
+    if (!ahead || ahead.cell === top.cell) break;
+    top = ahead;
+  }
   if (top) {
     const m = grid[top.cell]!;
     if (m.kind === 'conveyor')

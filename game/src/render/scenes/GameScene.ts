@@ -402,20 +402,10 @@ export class GameScene extends Phaser.Scene {
       tid: 'lesson-done',
       lead: [h('div', { tid: 'lesson-done-text' }, t(lesson.doneText))],
       choices: [
-        ...(next
-          ? [
-              {
-                label: t('lesson.doneNext', { title: t(next.title) }),
-                tid: 'lesson-next',
-                primary: true,
-                run: () => this.scene.start('Game', { seed: next.seed, fresh: true }),
-              },
-            ]
-          : []),
         {
           label: t('lesson.doneDaily'),
           tid: 'lesson-daily',
-          primary: !next,
+          primary: true, // a real game next: the first decision a player gets to make is there, not in another lesson
           run: () => {
             audio.unlock();
             void todaysYard(verifierUrl()).then((seed) => {
@@ -423,6 +413,15 @@ export class GameScene extends Phaser.Scene {
             });
           },
         },
+        ...(next
+          ? [
+              {
+                label: t('lesson.doneNext', { title: t(next.title) }),
+                tid: 'lesson-next',
+                run: () => this.scene.start('Game', { seed: next.seed, fresh: true }),
+              },
+            ]
+          : []),
         ...(isTestEdition() ? [{ label: t('test.feedback'), tid: 'lesson-feedback', run: () => openFeedback(this, () => this.scene.start('Title')) }] : []),
         { label: t('lesson.doneHome'), tid: 'lesson-home', run: () => this.scene.start('Title') },
       ],

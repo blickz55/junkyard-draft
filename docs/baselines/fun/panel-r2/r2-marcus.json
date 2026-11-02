@@ -1,0 +1,69 @@
+{
+  "persona": "Marcus",
+  "device": "phone",
+  "goalInOwnWords": "Build a little production line out of the parts you pick so scrap gets crushed, melted into ingots and shipped to the dock. Ship 160 ingots in six shifts for three stars, and the money you make is your score.",
+  "stoppedWhere": "The results screen after my second game (three stars, $3986), right after sending the survey and getting the completion code.",
+  "stoppedWhy": "I got the three stars I was chasing. The only thing left is the same yard again, and I already know the first four shifts by heart, so I am done for this break. Maybe a new yard another day, but nothing is pulling me back tonight.",
+  "lessonsFinished": 0,
+  "gamesFinished": 2,
+  "bestStars": 3,
+  "bestMoney": 3986,
+  "playedAnotherByChoice": true,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Pick screens in shifts 2, 4 and 5, third part card",
+      "what": "The third card sits half off the bottom of the phone screen, and the spot I aimed at was below the edge, so my first tap did nothing and I did not know why",
+      "gotOutHow": "Tapped the thin sliver of the card that showed at the very bottom"
+    },
+    {
+      "where": "Build screen with a part picked (shifts 3 and 4)",
+      "what": "Could not find Undo, Redo, Turn, Back to the shelf or Buy a belt: they are hidden underneath the This shift will pay bar, and the screen's button list did not show them",
+      "gotOutHow": "Scrolled the lower panel by accident and found them"
+    },
+    {
+      "where": "Shifts 3 and 4 (Splitter, second Crusher)",
+      "what": "Could not make the line faster. The Splitter cut the line to $0 because it sends stuff up and down, not forward, and nothing says where its two outputs should go. A second crusher in a row made it $24 worse",
+      "gotOutHow": "Undo both. Watched the furnace glow non-stop and the crusher sit backed up, decided the furnace was the slow part, and the Tuner next to the furnace in shift 5 fixed it"
+    },
+    {
+      "where": "Second game, shift 3 (New offers)",
+      "what": "Wanted New offers but the layout had moved from last game and my tap landed on the Furnace card and picked a part I could not use",
+      "gotOutHow": "Left the useless Furnace on the shelf and ran the shift; got my re-roll a shift later after scrolling to find the button"
+    }
+  ],
+  "confused": [
+    "The line 7 ingots a shift from here earns a star: I only decoded it on the third read (it is the pace I need to hit the next star).",
+    "WHAT HELD YOU BACK said the crusher held me back for 37 of 80 seconds while the crusher card says it waited 25 s, and the furnace is the slower machine anyway.",
+    "The red labels under the machines (waited 25 s, waited 37 s, stuck 12 s) run into each other and are clipped, so I could not tell which belongs to which machine.",
+    "The Last shift note changes the moment I place a part, even though last shift has not changed.",
+    "What the Splitter is for and where its outputs go: it sends left and right in turn, not forward.",
+    "The shelf keeps filling up with belt pieces and a Buy a belt button, but I never found out what a belt gets me.",
+    "No connection, so no board on the results, while the line under it says this test version has no leaderboard.",
+    "Nothing lights up for the Tuner (tap a spot right next to a machine); I had to guess a cell by eye."
+  ],
+  "annoyed": [
+    "Three identical $600 shifts in a row where there was nothing useful to do but press start.",
+    "The tips sent me the wrong way twice: add a splitter and a second crusher when the furnace was the choke, and add a hopper on the last shift when it changed nothing.",
+    "Part cards cut off at the bottom of the screen and buttons hidden under the bottom bar on a phone.",
+    "The money in the top bar loses its dollar sign on the left while it counts up.",
+    "Play again gives the same offers and the same first two shifts to the dollar, so I clicked through $114 and $600 again.",
+    "New offers sits below the cards, off screen, and moves between shifts."
+  ],
+  "pleased": [
+    "Straight in: Play today's yard, Start the job, and I was building within ten seconds, no lesson needed.",
+    "Sal says one thing at a time (Pick ONE part, tap the belt, Start the shift) and the part drops in facing the right way by itself.",
+    "The This shift will pay forecast with up/down in dollars, and At this rate: stars and ingots, let me test an idea before I commit to it.",
+    "Undo and Redo, and the 4x speed that it remembers.",
+    "The counters on each machine (40 out, 39 made, shipped) look like a real line board, and naming the bottleneck is the right idea.",
+    "The Tuner: next to a machine, one second faster, and the forecast proved it.",
+    "11 ingots short of three stars is a real hook, and getting the third star on the second go felt good."
+  ],
+  "bestMoment": "Putting the Tuner next to the furnace, watching the forecast jump $288 to 161 of 160 ingots, then seeing All three stars in the bag at the end of the second game.",
+  "worstMoment": "Realising after shift 4 of the first game that I had spent two picks on a Splitter and a second crusher because the tips told me to, and that the forecast said the second crusher made things worse.",
+  "oneChange": "Make the advice name the machine that is really slow (the furnace, not the crusher) and tell me early what fixes it, so shifts 3 and 4 are not dead and I do not need a whole game to learn what one honest line could have told me.",
+  "completionCode": "GUUP-F2GH"
+}

@@ -537,7 +537,17 @@ export class GamePanel {
           small: true,
         });
     const replayBanner = s.replayLabel ? h('span', { class: 'jd-replay-banner jd-blue', tid: 'replay-banner' }, t('game.recordingBanner')) : null;
-    this.side.append(this.steps(s, replayBanner ?? tipsBtn), this.coachEl, this.aboutEl);
+    const tools =
+      r.phase === 'build' && s.mode === 'build' && !s.replayLabel
+        ? h(
+            'div',
+            { class: 'jd-row jd-steps-tools', style: 'gap:0.3em' },
+            btn(t('game.undo'), 'undo', () => this.actions.undo(), { small: true, disabled: !s.canUndo }),
+            btn(t('game.redo'), 'redo', () => this.actions.redo(), { small: true, disabled: !s.canRedo }),
+            tipsBtn,
+          )
+        : null;
+    this.side.append(this.steps(s, tools ?? replayBanner ?? tipsBtn), this.coachEl, this.aboutEl);
     if (s.challenge) {
       // PLAN-v4 0.7.1: the challenger's earnings, shift by shift, next to yours
       const c = s.challenge;
@@ -799,12 +809,6 @@ export class GamePanel {
               title: t('game.buyBeltTitle'),
             })
           : h('span', {}),
-        h(
-          'div',
-          { class: 'jd-row', style: 'gap:0.4em' },
-          btn(t('game.undo'), 'undo', () => this.actions.undo(), { small: true, disabled: !s.canUndo }),
-          btn(t('game.redo'), 'redo', () => this.actions.redo(), { small: true, disabled: !s.canRedo }),
-        ),
       ),
     );
     this.side.append(
@@ -1250,10 +1254,20 @@ export const GAME_STYLE = `
   #ui .jd-hud-scoreblock { flex: 0 0 auto; } /* the score stays whole */
   #ui .jd-job { order: 5; flex: 1 1 100%; }
   #ui .jd-banner-foreman { display: none; }
-  #ui .jd-offer { padding: 0.3em 0.55em; margin-top: 0.35em; }
+  #ui .jd-offer { padding: 0.25em 0.55em; margin-top: 0.3em; gap: 0.55em; }
+  #ui .jd-offer-name { font-size: 1.0625em; }
+  #ui .jd-offer-blurb { font-size: 0.75em; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  #ui .jd-offer-badge { margin-top: 0; }
+  #ui .jd-sel { padding: 0.3em 0.5em; align-items: center; margin-top: 0.3em; }
+  #ui .jd-sel img { width: 2.4em; height: 2.4em; }
+  #ui .jd-sel .jd-dim { display: none; }
+  #ui .jd-sel .jd-row { margin-top: 0.15em !important; }
+  #ui .jd-coach { margin-top: 0.3em; padding: 0.3em 0.5em; }
+  #ui .jd-coach-text { font-size: 0.9375em; }
+  #ui .jd-run { font-size: 1.1875em; padding: 0.35em 0; }
   #ui .jd-board > .jd-inspect { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto; transform: none !important; } /* a sheet: the piece stays in view */
   #ui .jd-board > .jd-inspect.jd-inspect-top { top: 0 !important; bottom: auto; }
-  #ui .jd-offer img { width: 3em; height: 3em; }
+  #ui .jd-offer img { width: 2.5em; height: 2.5em; }
   #ui .jd-side { padding: 0.5em 0.6em; border-radius: 0.8em 0.8em 0 0; }
   #ui .jd-banner { padding: 0.3em 0.6em; gap: 0.3em 0.5em; }
   #ui .jd-run-row { position: sticky; bottom: -0.5em; padding: 0.4em 0; background: rgba(36, 32, 26, 0.97); z-index: 1; }

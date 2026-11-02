@@ -1,0 +1,45 @@
+PLAYTEST: 3 testers, 3 answered the survey, about 17.7 minutes of play for the middle tester
+
+HOW FAR THEY GOT
+  Opened the game               3  100 %
+  Started lesson 1              2   67 %
+  Finished lesson 1             2   67 %
+  Finished lesson 2             1   33 %
+  Finished lesson 3             1   33 %
+  Started a real game           3  100 %
+  Finished a real game          2   67 %
+  Played again after that       2   67 %
+  Came back on a later day      0    0 %
+  Answered the survey           3  100 %
+
+WHERE THEY STOPPED
+     2  Finished a game, then left
+     1  Today's yard, shift 2
+
+SLOWEST LESSON STEPS (the middle tester)
+    31 s  Lesson 1, shift 1: place the conveyor (2 testers)
+    23 s  Lesson 3, shift 2: start the shift (1 tester)
+    22 s  Lesson 3, shift 1: start the shift (1 tester)
+    21 s  Lesson 3, shift 4: start the shift (1 tester)
+    20 s  Lesson 2, shift 1: turn the belt (1 tester)
+
+SURVEY
+  How clear: 3.7 of 5
+  How fun: 3 of 5
+  Back tomorrow: yes 0, maybe 3, no 0
+  Would pay: yes 0, maybe 0, no 3
+
+  6DT9-AY62: clear 4, fun 3, back maybe, pay no
+    Played 14.1 min. Stopped: Today's yard, shift 2
+    Goal: Build a little factory that turns junk into ingots and ships them to the box at the end. Fill the bar to get stars. The money you make is your score.
+    Worst: Every lesson card said Your first job, even the third one. The red words on the machines like stuck and waited looked like I did something wrong. The line about ingots a shift from here earns a star made no sense to me. Some words at the bottom of the screen were cut off on my phone. And for about 15 minutes I only tapped whatever lit up and never decided anything myself.
+
+  5BRT-CJZ9: clear 3, fun 3, back maybe, pay no
+    Played 17.7 min. Stopped: Finished a game, then left
+    Goal: build a little factory line from scrap to gold bars and make as much money as you can in 6 shifts. enough bars gets you stars
+    Worst: the tip under my results kept saying fix the crusher with a tuner and it was the furnace the whole time, i only found that out in a hidden tips panel. 4 shifts in a row of exactly the same money and no idea why. some cards cut off at the bottom of the screen and undo hidden under the start button. no leaderboard so nobody to beat
+
+  GUUP-F2GH: clear 4, fun 3, back maybe, pay no
+    Played 18.2 min. Stopped: Finished a game, then left
+    Goal: Build a little production line out of the parts you pick, scrap in, crushed, melted into ingots, shipped to the dock. Ship 160 ingots in six shifts for three stars. The money is your score.
+    Worst: The tips kept blaming the crusher when the furnace was the slow one, and following them cost me two picks. Buttons hidden under the bottom bar and cards cut off at the bottom of my screen, I had to scroll to find undo. Three identical dead shifts in a row with nothing to do. The splitter does not send things forward and nothing shows how to lay it out. No connection so no board made me think my signal was bad.

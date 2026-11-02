@@ -11,8 +11,7 @@ import { RULES, TRIAL } from '../game/src/sim/rules';
 import { yardFor } from '../game/src/sim/yard';
 import { Rng } from '../game/src/sim/rng';
 import { playSeed } from './autoplay-lib';
-import { plainLine } from './job-study';
-import { cardOf, printCard, yardTree, type TierGame, type YardResult, type Card } from './fun-lib';
+import { cardOf, plainGame, printCard, yardTree, type TierGame, type YardResult, type Card } from './fun-lib';
 import { override } from './balance-lib';
 import { starsFor } from '../game/src/sim/yard';
 
@@ -75,6 +74,14 @@ const TRIALS: Variant[] = [
   },
   { label: 'head easy buyer', trial: { headStart: 1, splitterAhead: 1, sideEntry: 1, buyerFrom: 4 } },
   { label: 'head easy ramp buyer', trial: { headStart: 1, splitterAhead: 1, sideEntry: 1, rampFrom: 4, buyerFrom: 4 } },
+  { label: 'rich', trial: { headStart: 1, splitterAhead: 1, sideEntry: 1 }, rules: { hopperPeriod: 1, 'process.crusher': 1 } },
+  { label: 'rich kits', trial: { kits: 1, headStart: 1, splitterAhead: 1, sideEntry: 1 }, rules: { ...KIT_DEAL, hopperPeriod: 1, 'process.crusher': 1 } },
+  { label: 'rich buyer', trial: { headStart: 1, splitterAhead: 1, sideEntry: 1, buyerFrom: 4 }, rules: { hopperPeriod: 1, 'process.crusher': 1 } },
+  {
+    label: 'rich slow furnace',
+    trial: { headStart: 1, splitterAhead: 1, sideEntry: 1 },
+    rules: { hopperPeriod: 1, 'process.crusher': 1, 'process.furnace': 4 },
+  },
   { label: 'kits', trial: { kits: 1 }, rules: KIT_DEAL },
   { label: 'head kits', trial: { kits: 1, headStart: 1 }, rules: KIT_DEAL },
   { label: 'head easy kits', trial: { kits: 1, headStart: 1, splitterAhead: 1, sideEntry: 1 }, rules: KIT_DEAL },
@@ -109,10 +116,13 @@ function tierGame(seed: string, tries: number, reach: number): TierGame {
 }
 function measure(seed: string, budget: number, deep: boolean, keepPaths = false): YardResult {
   const tree = yardTree(seed, budget, keepPaths);
-  const job = yardFor(seed).job!;
-  const asPlain = (p: { score: number; shipped: number }): TierGame => ({ score: p.score, units: p.shipped, stars: starsFor(job, p.shipped) });
-  // a novice gets the recipe going two shifts late and adds nothing; a casual player has it from shift 2 and adds nothing
-  const tiers = { novice: asPlain(plainLine(seed, 2)), casual: asPlain(plainLine(seed, 0)), competent: tierGame(seed, 30, 3) };
+  const asPlain = (p: { score: number; units: number[]; stars: number }): TierGame => ({
+    score: p.score,
+    units: p.units.reduce((a, b) => a + b, 0),
+    stars: p.stars,
+  });
+  // a novice takes any card and drops it in its best spot; a casual player takes the card that adds most right now; neither rearranges
+  const tiers = { novice: asPlain(plainGame(seed, 'random')), casual: asPlain(plainGame(seed, 'best')), competent: tierGame(seed, 30, 3) };
   return { tree, tiers, deeper: deep ? yardTree(seed, budget * 8).best.score : undefined };
 }
 

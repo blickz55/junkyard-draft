@@ -104,3 +104,17 @@ test('the pool filter follows the rules: experimental kinds never, tiered kinds 
   assert.equal(inPool('tuner', 3), true);
   assert.equal(inPool('hopper', 1), true);
 });
+
+test('a queue is blamed on its head: with a Crusher waiting on a Furnace, the Furnace held the line', () => {
+  const machines = [
+    { id: 1, kind: 'hopper', x: 0, y: 2, dir: 0 },
+    { id: 2, kind: 'crusher', x: 1, y: 2, dir: 0 },
+    { id: 3, kind: 'furnace', x: 2, y: 2, dir: 0 },
+    { id: 4, kind: 'conveyor', x: 3, y: 2, dir: 0 },
+    { id: 5, kind: 'dock', x: 4, y: 2, dir: 0 },
+  ] as const;
+  const layout: Layout = { width: 8, height: 6, machines: machines.map((m) => ({ ...m })) };
+  const b = analyseRound(layout, runLayout(layout), 3);
+  assert.equal(b.kind, 'saturated');
+  assert.equal(b.machine?.kind, 'furnace');
+});

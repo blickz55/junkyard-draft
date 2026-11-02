@@ -11,8 +11,7 @@ import { RULES, TRIAL } from '../game/src/sim/rules';
 import { yardFor, type Job } from '../game/src/sim/yard';
 import { Rng } from '../game/src/sim/rng';
 import { playSeed } from './autoplay-lib';
-import { plainLine } from './job-study';
-import { yardTree, median, scale, type PathResult, type YardTree } from './fun-lib';
+import { plainGame, yardTree, median, scale, type PathResult, type YardTree } from './fun-lib';
 import { override } from './balance-lib';
 
 /** What one kind of player earned, shift by shift. */
@@ -159,9 +158,13 @@ export function read(yards: readonly Dumped[], o: Orders): Reading {
 
 function dumpYard(seed: string, budget: number): Dumped {
   const tree = yardTree(seed, budget, true);
-  const plain = (delay: number): Played => ({ rounds: plainLine(seed, delay).rounds });
   const { report } = playSeed(seed, new Rng(`${seed}:fun:30`), 30, { reach: { final: 3, pick: 3 } });
-  return { tree, novice: plain(2), casual: plain(0), competent: { rounds: report.rounds } };
+  return {
+    tree,
+    novice: { rounds: plainGame(seed, 'random').rounds },
+    casual: { rounds: plainGame(seed, 'best').rounds },
+    competent: { rounds: report.rounds },
+  };
 }
 
 if (!isMainThread && parentPort) {
