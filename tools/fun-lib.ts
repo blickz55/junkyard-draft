@@ -5,12 +5,12 @@
  * single bot's game can: what each pick was really worth. The search is local and the tree knows the offers ahead, as a player does on a
  * second try at a day's yard. Nothing here is player-facing and nothing under game/src may import it.
  */
-import { DIR_DX, DIR_DY, RULES, TRIAL } from '../game/src/sim/rules';
+import { DIR_DX, DIR_DY, RULES } from '../game/src/sim/rules';
 import { apply, cardParts, draftOffers, newRun, shiftTerms, type Action } from '../game/src/sim/run';
 import { analyseRound } from '../game/src/sim/bottleneck';
 import { createSim, step } from '../game/src/sim/sim';
 import { Rng } from '../game/src/sim/rng';
-import { starsFor, yardFor, type Job } from '../game/src/sim/yard';
+import { starsFor, truckLoad, type Job } from '../game/src/sim/yard';
 import { cardGain, type Placed } from '../game/src/render/estimate';
 import { dropActions } from '../game/src/render/placement';
 import { recipeLine } from './autoplay-lib';
@@ -414,10 +414,9 @@ export function yardTree(seed: string, budget: number, keepPaths = false): YardT
     if (known) return known;
     const price = RULES.beltCost / Math.max(1, rounds - held.length + 1);
     const base = { ...(parent ? parent.layout : run.layout), ...shiftTerms(Math.max(1, held.length), run.job, 0) };
-    // on trial: the scrap truck's Hopper, as `next` lands it in a game (game/src/sim/run.ts), unless something already stands there
-    const drop = TRIAL.delivery && held.length === TRIAL.delivery ? yardFor(seed).delivery : undefined;
-    if (drop && !base.machines.some((m) => m.x === drop.x && m.y === drop.y))
-      base.machines = [...base.machines, { id: 9999, kind: 'hopper', x: drop.x, y: drop.y, dir: drop.dir }];
+    // on trial: the scrap truck's load, as `next` lands it in a game (game/src/sim/run.ts)
+    const load = truckLoad(seed, held.length, base);
+    if (load.length) base.machines = [...base.machines, ...load.map((m, i) => ({ id: 9990 + i, ...m }))];
     const shelf = [...(parent?.spare ?? []), ...(added ? cardParts(added, run.job, seed) : [])];
     let p = solve(base, shelf, free, price, parent ? budget : 0, rng, anchors, run.job);
     if (parent && added) {

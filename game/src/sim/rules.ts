@@ -114,6 +114,8 @@ export const RULES = {
 export const TRIAL: Record<string, number> = {
   /** n: a free Hopper is dropped on the yard as shift n starts, at a spot the yard chose apart from the line (yard.ts `delivery`); 0 never */
   delivery: 0,
+  /** 1: the truck's Hopper comes with a Crusher in front of it, a whole feed whose shards need somewhere to go */
+  deliveryKit: 0,
 };
 
 export type YardVariant = 'standard' | 'twoMakers' | 'tuned';

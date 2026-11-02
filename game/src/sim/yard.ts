@@ -31,8 +31,8 @@ export interface Yard {
   firstPhase: 'draft' | 'build';
   /** how the line starts, when not as it stands (RULES.yard.variants) */
   variant?: Exclude<YardVariant, 'standard'>;
-  /** on trial (TRIAL.delivery): where a free Hopper lands as its shift starts, and the way it faces */
-  delivery?: { x: number; y: number; dir: Dir };
+  /** on trial (TRIAL.delivery): where a free Hopper lands as its shift starts, and the way it faces; with TRIAL.deliveryKit, its Crusher */
+  delivery?: { x: number; y: number; dir: Dir; crusher?: { x: number; y: number; dir: Dir } };
 }
 
 export const TUTORIAL_SEED = 'tutorial-1';
@@ -222,21 +222,45 @@ export function yardFor(seed: string): Yard {
   return TRIAL.delivery ? withDelivery(seed, yard) : yard;
 }
 
-/** On trial: a spot two cells or more from every machine, off the junk, facing a free cell where a Crusher could stand. */
+/**
+ * On trial: a spot two cells or more from every machine, off the junk, facing a free cell where a Crusher could stand; with
+ * TRIAL.deliveryKit the Crusher stands there, as far from the line, facing a free cell of its own.
+ */
 function withDelivery(seed: string, yard: Yard): Yard {
   const rng = new Rng(`${seed}:delivery`);
   const taken = new Set([...yard.machines.map((m) => cell(m.x, m.y)), ...yard.rubble]);
-  const spots: { x: number; y: number; dir: Dir }[] = [];
+  const open = (x: number, y: number) => inside(x, y) && !taken.has(cell(x, y));
+  const apart = (x: number, y: number) => !yard.machines.some((m) => Math.abs(m.x - x) + Math.abs(m.y - y) < 2);
+  const spots: NonNullable<Yard['delivery']>[] = [];
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
-      if (taken.has(cell(x, y)) || yard.machines.some((m) => Math.abs(m.x - x) + Math.abs(m.y - y) < 2)) continue;
+      if (!open(x, y) || !apart(x, y)) continue;
       for (const d of [0, 1, 2, 3] as Dir[]) {
-        const fx = x + DIR_DX[d],
-          fy = y + DIR_DY[d];
-        if (inside(fx, fy) && !taken.has(cell(fx, fy))) spots.push({ x, y, dir: d });
+        const cx = x + DIR_DX[d],
+          cy = y + DIR_DY[d];
+        if (!open(cx, cy)) continue;
+        if (!TRIAL.deliveryKit) {
+          spots.push({ x, y, dir: d });
+          continue;
+        }
+        if (!apart(cx, cy)) continue;
+        for (const c of [0, 1, 2, 3] as Dir[]) {
+          if (c === (d + 2) % 4) continue; // never back into its Hopper
+          if (open(cx + DIR_DX[c], cy + DIR_DY[c])) spots.push({ x, y, dir: d, crusher: { x: cx, y: cy, dir: c } });
+        }
       }
     }
   return spots.length ? { ...yard, delivery: spots[rng.int(spots.length)] } : yard;
+}
+
+/** On trial: what the scrap truck lands as shift `round` starts on this yard, or nothing; all of it, or nothing when a spot is taken. */
+export function truckLoad(seed: string, round: number, layout: Pick<Layout, 'machines' | 'rubble' | 'width'>): Omit<Machine, 'id'>[] {
+  const d = TRIAL.delivery && round === TRIAL.delivery ? yardFor(seed).delivery : undefined;
+  if (!d) return [];
+  const load: Omit<Machine, 'id'>[] = [{ kind: 'hopper', x: d.x, y: d.y, dir: d.dir }];
+  if (d.crusher) load.push({ kind: 'crusher', ...d.crusher });
+  const free = (m: Omit<Machine, 'id'>) => !layout.machines.some((q) => q.x === m.x && q.y === m.y) && !layout.rubble?.includes(m.y * layout.width + m.x);
+  return load.every(free) ? load : [];
 }
 
 /**

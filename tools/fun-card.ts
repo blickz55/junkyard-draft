@@ -43,9 +43,36 @@ export const RUINED: Variant[] = [
 // rules on trial: { label, rules: { 'TRIAL.<name>': 1, 'job.<path>': n } }; none at present (what was tried and how it did is in docs/DESIGN.md)
 const TRIALS: Variant[] = [
   // the seventh to tenth panels: the second half asks nothing new. A Hopper dropped on the yard as shift 4 starts, to be fed into the line
-  { label: 'scrap delivery at shift 3', rules: { 'TRIAL.delivery': 3 } },
   { label: 'scrap delivery at shift 4', rules: { 'TRIAL.delivery': 4 } },
-  { label: 'scrap delivery at shift 5', rules: { 'TRIAL.delivery': 5 } },
+  // blind comparison 4: chosen three times in four, but the Hopper alone never paid. With its Crusher, the question is where the shards go
+  { label: 'hopper and crusher at shift 3', rules: { 'TRIAL.delivery': 3, 'TRIAL.deliveryKit': 1 } },
+  { label: 'hopper and crusher at shift 4', rules: { 'TRIAL.delivery': 4, 'TRIAL.deliveryKit': 1 } },
+  {
+    label: 'hopper and crusher at shift 4 with late orders +10 %',
+    rules: {
+      'TRIAL.delivery': 4,
+      'TRIAL.deliveryKit': 1,
+      'job.orders.ingot.3': 2370,
+      'job.orders.ingot.4': 3520,
+      'job.orders.ingot.5': 5060,
+      'job.orders.plate.3': 2090,
+      'job.orders.plate.4': 3300,
+      'job.orders.plate.5': 4730,
+    },
+  },
+  {
+    label: 'hopper and crusher at shift 4 with late orders +15 %',
+    rules: {
+      'TRIAL.delivery': 4,
+      'TRIAL.deliveryKit': 1,
+      'job.orders.ingot.3': 2470,
+      'job.orders.ingot.4': 3680,
+      'job.orders.ingot.5': 5290,
+      'job.orders.plate.3': 2190,
+      'job.orders.plate.4': 3450,
+      'job.orders.plate.5': 4950,
+    },
+  },
 ];
 const VARIANTS: Variant[] = [...RUINED, ...TRIALS];
 

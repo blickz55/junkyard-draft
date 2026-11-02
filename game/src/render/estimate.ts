@@ -192,6 +192,39 @@ function idleFeed(l: Layout, belts: number, dock: boolean): Try {
   return best;
 }
 
+/** On trial (TRIAL.deliveryKit): the card's machine in front of a Crusher that sends its shards nowhere, its load sold or carried on. */
+function idleMaker(l: Layout, kind: MachineKind, belts: number, dock: boolean): Try {
+  let best = NOTHING;
+  const map = routeMap(l);
+  const open = (px: number, py: number) => !blocked(l, px, py) && !at(l, px, py);
+  for (const c of l.machines) {
+    if (c.kind !== 'crusher') continue;
+    const x = c.x + DIR_DX[c.dir],
+      y = c.y + DIR_DY[c.dir];
+    if (!open(x, y)) continue;
+    for (const dir of ALL) {
+      if (dir === (c.dir + 2) % 4) continue; // never head-on back into the Crusher
+      const maker = part(kind, x, y, dir);
+      const ax = x + DIR_DX[dir],
+        ay = y + DIR_DY[dir];
+      const tries: Machine[][] = [];
+      const route = open(ax, ay) ? routeFrom(l, map, ax, ay) : [];
+      if (route.length <= belts && !route.some((r) => r.x === x && r.y === y)) tries.push(route);
+      if (dock && open(ax, ay)) {
+        tries.push([part('dock', ax, ay, 0, -7)]);
+        const bx = ax + DIR_DX[dir],
+          by = ay + DIR_DY[dir];
+        if (belts > 0 && open(bx, by)) tries.push([part('conveyor', ax, ay, dir, -8), part('dock', bx, by, 0, -7)]);
+      }
+      for (const t of tries) {
+        const earned = worth(l, [...l.machines, maker, ...t]);
+        if (earned > best.earned) best = { earned, plan: [maker, ...t].map(({ kind, x, y, dir }) => ({ kind, x, y, dir })) };
+      }
+    }
+  }
+  return best;
+}
+
 /**
  * A twin on a branch: a Splitter behind a machine, the twin at the Splitter's side, and its load round into whatever takes it, by at most two
  * belts. A yard's first line has no belt behind its machine, so the machine can step along the belt to make the room: the card's own machine
@@ -280,7 +313,9 @@ export function cardGain(layout: Layout, parts: readonly MachineKind[], belts = 
   const twin = (kind: MachineKind) => {
     const b = branch(layout, kind, belts, dock);
     const s = single(layout, kind);
-    return b.earned > s.earned ? b : s;
+    const one = b.earned > s.earned ? b : s;
+    const o = TRIAL.deliveryKit ? idleMaker(layout, kind, belts, dock) : NOTHING;
+    return o.earned > one.earned ? o : one;
   };
   const best = !kit ? single(layout, parts[0]) : parts[0] === 'hopper' ? feed(layout, belts, dock) : twin(parts[0]);
   const gain = Math.floor(best.earned) - base;
