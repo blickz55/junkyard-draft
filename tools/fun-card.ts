@@ -26,7 +26,18 @@ export const RUINED: Variant[] = [
     rules: Object.fromEntries(['ingot', 'plate'].flatMap((m) => [0, 1, 2, 3, 4, 5].map((i) => [`job.orders.${m}.${i}`, 1]))),
   },
   { label: 'two-second shifts', rules: { ticksPerRound: 12 } },
-  { label: 'every yard alike', rules: { 'yard.shapes.bend': 0, 'yard.shapes.zigzag': 0, 'yard.rubbleMin': 0, 'yard.rubbleMax': 0, 'job.weights.plate': 0 } },
+  {
+    label: 'every yard alike',
+    rules: {
+      'yard.shapes.bend': 0,
+      'yard.shapes.zigzag': 0,
+      'yard.rubbleMin': 0,
+      'yard.rubbleMax': 0,
+      'job.weights.plate': 0,
+      'yard.variants.twoMakers': 0,
+      'yard.variants.tuned': 0,
+    },
+  },
 ];
 /** Rules on trial: nothing just now. A trial goes in `game/src/sim` behind a value here, and comes out with the result. */
 const TRIALS: Variant[] = [];

@@ -71,7 +71,7 @@ import { openHowTo } from './HowTo';
 import { orderRow, recipeRow, starRow } from './JobCard';
 import { choiceDialog } from './choice';
 import { LESSONS } from '../content/lessons';
-import { jobFlavour, jobLine, starMarks } from '../content/job';
+import { jobFlavour, jobLine, starMarks, yardNote } from '../content/job';
 import { rankLine, rankNext } from '../content/ranks';
 
 export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
@@ -256,6 +256,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
       ...(job.orders ? [orderRow(job)] : []),
       starRow(job),
       ...(job.orders ? [] : [recipeRow(job)]),
+      ...[yardNote(seed, job)].filter((n) => n).map((n) => h('div', { class: 'jd-amber', tid: 'home-yard-note', style: 'font-size:0.8125em' }, n)),
     );
     // the number to beat, worked out a shift at a time once Home is up
     if (job.orders)

@@ -33,7 +33,7 @@ test('the last star lands in the shift of the order that earned it', () => {
 });
 
 test('the search reads the rules as a shift does, and never hands back less than it started from', () => {
-  const run = newRun('fun-test-1');
+  const run = newRun('fun-test-3'); // a yard that opens as it stood before rules v9: the Furnace is the slowest machine
   assert.equal(evaluate(run.layout).earned, runLayout(run.layout).earned);
   const free = run.layout.machines.filter((m) => m.kind === 'conveyor').length + 2;
   const start = evaluate(run.layout).earned;

@@ -6,7 +6,8 @@
 /** v6 (the fun card and the agent panels, 2026-11-02): a job's yard opens with its line running; orders each shift, each one filled raising every price; a Hopper card brings a Crusher and the job's machine a Splitter; a Splitter sends things ahead as well as to the sides; machines take from the sides as well as from behind; a second buyer from shift 4. */
 /** v7 (2026-11-02): the orders priced against players who follow the lit spots: a novice's first star, Sal's two, and a third that takes more than following them. */
 /** v8 (the third panel, 2026-11-02): a Tuner can stand in the line, carrying what a belt carries, and speeds a Hopper too; a yard's first line leaves a belt between the Crusher and the job's machine. */
-export const RULES_VERSION = 8; // bumped on every semantic change; older replays and saves are refused from here on
+/** v9 (the fifth panel, 2026-11-02): a third of yards open with a second job machine and its own Dock behind a Splitter, a third with a Tuner at the job's machine, so the first good card moves from yard to yard. */
+export const RULES_VERSION = 9; // bumped on every semantic change; older replays and saves are refused from here on
 
 export type MachineKind = 'hopper' | 'conveyor' | 'splitter' | 'crusher' | 'furnace' | 'press' | 'dock' | 'sieve' | 'tuner';
 export type Material = 'scrap' | 'shards' | 'plate' | 'ingot' | 'slag';

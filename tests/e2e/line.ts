@@ -20,6 +20,13 @@ export function straightPieces(s: RunState): Machine[] {
 export function dropOnLine(s: RunState, kind?: MachineKind): void {
   const part = (kind && s.bin.find((m) => m.kind === kind)) || s.bin[s.bin.length - 1];
   const slot = straightPieces(s)[0];
+  if (!slot) {
+    // a line with no plain belt piece left (rules v9: the piece after the Crusher can open as a Splitter): the part goes on a free spot
+    const W = s.layout.width;
+    const c = [...Array(W * s.layout.height).keys()].find((i) => !s.layout.machines.some((m) => m.y * W + m.x === i) && !s.layout.rubble?.includes(i))!;
+    apply(s, { t: 'place', id: part.id, x: c % W, y: Math.floor(c / W), dir: 0 });
+    return;
+  }
   const { x, y, dir } = slot;
   apply(s, { t: 'unplace', id: slot.id });
   apply(s, { t: 'place', id: part.id, x, y, dir });

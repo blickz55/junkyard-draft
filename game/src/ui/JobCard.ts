@@ -12,10 +12,10 @@ import { isMintedDailySeed } from '../sim/daily';
 import { RULES } from '../sim/rules';
 import { t } from '../content/strings';
 import { int, money } from '../content/format';
-import { jobFlavour, jobLine, jobRecipe, materialMany, starMarks } from '../content/job';
+import { jobFlavour, jobLine, jobRecipe, materialMany, starMarks, yardNote } from '../content/job';
 import { machineShort } from '../content/machines';
 import { salLater } from '../render/sal';
-import { lightsOn, updateSettings } from '../render/storage';
+import { lightsOn, loadSettings, updateSettings } from '../render/storage';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** Stars as marks: the three targets side by side. */
@@ -49,7 +49,13 @@ export const recipeRow = (job: Job, built?: (kind: string) => boolean) =>
     }),
   );
 
-const lightsLabel = () => t(lightsOn() ? 'job.lightsOn' : 'job.lightsOff');
+// "always" only once chosen: on a first game they are on because it is the first, and they go dark after it by themselves
+const lightsLabel = () => t(!lightsOn() ? 'job.lightsOff' : loadSettings().lights ? 'job.lightsOn' : 'job.lightsFirst');
+/** What this yard's line starts with that another's does not (rules v9): the first good card moves with it. */
+const variantLine = (seed: string, job: Job) => {
+  const note = yardNote(seed, job);
+  return note ? [h('div', { class: 'jd-amber', tid: 'job-variant' }, note)] : [];
+};
 
 export function openJobCard(scene: Phaser.Scene, seed: string, job: Job, onStart: () => void) {
   const salMark = h('div', { class: 'jd-amber', tid: 'sal-mark' });
@@ -70,6 +76,7 @@ export function openJobCard(scene: Phaser.Scene, seed: string, job: Job, onStart
     lead: [
       h('div', { class: 'jd-job-flavour jd-dim' }, jobFlavour(seed, job)),
       h('div', { class: 'jd-job-goal', tid: 'job-goal' }, jobLine(job)),
+      ...variantLine(seed, job),
       ...(job.orders ? [orderRow(job)] : []),
       starRow(job),
       ...(job.orders ? [salMark] : [recipeRow(job)]),

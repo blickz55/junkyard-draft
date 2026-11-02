@@ -61,7 +61,7 @@ test('with the spots dark the coach leaves the spot to the player and offers "Sh
       if (cardPlan(r).length) continue;
       found = true;
       const g = hintFor(r, ctx());
-      assert.match(g.text, /^No easy spot for the .+ yet\. To make room, pick a machine on the yard and press Move\.$/);
+      assert.match(g.text, /^No easy spot for the .+ yet\. Move a machine to make room\.$/);
       assert.equal(g.showMe, undefined, 'nothing to show');
     }
   }

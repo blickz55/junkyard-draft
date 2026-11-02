@@ -389,6 +389,8 @@ test('a real yard: the job card, then every screen answers where am I, what is t
     await page.getByTestId('job-why').textContent(),
     'An order is money to make in one shift. Fill it and every price goes up 25% for the rest of the job.',
   );
+  // rules v9: this yard opens with two Furnaces, and the card says so before the first pick
+  assert.equal(await page.getByTestId('job-variant').textContent(), 'On this yard a second Furnace already stands, with its own Dock.');
   const stars = (await api('state')).job.stars;
   await page.getByTestId('job-start').click();
   await page.jd.noDialog('job-card');
@@ -414,7 +416,9 @@ test('a real yard: the job card, then every screen answers where am I, what is t
   };
   assert.equal((await audit('the pick')).step, 'Pick');
   assert.equal(await page.locator('[data-testid^=offer-need-]').count(), 0, 'the line already runs, so no card is the one you must take');
-  await page.getByTestId('offer-0').click();
+  // the card that fits: on rules 9 the first good card moves from yard to yard, and this yard opens with two Furnaces
+  const worth = await page.evaluate(() => [0, 1, 2].map((i) => document.querySelector(`[data-testid=offer-worth-${i}]`)?.textContent));
+  await page.getByTestId(`offer-${worth.indexOf('Fits this line now')}`).click();
   await mode('build');
   assert.equal((await audit('the build')).step, 'Build');
   assert.ok(await page.locator('[data-spot^=shelf]').count(), 'the new part is lit on the shelf');
@@ -440,6 +444,18 @@ test('a real yard: the job card, then every screen answers where am I, what is t
   await api('pick', 0);
   await frames(2);
   assert.equal(await page.getByTestId('last-shift').textContent(), advice, 'the advice survives the pick');
+  // a change to the line fades it and moves nothing under it: a button that jumps takes the next tap somewhere else (the fifth panel)
+  const runTop = await page.evaluate(() => document.querySelector('[data-testid=run]').getBoundingClientRect().top);
+  const part = (await api('state')).bin.find((m) => m.kind !== 'conveyor') ?? (await api('state')).bin[0];
+  const st = await api('state');
+  const spot = [...Array(st.layout.width * st.layout.height).keys()].find(
+    (c) => !st.layout.machines.some((m) => m.y * st.layout.width + m.x === c) && !st.layout.rubble?.includes(c),
+  );
+  await api('act', { t: 'place', id: part.id, x: spot % st.layout.width, y: Math.floor(spot / st.layout.width), dir: 0 });
+  await frames(2);
+  assert.ok(await page.evaluate(() => document.querySelector('[data-testid=last-shift]').classList.contains('jd-advice-old')), 'faded');
+  const runNow = await page.evaluate(() => document.querySelector('[data-testid=run]').getBoundingClientRect().top);
+  assert.ok(Math.abs(runNow - runTop) < 10, `nothing jumped: ${runTop} then ${runNow} (the advice card is about 70 px)`); // a line of text may rewrap
   assert.ok(stars[0] < stars[1] && stars[1] < stars[2]);
   assert.deepEqual(page.errors, [], 'no page errors');
   await page.ctx.close();

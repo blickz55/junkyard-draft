@@ -27,7 +27,7 @@ const finish = async (page) => {
 test('a tap on the lit spot puts the lit part in: nothing to take off the shelf first', { timeout: 60000 }, async () => {
   const page = await f.page();
   const { api, draft, mode, frames, settled, at } = page.jd;
-  await page.goto(f.gameUrl('scene=game&seed=sal-lit'));
+  await page.goto(f.gameUrl('scene=game&seed=sal-lit-7'));
   await draft();
   await page.getByTestId('job-start').click();
   await page.jd.noDialog('job-card');
@@ -78,8 +78,9 @@ test('a kit: the part the coach lights is the one in hand, and a tap on its spot
 test('the lit spots can be turned off on the job card, and stay off: the coach says to work it out', { timeout: 60000 }, async () => {
   const page = await f.page();
   const { api, draft, mode, settled } = page.jd;
-  await page.goto(f.gameUrl('scene=game&seed=sal-lit'));
+  await page.goto(f.gameUrl('scene=game&seed=sal-lit-7'));
   await draft();
+  assert.equal(await page.getByTestId('job-lights').textContent(), 'Lit spots: on', 'a first game: on, and not "always"');
   await page.getByTestId('job-lights').click();
   assert.equal(await page.getByTestId('job-lights').textContent(), 'Lit spots: when you ask');
   await page.getByTestId('job-start').click();
@@ -105,7 +106,7 @@ test('after a first game the spots wait to be asked for: "Show me" lights the ca
   };
   const page = await f.page(undefined, { init: { fn: (b) => localStorage.setItem('jd.bests.v2', b), arg: JSON.stringify(bests) } });
   const { api, draft, mode, settled, at, when } = page.jd;
-  await page.goto(f.gameUrl('scene=game&seed=sal-lit'));
+  await page.goto(f.gameUrl('scene=game&seed=sal-lit-7'));
   await draft();
   assert.equal(await page.getByTestId('job-lights').textContent(), 'Lit spots: when you ask', 'the job card says how it stands');
   await page.getByTestId('job-start').click();
@@ -159,6 +160,15 @@ test('Move puts a machine in hand: the next tap is where it goes, and a stray ta
   const p = await at(cellCenter(belt.x, belt.y));
   await page.mouse.click(p.x, p.y);
   await page.waitForSelector('[data-testid=move]');
+  // the card says which way it sends, in words, and Turn changes them
+  const before = await page.getByTestId('sends').textContent();
+  assert.match(before, /^Sends (to the right|down|to the left|up)$/);
+  await page.getByTestId('rotate').click();
+  await when((was) => document.querySelector('[data-testid=sends]')?.textContent !== was, before);
+  await page.getByTestId('rotate').click();
+  await page.getByTestId('rotate').click();
+  await page.getByTestId('rotate').click();
+  await when((was) => document.querySelector('[data-testid=sends]')?.textContent === was, before);
   const empty = await at(cellCenter(6, 0));
   await page.mouse.click(empty.x, empty.y);
   await frames(2);

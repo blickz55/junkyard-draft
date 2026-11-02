@@ -3,7 +3,7 @@
  * the pace. The numbers come from game/src/sim/yard.ts; this module only words them. Pure, so the HUD, the job card, the
  * results and the home screen all say the same thing.
  */
-import { JOB_MACHINE, isTutorialSeed, type Job } from '../sim/yard';
+import { JOB_MACHINE, isTutorialSeed, yardFor, type Job } from '../sim/yard';
 import { RULES } from '../sim/rules';
 import { shippedTotal, type RunState } from '../sim/run';
 import type { MachineKind, Material } from '../sim/types';
@@ -16,6 +16,11 @@ export const materialMany = (m: Material): string => t(`material.${m}.many` as S
 export const materialOf = (m: Material, n: number): string => (n === 1 ? t(`material.${m}` as StringKey) : materialMany(m));
 /** The job's target is its third star. */
 export const jobTarget = (job: Job): number => job.stars[2];
+/** What a yard's line opens with that most do not (rules v9), as one sentence; null on a yard that opens as most do. Home and the job card say it, so a day's yard is its own before it is played. */
+export function yardNote(seed: string, job: Job): string | null {
+  const v = job.orders ? yardFor(seed).variant : undefined;
+  return v ? t(v === 'twoMakers' ? 'job.variantTwo' : 'job.variantTuned', { name: machineName(JOB_MACHINE[job.material]) }) : null;
+}
 export const jobLine = (job: Job): string => (job.orders ? t('job.orders') : t('job.ship', { n: int(jobTarget(job)), mat: materialMany(job.material) }));
 /** The other product, which a second buyer starts paying the job's price for. */
 export const otherMaterial = (job: Job): Material => (job.material === 'ingot' ? 'plate' : 'ingot');

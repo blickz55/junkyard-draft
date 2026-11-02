@@ -52,6 +52,23 @@ export const RULES = {
     rubbleMin: 2,
     rubbleMax: 4,
     shelf: ['conveyor', 'conveyor', 'conveyor', 'conveyor'] as MachineKind[],
+    /**
+     * How a yard's line starts (rules v9, the fifth panel: a second yard opened exactly like the first). As it stands, with the job's
+     * machine short of shards; with a second job machine and its own Dock behind a Splitter, so the line is short of scrap instead; or
+     * with a Tuner already at the job's machine, so feed and making tie. Each moves the first good card. Junk piled high and the second
+     * buyer from the first shift were tried too and lost on the card (docs/DESIGN.md).
+     */
+    variants: { standard: 1, twoMakers: 1, tuned: 1 } as Record<YardVariant, number>,
+    /**
+     * Each variant's orders, in percent of the job's table, rounded to $10: a yard that opens with two Furnaces makes much more than one
+     * that opens short of a machine. Chosen so that Sal's game takes two stars on about three yards in four in every variant
+     * (docs/DESIGN.md).
+     */
+    orderScale: {
+      standard: { ingot: 100, plate: 100 },
+      twoMakers: { ingot: 125, plate: 115 },
+      tuned: { ingot: 95, plate: 105 },
+    } as Record<YardVariant, Record<'ingot' | 'plate', number>>,
   },
   /**
    * The job (rules v4, orders in v6): what a yard is paid to deliver. Its product sells for `price` here. Every yard opens with the job's
@@ -80,6 +97,8 @@ export const RULES = {
     { kind: 'dock', x: 5, y: 2, dir: 0 },
   ] as { kind: MachineKind; x: number; y: number; dir: Dir }[],
 } as const;
+
+export type YardVariant = 'standard' | 'twoMakers' | 'tuned';
 
 /** Every machine kind the simulation knows (the names and blurbs a player reads live in game/src/content/machines.ts, 0.9.0). */
 export const MACHINE_KINDS: readonly MachineKind[] = ['hopper', 'conveyor', 'splitter', 'crusher', 'furnace', 'press', 'dock', 'tuner', 'sieve'];

@@ -1,4 +1,4 @@
-# Junkyard Draft — design (rules v8)
+# Junkyard Draft — design (rules v9)
 
 ## Pitch
 
@@ -20,6 +20,18 @@ The owner asked for trial and error against a scorecard. Rules 5 scored 55 of 10
 **Evidence.** Trials on 24 tune yards from a base of about 50: the second buyer +13, kits +10, a head start 0 to +5 by itself, Tuner changes +2. Orders were priced on paper first (`tools/fun-orders.ts`, replaying the tree of each yard with raises applied), which lifted the paper score from about 30 to about 71; held out from the tuning, the chosen table gave flat shifts 6.7 %, last shift best 95.8 %, real picks 24.3 %, median orders filled novice 2, casual 4, competent 6, expert 6, and all six orders for 62.5 % of competent games and 66.7 % of expert games. A third of expert games miss one, which is where a second try comes from. The whole card on the built game, on the same 40 held-out yards as rules 5: **77 of 100, lowest dimension 50** (rules 5: 55 and 23), flat shifts 4 %, last shift best 87.5 %, real picks 20 %, the ruins −22, −30, −47, −11, −38, −3 (`docs/baselines/fun/card-rules6.json`).
 
 **Paid for.** The rules are harder to state: "fill the order, your prices rise" is a second number beside the money, and the card and every screen had to learn it. `tests/guide.test.ts` and the job bar's order strip carry that. The old star marks in units are gone from job yards (`orders` absent keeps them for the lessons' own marks and the tests that name them).
+
+## Decision: yards open three ways, with orders to match (rules v9, 2026-11-02)
+
+Two of the fifth panel's four agents stopped because a second yard opened exactly like the first: the same $888 first shift, the same advice. On 60 tune yards Sal's first card was the Furnace on 33 of 41 ingot yards, which then paid $840 on 27 of them, and the Hopper on 18 of 20 plate yards. Shape, rubble and deal varied; what the line was short of did not.
+
+- **A yard opens one of three ways** (`RULES.yard.variants`, drawn from `${seed}:variant` so nothing else about the yard moves): as before, short of making; with a second job machine and its own Dock behind a Splitter, so it is short of scrap and the Hopper comes first; or with a Tuner at the job's machine, so feed and making tie. Home and the job card say which (`yardNote`).
+- **On the card, 24 tune yards:** the two line variants scored 77 against 72. Pick 33 to 54, with every card taken between 10 and 60 % of the times it is offered; Moving 61 to 72; Yards 89 to 100; nothing fell. Adding junk piled high and the second buyer from shift 1 gave 73: neither changed an opening, so both went.
+- **Orders per variant** (`RULES.yard.orderScale`). Under one table Sal's game took three stars on 10 of 11 two-Furnace ingot yards and two stars on only 39 % of Tuner ingot yards. Sal's choices do not read the orders, so his shifts were re-paid on paper under scaled tables: two-machine yards ×1.25 (ingot) and ×1.15 (plate), Tuner yards ×0.95 and ×1.05, rounded to $10. Sal now takes two stars on 72 to 89 % of yards in every variant.
+- **Held-out card, 40 yards** (`docs/baselines/fun/card-rules9.json`): 75, lowest 34, against 72 and 31 for rules 8 (Alive 99, Pick 34, Skill 40, Moving 73, Ways 87, Ladder 100, One more try 100, Climax 75, Yards 81, Forgiving 100; medians $7,941, $11,112, $12,528, $15,415). Ruined versions: −35, −19, −38, −15, −36 and −2: "every yard alike" now switches the variants off too and still costs only 2, because each yard is measured on its own.
+- A first deal where nothing fits stays rare, about 1 yard in 25 in every variant, so the deal is unchanged.
+
+**Paid for.** A third of yards open with more on them, and the first good card is no longer the same everywhere: tests that assumed the Furnace ask the card's tag now. While building, last shift's advice stays in place, faded once the line changes, because taking it away moved every button under it.
 
 ## Decision: what the fifth panel changed (2026-11-02, no rules change)
 

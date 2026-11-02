@@ -147,6 +147,11 @@ const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
 /** The third star sits at this share of the job bar, so going past it still shows. */
 const THIRD_STAR_AT = 0.9;
 
+/** Which way a machine sends what it makes, as the selected card says it. */
+const WAYS = ['game.wayRight', 'game.wayDown', 'game.wayLeft', 'game.wayUp'] as const;
+const sendsLine = (kind: MachineKind, dir: number): string =>
+  kind === 'splitter' ? t('game.sendsSplit', { way: t(WAYS[dir]) }) : t('game.sends', { way: t(WAYS[dir]) });
+
 export class GamePanel {
   private root: HTMLElement;
   private hud: { seed: HTMLElement; round: HTMLElement; score: HTMLElement; best: HTMLElement; stall: HTMLElement; mute: HTMLButtonElement };
@@ -884,9 +889,13 @@ export class GamePanel {
   }
 
   private renderBuild(s: PanelState, r: RunState) {
-    // the advice stays until the line changes: after that it reads as being about the new line, and the forecast speaks for that
-    const advice = s.lesson || this.lineChanged(r) ? null : this.lastShift(r);
-    if (advice) this.side.append(advice);
+    // once the line changes the advice is old news, and the forecast speaks for the new line; it fades rather than goes, because taking it
+    // away moved every button under it by its height, and a tap meant for Turn bought a belt (the fifth panel)
+    const advice = s.lesson ? null : this.lastShift(r);
+    if (advice) {
+      if (this.lineChanged(r)) advice.classList.add('jd-advice-old');
+      this.side.append(advice);
+    }
     const recipe = this.recipe(r);
     if (recipe) this.side.append(recipe);
     const sel = s.lesson && s.lessonWants !== 'sell' ? null : s.selected; // in a lesson the card would push the lit button off a phone
@@ -903,6 +912,8 @@ export class GamePanel {
             { style: 'flex:1; min-width:0' },
             h('div', { class: 'jd-offer-name' }, machineName(sel.kind)),
             h('div', { class: 'jd-dim', style: 'font-size:0.8125em' }, machineBlurb(sel.kind, r.layout)),
+            // which way it sends, in words: the marks on a machine are small, and players turned by counting presses (the fifth panel)
+            sel.kind === 'dock' ? null : h('div', { class: 'jd-amber', tid: 'sends', style: 'font-size:0.8125em' }, sendsLine(sel.kind, sel.dir)),
             h(
               'div',
               { class: 'jd-row', style: 'margin-top:0.4em; gap:0.4em' },
@@ -1360,6 +1371,7 @@ export const GAME_STYLE = `
 #ui .jd-advice { display: flex; gap: 0.5em; align-items: center; margin-top: 0.45em; padding: 0.4em 0.6em; border-radius: 0.4em; background: rgba(90, 169, 230, 0.1); border: 1px solid rgba(90, 169, 230, 0.32); font-size: 0.8125em; }
 #ui .jd-advice-text { min-width: 0; flex: 1; }
 #ui .jd-advice .jd-btn { flex: 0 0 auto; }
+#ui .jd-advice-old { opacity: 0.5; }
 #ui .jd-toast { position: absolute; max-width: min(92%, 22em); background: rgba(30, 26, 21, 0.98); border: 1px solid #3f382d; border-left: 3px solid #eb6757; padding: 0.45em 0.7em; font-size: 0.8125em; line-height: 1.3; border-radius: 0.4em; box-shadow: 0 2px 10px rgba(0,0,0,0.5); pointer-events: none; z-index: 3; }
 #ui .jd-toast-warning { border-left-color: #f0a830; }
 #ui .jd-toast::after { content: ''; position: absolute; left: calc(50% + var(--arrow, 0px)); bottom: -${em(7)}; margin-left: -${em(6)}; border: ${em(6)} solid transparent; border-top-color: #3f382d; border-bottom: 0; }

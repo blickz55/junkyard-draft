@@ -5,6 +5,13 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### Rules version 9: yards that open differently — 2026-11-02 (saves and scores from version 8 do not carry over)
+
+- **A yard opens one of three ways.** Some already run a second of the job's machine with its own Dock; some have a Tuner at the job's machine; the rest open as before. What the line is short of changes, and with it the first good card. Home and the job card say which.
+- **Orders to match:** a yard that opens with more asks for bigger orders, one that opens with less for smaller ones.
+- While you build, last shift's advice stays where it was, faded once the line changes, so the buttons under it no longer jump.
+- The job card says "Lit spots: on" for a first game, "always" once you choose it, and "when you ask" after that.
+
 ### Clearer help — 2026-11-02 (no rules change)
 
 - **"Lit spots: always" or "when you ask"** on the job card, "Show me where" in the build, and the shift's advice names the machine it shows.

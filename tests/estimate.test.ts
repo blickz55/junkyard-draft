@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { apply, cardParts, newRun } from '../game/src/sim/run';
 import { runLayout } from '../game/src/sim/sim';
 import { cardGain } from '../game/src/render/estimate';
+import { yardFor } from '../game/src/sim/yard';
 import { dropActions, liftActions } from '../game/src/render/placement';
 import { RULES } from '../game/src/sim/rules';
 import type { RunState } from '../game/src/sim/run';
@@ -43,13 +44,14 @@ test("a card's plan, made with the game's own moves, earns exactly what the card
   const kinds: Record<string, { lit: number; all: number }> = {};
   for (let i = 0; i < 60; i++) {
     const seed = `plan-${i}`;
+    const standard = !yardFor(seed).variant; // a yard that opens with two of the job's machine is short of scrap: a third adds nothing yet
     for (const [at, kind] of newRun(seed).offers.entries()) {
       const run = newRun(seed);
       const before = runLayout(run.layout).earned;
       const parts = cardParts(kind, run.job, seed);
       const { gain, plan, room } = cardGain(run.layout, parts, run.bin.filter((m) => m.kind === 'conveyor').length);
       apply(run, { t: 'pick', i: at });
-      const row = (kinds[parts.join('+')] ??= { lit: 0, all: 0 });
+      const row = standard ? (kinds[parts.join('+')] ??= { lit: 0, all: 0 }) : { lit: 0, all: 0 };
       row.all++;
       if (!gain) {
         if (room)

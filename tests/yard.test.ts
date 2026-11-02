@@ -32,10 +32,13 @@ test("every generated yard opens with the job's line running: it ships the job's
     const y = yardFor(seed);
     assert.deepEqual(validateLayout(s.layout), [], `${seed}: legal`);
     assert.equal(s.layout.machines.filter((m) => m.kind === 'hopper').length, 1, `${seed}: one hopper`);
-    assert.equal(s.layout.machines.filter((m) => m.kind === 'dock').length, 1, `${seed}: one dock`);
+    assert.equal(s.layout.machines.filter((m) => m.kind === 'dock').length, y.variant === 'twoMakers' ? 2 : 1, `${seed}: one dock, or two`);
     const shipped = runLayout(s.layout).shipped[s.job!.material];
     assert.ok(shipped >= 15, `${seed}: the line ships the job's goods before anything is built (${shipped})`);
-    assert.ok(straightPieces(s).length >= RULES.yard.straightPieces - 2, `${seed}: ${straightPieces(s).length} straight pieces left`);
+    assert.ok(
+      straightPieces(s).length >= RULES.yard.straightPieces - (y.variant === 'twoMakers' ? 3 : 2),
+      `${seed}: ${straightPieces(s).length} straight pieces left`,
+    );
     assert.ok(y.rubble.length >= RULES.yard.rubbleMin && y.rubble.length <= RULES.yard.rubbleMax, `${seed}: ${y.rubble.length} piles`);
     const xy = (c: number) => ({ x: c % RULES.gridWidth, y: Math.floor(c / RULES.gridWidth) });
     for (const c of y.rubble) {
@@ -174,4 +177,38 @@ test('namespaces: the lesson yard has a gap at its bend and one conveyor to clos
   );
   assert.equal(runStars(c), 0);
   assert.equal(shippedTotal(c, 'ingot'), 0);
+});
+
+test('rules v9: yards open three ways, and a variant changes only its own pieces: a second job machine with its own Dock behind a Splitter, or a Tuner at the job machine', async () => {
+  const { override } = await import('../tools/balance-lib');
+  const W = RULES.gridWidth;
+  const by: Record<string, number> = { standard: 0, twoMakers: 0, tuned: 0 };
+  for (let i = 0; i < 90; i++) {
+    const seed = `variant-${i}`;
+    const y = yardFor(seed);
+    by[y.variant ?? 'standard']++;
+    const restore = override({ 'yard.variants.twoMakers': 0, 'yard.variants.tuned': 0 });
+    const plain = yardFor(seed);
+    restore();
+    assert.deepEqual([y.rubble, y.job?.material], [plain.rubble, plain.job?.material], `${seed}: the same rubble and job`);
+    const pct = RULES.yard.orderScale[y.variant ?? 'standard'][y.job!.material];
+    assert.deepEqual(
+      y.job!.orders,
+      plain.job!.orders!.map((o) => Math.round((o * pct) / 1000) * 10),
+      `${seed}: orders scaled to the variant, to the $10`,
+    );
+    const res = runLayout(newRun(seed).layout);
+    const maker = JOB_MACHINE[y.job!.material];
+    const at = (m: { x: number; y: number }) => res.cellStats[m.y * W + m.x];
+    if (y.variant === 'twoMakers') {
+      assert.equal(y.machines.filter((m) => m.kind === maker).length, 2, `${seed}: two of the job machine`);
+      assert.equal(y.machines.length, plain.machines.length + 2, `${seed}: a machine and a Dock more`);
+      for (const d of y.machines.filter((m) => m.kind === 'dock')) assert.ok(at(d)?.shipped, `${seed}: both docks sell`);
+    } else if (y.variant === 'tuned') {
+      const tuner = y.machines.find((m) => m.kind === 'tuner')!;
+      assert.deepEqual(y.machines.slice(0, -1), plain.machines, `${seed}: the line as it stood, and a Tuner`);
+      assert.ok(at(tuner)?.tuned, `${seed}: the Tuner speeds the job machine`);
+    } else assert.deepEqual(y.machines, plain.machines);
+  }
+  assert.ok(by.standard >= 15 && by.twoMakers >= 15 && by.tuned >= 15, JSON.stringify(by));
 });
