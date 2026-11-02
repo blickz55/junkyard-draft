@@ -1,6 +1,6 @@
 // The custom Phaser entry (production roadmap 0.10.2). The npm package's `dist/phaser.esm.js` is one 1.2 MB file that no
 // bundler can trim, so the game is built from `phaser/src` with only the modules it uses: the Canvas renderer (WebGL is off in the build flags),
-// the 2D camera, images, graphics, text, containers and groups, the keyboard, mouse and touch input, the
+// the 2D camera, images, graphics, text and containers, the keyboard, mouse and touch input, the
 // image loader, tweens, the clock, textures and the scale manager. No physics, tilemaps, sound (the game
 // has its own WebAudio bus in game/src/render/audio.ts), particles, sprites, animations beyond what the core needs, or
 // cameras in 3D. scripts/esbuild-config.mjs aliases `phaser` to this file for the dev server, the production build and the
@@ -17,7 +17,6 @@ require('../node_modules/phaser/src/gameobjects/graphics/GraphicsFactory');
 require('../node_modules/phaser/src/gameobjects/graphics/GraphicsCreator');
 require('../node_modules/phaser/src/gameobjects/text/TextFactory');
 require('../node_modules/phaser/src/gameobjects/container/ContainerFactory');
-require('../node_modules/phaser/src/gameobjects/group/GroupFactory');
 // loader file types (this.load.*)
 require('../node_modules/phaser/src/loader/filetypes/ImageFile');
 // the scene plugins every scene gets (plugins/DefaultPlugins.js names them; each registers in the PluginCache when required)
@@ -44,7 +43,6 @@ let Phaser = {
     Components: require('../node_modules/phaser/src/gameobjects/components'),
     GameObject: require('../node_modules/phaser/src/gameobjects/GameObject'),
     Graphics: require('../node_modules/phaser/src/gameobjects/graphics/Graphics'),
-    Group: require('../node_modules/phaser/src/gameobjects/group/Group'),
     Image: require('../node_modules/phaser/src/gameobjects/image/Image'),
     Text: require('../node_modules/phaser/src/gameobjects/text/Text'),
     TextStyle: require('../node_modules/phaser/src/gameobjects/text/TextStyle'),

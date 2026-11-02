@@ -1,0 +1,56 @@
+{
+  "persona": "Aisha",
+  "device": "desk",
+  "goalInOwnWords": "Make as much money as I can over six shifts by building a line from scrap to ingots. Each shift has an order (a money target); fill it and every price goes up 25%, and stars are for orders filled. Finish with more money than Sal, the foreman, who has a score on every yard.",
+  "stoppedWhere": "Today's yard, after shift 4 of 6 (4 of 6 orders filled, $6,366 so far, $312 behind Sal). I left through Menu > Save and go home to the feedback form.",
+  "stoppedWhy": "Not boredom. I wanted shifts 5 and 6 and to catch Sal, and would have played them (and probably tomorrow's yard) if nobody were counting. I stopped because the action budget for this test (about 150) was used up with the game mid-way.",
+  "lessonsFinished": 2,
+  "gamesFinished": 0,
+  "bestStars": 3,
+  "bestMoney": 6366,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "yes",
+  "wouldPay": "maybe",
+  "stuck": [
+    {
+      "where": "Today's yard, shift 4, Plate Press card",
+      "what": "Could not work out where a Plate Press (one $42 plate from two shards) could go. The card said 'No easy spot yet' and Sal said 'Move a machine to make room', but not which machine, and the yard was full of feeds.",
+      "gotOutHow": "Gave up on it: Undo pick, then took Hopper + Crusher + Dock, whose spots were lit. Never found out if the Press would have beaten Sal."
+    },
+    {
+      "where": "Today's yard, shifts 2 and 4, the spare Shipping Dock",
+      "what": "After placing the Hopper and Crusher the coach said 'Put the Shipping Dock where you think. The pay shows if it helps.' The forecast was already up, so I could not tell whether the spare Dock mattered.",
+      "gotOutHow": "Trusted the forecast, left the Dock on the shelf (or placed it on the lit spot in shift 4) and started the shift. The pay matched the forecast."
+    }
+  ],
+  "confused": [
+    "'If every shift pays this: 24 of 20 ingots' (lesson 1) took three reads; in lesson 2 I worked out it is ingots banked so far plus this shift, and in lesson 1 'if every shift pays this: 0 of 20' read like a riddle.",
+    "Lesson 1 told me my line needed a Crusher and a Furnace, then said 'Line closed. Start the shift.' with only raw scrap on the belt.",
+    "'Every price goes up 25%' never says whether that compounds. It is 25% of the original price each time (ingot $24, $30, $36, $42), and $3.75 shown as $4 and $4.50 as $5 is not explained; I only know because I multiplied.",
+    "The header says 'Today's yard - practice' and 'First try on this yard'; I could not tell if that game counted for anything.",
+    "Cards show only words ('Adds a little', 'Fits this line now', 'No easy spot yet'), no figure, so I could not tell how much a card was worth before picking it.",
+    "The first machine demo is titled 'Nothing goes into a machine head-on', a clumsy way to say that a machine has a front and a back."
+  ],
+  "annoyed": [
+    "Comparing the three cards means picking one, reading the forecast, pressing Undo pick, and trying the next. I took a Tuner worth $36 out of curiosity and fell behind Sal for the rest of the game.",
+    "The card with the biggest number on it (Plate Press, $42) was the one with no room, and the game said to move a machine without saying which.",
+    "The yard fills up fast because each kit adds a hopper, a crusher and sometimes a dock, so late cards have no easy spot.",
+    "In both lessons one card was lit and the other two greyed out, so I made no real choice until today's yard; it felt like following the glow.",
+    "The lit spots are Sal's own game, so following them only ties with him; the early shifts felt scripted."
+  ],
+  "pleased": [
+    "How to play plus the Machine demos gave the actual numbers (scrap $1, shard $3, ingot $12 or $24, plate $8 or $24, spare part $10, Furnace 3 s) and a full controls table before I committed any time.",
+    "The forecast 'This shift will pay $X (up $Y)' was exact to the dollar every time, so I trusted it.",
+    "The receipt after each shift (37 x ingot @ $30 = $1,110) and the shift-by-shift row: no mystery about where money came from.",
+    "'What held you back' with a red tag on the machine and the named fix ('A Tuner touching it...'). It explained my own mistake.",
+    "The six order sizes and the star rule are on the home screen, and the job card says plainly what an order is.",
+    "'Next shift:' previews the next three cards, and it was right each time I checked.",
+    "'You're $312 behind Sal' is a hook: a rival to beat that is not a person, with a number to chase."
+  ],
+  "bestMoment": "Today's yard, shift 4: the panel said I was $164 short of the $2,150 order, I swapped to the Hopper kit, the forecast flipped to 'fills the order' by $31, and the receipt then paid exactly $2,181.",
+  "worstMoment": "Picking the Plate Press for its $42 plate and being told 'No easy spot yet. Move a machine to make room', with no hint which machine, so I dropped the best-looking idea on the screen and took the safe card.",
+  "oneChange": "Show on every card the dollars it would add on my current line (or rank the three), and when a card has no easy spot, light the machine I would have to move, so the best-paying card is never a dead end and I can compare offers without picking and undoing each.",
+  "completionCode": "ANV5-5RXM"
+}

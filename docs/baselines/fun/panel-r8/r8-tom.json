@@ -1,0 +1,58 @@
+{
+  "persona": "Tom",
+  "device": "phone",
+  "goalInOwnWords": "Line the machines up in the right order so the scrap turns into goods and the dock pays me for them. Fill the order each shift and make more money than Sal.",
+  "stoppedWhere": "Home screen, reached through Menu then Save and go home, straight after the shift 4 summary on today's yard (Rails for the north line): 4 of 6 orders filled, $6,678 so far, two stars so far. That yard was left saved and unfinished, two of the three lessons done.",
+  "stoppedWhy": "I had had my fifteen minutes, and every shift on the real yard was the same four taps: pick the green card, put three things on the lit squares, press Start, watch half a minute. It never asked me to think and every summary just said I was level with Sal, so there was nothing to chase. Two more shifts would have told me whether I passed Sal, but I did not care enough to find out. It is clear and calm, I just would not open it tomorrow for more of the same.",
+  "lessonsFinished": 2,
+  "gamesFinished": 0,
+  "bestStars": 3,
+  "bestMoney": 6678,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shifts 2 and 3 of today's yard, after the three lit spots",
+      "what": "Sal said 'Tap the Shipping Dock on the shelf, then where you think it pays' with nothing lit. Every machine already ended at a dock, so I could not see where a spare one would pay.",
+      "gotOutHow": "Gave up on it, left the Dock on the shelf and pressed Start. The forecast and the pay were the same either way and nothing broke."
+    },
+    {
+      "where": "Shift 4 of today's yard, choosing a card",
+      "what": "The Plate Press card said two shards in, one $42 plate out, while my shards sold for $5 each. But it was marked 'No easy spot yet' and Sal never lit a spot for it, so I could not tell if it was a bad pick or just hard to place, and I could not work out how to fit one in.",
+      "gotOutHow": "Did not pick it. Took the green 'Fits this line now' card again."
+    }
+  ],
+  "confused": [
+    "Lesson 1: after the first belt piece Sal said 'Line closed. Start the shift.' but the list under it still showed Crusher and Furnace with no tick.",
+    "Lesson 1: 'You keep ONE part. The others go back on the truck.' I did not see why I could not keep all three.",
+    "Lesson 1: a red tag saying 'held you back' sat on the Furnace and I did not know what it meant until the Press said 'waiting for scrap' in lesson 2.",
+    "Lesson 2: a spare Crusher and belt pieces were already on the shelf and I had not asked for them, until Sal used them two steps later.",
+    "Each shift summary says 'The lit spots are his game: beat him by finding better.' But the game keeps lighting the spots for me, so how do I do better?",
+    "'Tap the Shipping Dock on the shelf, then where you think it pays' with no hint where that might be.",
+    "'No easy spot yet' on the Plate Press and the second Furnace reads like 'do not pick this', but I could not be sure.",
+    "The rubble piles, the striped bundle and the gear thing on the yard never did anything. I could not tell if they were scenery or in the way.",
+    "Home screen already talks about a Tuner speeding up the Furnace before I know what either one is."
+  ],
+  "annoyed": [
+    "Same four taps every shift on today's yard (green card, three lit squares, Start, wait) and nothing to decide.",
+    "'Beat him by finding better' after every shift, with no hint at all how to do better.",
+    "Watching every shift at normal speed is slow when there is nothing to do. I did not try the faster buttons.",
+    "The end of shift screen ran off the bottom, so I had to scroll to read 'what held you back', which the game told me to read."
+  ],
+  "pleased": [
+    "The forecast 'This shift will pay $X' before pressing Start, and the shift then paid exactly that. It also warned '$11 short of the $2,150 order'.",
+    "In the lessons the foreman bubble told me exactly what to tap, so I was never lost.",
+    "Tapping a machine gives a short plain-words box, like 'Drops a lump of scrap every 2 seconds'.",
+    "Money going from $37 to $111 to $576 in lesson 1 as each machine went in.",
+    "The 'what held you back' note in plain words, with advice ('add a hopper') that worked.",
+    "Nothing in the game asked me for money until the last question of the survey.",
+    "The belt pieces click into place and turn the corner by themselves."
+  ],
+  "bestMoment": "Lesson 1, third shift: the Furnace went in, the forecast said $576, then 'Job done' and three stars popped up while the crates paid $24 a time, after $37 and $111 in the first two shifts.",
+  "worstMoment": "Shift 2 of today's yard, when Sal said 'where you think it pays' with nothing lit. It was the first time the game asked me to decide something and I had no idea what I was deciding.",
+  "oneChange": "Stop lighting every square for me and give me a real choice to work out each shift, plus a plain hint what beating Sal takes. I saw shards at $5 and a plate at $42 and never found out how to use that.",
+  "completionCode": "UUWK-FYMP"
+}

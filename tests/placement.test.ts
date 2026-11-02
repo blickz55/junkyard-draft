@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { apply, newRun, TUTORIAL_SEED } from '../game/src/sim/run';
 import { canUndo, undo } from '../game/src/sim/undo';
-import { beltShape, dropActions, feedsInto } from '../game/src/render/placement';
+import { beltShape, dropActions, feedsInto, smartFacing } from '../game/src/render/placement';
 import { RoundController } from '../game/src/render/RoundController';
 
 test('a shelf part dropped on a belt piece takes its place; the belt piece goes to the shelf; the part faces the way the line runs', () => {
@@ -105,16 +105,50 @@ test('a Crusher dropped beside a Hopper that feeds nothing turns that Hopper to 
   );
 });
 
-test('a machine fed from one side faces whatever takes its load, straight on only when nothing beside it does', () => {
+test('a machine fed from one side goes straight on, as the line runs, and turns to what takes its load only when the way ahead is blocked', () => {
   const s = newRun('classic-aim-2');
   apply(s, { t: 'pick', i: s.offers.indexOf('crusher') });
   const hopper = s.layout.machines.find((m) => m.kind === 'hopper')!;
-  apply(s, { t: 'place', id: hopper.id, x: 1, y: 2, dir: 1 }); // pushing south into 1,3
   const belt = s.layout.machines.find((m) => m.kind === 'conveyor' && m.x === 4 && m.y === 2)!;
-  apply(s, { t: 'place', id: belt.id, x: 2, y: 3, dir: 0 }); // a belt east of 1,3, running east
   const crusher = s.bin.find((m) => m.kind === 'crusher')!;
-  const facing = () => (dropActions(s, crusher, 1, 3)[0] as { dir: number }).dir;
-  assert.equal(facing(), 0, 'turned toward the belt, not straight on into nothing');
+  const facing = (x: number, y: number) => (dropActions(s, crusher, x, y)[0] as { dir: number }).dir;
+  apply(s, { t: 'place', id: hopper.id, x: 1, y: 4, dir: 1 }); // pushing south into 1,5, the bottom row
+  apply(s, { t: 'place', id: belt.id, x: 2, y: 5, dir: 0 }); // a belt east of 1,5, running east
+  assert.equal(facing(1, 5), 0, 'the edge ahead: turned toward the belt');
+  apply(s, { t: 'place', id: belt.id, x: 2, y: 3, dir: 0 });
+  apply(s, { t: 'place', id: hopper.id, x: 1, y: 2, dir: 1 }); // pushing south into 1,3, with 1,4 free below it
+  assert.equal(facing(1, 3), 1, 'room ahead: straight on, where the player may build next, though the belt beside it would take the load');
   apply(s, { t: 'unplace', id: belt.id });
-  assert.equal(facing(), 1, 'with nothing beside it: straight on, the way the Hopper pushes');
+  apply(s, { t: 'place', id: hopper.id, x: 1, y: 4, dir: 1 });
+  assert.equal(facing(1, 5), 1, 'blocked ahead and nothing beside it: straight on, the way the Hopper pushes');
+});
+
+test('a Hopper faces the way its scrap reaches a Crusher, not a Tuner on the way into a Furnace, and turns to a Crusher dropped beside it', () => {
+  const s = newRun('classic-aim-3');
+  apply(s, { t: 'pick', i: s.offers.indexOf('crusher') });
+  const id = (n: number) => 900 + n;
+  // a Tuner at 4,3 running east into a Furnace at 5,3, then a Crusher at 2,3 facing south; the Hopper goes at 3,3
+  s.layout.machines.push({ id: id(1), kind: 'tuner', x: 4, y: 3, dir: 0 }, { id: id(2), kind: 'furnace', x: 5, y: 3, dir: 0 });
+  assert.equal(smartFacing(s.layout, 'hopper', 3, 3, 0), 3, 'with no Crusher about: up into the belts to the Dock, not through the Tuner into the Furnace');
+  s.layout.machines.push({ id: id(3), kind: 'crusher', x: 2, y: 3, dir: 1 });
+  assert.equal(smartFacing(s.layout, 'hopper', 3, 3, 0), 2, 'west into the Crusher');
+  s.layout.machines.pop();
+  s.layout.machines.push({ id: id(4), kind: 'hopper', x: 3, y: 3, dir: 0 }); // the eighth panel's: facing the Tuner
+  const crusher = s.bin.find((m) => m.kind === 'crusher')!;
+  assert.deepEqual(
+    dropActions(s, crusher, 2, 3).slice(1),
+    [{ t: 'place', id: id(4), x: 3, y: 3, dir: 2 }],
+    'a Crusher dropped beside it turns it to the Crusher',
+  );
+});
+
+test('a Hopper whose scrap already goes down the belts to a Dock keeps its way when a Crusher is dropped beside it: that line pays, and the Crusher may lead nowhere yet', () => {
+  const s = newRun('classic-aim-4');
+  apply(s, { t: 'pick', i: s.offers.indexOf('crusher') });
+  const crusher = s.bin.find((m) => m.kind === 'crusher')!;
+  assert.deepEqual(
+    dropActions(s, crusher, 1, 3).map((a) => a.t),
+    ['place'],
+    'the starter Hopper at 1,2 still feeds its belts',
+  );
 });

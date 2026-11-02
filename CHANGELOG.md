@@ -14,8 +14,8 @@ older replays and saves on purpose.
 - **Turn back:** a quarter turn the other way, one Undo.
 - Beating Sal or filling every order gets a burst of colour on the results.
 - **Belts stack on the shelf** with a count, so a shelf of cards with three parts each stays readable.
-- **Less turning:** a Crusher put beside a Hopper that feeds nothing turns that Hopper to feed it, in the same move, and a machine fed from one side faces whatever takes its load.
-- **A lighter first visit:** the game draws with the Canvas renderer only, 35 KiB less to load (262 KiB).
+- **Less turning:** a Hopper faces the way its scrap reaches a Crusher (never a Furnace, which melts raw scrap to slag); a Crusher put beside a Hopper whose scrap goes nowhere useful turns that Hopper to feed it, in the same move; and a machine fed from one side turns only when the way ahead is blocked.
+- **A lighter, quicker first visit:** the game draws with the Canvas renderer only and leaves out parts of Phaser it never used: 241 KiB to load instead of 297, and the title can be tapped in 1.9 s on a slow 4G phone instead of 2.5.
 
 ### Rules version 10: cards that bring their own Dock — 2026-11-02 (saves and scores from version 9 do not carry over)
 

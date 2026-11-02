@@ -1,0 +1,36 @@
+6 agents in r8
+median fun 3, median clear 4
+finished a game: 3, played another by choice: 0
+come back tomorrow: yes 1, maybe 4, no 1
+would pay: yes 0, maybe 1, no 5
+stuck at least once: 5
+
+Aisha (desk): fun 4, clear 4, lessons 2, games 0, best 3★ $6366, again false
+  goal: Make as much money as I can over six shifts by building a line from scrap to ingots. Each shift has an order (a money target); fill it and every price goes up 25%, and stars are for orders filled. Finish with more money than Sal, the foreman, who has a score on every yard.
+  stopped: Not boredom. I wanted shifts 5 and 6 and to catch Sal, and would have played them (and probably tomorrow's yard) if nobody were counting. I stopped because the action budget for this test (about 150) was used up with the game mid-way.
+  one change: Show on every card the dollars it would add on my current line (or rank the three), and when a card has no easy spot, light the machine I would have to move, so the best-paying card is never a dead end and I can compare offers without picking and undoing each.
+
+Kenji (desk): fun 3, clear 4, lessons 1, games 1, best 3★ $19563, again false
+  goal: Pick one machine each shift and build a scrap-to-ingot production line that pays more every shift, fill each shift's order (six orders for three stars), and finish with more total money than Sal the foreman.
+  stopped: I had seen the whole loop in one game. I beat Sal by about 50 percent on my first try and never came close to failing an order, so nothing was at stake, and this test version has no leaderboard for the score to go on. A second yard looked like the same loop on a different map. It is a smooth little puzzle toy, not something I would sit down with again right now.
+  one change: Make it bite: orders I can actually miss and a real shared leaderboard to chase, so the pick is a trade-off and not just doing whatever the 'what held you back' note names.
+
+Leo (phone): fun 2, clear 3, lessons 1, games 1, best 1★ $11161, again false
+  goal: Build a line of machines that turns scrap into money, fill each shift's order, and beat the foreman Sal's score.
+  stopped: I finished the game but I had tapped the same lit squares five times, had no idea how to do better, and did not feel like going again. Without the study I would have closed it. The 'one more order for two stars' bit tugged a little, not enough.
+  one change: Make me decide something every shift instead of tapping where it glows, and show me what a better build is (what a plate press or a second furnace would earn and where it goes), so beating Sal feels like something I can work out.
+
+Margaret (phone): fun 3, clear 4, lessons 3, games 0, best 3★ $3926, again false
+  goal: To build a little production line out of the parts they give you, so that scrap turns into goods worth more, and to earn as much money as you can. Each job says how many to make, and you get stars for reaching the marks. The money is the score.
+  stopped: I had had my fifteen minutes and was a bit tired. Every move so far was lit up for me, so I had not yet had to decide anything, and the pick, two taps, start, watch routine was getting samey. I chose to go on to lessons 2 and 3 on my own rather than the bright real-yard button, because I was afraid of a yard where Sal would not hold my hand. I would try the real one another morning with my coffee.
+  one change: Let me work something out for myself sooner: a small real puzzle with Sal quiet, so I feel I solved it, and tell me plainly what "today's yard" will ask of me before I press it.
+
+Priya (phone): fun 4, clear 4, lessons 1, games 1, best 3★ $16023, again false
+  goal: Build a line of machines that turns junk into things that sell, fill the money order each shift, and finish with more money than the foreman Sal.
+  stopped: I finished a whole game and got all three stars, and my break was long over. It had taken me about twenty minutes for the lesson and one yard. I would not start another one right now; I would try tomorrow's yard on a day off.
+  one change: Let me make a real decision from the first shift of the daily yard, and make the first half much shorter, so a whole yard fits in a ten minute break.
+
+Tom (phone): fun 3, clear 4, lessons 2, games 0, best 3★ $6678, again false
+  goal: Line the machines up in the right order so the scrap turns into goods and the dock pays me for them. Fill the order each shift and make more money than Sal.
+  stopped: I had had my fifteen minutes, and every shift on the real yard was the same four taps: pick the green card, put three things on the lit squares, press Start, watch half a minute. It never asked me to think and every summary just said I was level with Sal, so there was nothing to chase. Two more shifts would have told me whether I passed Sal, but I did not care enough to find out. It is clear and calm, I just would not open it tomorrow for more of the same.
+  one change: Stop lighting every square for me and give me a real choice to work out each shift, plus a plain hint what beating Sal takes. I saw shards at $5 and a plate at $42 and never found out how to use that.

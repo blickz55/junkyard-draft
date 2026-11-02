@@ -1,0 +1,64 @@
+{
+  "persona": "Priya",
+  "device": "phone",
+  "goalInOwnWords": "Build a line of machines that turns junk into things that sell, fill the money order each shift, and finish with more money than the foreman Sal.",
+  "stoppedWhere": "The results screen of today's yard (All three stars, $16,023, beat Sal by $3,219) with the survey's completion code card showing.",
+  "stoppedWhy": "I finished a whole game and got all three stars, and my break was long over. It had taken me about twenty minutes for the lesson and one yard. I would not start another one right now; I would try tomorrow's yard on a day off.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 16023,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 4 of today's yard, the Plate Press card tagged 'No easy spot yet'",
+      "what": "Sal said 'Move a machine to make room' but not how, or what the press needs. When I tapped a machine the press dropped on top of it and my crusher jumped to the shelf, which I did not expect. I could not tell what a press needs in front of it until the forecast said '$128 short: the Plate Press waits for scrap'.",
+      "gotOutHow": "Read the 'short of the order' lines, put the Crusher back next to the press, then found Move to shift the hopper. Forecast went to $2,742 and filled the order."
+    },
+    {
+      "where": "Shift 6 of today's yard, '$4 short of the $4,600 order'",
+      "what": "The coach's 'add a hopper' did nothing when I put a hopper over the old crusher (forecast did not move). Nothing said that crusher was already at its limit.",
+      "gotOutHow": "Moved the hopper to the glowing spot and placed the crusher and dock Sal lit; forecast $4,869 filled the order."
+    },
+    {
+      "where": "Turn and Turn back buttons on a placed part",
+      "what": "I could not tell which way each button spins a part until I tapped it. Once I turned a crusher away from the press by mistake.",
+      "gotOutHow": "Tapped Turn once more and read the 'Sends to the ...' line."
+    }
+  ],
+  "confused": [
+    "'On this yard a Tuner already speeds up the Furnace' on the job card means nothing to a newcomer",
+    "'From shift 4, plates sell for $42 too' - too what? I never worked out what else sells for $42",
+    "'No easy spot yet' on a card does not say what I should do about it",
+    "Tapping a machine with a part picked swaps them and sends the old one to the shelf, with no warning",
+    "A spare Dock I placed on shift 2 sat there all game with the label 'nothing came' and nobody said to take it away",
+    "'Tap the Shipping Dock on the shelf, then where you think it pays' when the Dock was not needed and changed nothing",
+    "A green 'Clean' tag on the end screen, clean of what?",
+    "The 'Picked:' line on the end screen lists Scrap Hopper four times and reads as if my choices were boring"
+  ],
+  "annoyed": [
+    "A lot of text on the home screen and on the job card, I skimmed all of it",
+    "Shifts 1 to 3 of today's yard were the same move (pick the green card, tap three glowing squares, start) which felt like homework",
+    "The bottom half of the phone screen is crowded with small grey text (What things sell for, Start the lesson over, Skip the lesson, Tips)",
+    "Rearranging a line on a phone takes many small taps",
+    "No leaderboard or way to compare my score with anyone in this test version",
+    "The hint 'add a hopper' kept appearing even when it would not help"
+  ],
+  "pleased": [
+    "Sal tells me one thing at a time and lights the spot, so the lesson was clear and took about the 3 minutes it promised",
+    "The 'This shift will pay $X' forecast is exactly right, so I trust it and can try things",
+    "Jumping from $37 to $111 to $576 in the lesson shows the point of the machines",
+    "The 'short of the order' lines gave real tension in shifts 4, 5 and 6",
+    "The coach talking about my own line ('the press sat idle 53 % of the shift') felt like a hint after a guess",
+    "The result screen: confetti, three stars, 'You beat Sal by $3,219' and a bar chart of my shifts going up",
+    "The game remembered 4x speed so I did not have to set it again"
+  ],
+  "bestMoment": "Shift 4: I fixed a line that was $11 short by putting a Crusher in front of the Plate Press, the forecast jumped to $2,742, the shift paid exactly that and the screen said I was $408 ahead of Sal.",
+  "worstMoment": "Shifts 2 and 3 of today's yard: the same tapping of glowing squares for the third time while the game kept saying I was only level with Sal, and the one choice I was given (where to put a Dock) changed nothing.",
+  "oneChange": "Let me make a real decision from the first shift of the daily yard, and make the first half much shorter, so a whole yard fits in a ten minute break.",
+  "completionCode": "FJCX-DBTJ"
+}

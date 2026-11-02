@@ -25,11 +25,40 @@ function takes(l: Layout, x: number, y: number, d: Dir, ignore?: number): boolea
   return !!n && inputTravelDirs(n.kind, n.dir).includes(d);
 }
 
+const inGrid = (l: Layout, x: number, y: number) => x >= 0 && y >= 0 && x < l.width && y < l.height && !l.rubble?.includes(y * l.width + x);
+
+/** What a load pushed from (x, y) along `d` reaches first past belts and Tuners: a machine's kind, 'open' for a free cell beside, or null. */
+function reach(l: Layout, x: number, y: number, d: Dir, ignore?: number): MachineKind | 'open' | null {
+  let cx = x,
+    cy = y,
+    dir = d;
+  for (let i = 0; i < l.width * l.height; i++) {
+    const nx = cx + DIR_DX[dir],
+      ny = cy + DIR_DY[dir];
+    if (!inGrid(l, nx, ny)) return null;
+    const n = at(l, nx, ny, ignore);
+    if (!n) return i === 0 ? 'open' : null;
+    if (!inputTravelDirs(n.kind, n.dir).includes(dir)) return null;
+    if (n.kind !== 'conveyor' && n.kind !== 'tuner') return n.kind;
+    cx = nx;
+    cy = ny;
+    dir = n.dir;
+  }
+  return null;
+}
+/** How good a way is for a Hopper's scrap: into a Crusher best, then a Splitter or a Sieve, then a free cell where a Crusher can go or a Dock that pays a dollar. Raw scrap into a Furnace is slag, so that ranks with nothing. */
+const SCRAP_WAYS: Partial<Record<MachineKind | 'open', number>> = { crusher: 3, splitter: 2, sieve: 2, open: 1, dock: 1 };
+const scrapWay = (l: Layout, x: number, y: number, d: Dir, ignore?: number) => {
+  const r = reach(l, x, y, d, ignore);
+  return r === null ? 0 : (SCRAP_WAYS[r] ?? 0);
+};
+
 /**
  * Which way a part should face at (x, y): a Splitter or a Sieve, which take only from behind, faces the way its feeder pushes; a
- * machine fed from one side faces on toward whatever takes its load, straight on when that is where it goes (the seventh panel turned
- * a Crusher three times to point it at the line); a conveyor runs on toward whatever will take its load, turning a corner if that is
- * where the line goes; a part with nothing around it keeps its current facing.
+ * machine fed from one side goes straight on, as the line runs, unless the way ahead is blocked, and then turns to whatever beside it
+ * takes its load (the seventh panel turned a Crusher three times to point it at the line); a Hopper faces the way its scrap reaches a
+ * Crusher, never a Tuner on the way into a Furnace (the eighth); a conveyor runs on toward whatever will take its load, turning a
+ * corner if that is where the line goes; a part with nothing around it keeps its current facing.
  */
 export function smartFacing(l: Layout, kind: MachineKind, x: number, y: number, current: Dir, ignore?: number): Dir {
   if (kind === 'dock') return current;
@@ -37,20 +66,30 @@ export function smartFacing(l: Layout, kind: MachineKind, x: number, y: number, 
   const out = (ways: Dir[]) => ways.find((d) => !feeds.includes(opposite(d)) && takes(l, x, y, d, ignore));
   if (feeds.length && kind !== 'conveyor' && kind !== 'tuner') {
     const ahead = feeds[0];
-    return kind === 'splitter' || kind === 'sieve' ? ahead : (out([ahead, leftOf(ahead), rightOf(ahead)]) ?? ahead);
+    const nx = x + DIR_DX[ahead],
+      ny = y + DIR_DY[ahead];
+    const clear = takes(l, x, y, ahead, ignore) || (inGrid(l, nx, ny) && !at(l, nx, ny, ignore)); // the line can run on there
+    if (kind === 'splitter' || kind === 'sieve' || clear) return ahead;
+    return out([leftOf(ahead), rightOf(ahead)]) ?? ahead;
   }
   const ahead = feeds[0] ?? current;
-  return out([ahead, leftOf(ahead), rightOf(ahead), opposite(ahead)]) ?? ahead;
+  const order: Dir[] = [ahead, leftOf(ahead), rightOf(ahead), opposite(ahead)];
+  if (kind === 'hopper') return order.reduce((best, d) => (scrapWay(l, x, y, d, ignore) > scrapWay(l, x, y, best, ignore) ? d : best), ahead);
+  return out(order) ?? ahead;
 }
 
-/** Hoppers beside (x, y) that feed nothing and could feed a Crusher put there, with the way each should turn. */
+/**
+ * Hoppers beside (x, y) whose scrap goes nowhere, into a free cell, or into a Furnace or a Press, and could feed a Crusher put there, with the
+ * way each should turn. One that sends scrap to a Dock keeps its way: that line pays, and the Crusher may not lead anywhere yet.
+ */
 function idleHoppers(l: Layout, x: number, y: number, crusherDir: Dir, ignore?: number): { h: Machine; dir: Dir }[] {
   const found: { h: Machine; dir: Dir }[] = [];
   for (const d of ALL) {
     const h = at(l, x + DIR_DX[d], y + DIR_DY[d], ignore);
     if (h?.kind !== 'hopper' || d === crusherDir) continue; // a Hopper in front of the Crusher would push head-on into its output
     const toward = opposite(d);
-    if (h.dir === toward || takes(l, h.x, h.y, h.dir, ignore)) continue; // it already faces here, or it feeds something
+    const now = reach(l, h.x, h.y, h.dir, ignore);
+    if (h.dir === toward || (now !== null && now !== 'open' && now !== 'furnace' && now !== 'press')) continue; // it faces here, or its scrap pays
     found.push({ h, dir: toward });
   }
   return found;

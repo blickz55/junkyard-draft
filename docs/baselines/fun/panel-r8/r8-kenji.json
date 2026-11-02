@@ -1,0 +1,62 @@
+{
+  "persona": "Kenji",
+  "device": "desk",
+  "goalInOwnWords": "Pick one machine each shift and build a scrap-to-ingot production line that pays more every shift, fill each shift's order (six orders for three stars), and finish with more total money than Sal the foreman.",
+  "stoppedWhere": "The results screen after shift 6 of today's yard ($19,563, three stars, 'you beat Sal by $6,759'), then the feedback survey and its completion code screen.",
+  "stoppedWhy": "I had seen the whole loop in one game. I beat Sal by about 50 percent on my first try and never came close to failing an order, so nothing was at stake, and this test version has no leaderboard for the score to go on. A second yard looked like the same loop on a different map. It is a smooth little puzzle toy, not something I would sit down with again right now.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 19563,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 2 and shift 4, build step after picking the Furnace + Splitter + Dock card",
+      "what": "Sal said 'No easy spot for the Furnace yet. Move a machine to make room' on a yard that was mostly empty, and I could not tell what the game wanted or what the Splitter was for.",
+      "gotOutHow": "Sent my own shard-only Dock back to the shelf, put the Furnace and a Dock after the second Crusher, and let the forecast tell me it was right ($1,110, then $1,860). The Splitter stayed unused until shift 6."
+    },
+    {
+      "where": "Shift 5, placing the new Hopper beside my Tuner",
+      "what": "The Hopper turned itself to face the Tuner, a tooltip said 'Nothing feeds the Crusher: the scrap hopper behind it points elsewhere' and the forecast fell by $1,296. I could not tell what had gone wrong.",
+      "gotOutHow": "Tapped the Hopper. It then read 'Sends to the right' and the forecast jumped to $4,800. I still do not know exactly what flipped it."
+    },
+    {
+      "where": "Shift 6, the Splitter",
+      "what": "What a Splitter does and where it can go. Three kits had handed me three of them and the cards only said 'No easy spot yet'.",
+      "gotOutHow": "Dragged one onto the line, read its description once it was selected ('sends things ahead, then out to each side, in turn') and a tooltip about machines never taking input head-on, then rebuilt the third line by trial and error against the forecast."
+    }
+  ],
+  "confused": [
+    "The yard has props that look like machines (a striped crate, gears, a pile, rocks) and nothing says whether they matter or are scenery.",
+    "In shift 1 the ready-made line already beat the $450 order, so I could not tell what an order was for until the prices went up 25 percent.",
+    "'No easy spot yet' on the cards and 'Move a machine to make room' on a mostly empty yard: it really means 'nothing good happens if you put it down', but it reads like the yard is full.",
+    "The Splitter is never explained until you select one, and the game hands out several that you cannot place.",
+    "That machines take things from behind or either side but never head-on: I only learned it from an error tooltip after doing it wrong.",
+    "The Hopper that turned itself toward the Tuner, dropped the forecast by $1,296 and then fixed itself when I tapped it.",
+    "'Every price goes up 25%' turned out to be a flat plus $6 per order ($24, $30, $36, $42...), which I had to work out from the numbers.",
+    "'Buy a belt: $20' was greyed out for most of the game and I never learned when it works, and I never needed a belt after lesson 1.",
+    "'You're level with Sal' after shift 1: I could not tell what Sal's game was doing or how he compares shift by shift."
+  ],
+  "annoyed": [
+    "Lesson 1 is fully scripted: every card but one is greyed out and every drag has a glowing target, about 15 actions to learn what the first card already told me.",
+    "The speed goes back to 1x every shift, so I tapped 4x six more times; I never watched a shift at normal speed because there is nothing to see after the first one.",
+    "The Plate Press is offered every shift but by its card it pays about what one ingot pays for two shards, so it looks like filler I would never take.",
+    "The score goes nowhere: no leaderboard in this version, and Sal's bar was easy to pass, so beating him means little."
+  ],
+  "pleased": [
+    "The line under Start shift ('This shift will pay $1,860, up $855') was exactly right every time, so I trusted it and could try ideas before spending a shift.",
+    "'What held you back' after each shift, with a tag on the machine in the yard ('the furnace held you back for 13 of 80 seconds').",
+    "Next shift's cards are shown in small text, so I could plan a shift ahead and took the Furnace kit early on purpose.",
+    "Undo, 'Back to the shelf' and moving parts by dragging made experimenting free.",
+    "Rebuilding my second line and watching the forecast go from $1,110 to $1,860.",
+    "Moody art, Sal's short lines and a whole game in about ten minutes."
+  ],
+  "bestMoment": "Shift 2: pulling my shard-only Dock off, putting a Furnace and a new Dock after the second Crusher, watching the forecast jump from $1,110 to $1,860, and then the shift paying exactly that.",
+  "worstMoment": "Shift 5: the Hopper turned itself toward the Tuner, the forecast fell by $1,296, a tooltip said nothing feeds the Crusher, and I could not tell why it fixed itself when I tapped it. (Close second: lesson 1's glowing targets.)",
+  "oneChange": "Make it bite: orders I can actually miss and a real shared leaderboard to chase, so the pick is a trade-off and not just doing whatever the 'what held you back' note names.",
+  "completionCode": "W864-RUFC"
+}

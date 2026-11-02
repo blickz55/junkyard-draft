@@ -1,0 +1,64 @@
+{
+  "persona": "Leo",
+  "device": "phone",
+  "goalInOwnWords": "Build a line of machines that turns scrap into money, fill each shift's order, and beat the foreman Sal's score.",
+  "stoppedWhere": "Results screen after shift 6 of today's yard (1 star, $11,161, Sal beat me by $1,643), then the feedback page. The lesson earlier had given all three stars.",
+  "stoppedWhy": "I finished the game but I had tapped the same lit squares five times, had no idea how to do better, and did not feel like going again. Without the study I would have closed it. The 'one more order for two stars' bit tugged a little, not enough.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 1,
+  "bestMoney": 11161,
+  "playedAnotherByChoice": false,
+  "fun": 2,
+  "clear": 3,
+  "comeBackTomorrow": "no",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Today's yard, shift 3 (picked the Furnace + Splitter + Dock card)",
+      "what": "Sal said 'No easy spot for the Furnace yet. Move a machine to make room.' There were lots of empty squares and I could not tell where a second furnace and a splitter should go or how to connect them.",
+      "gotOutHow": "Did not. Dropped the parts on random empty squares, they came out tagged 'unused' and 'nothing came', started anyway, and from then on only picked the green 'Fits this line now' card."
+    },
+    {
+      "where": "Today's yard, shift 4 (forecast '$11 short of the $2,150 order')",
+      "what": "Could not find any change that would add $11. Sal said 'Tap the Shipping Dock on the shelf, then where you think it pays' but nothing I placed paid. Selling the spare dock raised my total by $10 but the shift still said $11 short.",
+      "gotOutHow": "Did not. Opened Tips, read about selling parts, sold the dock, started anyway and missed the order by $11."
+    },
+    {
+      "where": "Today's yard, shifts 5 and 6 (orders of $3,200 and $4,600)",
+      "what": "The orders were far bigger than what my line made and the only advice was 'add a hopper', which I already did every time. I did not know what else to try.",
+      "gotOutHow": "Did not. Kept copying the lit squares and took two more misses."
+    }
+  ],
+  "confused": [
+    "Lesson shifts 1 and 2: the top bar said 'Ship 20 ingots' and the result said '0 ingots this shift' while money was going up, so I did not get what ingots had to do with the money until the furnace.",
+    "Lesson shift 3: a red 'held you back' tag on the furnace right after I got all three stars.",
+    "Real game: 'The lit spots are his game: beat him by finding better.' I only tapped the lit squares, so I did not know what 'better' meant.",
+    "Cards saying 'No easy spot yet' while most of the yard was empty, and 'Move a machine to make room' with no hint which machine or where to.",
+    "'Tap the Shipping Dock on the shelf, then where you think it pays': no way to know where a dock pays; my spare docks only got an 'unused' or 'nothing came' tag after the shift ran.",
+    "Selling a part raised my total but the shift still said '$11 short' of the order, so I did not get what counts toward an order.",
+    "'Nothing held you back... add a hopper' was the same line every shift, even after I had added a hopper.",
+    "The forecast said I would miss the order ($866 and $2,071 short) but the only help was 'Start anyway, or try a change' and I knew of no change."
+  ],
+  "annoyed": [
+    "Same card and the same three lit-square taps every shift: I was following arrows, not playing.",
+    "Orders grew much faster than my line ($3,200, then $4,600) so I took two red misses in a row.",
+    "Missing the order by $11 with no way I could find to get those $11.",
+    "A lot of small text on the cards, in Sal's lines and in the Tips box. I skipped nearly all of it.",
+    "Parts I placed where nothing was lit were useless and I only found that out after starting the shift.",
+    "'Copy the code' did not copy; the button turned into 'Press and hold the code to copy it'."
+  ],
+  "pleased": [
+    "The lesson took about three minutes and everything glowed, so I never got stuck.",
+    "The jump from $37 to $111 to $576 when I added the crusher and then the furnace was the first real 'oh nice'.",
+    "4x speed stayed on between shifts, so a shift was over in a few seconds.",
+    "Money popping off the docks, the big yellow +$417 and the white crystals from the crusher.",
+    "The 'This shift will pay $X (up $Y)' line before starting: I could see a number go up before I committed.",
+    "The end screen: 'One more order for two stars', Sal as a rival to beat and a 'Try again from shift 4' button felt like a proper one-more-go hook.",
+    "The little 'unused' and 'nothing came' tags told me straight which parts did nothing."
+  ],
+  "bestMoment": "Lesson shift 3: I put the furnace on, the forecast jumped to $576 (up $465), then the shift ended on $724 with all three stars.",
+  "worstMoment": "Today's yard shift 4: forecast said '$11 short of the $2,150 order', I could not find a fix, started anyway and got the red circle.",
+  "oneChange": "Make me decide something every shift instead of tapping where it glows, and show me what a better build is (what a plate press or a second furnace would earn and where it goes), so beating Sal feels like something I can work out.",
+  "completionCode": "36WN-M6DA"
+}

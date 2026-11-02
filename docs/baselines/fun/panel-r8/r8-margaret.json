@@ -1,0 +1,44 @@
+{
+  "persona": "Margaret",
+  "device": "phone",
+  "goalInOwnWords": "To build a little production line out of the parts they give you, so that scrap turns into goods worth more, and to earn as much money as you can. Each job says how many to make, and you get stars for reaching the marks. The money is the score.",
+  "stoppedWhere": "On the \"Lesson 3 done\" card at the end of the third lesson (four shifts, $3,926 and three stars), where I chose \"Give feedback (1 min)\" instead of \"Play today's yard\". I never started a real yard.",
+  "stoppedWhy": "I had had my fifteen minutes and was a bit tired. Every move so far was lit up for me, so I had not yet had to decide anything, and the pick, two taps, start, watch routine was getting samey. I chose to go on to lessons 2 and 3 on my own rather than the bright real-yard button, because I was afraid of a yard where Sal would not hold my hand. I would try the real one another morning with my coffee.",
+  "lessonsFinished": 3,
+  "gamesFinished": 0,
+  "bestStars": 3,
+  "bestMoney": 3926,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [],
+  "confused": [
+    "Lesson 1: Sal said the line was closed and to start the shift, but the strip \"Your line needs\" still showed Crusher and Furnace unticked, and I could not see why it would pay $37 with half the line missing (it was only scrap at $1 each, which the shift's receipt explained afterwards).",
+    "The red label \"held you back\" appeared at the end of lessons 1 and 2 with no explanation; it only made sense in lesson 3 when Sal said it marks the slowest machine.",
+    "Spare parts appeared on the shelf with no word on where they came from (a belt piece after I placed the Crusher, a spare Crusher at the start of lesson 2); the spare Crusher turned out to be for a later step.",
+    "Sal's \"You keep ONE part. The others go back on the truck\": I wondered what the truck was and whether I was losing something.",
+    "\"Buy a belt: $20, out of your score\": I was unsure whether my earnings get spent, and when I would ever want to buy a belt on my own. The later line \"Spent on new offers and belts: $20\" helped.",
+    "When I tapped a part on the shelf the glow hardly changed, so I could not tell whether it was in my hand until the lit spot worked.",
+    "The Tuner card says \"By itself it does nothing\", which made me hesitate until Sal said it speeds up every machine it touches.",
+    "Lesson 3 shift 4 paid exactly the same as shift 3 after I added a second Dock and sold a belt, and nothing said whether that change was good.",
+    "I still do not know what \"today's yard\" will ask of me or how it differs from a lesson."
+  ],
+  "annoyed": [
+    "By lesson 3 it was the same routine again and again (pick a card, tap the shelf, tap the lit spot, start, watch) and I was only obeying lit squares, not thinking.",
+    "The underlined \"Start the lesson over\" and \"Skip the lesson\" sit right under the big Start shift button; I was afraid of touching one by mistake and losing my place."
+  ],
+  "pleased": [
+    "Sal gave one instruction at a time in plain words and always said why (the Press only wants shards, so new scrap has to be crushed first).",
+    "The money jumping from $37 to $111 to $576 in the first lesson, and the till-receipt line \"37 x shards @ $3 = $111\".",
+    "The shift by shift list, including \"Spent on new offers and belts: $20\" and \"Sold spare parts: $10\", which accounted for every dollar.",
+    "The red striped squares and the labels \"waiting for scrap\" and \"held you back\" showed exactly where the queue was.",
+    "A wrong-way belt piece could be mended with one tap, and Sal told me plainly what was wrong.",
+    "The survey asked me to leave out my name, and the completion code was easy to find."
+  ],
+  "bestMoment": "The first time the gold bars ran down the belt in lesson 1: the money went from $148 to $576 in one shift and all three stars lit up.",
+  "worstMoment": "Near the end of lesson 3, doing the same routine once more and seeing the last shift pay exactly the same as the one before; I felt I was only following lit squares.",
+  "oneChange": "Let me work something out for myself sooner: a small real puzzle with Sal quiet, so I feel I solved it, and tell me plainly what \"today's yard\" will ask of me before I press it.",
+  "completionCode": "CXK2-MXMU"
+}

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_VERIFIER_URL = 'http://127.0.0.1:4400';
 
@@ -17,6 +18,12 @@ export const PHASER_FLAGS = {
   PLUGIN_FBINSTANT: 'false',
   WEBGL_DEBUG: 'false',
 };
+/**
+ * The two core files that require Phaser's whole Math namespace use only its random data generator, so they get game/phaser-math.cjs
+ * instead, and the 3D maths they dragged in stays out of a first visit (Goal 12).
+ */
+const SLIM_MATH = fileURLToPath(new URL('../game/phaser-math.cjs', import.meta.url));
+const SLIM_MATH_USERS = /[\\/](core[\\/]Config|utils[\\/]object[\\/]GetAdvancedValue)\.js$/;
 export function phaserFlagsPlugin() {
   return {
     name: 'phaser-flags',
@@ -24,6 +31,11 @@ export function phaserFlagsPlugin() {
       build.onLoad({ filter: /[\\/]phaser[\\/]src[\\/].*\.js$/ }, async (args) => {
         let s = await fs.promises.readFile(args.path, 'utf8');
         for (const [k, v] of Object.entries(PHASER_FLAGS)) s = s.replaceAll(`typeof ${k}`, v);
+        if (SLIM_MATH_USERS.test(args.path)) {
+          const slim = s.replace(/require\('(\.\.\/)+math\/?'\)/, `require(${JSON.stringify(SLIM_MATH)})`);
+          if (slim === s) throw new Error(`phaser-flags: no Math require to slim in ${args.path}`);
+          s = slim;
+        }
         return { contents: s, loader: 'js' };
       });
     },

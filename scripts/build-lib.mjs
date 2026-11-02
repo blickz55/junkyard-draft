@@ -44,8 +44,15 @@ export async function buildDist({ root, dist, verifierUrl = process.env.VERIFIER
     fs.writeFileSync(path.join(dir, 'build-meta.json'), JSON.stringify(result.metafile, null, 1));
   }
   if (fs.existsSync(path.join(root, 'game', 'public'))) fs.cpSync(path.join(root, 'game', 'public'), dist, { recursive: true });
+  // the chunks a first visit needs start with the page instead of after the bundle has arrived and been read: on slow 4G the
+  // shared chunk waited about 400 ms for it (Goal 12)
+  const preload = initial
+    .slice(1)
+    .map((c) => `  <link rel="modulepreload" href="./${c}" />\n`)
+    .join('');
   const html = fs
     .readFileSync(path.join(root, 'game', 'index.html'), 'utf8')
+    .replace('</head>', `${preload}</head>`)
     .replace('/src/main.ts', `./${bundle}`)
     .replace('__BUILD__', `${pkg.version}+${commit}`)
     .replace('__CSP__', cspFor({ dev: false, verifierUrl }));
