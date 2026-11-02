@@ -7,6 +7,7 @@
 Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `[~]` in progress, `[ ]` open.
 
 ## M0 — Workshop Control Room v0
+
 - [x] Project-local hooks capture session/tool/failure/subagent/stop events into sanitized JSONL
 - [x] SSE server + dashboard: current work, pipeline, agents, feed with filters, game & verification, milestones
 - [x] Real tool operation appears automatically (verified live in this session)
@@ -17,6 +18,7 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] Gameplay screenshots and verification results keep flowing as development continues
 
 ## M1 — Playable vertical slice
+
 - [x] Deterministic headless simulation with seeded draft, versioned rules, replay export/import/verify
 - [x] Six machine types with meaningful interactions (crusher, furnace, splitter throughput, orientation)
 - [x] Title screen, daily/random/custom seed, how-to-play panel
@@ -32,6 +34,7 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [ ] ⚑ Human-readable playtest notes from at least one full manual run (needs a human; nothing here substitutes for it)
 
 ## M2 — Readability, controls, depth
+
 - [x] Per-machine stats after a round are shown as on-grid badges (tooltips not needed)
 - [x] Keyboard-only placement (arrow keys + Enter, Tab, R, Delete, Esc) for accessibility — verified by an e2e step
 - [x] Sell a drafted part from the bin for $10 so useless offers still matter
@@ -40,12 +43,14 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [x] Balance pass driven by autoplayer score distributions per seed (`tools/balance.ts`; press kept as tuned in v2 — see DESIGN decisions and `docs/balance-press.json`)
 
 ## M3 — Desktop packaging
+
 - [x] Electron shell launches (`npm run desktop`, Electron 45 pinned as a devDependency; window verified on Windows 2026-10-25)
 - [x] Packaged build launched and screenshotted on at least one platform (Windows: `npm run desktop:pack` → `release/win-unpacked/Junkyard Draft.exe`, 2026-10-25)
 - [x] NSIS installer (`npm run desktop:dist` → `release/Junkyard-Draft-Setup-0.1.0.exe`, 122 MB, per-user, unsigned) and a packaged-app smoke test (`tests/desktop-smoke.test.mjs`, part of `npm test`, skips without a build)
 - [ ] ⚑ Code signing (certificate needed to avoid SmartScreen); macOS / Linux builds; auto-update; run the installer once on a clean machine
 
 ## M4 — Verification server & leaderboard
+
 - [x] Local Node verifier service: accepts replay JSON, re-simulates, returns verified score (`npm run verifier`)
 - [x] Results screen submits replays to the local verifier and shows the verified-only board separately from local bests
 - [x] Daily seed board with identical offers/rules for everyone (`GET /daily` on the verifier + title-screen panel; seed = `daily-YYYY-MM-DD` UTC on both sides)
@@ -55,6 +60,7 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [~] Hosted verifier: service is deployable (HOST/PORT/DATA_DIR, per-IP rate limit, CORS origin, request log, single-file bundle, Dockerfile, `VERIFIER_URL` build define) — image not yet built (no Docker on the dev PC) and nothing deployed
 
 ## M5 — Release readiness
+
 - [x] Accessibility: reduced motion (belts static, no flashes / pops / travel, items snap; follows the OS preference by default) and text size 100 / 115 / 130 % through the UI helpers — title-screen controls, persisted, e2e-covered
 - [x] Accessibility audit: WCAG AA contrast on every text pair and CVD simulation of materials/semantic colours (`tools/a11y-audit.ts`, enforced by `tests/a11y.test.ts`; palette nudged, shapes already distinct)
 - [x] A scalable layout: done in 0.10.0 (no fixed canvas size, `render/viewport.ts`, `render/layout.ts`)
@@ -63,6 +69,7 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [ ] Steam build pipeline (requires the user's Steamworks credentials — not a prerequisite earlier)
 
 ## M6 — v0.3 + v0.4: first five minutes, then the run is the show (PLAN-v1 / DOSSIER-v1, released as 0.4.0)
+
 - [x] v0.3 first five minutes: onboarding rejections with reasons, undo/redo, money heartbeat + stall marker, tutorial seed, opt-in funnel events, tips with live demos (PLAN-v1 0.3.2–0.3.7; e2e in `tests/render-e2e.test.mjs`, `tests/undo.test.ts`, `tests/tips.test.ts`, `tests/telemetry.test.ts`)
 - [x] Worst-machine foundation: render probe + device presets + CI perf gate, texture atlas, DPR-sized canvas with adaptive quality, Canvas fallback, context-loss recovery (DOSSIER-v1 0.3.8–0.3.10; `tools/perf.ts`, `.github/workflows/perf.yml`)
 - [x] 0.4.0 DOM UI shell: title, results, game side panel, HUD, hint strip in real text; 130 % fits with zero slack (e2e geometry checks; a11y stylesheet audit)
@@ -78,6 +85,7 @@ Checklist syntax feeds the Control Room milestone view: `[x]` done (verified), `
 - [ ] ⚑ 0.4.7 Host the verifier (deployable bundle + Dockerfile exist; nothing deployed — see M4)
 
 ## M7 — Pre-v0.5 stabilization (independent review 2026-10-29, docs/reviews/)
+
 - [x] A: verifier/collector integrity — total telemetry validation + guarded async handlers, redaction removes tokens, canonical replay identity, pars kept on submit, consent-generation telemetry sends (`tests/verifier.test.ts`, `tests/collector.test.mjs`, `tests/telemetry.test.ts`)
 - [x] B: desktop/input/provenance — DOM dialogs replace prompt/alert (packaged smoke exercises them), grid-owned keyboard with no global capture and Tips focus management, playback-owned advancement, provenance-honest clip footers, run-bound results standing, null-prototype seed dictionaries, DPR-aware dock pulse, All Hands badge (`tests/render-e2e` 5c/5d, `tests/game-e2e`, `tests/controller.test.ts`, `tests/storage.test.ts`, `tests/badges.test.ts`)
 - [x] C: deployment readiness — Dockerfile covers the verifier's source graph (layout-bundle test), bounded bot-par admission, `ci.yml` with a real image smoke and a Windows packaging job, strict perf gate with an explicit baseline path, Control Room bounds/containment, Electron IPC validation
@@ -124,8 +132,10 @@ The owner's twelve notes, all taken: `CHANGELOG.md` and the session block in `do
 - [ ] ⚑ The owner's ears on the sound (`docs/SOUND.md`, Settings → Sound test) and the owner's eyes on the art
 - [ ] ⚑ The EU/UK question on play data on by default (a stored install id may need consent there; see STATUS)
 - [ ] ⚑ A stranger plays the lesson with no help (`docs/UX-STANDARD.md`, last line)
+- [ ] ⚑ How long the lessons are, which is the owner's content: in agent panels 8 to 10 (`docs/baselines/fun/panel-r8`..`r10`) careful readers spent 10 to 15 minutes in the three lessons with every move lit, and the slowest never reached a game in two rounds; the 9 sessions that stopped after lesson 1 finished 10 games (3 played another by choice), the 9 that took two or three finished 1 (the same three careful personas each round, so the lessons are not the only cause). Options: lessons 2 and 3 in one, or each offered when a game first deals a Splitter or a Tuner (STATUS session 106)
 
 ## M13 — production roadmap v0.10 Phone (`docs/PRODUCTION-ROADMAP.md` §5; routine items done, the owner's ⚑ open)
+
 - [x] v0.10 exit criteria reviewed on 541f3ea (STATUS: "v0.10 Phone — milestone review"): the PWA installs, the bundle is under budget, three engines verify, push is built and tested; ⚑ the three-phone device run (0.10.5) and the VAPID keys stay the owner's
 - [x] 0.10.0 responsive layout: `render/viewport.ts` (the canvas sizes to its container), `render/layout.ts` (`fitBoard`, `boardCameraCenter`), the CSS-grid shell in `ui/GamePanel.ts` (laptop, portrait phone with the bottom sheet, portrait tablet, short landscape), device-class text sizes and 44 px touch targets in `ui/dom.ts`; `tests/layout-e2e.test.mjs` (the matrix at 130 %, six viewports) and `tests/layout.test.ts` · [ ] ⚑ the owner reviews the screenshots per viewport (`.control-room/screenshots/layout-*.png`)
 - [x] 0.10.1 touch and the action table: `content/controls.ts` (keys, mouse, touch per action; the controller binds from it, the Tips panel lists it, the build panel's keyboard line is composed from it), taps / long-press drag / two-finger rotate in `render/InputController.ts`, audio unlock on the first tap; `tests/touch-e2e.test.mjs` (six rounds by touch only), `tests/controls.test.ts`
@@ -136,6 +146,7 @@ The owner's twelve notes, all taken: `CHANGELOG.md` and the session block in `do
 - [x] 0.10.6 share surfaces for phones: the Web Share button with the card (`ui/ResultsScreen.ts` `share-native`), the GIF of the final layout with yard, score and hash8 in the strip (`render/clip.ts`); the web-app e2e's share-sheet scenario, the gameplay e2e's strip check
 
 ## M12 — production roadmap v0.9 Clear (`docs/PRODUCTION-ROADMAP.md` §5; done)
+
 - [x] 0.9.0 the string table and the glossary: `game/src/content/strings.ts` + `glossary.ts` + `format.ts` + `locale.ts`; sim text moved to `content/` (machines, tips, advice, badges, fork); `tools/strings-lint.ts`; the pseudo-locale and `tests/pseudo-e2e.test.mjs` at 130 % (`tests/strings.test.ts`) · ⚑ the owner reviews Appendix B's choices (crews, yard, a try, our server)
 - [x] 0.9.1 the foreman, text only: `content/foreman.ts` + `foreman.*` lines in the table (31 situations × 3–5 variants, chosen per UTC day), the box on title / draft / round-end banner / results, `chatter` setting, `docs/FOREMAN.md` (`tests/foreman.test.ts` snapshot, `tests/foreman-e2e.test.mjs`) · ⚑ the owner reviews Sal's voice
 - [x] 0.9.2 the results card: the standing sentence leads, then money, the deltas (foreman's mark, best on the yard, medal), "Since yesterday" on the daily; rank and the top five below the fold; the "Beat this" link in the share text by default (opt-out); the order asserted in `tests/game-e2e.test.mjs` · ⚑ the owner reviews the 390-wide and 1920-wide screenshots (the 390 one shows the fixed 1120×700 scaled down; reflow is 0.10.0)
@@ -147,6 +158,7 @@ The owner's twelve notes, all taken: `CHANGELOG.md` and the session block in `do
 - [x] 0.9.7 your record, local: `ui/RecordPanel.ts` from the bests panel, `render/record.ts`, the local records (standings, medals, kinds) in `render/storage.ts`, `tests/record.test.ts`, the e2e scenario (opens it, the trend reads local records, no request leaves the device) · [ ] ⚑ 0.9.8 playtest round two
 
 ## M11 — production roadmap v0.8 Real (`docs/PRODUCTION-ROADMAP.md` §5; in progress)
+
 - [x] 0.8.0 client hardening: `?verifier=` only in dev builds and on loopback pages, CSP in page and Electron, storage-failure banner, error log + Copy diagnostics (`tests/config.test.ts`, `tests/hardening-e2e.test.mjs`)
 - [x] 0.8.1 verifier hardening, first cut: rightmost proxy hop, per-address read/write limits, 400-day history bound, identity cap, JSON log with hashed addresses and request ids, 500s logged, timeouts, SIGTERM drain, `/health` trigger inputs, two-reporter hide rule with 72 h lapse and moderator confirm, cold deletion, 7-day event hashes (`tests/verifier-hardening.test.ts`, `tools/log-check.ts` in CI)
 - [x] 0.8.2 single-pass re-simulation in a worker: prepare → one run in a persistent worker with a 10 s cap and a bounded queue → record; reason codes on every refusal; per-seed sorted index; `tools/load.ts` baseline `docs/baselines/0.8/load-0.8.2.json` (357/357 answered 200, `/health` p95 1.7 ms) (`tests/verifier-resim.test.ts`)
@@ -163,6 +175,7 @@ The owner's twelve notes, all taken: `CHANGELOG.md` and the session block in `do
 - [ ] ⚑ 0.8.5 deploy, the owner's half: domain, VPS, secrets, Pages project and GitHub variables, then image-smoke + mint-check + hosted-check against the hosted URLs recorded in STATUS (closes 0.4.7/0.6.8/0.7.8) · [ ] ⚑ 0.8.6 the owner's half: legal name and jurisdiction in `operator.ts`, the two mailboxes, a read of the three texts and the licence decision (source-available as written, or MIT for the engine) · [ ] ⚑ 0.8.9 uptime, alerting, Discord · [ ] ⚑ 0.8.10 first human playtests
 
 ## M10 — v0.7 Play with people (PLAN-v4, released as 0.7.0, protocol 2, rules version 3 unchanged)
+
 - [x] 0.7.0 storage: hot/cold split and replay compaction (`server/cold.ts`, `HOT_DAYS` 30, top 10 replays per cold day, `docs/baselines/0.7/storage-split-*.json`); 0.7.0b SQLite scheduled only when a measured beta month crosses the 5 MB / 50 ms trigger
 - [x] 0.7.1 challenge link with per-round earnings (`roundsOf` derived at verification, `GET /entry`, the challenge overlay and outcome on the results and share text)
 - [x] 0.7.2 groups by code (`/groups`, `?group=` scope on boards, histogram, daily, weekly and archive; caps 5 per player, 50 members; names through the one filter)
@@ -175,6 +188,7 @@ The owner's twelve notes, all taken: `CHANGELOG.md` and the session block in `do
 - [ ] ⚑ 0.7.8 host the verifier and open the web beta (this is 0.6.8 with `MODERATION_TOKEN`, a real `APPEAL_CONTACT` and optionally `DISCORD_WEBHOOK_URL` added; the e2e daily submission against the hosted URL recorded in STATUS)
 
 ## M9 — v0.6 The daily, done right (PLAN-v3, released as 0.6.0, protocol 2, rules version 3 unchanged)
+
 - [x] 0.6.0 identity without passwords: device token, `player_id = SHA-256(token)`, `Name#TAG`, recovery code, `POST/GET /identity`, `DELETE /me`, keep-best per (seed, player), per-player bucket (`tests/identity.test.ts`, verifier +3, e2e claim/keep-best/recovery)
 - [x] 0.6.1 server-minted daily seed with a published commitment (`server/mint.ts`, `DAILY_SECRET`, `/daily?date=`, practice seed fallback, `tools/mint-check.ts`, rehearsal step for secret rotation)
 - [x] 0.6.2 48-hour window, freeze, late submissions verified but unranked, `GET /archive`, Archive dialog, provisional/final strip
@@ -187,6 +201,7 @@ The owner's twelve notes, all taken: `CHANGELOG.md` and the session block in `do
 - [ ] ⚑ 0.6.8 host the verifier and open the web beta (domain, VPS + Caddy + Docker image with `DAILY_SECRET` backed up, `VERIFIER_URL` in the builds, Cloudflare Pages, the e2e daily submission against the hosted URL recorded in STATUS)
 
 ## M8 — v0.5 Decisions (PLAN-v2, released as 0.5.0, rules version 3)
+
 - [x] 0.5.0 local records partitioned by rules version with a one-time migration (`tests/fixtures/profile-v2.json`, render-e2e 5e)
 - [x] 0.5.1 measurement tools generalised: any machine, variants by rules path, two search policies, paired deltas, replay-verified actions, executable gates (`tests/balance-tool.test.ts`)
 - [x] 0.5.2 Sieve fixture → no-go (separated routes +17 %, also with an export dock); Sieve kept as an experimental kind (`tests/sieve-fixture.test.ts`, DESIGN decision)
