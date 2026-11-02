@@ -13,6 +13,7 @@ older replays and saves on purpose.
 - Advice asks for a Tuner only where one could stand.
 - **Buy a belt stands beside Start**, and "Show me where" is never cut off on a phone.
 - **Turn right and Turn left**, and a note when a drop turns another part where it stands.
+- Short of the order with every machine keeping up, the coach says the line needs more scrap; a piece that leads nowhere is mentioned only when something reaches it; "held you back" waits for the lesson that teaches it; and level with Sal, it says how he can be beaten.
 
 ### Counted right — 2026-11-02 (no rules change)
 

@@ -5,6 +5,8 @@ import { apply, newRun, TUTORIAL_SEED, type RunState } from '../game/src/sim/run
 import { cardPlan, hintFor, pressPaysLess, type Guidance } from '../game/src/render/guide';
 import { dropActions, smartFacing } from '../game/src/render/placement';
 import { machineName } from '../game/src/content/machines';
+import { analyseRound } from '../game/src/sim/bottleneck';
+import { runLayout } from '../game/src/sim/sim';
 
 const ctx = (mode = 'build', tutorial = false) => ({ tutorial, touch: false, watching: null, mode });
 const spotKinds = (g: { spots: Guidance['spots'] }) => g.spots.map((p) => p.kind);
@@ -181,4 +183,19 @@ test("once a card's plan is all in, the part it did not need is spare: the coach
     }
   }
   assert.ok(checked > 0, 'a plan that left a part of its card out, on these yards');
+});
+
+test('ready but short with every machine keeping up: the coach says the line needs more scrap, not "try a change"', () => {
+  let seen = 0;
+  for (let n = 0; n < 80 && seen < 2; n++) {
+    const r = newRun(`short-${n}`);
+    apply(r, { t: 'pick', i: 0 });
+    for (const m of r.bin.slice(-3)) if (m.kind !== 'conveyor') apply(r, { t: 'sell', id: m.id });
+    if (analyseRound(r.layout, runLayout(r.layout), 2).kind !== 'balanced') continue;
+    r.round = 5; // a late order the opening line cannot fill
+    r.picks = []; // no card in hand: the coach goes straight to whether the line fills the order
+    assert.match(hintFor(r, ctx()).text, /^\$[\d,]+ short of the order: every machine keeps up; it needs more scrap\.$/, r.seed);
+    seen++;
+  }
+  assert.ok(seen, 'a yard whose opening line keeps up everywhere');
 });

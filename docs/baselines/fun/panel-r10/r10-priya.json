@@ -1,0 +1,73 @@
+{
+  "persona": "Priya",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory line from scrap, picking one new machine each round, so the junk turns into things worth more money. Fill the orders for three stars and beat the foreman's total.",
+  "stoppedWhere": "The results screen at the end of my second game on today's yard ($18,651, 'You beat Sal by $5,847'), right after sending the feedback form and getting the completion code.",
+  "stoppedWhy": "Not boredom: the first game was the best part and I played a second one by choice. But the second was the same yard with the same offers, like redoing a crossword I had already finished, and it scored $330 less than the first with nothing telling me why. I would not play a third go on the same yard. I would come back for a new yard, maybe, if I remembered.",
+  "lessonsFinished": 1,
+  "gamesFinished": 2,
+  "bestStars": 3,
+  "bestMoney": 18981,
+  "playedAnotherByChoice": true,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Game 1, shift 3, after picking the Furnace + Splitter + Dock card",
+      "what": "Which piece I was holding. The shelf lit the Furnace with a blue frame but the piece in my hand was a Dock with a yellow frame, so my tap on the yard put a Dock where I wanted the Furnace.",
+      "gotOutHow": "Read the small panel title ('Shipping Dock'), pressed Undo, tapped the Furnace on the shelf and placed it. I did the same wrong tap again in game 2 shift 2; by game 2 shift 6 I tapped the piece I wanted first."
+    },
+    {
+      "where": "Game 1, shift 4 (and again on shifts 5 and 6)",
+      "what": "How to clear the slow furnace. The note said another furnace behind a Splitter would clear it, but the Furnace + Splitter + Dock card said 'No spot pays more yet' and Sal said it could wait on the shelf. I never found out what that card was for.",
+      "gotOutHow": "Ignored both. Moved a Dock and put a Furnace in front of it on my second hopper line, and trusted the forecast number (up $1,227). Later shifts still said the furnace held me back and I did not find a fix."
+    },
+    {
+      "where": "Game 1, shift 4, pointing the new Furnace up",
+      "what": "There are only Turn right and Turn left, and a new machine lands facing a random way. It took three taps to point the Furnace up and I could only tell it worked because the forecast changed.",
+      "gotOutHow": "Kept tapping Turn left until the forecast went up."
+    },
+    {
+      "where": "End of game 2, results screen",
+      "what": "Why my second game ($18,651) scored less than my first ($18,981) when I felt I had played it smarter. I did not find a way to put the two games side by side.",
+      "gotOutHow": "Did not. Gave up and filled in the survey."
+    }
+  ],
+  "confused": [
+    "Home job card: 'On this yard a Tuner already speeds up the Furnace' and six dollar amounts. I did not know what a Tuner, a Furnace or an order was until after the lesson.",
+    "Lesson shift 1 said 'This shift will pay $37' next to '0 of 20 ingots', which looked wrong until the Crusher and Furnace were in.",
+    "The red 'held you back' tag on the furnace at the end of the lesson. I only worked out later that it means the slow machine.",
+    "Sal's advice disagreeing with the note above it: 'another furnace behind a Splitter would clear it' against the card's 'No spot pays more yet' and Sal's 'it can wait on the shelf'.",
+    "The line already forecast $888 before I added anything, so I did not understand what the first card was for until I saw the 'up $117'.",
+    "Sal's $12,804 next to my $1,005 and $1,422 early shifts: no idea whether I was doing fine or hopelessly behind.",
+    "'The furnace held you back for 26 of 80 seconds' got worse after I made the line bigger, and I could not tell what to do about it.",
+    "Why game 2 scored less than game 1.",
+    "What the ranks (Yard Hand, Line Boss) give me besides a name."
+  ],
+  "annoyed": [
+    "Two different frames on the shelf, blue for what the coach wants and yellow for what is in my hand. I put down the wrong piece twice.",
+    "Only Turn left and Turn right, and a new machine often lands facing the wrong way, so one to three extra taps every time.",
+    "When a part is selected the buttons under it (Back to the shelf) are half hidden behind the 'This shift will pay' line.",
+    "Old card text and Sal's line fade out slowly and overlap the new text for a moment, so I saw words piled on top of each other several times.",
+    "Words clipped at the left edge: the first letter of 'Test version...' on Home and of 'If every shift pays this', and a label by the left-hand Dock that showed only 'ning came'.",
+    "Spare Splitters and Docks pile up on the shelf with no word on what they are for.",
+    "Too much reading for a break: the job card, the three offer cards and the note above them.",
+    "'New offers (-$40)' costs money and I never saw why I would pay it."
+  ],
+  "pleased": [
+    "The lesson took about three minutes as promised, and by the second shift I understood the point: scrap is worth a dollar, a better machine makes it worth more.",
+    "Sal's lit squares and 'Step 1 of 3' meant I never felt lost.",
+    "'This shift will pay $X (up $Y)' before I press Start. It was exactly right ($4,800 forecast, $4,800 result) so I trusted it.",
+    "Undo pick: I could take a card back with no penalty and try again.",
+    "'You're $510 ahead of Sal' after a shift, and the bar chart of six shifts climbing at the end.",
+    "After each shift the one sentence about what held me back gave me the next thing to try, and in game 2 the Tuner hint worked.",
+    "Watching the scrap lumps roll down the belt is calming; the 10 to 15 second shifts did not drag.",
+    "The confetti and 'All three stars. Job done.' felt earned."
+  ],
+  "bestMoment": "Game 1, shift 3: I moved the furnace in front of my little crusher line myself, the forecast jumped by about a thousand dollars before I pressed Start, and after the shift the game said I was $510 ahead of Sal.",
+  "worstMoment": "Tapping the yard and finding a Dock where the Furnace should be, because the shelf had two different highlight colours, and then doing the same thing again in my second game.",
+  "oneChange": "After a game, show me one concrete thing to try next time, such as my shifts side by side with my best game or with Sal's, so a second go on a yard feels like a new puzzle and not homework.",
+  "completionCode": "7T9B-N3ZV"
+}

@@ -1,0 +1,55 @@
+{
+  "persona": "Kenji",
+  "device": "desk",
+  "goalInOwnWords": "Build a little factory line out of scrap (hopper, crusher, furnace, dock) and make more money than the foreman's ghost run over six shifts, filling each shift's order to earn stars. Each shift you draft one part out of three offered and place it on the yard.",
+  "stoppedWhere": "On the home screen after leaving a second, different yard (spark-anvil-447) right after shift 1 of 6 ($864, level with Sal), then the feedback form and the completion code. Before that I finished lesson 1 of 3 and one whole game on today's yard ($20,409, three stars, beat Sal by $7,605).",
+  "stoppedWhy": "I had been at it about 15 minutes, which is what the sign-up note said, and I had seen the whole loop twice. The second yard was a new shape but the same recipe: take the card the game marks, fix what held you back. The Splitter was the one new toy and it was fun for exactly one shift. With no leaderboard in this version and no way to lose an order, I knew how the next five shifts would go. I would finish it if I were being paid, but I would not open it for fun tomorrow unless it had a real board to compete on. (Honest note: I was also at the end of the panel's action budget, so I did not play the remaining five shifts of the second yard to find out.)",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 20409,
+  "playedAnotherByChoice": true,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 5 of the first game, building a second row of Hopper, Crusher, idle Furnace, Tuner, Dock",
+      "what": "Could not tell whether a Tuner dropped on an empty tile passes items along; the card only says it carries what the belt carried when dropped on a belt.",
+      "gotOutHow": "Built it anyway and watched the pay forecast: it jumped from $3,600 to $5,376, so it does carry."
+    },
+    {
+      "where": "End of game 1, results screen to a second game",
+      "what": "Play again put me on the identical yard with the identical cards, and the in-game menu has no way to a new yard.",
+      "gotOutHow": "Menu, Save and go home, then Practice on a new yard on the home screen."
+    }
+  ],
+  "confused": [
+    "Lesson 1 said tap any machine to see what it does, and the only two things on the yard that looked like machines were junk piles.",
+    "On the first yard, shift 1: I could not tell if the Next shift line was the same three cards returning or the real next offer (it was the real next offer, I only trusted it by shift 3).",
+    "On the new yard Sal said 'This piece leads nowhere. Turn it or move it, then start' while the pay forecast was going up and the line worked fine.",
+    "After shift 1 of the new yard Sal said 'The lit spots are his game' but I never saw any lit spots because the hint toggle was off.",
+    "I held a spare Splitter and Dock all through the first yard and the game never said what they were for; I only found out on the second yard."
+  ],
+  "annoyed": [
+    "Lesson 1 is all hand-holding: every drop is lit, every pick is forced, and the two other cards are greyed out so there is no choice at all.",
+    "Play again puts you on the same yard with the same cards, and the in-game menu has no way to a new yard.",
+    "I beat Sal by $7,605 on my first try and never felt in danger of missing an order, since every useful card is labelled 'fits this line now' and picking is mostly reading the label.",
+    "The Plate Press is offered every shift marked 'pays less per shard'; it is a dead card.",
+    "No leaderboard in this version, so a good score has nowhere to go.",
+    "The shelf re-spaces itself unevenly once it holds eight parts, so the slot I grab moves after each drag."
+  ],
+  "pleased": [
+    "The pay forecast before pressing start, and it was exact every time ($1,860, $2,700, $5,376 and $864 all ran to the dollar).",
+    "The What held you back report with the red tag on the machine: it names the bottleneck in seconds, like a tiny Factorio production stats screen.",
+    "Showing the next shift's cards, so I could plan a build order two picks ahead and take the Furnace early because it would not come back.",
+    "The Tuner doubling as a belt and speeding both of its neighbours: it felt like finding a trick.",
+    "The What things sell for box with real rates, and the speed buttons (the game even remembered 4x), so a whole game took under ten minutes.",
+    "Sal's ghost with a running gap after every shift is a cheap but effective thing to race."
+  ],
+  "bestMoment": "Dropping a second Furnace beside the Tuner, hooking up a new Hopper and Crusher row, and watching the forecast jump from $3,150 to $5,376 before I had even pressed start, then seeing it run to the dollar.",
+  "worstMoment": "Finishing game 1 on a three-star win by $7,605 with no tense moment, then Play again dropping me on the identical yard with identical cards. That is when I knew there was no reason to keep going.",
+  "oneChange": "Give me a reason to replay: a real daily board (or other people's ghosts) and yards that can actually beat me, with orders I can miss and a cost for a wrong pick, instead of a line that pays double the order.",
+  "completionCode": "ZTCM-ZU2C"
+}

@@ -302,7 +302,14 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
         : noSpotText(r, kind);
     return say({ text, spots: [{ kind: 'shelf', i }] });
   }
-  const loose = flowLinks(r.layout).find((l) => !l.ok);
+  // a piece that leads nowhere matters when something reaches it: one nothing feeds costs nothing, and "this piece leads nowhere" over a
+  // rising forecast read as a mistake that was not there (the tenth panel)
+  const res = runLayout(r.layout);
+  const stuck = (x: number, y: number) => {
+    const st = res.cellStats[y * r.layout.width + x];
+    return !!st && (st.jammedTicks > 0 || st.blockedTicks > 0);
+  };
+  const loose = flowLinks(r.layout).find((l) => !l.ok && stuck(l.x, l.y));
   if (loose) {
     const outOfBelts = !r.bin.some((m) => m.kind === 'conveyor') && canBuyBelt(r) === null;
     const spot: Spot = { kind: 'cell', x: loose.x, y: loose.y };
@@ -311,8 +318,7 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
   // ready, but short of the order: by how much, and which machine is the slow one, lit, so there is one concrete thing to look at (the
   // seventh panel: "when I am short, tell me one concrete thing to try"; the Start button glowed over a shift that would miss)
   const order = orderFor(r);
-  const res = order !== null ? runLayout(r.layout) : null;
-  if (order !== null && res && res.earned < order) {
+  if (order !== null && res.earned < order) {
     const b = analyseRound(r.layout, res, r.round + 1);
     const amount = money(order - res.earned);
     const m = b.machine;
@@ -320,6 +326,8 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
       return say({ text: t('coach.shortSlow', { amount, name: machineName(m.kind) }), spots: [{ kind: 'cell', x: m.x, y: m.y }, { kind: 'run' }] });
     if (m && b.kind === 'starved')
       return say({ text: t('coach.shortStarved', { amount, name: machineName(m.kind) }), spots: [{ kind: 'cell', x: m.x, y: m.y }, { kind: 'run' }] });
+    // every machine keeps up: the line is short of scrap, which is a thing to do, not "try a change" (the tenth panel's worst moment)
+    if (b.kind === 'balanced') return say({ text: t('coach.shortFeed', { amount }), spots: [{ kind: 'run' }] });
     return say({ text: t('coach.short', { amount }), spots: [{ kind: 'run' }] });
   }
   return say({ text: left ? t('coach.readySpare', { name: machineName(left.kind) }) : t('coach.ready'), spots: [{ kind: 'run' }] });

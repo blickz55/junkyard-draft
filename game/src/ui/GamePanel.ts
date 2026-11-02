@@ -19,7 +19,7 @@ import { analyseRound } from '../sim/bottleneck';
 import { againLine, bottleneckLine, sameLimit } from '../content/bottleneck';
 import type { Machine, MachineKind, Material } from '../sim/types';
 import { RULES } from '../sim/rules';
-import { priceOf, starsFor } from '../sim/yard';
+import { isTutorialSeed, priceOf, starsFor } from '../sim/yard';
 import { cellIndex, runLayout } from '../sim/sim';
 import { CELL, machineTexture } from '../render/textures';
 import { GRID_W, GRID_H, BOARD_W, BOARD_H, GRID_X, GRID_Y, binSlotXY, slotOfBin } from '../render/layout';
@@ -32,7 +32,7 @@ import { isWeeklySeed, weeklyClosed } from '../sim/weekly';
 import { challengerTotal, type Challenge } from '../render/challenge';
 import type { Spot } from '../render/guide';
 import { t } from '../content/strings';
-import { shiftsOf } from '../content/lessons';
+import { lessonOf, shiftsOf } from '../content/lessons';
 import { money, int } from '../content/format';
 import { cardLine, machineName, machineBlurb, machineWord, materialName } from '../content/machines';
 import {
@@ -1248,7 +1248,9 @@ export class GamePanel {
     layer.replaceChildren();
     layer.append(h('div', { class: 'jd-grid-dim' }));
     const limit = analyseRound(rec.layout, res, rec.round + 1);
-    const culprit = limit.machine?.id;
+    // the slowest machine is what lesson 3 teaches: before it the red tag named a thing nobody had explained (three of the ninth and tenth
+    // panels asked what "held you back" meant in lessons 1 and 2)
+    const culprit = limit.kind !== 'starved' && isTutorialSeed(r.seed) && lessonOf(r.seed).n < 3 ? undefined : limit.machine?.id; // "waiting for scrap" says itself
     // a machine that sat idle for want of scrap did not hold anything back: the badge says what it waited for, as the summary does (the fifth panel)
     const heldUp = limit.kind === 'starved' ? t('game.badgeStarved') : t('game.badgeHeldUp');
     for (const m of g.machines) {

@@ -1,0 +1,58 @@
+{
+  "persona": "Tom",
+  "device": "phone",
+  "goalInOwnWords": "Build a line of machines that turns scrap into things that sell for more, and make more money than Sal the foreman. Filling the orders gives stars and raises the prices.",
+  "stoppedWhere": "Today's yard, between shift 3 and shift 4 of 6, on the shift 3 results card (3 of 6 orders filled, $4,344 so far against Sal's $12,804). I left through Menu, Save and go home, then Give feedback. Stars: 3 on each of the two lessons I finished (6 on Home, rank Yard Hand); the yard itself was unfinished at one star so far. Best money: $4,344 on the unfinished yard, $1,008 on lesson 2.",
+  "stoppedWhy": "I had been at it about fifteen minutes, which is what I was told to do, and I was halfway through the yard. The last three shifts were the same three taps (pick the hopper card, press Show me where, follow the glowing spots, press start). Money went up every time and nothing went wrong, but I had stopped thinking, and I did not know how to beat Sal other than 'find better', which the game gave me nothing to do. If nobody were counting the clock I would probably have finished the last three shifts to see the end, but I would not have started another yard today.",
+  "lessonsFinished": 2,
+  "gamesFinished": 0,
+  "bestStars": 3,
+  "bestMoney": 4344,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Today's yard, shift 1, right after picking the Hopper card",
+      "what": "Sal said to tap the Hopper and then 'where you think it pays', and I had no way to tell where that was",
+      "gotOutHow": "Pressed the Show me where button and followed the lit spots one at a time (the Hopper, the Crusher, then the Dock)"
+    },
+    {
+      "where": "Results card after every shift on today's yard",
+      "what": "It says the lit spots are Sal's game and to beat him by finding better, but nothing says what better looks like. I noticed the ingots stayed at 37 a shift while only the cheap shards grew, and could not tell how to change that",
+      "gotOutHow": "Did not. I kept following the lit spots and stayed level with Sal"
+    }
+  ],
+  "confused": [
+    "The red 'held you back' tag over the Furnace at the end of lesson 1: it sounded like a telling-off, nothing explained it, and the lesson card covered its first word. It only made sense later when a Press said 'waiting for scrap' and the results had a 'What held you back' section.",
+    "In lesson 1 Sal said 'Line closed. Start the shift.' while the checklist still showed the Crusher and the Furnace not ticked.",
+    "'You keep ONE part. The others go back on the truck.' Odd rule and nobody says why.",
+    "'Where you think it pays' on the real yard: there is nothing on screen to judge it by except the help button.",
+    "The ingots stayed at 37 every shift while only shards went up, so my extra hoppers only sold cheap shards, and I could not tell whether a second feed into the furnace belt would pay more.",
+    "Card tags such as 'Adds a little', 'Pays less per shard' and 'No spot pays more yet': I took them as hints but never learned how they are worked out.",
+    "After I used the belt piece on the shelf it stayed lit and the text said tap a Conveyor again, so I was not sure whether my first tap had picked it up."
+  ],
+  "annoyed": [
+    "Having to scroll down on the results card to read 'What held you back', the one line the foreman tells me to read.",
+    "The big 'Job done' banner covering the machines in the middle of the last shift of lesson 1, just when I wanted to watch the ingots go in.",
+    "Both lessons were 'tap the glowing thing', so I never decided anything until the real yard, and even there the lit spots did the thinking.",
+    "On the real yard every shift was the same three steps: same card, Show me where, follow the spots.",
+    "The same advice, 'Nothing held you back... add a hopper', three shifts in a row."
+  ],
+  "pleased": [
+    "The results show the sum I can check in my head: 37 x scrap @ $1 = $37, 37 x shards @ $3 = $111.",
+    "Lesson 1 pays off in plain steps: $37, then $111, then $576, and each step was plainly better than the last.",
+    "'This shift will pay $1,005' under the build tells me what the line should do before I start it, and then it does exactly that.",
+    "The cards say in plain words whether they are any use right now ('Fits this line now' in green).",
+    "'What held you back... More scrap is the next step: add a hopper' is advice a person can act on.",
+    "'Your game saves by itself. Pick it up any time.' and 'Starting a new game replaces your saved one.'",
+    "Nothing asked me for money, and the one money question at the end said the game stays free.",
+    "Getting the rank 'Yard Hand' from the lessons' stars."
+  ],
+  "bestMoment": "Lesson 1, shift 3: the Furnace went in, the shift paid $576 after $111, 'Job done' with three stars came up, and I could see exactly why the number jumped.",
+  "worstMoment": "Shift 1 on today's yard, told to put the Hopper 'where you think it pays' with nothing to go on, and later reading 'beat him by finding better' with no idea how.",
+  "oneChange": "Let me work out how to beat Sal instead of guessing: show what a spot would earn next to the lit spot before I put the part down, or tell me where the extra money is hiding (my ingots stayed at 37 a shift while I only added cheap shards).",
+  "completionCode": "GGTT-BKN7"
+}

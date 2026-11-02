@@ -1,0 +1,63 @@
+{
+  "persona": "Margaret",
+  "device": "phone",
+  "goalInOwnWords": "To build a line of machines that turns scrap into things worth more, and ship it to the dock for money and stars. If the line backs up, find the slowest machine and speed it up or share its work.",
+  "stoppedWhere": "The 'Lesson 3 done' card after the last shift of the third lesson (Find the slowest machine), before choosing Play today's yard. I went from there to the questions and got the completion code.",
+  "stoppedWhy": "I have played about a quarter of an hour, which is what they asked for. I got all three stars every time, but I only ever tapped what glowed and never made a choice of my own, and my eyes and thumbs were tired. Today's yard asks me to choose by myself and I still do not know what 'orders' means, so I would rather come back to it fresh tomorrow morning with my coffee, the way I do my crossword.",
+  "lessonsFinished": 3,
+  "gamesFinished": 0,
+  "bestStars": 3,
+  "bestMoney": 3926,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Lesson 1, first tap on the shelf",
+      "what": "Sal said to tap the glowing belt piece on the shelf, then the lit spot. After the first tap nothing visibly changed, so I could not tell if the tap had counted.",
+      "gotOutHow": "Tapped the glowing square anyway and the belt piece appeared there."
+    },
+    {
+      "where": "Lessons 1 and 2, red tags on machines",
+      "what": "A red 'held you back' tag (and 'waiting for scrap') appeared over a machine. I could not work out what it meant or whether it was bad.",
+      "gotOutHow": "Left it alone. Lesson 3 made the line back up and Sal said the Furnace was the slowest machine, which explained the tag."
+    },
+    {
+      "where": "Lesson 3, shift 4 (second Dock, then selling the spare belt)",
+      "what": "I could not see what a second Dock gave me. 'A second Dock saves belts' was the only hint and the forecast stayed at $1,272 before and after.",
+      "gotOutHow": "Did not work it out. I did what Sal lit, sold the spare belt piece for $10 and carried on."
+    }
+  ],
+  "confused": [
+    "On the home page, 'Fill six orders' with a row of dollar amounts: I do not know what an order is, and it put me off choosing Play today's yard.",
+    "After my first tap on a belt piece on the shelf nothing visibly changed, so I could not tell whether it counted.",
+    "The red 'held you back' tag sat over a machine in lessons 1 and 2 with no explanation; only lesson 3 explained it.",
+    "In lesson 1 a grey machine with gears and a striped crate sat unused in the corners of the yard, and I could not tell whether they were things to use or just scenery.",
+    "In lesson 1 the strip 'Your line needs Hopper, Crusher, Furnace, Dock' still showed Crusher and Furnace as empty boxes while Sal said 'Line closed. Start the shift.'",
+    "'If every shift pays this: 0 of 20 ingots' is a strange sentence.",
+    "'You keep ONE part. The others go back on the truck.' I did not know what happens to the other cards.",
+    "A spare belt piece with an 'x2' badge sat on the shelf in lesson 1 and I did not know what it was for until lesson 2.",
+    "Why a second Dock was needed in lesson 3: the forecast did not change."
+  ],
+  "annoyed": [
+    "Three lessons and over a hundred taps of tapping whatever glowed, without one choice of my own.",
+    "In lesson 1, tapping a machine to read about it covers the yard while the shift keeps running, so I could not read the card and watch the line at once.",
+    "Lesson 3 dragged: four shifts of fiddly steps (buy a belt for $20, place a second Dock, sell a spare belt for $10) for little visible gain.",
+    "Every lesson card says 'A small order to learn the ropes', even the one asking for 150 ingots."
+  ],
+  "pleased": [
+    "Sal says exactly which part to tap and lights the spot, so I never felt I might press the wrong thing and lose my place.",
+    "'This shift will pay $576 (up $465)' shown before I press Start: I know what I will get before I commit.",
+    "The money climbing from $37 to $111 to $576 in lesson 1, and Sal's 'Three times the money from the same scrap.'",
+    "The 'Job done' banner with three stars, and the stars lighting up one by one on the strip at the top.",
+    "In lesson 3 the red striped squares and the tag showed me what was slow before Sal named it, and then the words matched what I saw.",
+    "Each lesson ends with one plain sentence I could repeat, like 'When a line backs up, find the slowest machine.'",
+    "Undo, 'Start the lesson over' and 'Skip the lesson' were always on screen, so I never felt trapped."
+  ],
+  "bestMoment": "Lesson 1, shift 3: the Furnace glowed, gold ingots rode the belt with '+$24' popping at the dock, the stars lit up one after another, and the card said all three stars in the bag with $576 against $111 the shift before.",
+  "worstMoment": "Lesson 3, shift 4: placing a second Dock and selling a spare belt for $10 for no gain I could see, after already more than a hundred taps of following the glow.",
+  "oneChange": "Once the lessons are over, let me work something out myself, like a crossword clue, with the glowing turned off but Undo on; and say in plain words on the home page what an 'order' is.",
+  "completionCode": "W463-WG6J"
+}

@@ -1,0 +1,55 @@
+{
+  "persona": "Aisha",
+  "device": "desk",
+  "goalInOwnWords": "Build a line from scrap (hopper, crusher, furnace) so each 80-second shift makes more money than the last, fill each shift's money order to earn stars and push every price up, and finish with more cash than Sal the foreman's benchmark.",
+  "stoppedWhere": "Today's yard, shift 4 of 6, on the shift result screen ($2,181 for the shift, $6,366 in total, 4 of 6 orders filled, $312 behind Sal). Then Menu, Save and go home, and the feedback survey.",
+  "stoppedWhy": "My lunch was up (about 15 minutes). I had two stars locked, orders 5 and 6 ($3,200 and $4,600) looked out of reach for this line, and the interesting move - rebuilding so the spare shards go through a furnace or a press instead of a $5 dock - had no lit spot and would take me longer than I had. I might come back another day to try it without the lights.",
+  "lessonsFinished": 2,
+  "gamesFinished": 0,
+  "bestStars": 2,
+  "bestMoney": 6366,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "maybe",
+  "stuck": [
+    {
+      "where": "Shift 4 pick screen, Plate Press card (plates now $42 for two shards)",
+      "what": "I could see 117 spare shards a shift being sold at $5 each at the docks and plates paying $42, so a Press looked like the big win, but nothing on the yard was lit for it, the forecast did not change and Sal only said a Press needs spare shards. The second furnace card said 'no spot pays more yet' as well. I could not work out where either would go.",
+      "gotOutHow": "Undid the pick and took the Hopper + Crusher + Dock card again, which had lit spots and was worth about $195 and filled the $2,150 order."
+    }
+  ],
+  "confused": [
+    "'If every shift pays this: 36 of 40 plates' on the lesson forecast: I only understood it by arithmetic (this shift's plates times the shifts left, plus what is already banked).",
+    "Whether the 20-ingot order in lesson 1 was per shift or for the whole job (the bar filled over the job).",
+    "The machine demos say ingots pay $12 'or $24 when the job wants them' and I did not know what 'the job wants them' meant until the lesson cards said 'Ingots pay $24 each'.",
+    "The header on the real game says 'Today's yard - practice': is that the real daily or a practice run?",
+    "'Every price goes up 25%': it is 25% of the original each time (ingot $24, $30, $36, $42), not compounding, and shards are rounded to whole dollars ($3.75 shown as $4); I read that off the ledger, the card does not say.",
+    "Sal says the lit spots are his game, 'You're level with Sal', then after I took the gold-outlined card I was $159 behind him. I cannot tell what he does differently.",
+    "The 'what held you back' note said add a hopper after shift 1 and said the same thing after shift 2 when I had just added a hopper.",
+    "Cards say 'Adds a little', 'Fits this line now', 'Pays less per shard', 'No spot pays more yet' with no dollar figure, so I cannot compare picks without committing to one.",
+    "'No spot pays more yet' for a second furnace while 117 shards a shift were being sold at $5 each."
+  ],
+  "annoyed": [
+    "Both lessons are tap-through: Sal names every move, usually one card is clickable and the others are greyed out, so about ten minutes passed with no decision of mine.",
+    "The real rulebook (what each thing sells for, machine timings, 80-second shift) is under a tiny collapsed 'What things sell for' heading in the bottom corner; I found it by luck and it should be on the card or the how-to-play.",
+    "Small grey text on dark brown is hard to read, and the demo animations move on before I finish reading.",
+    "No dollar figure on the cards; to see what a pick is worth I have to commit and place it, and undo.",
+    "The crusher was named as the bottleneck two shifts running, and the fix it named (a Tuner on the crusher) was not on offer until the shift after.",
+    "Pressing Enter on the highlighted 'Next shift' button did nothing; I had to click it."
+  ],
+  "pleased": [
+    "The forecast ('This shift will pay $X (up $Y)') was exact to the dollar every time, so I could plan against it.",
+    "The end-of-shift ledger line, e.g. '37 x ingot @ $24 = $888', and 'Shift by shift' totals.",
+    "'What held you back' with the seconds lost, a red tag on the machine and the named fix: a bottleneck report is exactly what I like.",
+    "When I found it, the price table and timings (scrap $1, shards $3, plate $8, ingot $24, hopper 2 s, furnace 3 s, shift 80 s) let me do the sums myself.",
+    "Placing parts worked first time (drag in the lessons, tap the lit spot in the real game) and the 4x speed button made a shift take 20 seconds.",
+    "'New offers (-$40)' states its price and its limit, and the next shift's offers are shown in advance.",
+    "The survey was one short screen and the completion code was easy to copy."
+  ],
+  "bestMoment": "Opening 'What things sell for' on the real yard and doing the sum: one hopper is 40 scrap in an 80-second shift, a furnace with a tuner eats 40 shards, 40 ingots at $24 is about $960, and the forecast said $888 before I had touched anything. The numbers lined up.",
+  "worstMoment": "Shift 4: realising the money was in turning the spare shards into ingots or plates, and finding no lit spot for the Press and 'no spot pays more yet' for the furnace, so the only easy thing left was one more feed worth about $195.",
+  "oneChange": "Put the dollar gain of each pick on its card before I choose it, in place of words like 'adds a little', so I can compare options and make real decisions from the first shift.",
+  "completionCode": "GZHB-D3GB"
+}

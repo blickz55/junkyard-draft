@@ -827,7 +827,7 @@ export const STRINGS = {
   'job.salAhead': s("You're {amount} ahead of Sal.", "the shift banner: against Sal's game on this yard"),
   'job.salBehind': s("You're {amount} behind Sal.", "the shift banner: against Sal's game on this yard"),
   'job.salLevel': s(
-    "You're level with Sal. The lit spots are his game: beat him by finding better.",
+    "You're level with Sal. He builds a shift at a time and never moves a machine: plan ahead, or rearrange.",
     "the shift banner: against Sal's game on this yard; following the lights ties him, and the fifth panel could not tell why",
   ),
   'job.order': s('Order {amount}', 'the HUD: this shift'),
@@ -907,6 +907,7 @@ export const STRINGS = {
   ),
   'coach.shortSlow': s('{amount} short of the order: the {name} is the slow one.', 'the build, ready but short of the order; the machine is lit'),
   'coach.shortStarved': s('{amount} short of the order: the {name} waits for scrap.', 'the build, ready but short; the machine is lit'),
+  'coach.shortFeed': s('{amount} short of the order: every machine keeps up; it needs more scrap.', 'the build, ready but short; no machine is slow'),
   'coach.short': s('{amount} short of the order. Start anyway, or try a change.', 'the build, ready but short of the order'),
   'coach.broken': s('This piece leads nowhere. Turn it or move it, then start.', 'the build with a dead end, the piece lit'),
   'coach.brokenBuy': s('This piece leads nowhere. Out of belts? Buy one.', 'the build with a dead end and no belt on the shelf'),

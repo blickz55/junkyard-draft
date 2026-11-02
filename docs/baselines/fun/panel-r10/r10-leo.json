@@ -1,0 +1,57 @@
+{
+  "persona": "Leo",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory line out of the machines so it makes more money every shift, and fill the orders to get stars. The money is your score and you are supposed to beat a guy called Sal.",
+  "stoppedWhere": "The results screen after my first full game on today's yard (4 of 6 orders, $12,804, 'Level with Sal'), then the feedback form and its completion code. I never tapped Play again.",
+  "stoppedWhy": "I tied a bot by doing exactly what the lit squares said, never had to think, and did the same three taps six times. Nobody real to beat (no leaderboard), nothing new coming, so it was fine but I would rather go play Clash Royale.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 12804,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "no",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "First real shift, after picking the first card",
+      "what": "Sal said tap the part on the shelf, then where you think it pays. I had no idea where would pay.",
+      "gotOutHow": "Tapped the small 'Show me where' button next to his text, which lit the squares one at a time. I used it on every shift after that."
+    },
+    {
+      "where": "Shifts 5 and 6, after placing the lit parts",
+      "what": "Sal said I was short of the order and to start anyway or try a change. I could not work out what change to make; the lit squares only ever showed the same kind of kit.",
+      "gotOutHow": "Gave up and pressed the glowing Start button. Got a red dot, no banner, and the order missed both times."
+    }
+  ],
+  "confused": [
+    "Sal says 'tap where you think it pays' and gives no clue where that is; only the small Show me where button helped.",
+    "'You're level with Sal. The lit spots are his game: beat him by finding better.' I did not get what that meant or how I would do better than the lights.",
+    "'$254 short of the order. Start anyway, or try a change.' What change? Nothing on screen offered one.",
+    "A purple clock machine was already in the yard and said '38 sped up' under it after each shift; no idea what it did or why that number.",
+    "Spare belts (x4) and a spare dock sat on the shelf the whole game and a 'Buy a belt: $20' button was greyed out; never found out what they were for.",
+    "The 'Show where parts go: off' switch on the job card; I did not know what it did so I ignored it.",
+    "The Plate Press and the Furnace + Splitter card were never explained in a way that made me want them ('pays less per shard', 'no spot pays more yet'), so I took the green 'Fits this line now' card every single time."
+  ],
+  "annoyed": [
+    "The same five taps every shift (card, Show me where, three lit squares, Start); it was samey by shift 3.",
+    "Walls of small text on almost every screen; I skipped nearly all of it.",
+    "Missing an order by a bit and the game only says 'try a change' with no hint, then the shift just ends with a red dot and no pop.",
+    "After the whole game it told me the lit spots are just Sal's game, so all I did was tie a bot by following the lights; felt like I did nothing.",
+    "No leaderboard or friends in this version, so the only thing to beat is a bot.",
+    "For a split second after tapping a card the old cards' text overlapped the new panel at the bottom, which looked glitchy."
+  ],
+  "pleased": [
+    "The ORDER FILLED! banner with 'every price up 25%' and the +$417 type numbers flying over the line.",
+    "The lesson was short and the glowing squares told me exactly what to tap, so I did not have to read anything.",
+    "Shifts are fast (it was already on 4x) so nothing drags, and rocks turning into shiny shards and gold bars looks decent.",
+    "The jump from $37 to $111 to $576 in the lesson when each machine went in.",
+    "Parts snap into place and the belt bends itself into a corner when I drop a piece.",
+    "The Show me where button, because I did not have to figure anything out."
+  ],
+  "bestMoment": "The first ORDER FILLED! banner on the real yard: it slid across the whole screen, numbers popped over the machines and the money jumped to $1,005 in a few seconds.",
+  "worstMoment": "Shift 5: told I was $254 short and to 'try a change', no idea what to change, pressed Start, got a red dot and no banner. Then the end screen said I only tied a bot by following the lights.",
+  "oneChange": "Put me against a real person (a friend or someone live) so there is something to win, instead of lit squares that play the shift for me.",
+  "completionCode": "XJFM-RTAN"
+}
