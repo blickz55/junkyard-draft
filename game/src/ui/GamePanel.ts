@@ -19,7 +19,7 @@ import { analyseRound } from '../sim/bottleneck';
 import { againLine, bottleneckLine, sameLimit } from '../content/bottleneck';
 import type { Machine, MachineKind, Material } from '../sim/types';
 import { RULES } from '../sim/rules';
-import { isTutorialSeed, priceOf, starsFor } from '../sim/yard';
+import { isTutorialSeed, priceOf, starsFor, yardFor } from '../sim/yard';
 import { cellIndex, runLayout } from '../sim/sim';
 import { CELL, machineTexture } from '../render/textures';
 import { GRID_W, GRID_H, BOARD_W, BOARD_H, GRID_X, GRID_Y, binSlotXY, slotOfBin } from '../render/layout';
@@ -37,6 +37,7 @@ import { money, int } from '../content/format';
 import { cardLine, machineName, machineBlurb, machineWord, materialName } from '../content/machines';
 import {
   jobLine,
+  deliveryShift,
   jobRecipe,
   jobTarget,
   materialMany,
@@ -166,6 +167,8 @@ export class GamePanel {
   private spots: Spot[] = [];
   /** the rings on the board for the lit spots */
   private spotLayer: HTMLElement;
+  /** on trial: where the scrap truck's Hopper will land, until it does */
+  private deliveryEl: HTMLElement;
   /** the board slot: the canvas shows through it; the scene fits the camera to its rectangle (0.10.0) */
   private boardEl: HTMLElement;
   private boardCb: ((slot: { x: number; y: number; w: number; h: number }) => void) | null = null;
@@ -268,7 +271,8 @@ export class GamePanel {
     this.spotLayer = h('div', { class: 'jd-spotlayer' });
     this.toastEl = h('div', { class: 'jd-toast', tid: 'toast', role: 'status', style: 'display:none' });
     this.inspectEl = h('div', { class: 'jd-inspect', style: 'display:none' });
-    this.boardEl = h('div', { class: 'jd-board', tid: 'board-slot' }, this.gridLayer, this.spotLayer, this.toastEl, this.inspectEl);
+    this.deliveryEl = h('div', { class: 'jd-delivery', tid: 'delivery-mark', style: 'display:none' });
+    this.boardEl = h('div', { class: 'jd-board', tid: 'board-slot' }, this.gridLayer, this.deliveryEl, this.spotLayer, this.toastEl, this.inspectEl);
     this.mirrorEl = h('ul', { class: 'jd-sr', tid: 'yard-mirror', ariaLabel: t('mirror.head') });
     this.cursorEl = h('div', { class: 'jd-sr', tid: 'yard-cursor', role: 'status' });
     this.root = h('div', { class: 'jd-game' }, hudBar, this.boardEl, this.side, this.mirrorEl, this.cursorEl);
@@ -467,6 +471,19 @@ export class GamePanel {
     );
   }
   private aboutKey = '[]';
+  /** On trial: a marked spot where the scrap truck's Hopper lands, from the first shift until it does. */
+  private drawDelivery(r: RunState) {
+    const n = deliveryShift(r.seed);
+    const d = yardFor(r.seed).delivery;
+    const show = !!n && !!d && r.round < n && !r.layout.machines.some((m) => m.x === d.x && m.y === d.y);
+    this.deliveryEl.style.display = show ? 'flex' : 'none';
+    if (!show || !d || !n) return;
+    this.deliveryEl.style.left = `calc(var(--bx, 0px) + ${em(d.x * CELL)})`; // the grid's corner, as the lit spots and the notes take it
+    this.deliveryEl.style.top = `calc(var(--by, 0px) + ${em(d.y * CELL)})`;
+    this.deliveryEl.style.width = em(CELL);
+    this.deliveryEl.style.height = em(CELL);
+    this.deliveryEl.textContent = t('game.deliveryMark', { n });
+  }
   /** Light what the instruction talks about: cards and buttons in place, rings on the yard and the shelf. */
   private applySpots() {
     this.root.querySelectorAll('.jd-spot').forEach((e) => e.classList.remove('jd-spot'));
@@ -641,6 +658,7 @@ export class GamePanel {
   }
   render(s: PanelState) {
     this.drawMirror(s);
+    this.drawDelivery(s.run);
     const key = this.keyOf(s);
     if (key === this.key && this.side.childElementCount > 0) return;
     this.key = key;
@@ -811,6 +829,15 @@ export class GamePanel {
       );
       this.side.append(card);
     });
+    const truck = deliveryShift(r.seed);
+    if (truck && (r.round === truck - 1 || r.round === truck))
+      this.side.append(
+        h(
+          'div',
+          { class: 'jd-amber', tid: 'delivery-note', style: 'font-size:0.8125em; margin-top:0.35em' },
+          t(r.round === truck ? 'game.deliveryHere' : 'game.deliveryNext'),
+        ),
+      );
     if (r.job?.orders && r.round >= RULES.job.secondBuyerFrom)
       this.side.append(
         h(
@@ -1390,6 +1417,7 @@ export const GAME_STYLE = `
 #ui .jd-toast { position: absolute; max-width: min(92%, 22em); background: rgba(30, 26, 21, 0.98); border: 1px solid #3f382d; border-left: 3px solid #eb6757; padding: 0.45em 0.7em; font-size: 0.8125em; line-height: 1.3; border-radius: 0.4em; box-shadow: 0 2px 10px rgba(0,0,0,0.5); pointer-events: none; z-index: 3; }
 #ui .jd-toast-warning { border-left-color: #f0a830; }
 #ui .jd-toast-note { border-left-color: #8fb3d0; }
+#ui .jd-delivery { position: absolute; box-sizing: border-box; border: ${em(3)} dashed rgba(240, 168, 48, 0.85); border-radius: ${em(8)}; align-items: center; justify-content: center; text-align: center; font-family: var(--jd-display); font-weight: 700; font-size: ${em(13)}; line-height: 1.05; color: #f0a830; background: rgba(240, 168, 48, 0.08); pointer-events: none; }
 #ui .jd-toast::after { content: ''; position: absolute; left: calc(50% + var(--arrow, 0px)); bottom: -${em(7)}; margin-left: -${em(6)}; border: ${em(6)} solid transparent; border-top-color: #3f382d; border-bottom: 0; }
 #ui .jd-toast-below::after { bottom: auto; top: -${em(7)}; border-top: 0; border-bottom: ${em(6)} solid #3f382d; }
 #ui .jd-board > .jd-inspect { position: absolute; width: 20em; max-width: 100%; z-index: 4; pointer-events: auto; background: rgba(30, 26, 21, 0.98); border: 1px solid #5f574a; border-radius: 0.6em; box-shadow: 0 6px 18px rgba(0,0,0,0.55); padding: 0.6em 0.7em; font-size: 0.8125em; }

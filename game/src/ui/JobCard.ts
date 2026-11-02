@@ -12,7 +12,7 @@ import { isMintedDailySeed } from '../sim/daily';
 import { RULES } from '../sim/rules';
 import { t } from '../content/strings';
 import { int, money } from '../content/format';
-import { jobFlavour, jobLine, jobRecipe, materialMany, starMarks, yardNote } from '../content/job';
+import { deliveryNote, jobFlavour, jobLine, jobRecipe, materialMany, starMarks, yardNote } from '../content/job';
 import { machineShort } from '../content/machines';
 import { salLater } from '../render/sal';
 import { lightsOn, updateSettings } from '../render/storage';
@@ -53,7 +53,11 @@ const lightsLabel = () => t(lightsOn() ? 'job.lightsOn' : 'job.lightsOff');
 /** What this yard's line starts with that another's does not (rules v9): the first good card moves with it. */
 const variantLine = (seed: string, job: Job) => {
   const note = yardNote(seed, job);
-  return note ? [h('div', { class: 'jd-amber', tid: 'job-variant' }, note)] : [];
+  const truck = deliveryNote(seed);
+  return [
+    ...(note ? [h('div', { class: 'jd-amber', tid: 'job-variant' }, note)] : []),
+    ...(truck ? [h('div', { class: 'jd-amber', tid: 'job-delivery' }, truck)] : []),
+  ];
 };
 
 export function openJobCard(scene: Phaser.Scene, seed: string, job: Job, onStart: () => void) {

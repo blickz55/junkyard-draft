@@ -1,0 +1,19 @@
+{
+  "persona": "Ingrid, 45, civil engineer who does the paper Sudoku every morning",
+  "device": "desk",
+  "funA": 3,
+  "funB": 3,
+  "choice": "A",
+  "wouldOpenEither": "maybe",
+  "why": "I would keep A, because it did what it said: the live forecast and the 'what held you back' box let me fix bottlenecks like an engineer and nothing on screen lied to me. B is the same game plus a scrap truck that promises a free hopper on a marked spot, but the dashed box was drawn nowhere near where the hopper landed and it took a whole extra card to make it useful, so it cost me patience for $82 more. Either way I took three stars and beat Sal by $7-8k on my first try today, so unless tomorrow's yard is a different shape I am not sure I would open it.",
+  "bestOfA": "The forecast that moves as I drag parts, and finding things myself: dragging my dock aside and dropping a furnace in (forecast $1,110 to $1,860), and later seeing that one tuner could sit between two furnaces (+$576 for one drag, and the number proved me right).",
+  "worstOfA": "It tells me the next move almost every time (the held-you-back box and the 'fits this line now' tags name the fix), the first order was already met before I built anything and Sal never threatened me, so after shift 3 I was running a recipe. The page also died once when I pressed Start shift 1.",
+  "bestOfB": "Being told ahead of time that something is coming at shift 4: a plan-ahead question, which is exactly what I want from a puzzle. The same good forecasts and the shared-tuner trick as A.",
+  "worstOfB": "The marked spot for the truck was drawn in the wrong place (straddling two columns in the middle of the yard) while the free hopper landed on the far right, facing a dead end, and it needed a crusher that only came bundled in a card I could only pick once. The coach then nagged that it 'leads nowhere' for two shifts, and the left-turn button did nothing the one time I pressed it.",
+  "stuckIn": [
+    "A: pressing Start shift 1 killed the page (Target crashed); I had to reopen the game and rebuild my three parts. It did not happen again.",
+    "B: could not tell which square the dashed 'Truck at shift 4' box meant, because it sat between two columns; I dropped a hopper on my best guess to test it and took it back with Undo.",
+    "B: the free hopper landed somewhere other than the marked box, pointing at nothing, so I could not use it when it arrived and only found out afterwards from the held-you-back box.",
+    "B: turning the parked furnace to face its dock took four taps: left turn changed nothing, right turn went the other way, and it needed three."
+  ]
+}

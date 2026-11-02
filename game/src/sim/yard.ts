@@ -9,7 +9,7 @@
  *   classic-*   the original yard: the straight belt, no rubble, no job, an empty shelf
  */
 import { Rng } from './rng';
-import { DIR_DX, DIR_DY, RULES, type YardVariant } from './rules';
+import { DIR_DX, DIR_DY, RULES, TRIAL, type YardVariant } from './rules';
 import type { Dir, Layout, Machine, MachineKind, Material } from './types';
 
 export type JobMaterial = Extract<Material, 'ingot' | 'plate'>;
@@ -31,6 +31,8 @@ export interface Yard {
   firstPhase: 'draft' | 'build';
   /** how the line starts, when not as it stands (RULES.yard.variants) */
   variant?: Exclude<YardVariant, 'standard'>;
+  /** on trial (TRIAL.delivery): where a free Hopper lands as its shift starts, and the way it faces */
+  delivery?: { x: number; y: number; dir: Dir };
 }
 
 export const TUTORIAL_SEED = 'tutorial-1';
@@ -216,7 +218,25 @@ export function yardFor(seed: string): Yard {
   ];
   const maker = belt[straight[Math.min(2, straight.length - 1)]];
   const gap = belt[straight[0] + 1];
-  return withVariant(seed, { machines, rubble, job, shelf: [...RULES.yard.shelf], firstPhase: 'draft' }, gap, maker);
+  const yard = withVariant(seed, { machines, rubble, job, shelf: [...RULES.yard.shelf], firstPhase: 'draft' }, gap, maker);
+  return TRIAL.delivery ? withDelivery(seed, yard) : yard;
+}
+
+/** On trial: a spot two cells or more from every machine, off the junk, facing a free cell where a Crusher could stand. */
+function withDelivery(seed: string, yard: Yard): Yard {
+  const rng = new Rng(`${seed}:delivery`);
+  const taken = new Set([...yard.machines.map((m) => cell(m.x, m.y)), ...yard.rubble]);
+  const spots: { x: number; y: number; dir: Dir }[] = [];
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      if (taken.has(cell(x, y)) || yard.machines.some((m) => Math.abs(m.x - x) + Math.abs(m.y - y) < 2)) continue;
+      for (const d of [0, 1, 2, 3] as Dir[]) {
+        const fx = x + DIR_DX[d],
+          fy = y + DIR_DY[d];
+        if (inside(fx, fy) && !taken.has(cell(fx, fy))) spots.push({ x, y, dir: d });
+      }
+    }
+  return spots.length ? { ...yard, delivery: spots[rng.int(spots.length)] } : yard;
 }
 
 /**

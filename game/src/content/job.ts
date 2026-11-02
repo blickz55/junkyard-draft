@@ -4,7 +4,7 @@
  * results and the home screen all say the same thing.
  */
 import { JOB_MACHINE, isTutorialSeed, yardFor, type Job } from '../sim/yard';
-import { RULES } from '../sim/rules';
+import { RULES, TRIAL } from '../sim/rules';
 import { shippedTotal, type RunState } from '../sim/run';
 import type { MachineKind, Material } from '../sim/types';
 import { t, type StringKey } from './strings';
@@ -21,6 +21,13 @@ export function yardNote(seed: string, job: Job): string | null {
   const v = job.orders ? yardFor(seed).variant : undefined;
   return v ? t(v === 'twoMakers' ? 'job.variantTwo' : 'job.variantTuned', { name: machineName(JOB_MACHINE[job.material]) }) : null;
 }
+/** On trial: the shift a scrap truck drops a free Hopper on this yard, or null. */
+export const deliveryShift = (seed: string): number | null => (TRIAL.delivery && yardFor(seed).delivery ? TRIAL.delivery : null);
+/** On trial: the job card's line about it. */
+export const deliveryNote = (seed: string): string | null => {
+  const n = deliveryShift(seed);
+  return n ? t('job.delivery', { n }) : null;
+};
 export const jobLine = (job: Job): string => (job.orders ? t('job.orders') : t('job.ship', { n: int(jobTarget(job)), mat: materialMany(job.material) }));
 /** The other product, which a second buyer starts paying the job's price for. */
 export const otherMaterial = (job: Job): Material => (job.material === 'ingot' ? 'plate' : 'ingot');

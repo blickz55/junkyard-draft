@@ -1,0 +1,20 @@
+{
+  "persona": "Dana",
+  "device": "phone",
+  "funA": 3,
+  "funB": 3,
+  "choice": "A",
+  "wouldOpenEither": "maybe",
+  "why": "They felt nearly the same to me: same yard, same cards, same easy three stars on the first go (and in the second one I already knew the furnace trick from the first). I'd keep the one with the scrap truck, because the dashed 'Truck at shift 4' square gave the middle of the game something to look forward to and plan around, where the other one's yard just stayed empty on the right. It did die on me once, though, and neither would pull me back tomorrow the way Wordle does, because every order was filled from shift 1.",
+  "bestOfA": "Working it out myself that the furnace belongs between the crusher and the dock, against what the coach said (the forecast went from $1,422 to $2,427), and the free hopper from the scrap truck turning up at shift 4 like the job card promised.",
+  "worstOfA": "The game stopped responding when I tapped Turn right on my first hopper and I had to restart and redo that build; about 15 taps a shift to place, re-pick and move parts on a phone; and it is too easy, because the first order was already filled before I built anything.",
+  "bestOfB": "Dragging a part with my finger to move it and the press turning itself the right way: four actions reshaped my second line and the forecast went from $3,882 to $4,560 because spare shards became plates. The coach's line about plates versus ingots actually helped me plan.",
+  "worstOfB": "Nothing at stake and nothing to look forward to in the middle: knowing the furnace trick, I filled every order with room to spare, shifts 3 and 4 were just pressing the green things, and the right half of the yard stayed empty.",
+  "stuckIn": [
+    "A, shift 1: the game stopped responding when I tapped Turn right on the first hopper (the tap came back as a crash and nothing worked after); I restarted and redid the shift 1 build.",
+    "A, shift 1: after placing the hopper I tapped the yard for the crusher and nothing was placed, because I had to pick the crusher from the shelf again; the shelf still looked as if a part was picked.",
+    "A, shift 2: about 15 taps to work out why a hopper placed above the crusher changed nothing and where parts must sit; I only found a layout that worked by trying cells until the number at the bottom moved.",
+    "A and B: the coach said the furnace card would not pay yet while the forecast showed it adding about $750 to $1,300; I had to decide which to trust and trusted the number.",
+    "B, shift 4: leftover Splitter and Dock sat on the shelf from an earlier card and I never knew what they were for; I put the leftover Dock down by mistake instead of the new one."
+  ]
+}

@@ -1,5 +1,5 @@
 import { Rng } from './rng';
-import { RULES } from './rules';
+import { RULES, TRIAL } from './rules';
 import { runLayout, validateLayout } from './sim';
 import type { Dir, Layout, Machine, MachineKind, Material, RunResult } from './types';
 import { RULES_VERSION } from './types';
@@ -338,6 +338,10 @@ export function apply(s: RunState, a: Action): RunState {
       }
       s.round++;
       Object.assign(s.layout, shiftTerms(s.round, s.job, s.filled));
+      // on trial: the scrap truck's Hopper lands as its shift starts, unless something already stands there
+      const d = TRIAL.delivery && s.round === TRIAL.delivery ? yardFor(s.seed).delivery : undefined;
+      if (d && !s.layout.machines.some((m) => m.x === d.x && m.y === d.y) && !s.layout.rubble?.includes(d.y * s.layout.width + d.x))
+        s.layout.machines.push({ id: s.nextId++, kind: 'hopper', x: d.x, y: d.y, dir: d.dir });
       s.offers = draftOffers(s.seed, s.round);
       s.phase = 'draft';
       break;

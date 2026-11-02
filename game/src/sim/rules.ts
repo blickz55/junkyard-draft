@@ -111,7 +111,10 @@ export const RULES = {
  * Rules on trial (docs/GOALS.md): outside RULES, so nothing in play or in the policy reads them, all zero in play, and only the tools switch
  * one on (`TRIAL.<name>` in tools/fun-card.ts). One that wins on the card moves into RULES with a version bump; one that loses goes.
  */
-export const TRIAL: Record<string, number> = {};
+export const TRIAL: Record<string, number> = {
+  /** n: a free Hopper is dropped on the yard as shift n starts, at a spot the yard chose apart from the line (yard.ts `delivery`); 0 never */
+  delivery: 0,
+};
 
 export type YardVariant = 'standard' | 'twoMakers' | 'tuned';
 

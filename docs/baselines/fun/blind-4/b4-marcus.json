@@ -1,0 +1,20 @@
+{
+  "persona": "Marcus",
+  "device": "phone",
+  "funA": 3,
+  "funB": 3,
+  "choice": "B",
+  "wouldOpenEither": "maybe",
+  "why": "Same game and the same $17,256 with three stars both times, so it is close. B wins by a nose: the truck square sitting on the yard from shift 1 gave me something to look forward to, and Sal talking back ('never moves a machine, plan ahead or rearrange') made me want to out-play him, not just out-earn him, while A felt plainer and also died on me once when I tapped Start shift 1. I would only maybe open it tomorrow, because the first three shifts are just tapping the squares it lights for me and there is no leaderboard, only Sal.",
+  "bestOfA": "Shift 4: I worked out the Plate Press by myself, watched the forecast jump from $1,944 to $2,742 before I even ran the shift, then went ahead of Sal for the first time ($408 up). The finish was good too: three stars, 'You beat Sal by $4,452', new rank Yard Hand and the shift bars climbing from $1,005 to $6,102.",
+  "worstOfA": "The page died the moment I tapped Start shift 1 and I had to reopen it and rebuild the shift. Shifts 1 to 3 are the same Hopper card with the squares lit for me, so there is nothing to decide, and my best move (the Plate Press, tagged 'Pays less per shard') had no lit spot and took 7 to 9 taps to fit.",
+  "bestOfB": "Sal's jab after a shift ('He builds a shift at a time and never moves a machine: plan ahead, or rearrange') and the dashed 'Truck at shift 4' square on the yard from the start, which gave the early shifts something coming. The clue 'the crusher held you back for 40 of 80 seconds' also told me where the next money was.",
+  "worstOfB": "The free truck Hopper was a dud: it only ever gave me a 'This piece leads nowhere' nag and a 'stuck' tag, and moving it never raised the forecast (so my score was identical to A). One Move onto an occupied square swapped two machines and dropped the forecast by $912 with the Undo button scrolled out of sight, and the game then recommended a Tuner that was not offered on the last shift.",
+  "stuckIn": [
+    "A: the page crashed when I tapped Start shift 1 (every action after said the page was closed); I reopened the link and rebuilt shift 1 from scratch.",
+    "A: I tapped the yard squares for the Crusher and the Dock without picking them on the shelf first and nothing happened, twice, because the lit shelf part looked already chosen.",
+    "A and B: the Plate Press (shift 4 and shift 6) had no Show me where and no free spot next to the crusher, so I had to work out swapping the dock myself, about 7 to 9 taps; in the last shift 'Back to the shelf' was half hidden under the pay banner.",
+    "B: the free truck Hopper: I could not tell what to do with it, 'This piece leads nowhere' stayed on screen until I moved it, and moving it changed nothing in the forecast.",
+    "B: Move onto an occupied square swapped two hoppers and wrecked the forecast to $3,156; the Undo button had scrolled out of view above the shelf and I had to scroll up to find it."
+  ]
+}

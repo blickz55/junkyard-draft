@@ -1,0 +1,22 @@
+{
+  "persona": "Tasha",
+  "device": "phone",
+  "funA": 3,
+  "funB": 2,
+  "choice": "A",
+  "wouldOpenEither": "maybe",
+  "why": "A at least did something: it promised a truck at shift 4 with that marked square on the yard from the start, and then Sal pulled ahead so I lost by $240 and wanted another go. B was the same six shifts with nothing dropping in, 'level with Sal' every time I looked and a tie at the end, so I had nothing to chase. Neither is a game I'd tell anyone about, it's tap the glowing squares and wait, but for my one-more-star tomorrow I'd open A.",
+  "bestOfA": "The 'Truck at shift 4' square on the yard from the first shift: it is the only thing in either version that promised something would happen. And the race with Sal: 'You're $80 behind Sal' showing up at shift 4, then losing by $240 on the end screen with 'Try again from shift 5' right there. The big 'ORDER FILLED' band is a fun little slam the first time.",
+  "worstOfA": "The truck was a dud: the free hopper pointed at nothing, Sal said 'This piece leads nowhere', and when I moved it onto a crusher the forecast did not change by a cent, so the one surprise paid nothing. Also the page crashed in the middle of shift 1 and I had to start over, Sal's Tuner advice made the number worse, and my retry (another card, then paying $40 for new offers) lit nothing and cost me the only card that worked.",
+  "bestOfB": "It just works: no crash, no confusing extra piece, and shift 4's order filled without any fuss. The climbing bar chart on the end screen and 'one more star to Yard Hand' are the only things pulling me, and they are in A too.",
+  "worstOfB": "No surprises at all. Six shifts of green card, three blue squares, go; nothing drops in, nothing changes, and Sal says 'level' every time I looked so I ended in a dead tie, which gives me nothing to chase. There is also a green 'Clean' tag on the end screen that nobody explains, and when I tried the Tuner the two Sal boxes said opposite things ('the Crusher is the slow one' against 'Nothing held you back') and the number did not move.",
+  "stuckIn": [
+    "A, shift 1: the page crashed while the first shift was running ('Target crashed'); the game was gone and I had to reopen it and redo shift 1.",
+    "A, shift 4: the free truck hopper pointed nowhere ('This piece leads nowhere'); I moved it onto a crusher and the forecast did not change, so I could not tell what it was for.",
+    "A, shift 5: Sal and the 'Show the Crusher' help said a Tuner by the crusher would clear the slowdown, but the lit spot and then the spot next to the crusher both made the forecast worse ($2,760, then $2,712), and I could not find the missing $254 for the order.",
+    "A, retry from shift 5: the Plate Press and the Furnace + Splitter + Dock cards lit nothing and moved no number; I paid $40 for new offers and lost the one card that helped.",
+    "B, shift 5: 'it needs more scrap' but the only card that adds a hopper was the one I had already used that shift, so there was nothing I could do about the $254 shortfall.",
+    "B, retry from shift 5: the two Sal boxes said opposite things (slow crusher against nothing held you back) and moving the Tuner beside the crusher changed his words but not the number.",
+    "B, end screen: a green 'Clean' tag I could not explain (only shown in B)."
+  ]
+}

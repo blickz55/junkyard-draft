@@ -1,0 +1,7 @@
+Blind comparison 4, 2026-11-02: returning players (drive.mjs --returning), the game as it stands against the scrap truck at shift 4 (TRIAL.delivery = 4), both built from f79ff7d plus the trial.
+A and B were swapped for Dana and Tasha, so each version came first twice.
+
+ingrid: chose A = without; fun A 3 (without), B 3 (truck); open tomorrow maybe
+marcus: chose B = truck; fun A 3 (without), B 3 (truck); open tomorrow maybe
+dana: chose A = truck; fun A 3 (truck), B 3 (without); open tomorrow maybe
+tasha: chose A = truck; fun A 3 (truck), B 2 (without); open tomorrow maybe

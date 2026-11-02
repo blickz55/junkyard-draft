@@ -818,6 +818,10 @@ export const STRINGS = {
   // ---- the job (rules v4) ----
   'job.ship': s('Ship {n} {mat}', 'the job in one line'),
   'job.orders': s('Fill six orders', 'the job in one line, on a yard with orders'),
+  'job.delivery': s('At shift {n} a scrap truck drops a free Hopper on the marked spot.', 'the job card, on trial: a Hopper arrives mid-game'),
+  'game.deliveryMark': s('Truck at shift {n}', 'on the yard, on trial: where the free Hopper will land'),
+  'game.deliveryNext': s('Next shift the scrap truck drops a free Hopper on the marked spot.', 'the pick, on trial'),
+  'game.deliveryHere': s('The scrap truck left a free Hopper. A Crusher in front of it puts its scrap to work.', 'the pick, on trial'),
   'job.variantTwo': s('On this yard a second {name} already stands, with its own Dock.', 'the job card: the yard opens with two of the job machine (rules v9)'),
   'job.variantTuned': s('On this yard a Tuner already speeds up the {name}.', 'the job card: the yard opens with a Tuner at the job machine (rules v9)'),
   'job.ordersWhy': s('An order is money to make in one shift. Fill it and every price goes up {raise}% for the rest of the job.', 'the job card'),

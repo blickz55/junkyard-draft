@@ -41,7 +41,12 @@ export const RUINED: Variant[] = [
 ];
 /** Rules on trial. A trial goes in `game/src/sim` behind a value here, and comes out with the result. */
 // rules on trial: { label, rules: { 'TRIAL.<name>': 1, 'job.<path>': n } }; none at present (what was tried and how it did is in docs/DESIGN.md)
-const TRIALS: Variant[] = [];
+const TRIALS: Variant[] = [
+  // the seventh to tenth panels: the second half asks nothing new. A Hopper dropped on the yard as shift 4 starts, to be fed into the line
+  { label: 'scrap delivery at shift 3', rules: { 'TRIAL.delivery': 3 } },
+  { label: 'scrap delivery at shift 4', rules: { 'TRIAL.delivery': 4 } },
+  { label: 'scrap delivery at shift 5', rules: { 'TRIAL.delivery': 5 } },
+];
 const VARIANTS: Variant[] = [...RUINED, ...TRIALS];
 
 function measure(seed: string, budget: number, deep: boolean, keepPaths = false): YardResult {
