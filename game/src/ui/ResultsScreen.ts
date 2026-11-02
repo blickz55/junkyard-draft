@@ -1137,6 +1137,9 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
       'actions-play',
       canSubmit ? submitBtn : null,
       retryBtn,
+      // a different yard straight after: in the footer, below the sharing, the tenth panel's expert never found it ("Play again repeats
+      // the same yard, and there is no way to a new one")
+      btn(t('results.newYardBtn'), 'newseed', () => go(randomSeed())),
       testing ? null : (shareNativeBtn ?? shareBtn),
       testing ? btn(t('test.feedback'), 'feedback', () => openFeedback(scene)) : null,
       btn(t('common.titleScreen'), 'home', () => scene.scene.start('Title')),
@@ -1184,7 +1187,6 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
     h(
       'nav',
       { class: 'jd-home-foot', tid: 'results-foot' },
-      link(t('results.newYardBtn'), 'newseed', () => go(randomSeed())),
       isToday ? null : link(t('title.daily'), 'daily', () => go(todaySeed())),
       link(t('title.policy'), 'policy', () => openPolicy(scene), t('results.policyTitle')),
       link(t('title.privacyLink'), 'privacy', () => openPrivacy(scene, verifierUrl, 'privacy'), t('results.privacyTitle')),

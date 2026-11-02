@@ -65,7 +65,7 @@ test(
         return g ? { buttons: [...g.querySelectorAll('button')].map((b) => b.dataset.testid) } : null;
       }),
     );
-    assert.deepEqual(groups[0].buttons, ['submit', 'retry', 'share', 'home']);
+    assert.deepEqual(groups[0].buttons, ['submit', 'retry', 'newseed', 'share', 'home']);
     assert.deepEqual(groups[1].buttons, ['share-detailed', 'share-card', 'challenge-link']);
     assert.deepEqual(groups[2].buttons, ['export-clip', 'export-gif', 'export', 'download']);
     assert.equal(await page.evaluate(() => document.querySelectorAll('#ui .jd-btn-primary').length), 1, 'one primary action on the results screen');
