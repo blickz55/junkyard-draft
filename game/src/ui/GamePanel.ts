@@ -381,8 +381,11 @@ export class GamePanel {
     for (let i = r.rounds.length; i < o.pips.length; i++) o.pips[i].className = i === r.rounds.length ? 'jd-pip now' : 'jd-pip';
     if (live && !o.done && earned >= order) {
       o.done = true;
-      const stars = r.job ? r.job.stars.filter((n) => r.filled + 1 >= n).length : 0;
-      const newStar = stars > r.job!.stars.filter((n) => r.filled >= n).length;
+      // the orders filled before this shift's: the run has already counted this one once the shift is over, and not while it runs
+      const orders = r.job?.orders ?? [];
+      const before = r.rounds.filter((rec) => rec.round < r.round && rec.earned >= orders[rec.round - 1]).length;
+      const stars = r.job ? r.job.stars.filter((n) => before + 1 >= n).length : 0;
+      const newStar = stars > r.job!.stars.filter((n) => before >= n).length;
       this.actions.starReached(newStar ? stars : 1);
       this.ribbon(t('job.orderPop'), t('job.orderRaise', { raise: RULES.job.raise }));
       if (newStar) this.starPop(stars);

@@ -1,0 +1,5 @@
+Blind comparison 1, 2026-11-02: f9696db (rules 8) against 88a41d3 (rules 5), order varied per agent. Agents are not people.
+priya: chose A (the new build), fun new 4 old 3, tomorrow maybe
+george: chose B (the new build), fun new 4 old 3, tomorrow maybe
+tasha: chose A (the new build), fun new 3 old 3, tomorrow maybe
+ingrid: chose B (the new build), fun new 4 old 3, tomorrow maybe

@@ -37,6 +37,7 @@ const K = {
   medals: 'jd.medals.v1',
   kinds: 'jd.kinds.v1',
   stars: 'jd.stars.v1',
+  salBeaten: 'jd.sal.v1',
   watched: 'jd.watched.v1',
   trophies: 'jd.trophies.v1',
   look: 'jd.look.v1',
@@ -817,6 +818,19 @@ export function recordStars(seed: string, stars: number, version: number = RULES
     write(K.stars, { ...all, [String(version)]: { ...mine, [seed]: stars } });
   }
   return { before, after: totalStars(version) };
+}
+
+/** The yards this device has beaten Sal on, per rules version: Home shows the count, and a game counts once a yard. */
+export const loadSalBeaten = (version: number = RULES_VERSION): string[] => {
+  const raw = readRaw(K.salBeaten);
+  const v = isObj(raw) ? (raw as Record<string, unknown>)[String(version)] : null;
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+};
+export function recordSalBeaten(seed: string, version: number = RULES_VERSION) {
+  const mine = loadSalBeaten(version);
+  if (mine.includes(seed)) return;
+  const all = (readRaw(K.salBeaten) as Record<string, string[]> | null) ?? {};
+  write(K.salBeaten, { ...all, [String(version)]: [...mine, seed].slice(-500) });
 }
 
 export type KindCounts = Partial<Record<MachineKind, number>>;

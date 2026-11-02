@@ -1,0 +1,22 @@
+{
+  "persona": "Ingrid",
+  "device": "desk",
+  "funA": 3,
+  "funB": 4,
+  "choice": "B",
+  "wouldOpenEither": "maybe",
+  "why": "B told me what I was up against: the foreman's $15,822 to beat, an order to fill each shift, and after every shift whether I was level or behind him, down to the $40 I wasted on a re-draw, and every figure on the results added up. A also showed its sums honestly but gave me no standard beyond star lines in ingots, so I never knew whether I had done well. B has bugs that cost me clicks, but I lost by $40 and I want my rematch.",
+  "bestOfA": "Every shift ended with a receipt (quantity x price = amount), and the shifts, a $20 belt and a $10 resale all summed to the total on screen to the dollar. Pick cards said 'On its own: $76 more a shift' so I could compare parts, next shift's offers were shown ahead, and the counters on the machines (40 out, 37 shipped, waited 13 s) let me audit the line.",
+  "worstOfA": "No standard to measure myself against beyond star lines in ingots and no leaderboard, so I never knew if I had done well (I stopped in shift 3 of 6, before A's results screen, so I cannot say what that one tells me). The line 'N ingots a shift from here earns a star' did not add up in any of the lessons. Three hand-held lessons before the real yard, which starts with only a hopper and a dock and pays $114 in shift 1, and a 'Last shift:' note that changed before a shift had been run.",
+  "bestOfB": "Sal's game as a number to beat ($15,822) with 'level with Sal' or '$40 behind Sal' after every shift, an order to fill each shift with the shortfall stated ('$550 short of the $4,600 order'), prices that rise 25% per order shown in the receipts (@ $30, $36, $42, $48, $54), and a results screen that reconciles to the dollar, including the $40 re-draw, with a 'Try again from shift 6' button.",
+  "worstOfB": "Twice the guide said 'click the lit spot for the Scrap Hopper' while a Crusher was the selected piece, so the wrong part went down and I needed Undo. The price list at the bottom stayed at Ingot $24 and Plate $8 while the receipts paid $30 to $54 and a note said plates sell for $48 too. Cards no longer say what a part earns, and in the last two shifts every card said 'No easy spot yet' so I could not act on the game's own advice.",
+  "stuckIn": [
+    "A: lesson 2, shift 1: after turning the belt piece as Sal asked, a red note said 'Not yet. Use the lit part, on the lit spot', which made me think I had done it wrong",
+    "A: lessons 1 to 3: the line 'N ingots a shift from here earns a star' never matched my arithmetic and was never explained",
+    "A: today's yard, shift 3: all three offers (Shipping Dock, Splitter, Furnace) said 'nothing yet', no Tuner was offered, and the advice of a second furnace behind a Splitter needs two picks in two shifts, so the game's own advice could not be followed at once and I could not tell which part to take",
+    "B: today's yard, shift 2: clicked the lit spot Sal named for the Scrap Hopper and a Crusher went down instead; recovered with Undo and by tapping the hopper on the shelf first",
+    "B: today's yard, shift 4: the same mismatch between Sal's text and the selected piece, avoided only because I had learned the workaround",
+    "B: today's yard, shifts 5 and 6: every card said 'No easy spot yet', the yard was full and I could not find where a third furnace could send its ingots, so I missed the sixth order by $550 and lost to Sal by $40",
+    "B: the price list at the bottom of the panel still said Ingot $24 and Plate $8 after prices had risen, which contradicted the receipts and the note that plates sell for $48 too"
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "persona": "Dana",
+  "device": "phone",
+  "goalInOwnWords": "Turn scrap into gold bars with a little line of machines, fill the day's six orders, and try to beat the foreman Sal's money score.",
+  "stoppedWhere": "The results screen after my first full game of today's yard (5 of 6 orders, $15,782, two stars, $40 behind Sal; the lesson earlier gave all three stars), after sending the survey and getting the completion code.",
+  "stoppedWhy": "I'd had my ten minutes and a bit more, and the last two shifts turned into guessing: nothing lit up, every card said 'No easy spot yet', my extra furnace sat 'unused', and I lost to Sal by exactly the $40 I'd spent on a button I didn't understand. 'Try again from shift 6' was tempting, but I never worked out how to feed that furnace, so I'd just get stuck again. I'd probably open it again tomorrow for a new yard, but I wouldn't replay this one.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 15782,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Today's yard, shift 2, after picking Hopper + Crusher",
+      "what": "Sal said 'Tap the lit spot for the Scrap Hopper. Step 1 of 2.' but the part already picked up (named in the box below) was the Crusher, so my tap on the lit spot put the Crusher there. The lit spot disappeared and Sal still said Step 1 of 2.",
+      "gotOutHow": "Pressed Undo, tapped the hopper on the shelf, then tapped the lit spot. Sal moved on to Step 2."
+    },
+    {
+      "where": "Today's yard, shifts 5 and 6",
+      "what": "Every card said 'No easy spot yet' and nothing lit up. Sal only said 'Put it where you think. The pay shows if it helps.' I could not work out where a second Tuner, or a second furnace and splitter, should go, or how to feed the extra furnace. 'Show me' only pointed at the furnace that was already boxed in on all four sides.",
+      "gotOutHow": "Didn't. Put the parts on empty squares and ran the shifts. The extra Tuner sped something up ('40 sped up') but the extra furnace and splitter were marked 'unused', and I finished $40 short of Sal."
+    }
+  ],
+  "confused": [
+    "Lesson, first shift: Sal said 'Line closed. Start the shift.' while the checklist still showed Crusher and Furnace as missing (it only earned $37 from plain scrap).",
+    "End of the lesson: a small red 'held you back' tag on the furnace with a card over it and no word on what it meant. It only became clear in the next game's result ('What held you back').",
+    "Today's yard card: 'Fill an order and every price goes up 25%'. I did not take it in; I just saw the orders get bigger.",
+    "'You're level with Sal' after each shift: I was not sure what exactly was being compared.",
+    "Today's yard runs right to left, the lesson ran left to right. It was fine, but it looked odd.",
+    "Shift 2: Sal said hopper while the crusher was the part picked up.",
+    "Shifts 5 and 6: no lit spot and 'No easy spot yet' on all three cards, with no hint where a Tuner or a second furnace helps.",
+    "The pay forecast did not change when I added a second Tuner, yet the result tagged it '40 sped up', so I could not tell if it helped.",
+    "What 'New offers (-$40)' is for. It re-dealt three cards that still did not fit."
+  ],
+  "annoyed": [
+    "'New offers (-$40)' took $40 for three cards that still said 'No easy spot yet'. The final screen showed $40 is exactly what I lost to Sal by (otherwise a tie).",
+    "Sal's step line said hopper while the game had picked up the crusher, so I put the wrong thing down.",
+    "The tip about swiping to lay belt, aiming from a machine and holding to move only came up on the last shift, as a wall of small text, after my tap did nothing.",
+    "The game stopped holding my hand on the last shifts without saying so.",
+    "'Copy the code' did not copy; it turned into 'Press and hold the code to copy it' (minor)."
+  ],
+  "pleased": [
+    "The lesson: Sal's 'tap this, then the lit spot' made it effortless, and it took about three minutes as promised.",
+    "The money forecast before every shift ('This shift will pay $X, that fills the order'): I always knew what I was about to get.",
+    "Result screens show their sums (37 x ingot @ $24 = $888) and a 'what held you back' note like a handover, so I knew what to fix next.",
+    "The 'Show me' button: one tap, a short card, 'Got it'.",
+    "Gold bars rolling in with +$ pops, the stars lighting up, money ticking up.",
+    "The shift-by-shift bars climbing and 'New rank: Yard Hand!' at the end.",
+    "A 'today's yard' with a score to beat feels like my Wordle habit."
+  ],
+  "bestMoment": "Lesson, shift 3: the first gold bars rolling down the belt with +$24 pops, the three stars lighting one by one, and 'All three stars in the bag.'",
+  "worstMoment": "Shift 6 of today's yard: three cards that all said 'No easy spot yet', $40 spent on new offers that changed nothing, my extra furnace and splitter marked 'unused', and then learning I'd lost to Sal by exactly that $40.",
+  "oneChange": "Don't leave me guessing on the last shifts: light the spot (or say plainly that nothing fits) the way the early shifts did, so a close game feels fixable instead of unfair.",
+  "completionCode": "T8CH-CYNR"
+}

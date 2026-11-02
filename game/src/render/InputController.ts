@@ -441,8 +441,10 @@ export class InputController {
     }
     const selected = this.machineById(this.selectedId);
     const held = this.machineById(this.heldId) ?? (selected && selected.x < 0 ? selected : undefined); // a part selected on the shelf is in hand
-    const lit = held || hit?.inBin || this.host.lesson || !loadSettings().lights ? null : nextPlanned(this.run);
+    // the lit spot takes the lit part, whatever shelf part is in hand: the words name it, so that is what lands
+    const lit = (held && held.x >= 0) || hit?.inBin || this.host.lesson || !loadSettings().lights ? null : nextPlanned(this.run);
     if (lit?.part && cell && lit.step.x === cell.x && lit.step.y === cell.y) {
+      this.heldId = null;
       if (this.dropAt(lit.part, cell.x, cell.y)) this.selectedId = lit.part.id;
     } else if (hit?.inBin) {
       this.heldId = this.heldId === hit.m.id ? null : hit.m.id;

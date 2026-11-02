@@ -1,0 +1,72 @@
+{
+  "persona": "Leo",
+  "device": "phone",
+  "goalInOwnWords": "You pick one part each round and build a conveyor line so scrap turns into gold bars you sell for money. Fill the orders to get stars and beat the foreman Sal's score.",
+  "stoppedWhere": "On the Plate Press build screen of a 'try again from shift 6' retry, right after finishing my first full game on today's yard (2 stars, $15,842, beat Sal by $20). Left through Menu, Save and go home, then the feedback survey.",
+  "stoppedWhy": "I'd already beaten Sal, and only by $20 by selling two spare cards, which feels cheap. The retry for the third star was a puzzle with no clue: all three cards said 'No easy spot yet', the dock is boxed in by other machines, and the pay would not move off $4,050. I'm not tapping around for another few minutes, and there is nobody to send a score to.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 15842,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Today's yard, shift 2 (and again shift 4): picking Hopper + Crusher",
+      "what": "Sal said 'Tap the lit spot for the Scrap Hopper, step 1 of 2' but the part the game had selected was the Crusher, so my tap put a crusher where the hopper should go. The hint text did not change and no lit spot was left to tap.",
+      "gotOutHow": "Tapped the hopper on the shelf and then the glowing crusher on the yard, which swapped them. Second time I tapped the hopper on the shelf first."
+    },
+    {
+      "where": "Shift 5 build screen with the Tuner",
+      "what": "All three cards said 'No easy spot yet' and every cell touching the furnaces was already used, so I could not work out where the Tuner should go or whether anything could help. The game had said a Tuner touching the furnace would clear the problem.",
+      "gotOutHow": "Did not really. Tried about four spots, the forecast stayed at $3,600 each time, then pressed go anyway."
+    },
+    {
+      "where": "Shift 5, rearranging pieces",
+      "what": "Tapping a part that is already on the yard with a new part selected just selects the old part, it does not swap. Even after sending a piece back to the shelf I had to tap the new part on the shelf again before a tap on the yard would place it. About 35 taps to try one idea.",
+      "gotOutHow": "Back to the shelf on the splitter and then the belt, re-tapped the Tuner on the shelf, tapped the empty cell."
+    },
+    {
+      "where": "Retry from shift 6 (third star)",
+      "what": "Could not see how to make the extra $550 for the third star. No card had an easy spot and the Plate Press had no way to reach the dock.",
+      "gotOutHow": "Gave up: Menu, Save and go home."
+    }
+  ],
+  "confused": [
+    "Lesson 1 said the line needs Hopper, Crusher, Furnace, Dock, but the line was already closed and paying with just the Hopper and Dock.",
+    "A red 'held you back' tag appeared on a machine at the end of lesson 1 with no explanation.",
+    "At first I did not know what 'Order $450' meant. I guessed each shift is one order and the dots at the top are the six orders.",
+    "'You're level with Sal' five times in a row. I only understood why when I added up the shifts and got exactly Sal's total.",
+    "The game said nothing held me back, add a hopper, and the extra hopper and crusher were worth only $42 on the forecast.",
+    "The Tuner was 'Fits this line now' on shift 3, then the Tuner I was told would clear the furnace did nothing on shift 5.",
+    "Hint says place the Hopper but the Crusher is what gets placed.",
+    "The 'Next shift: ...' line under the cards, I did not know what it was telling me.",
+    "'No easy spot yet' on every card in the last two shifts: I did not know if that meant impossible or just hard."
+  ],
+  "annoyed": [
+    "Lesson 1 and the first guided shifts: the game tells me exactly what to tap every time, I made zero decisions for the first few minutes.",
+    "Hint text and the selected part do not match on Hopper + Crusher picks, which cost me taps both times.",
+    "Too many taps to rearrange anything on a phone: tapping a placed piece selects instead of swapping, so everything goes back to the shelf first.",
+    "The advice to add a hopper did almost nothing because the furnace was the real limit.",
+    "No leaderboard in the test version, so the only thing to beat is Sal and following the lit spots ties me with him.",
+    "A $40 re-roll that comes out of the score on the last shift.",
+    "Beating Sal came down to selling two cards for $20, which feels like a trick, not skill."
+  ],
+  "pleased": [
+    "Seeing 'This shift will pay $576 (up $465)' before I press go, the number jumping each time I add a machine.",
+    "Gold bars, glowing furnaces and the big 'ORDER FILLED' banner.",
+    "4x speed makes a shift a few seconds long.",
+    "'Sal's game: $15,822. Beat it.' and then 'You beat Sal by $20'.",
+    "The 'what held you back' box says the weak spot in plain words.",
+    "'One more order for 3 stars' with a one-shift 'Try again from shift 6' button.",
+    "Starts right away with no sign-in, and the lesson is short.",
+    "Sell for $10 on a card let me pad the score on the last shift."
+  ],
+  "bestMoment": "Shift 4: the big yellow 'ORDER FILLED! Every price up 25%' banner with the furnaces glowing and gold bars sliding to the dock.",
+  "worstMoment": "Shift 5: every card said 'No easy spot yet', I spent about 35 taps trying to fit a Tuner and the pay never moved from $3,600.",
+  "oneChange": "A real score to beat: a board with other people or friends (or a way to send my score to a friend), instead of a foreman ghost I tie by just following the lit spots.",
+  "completionCode": "XBZC-5D6B"
+}

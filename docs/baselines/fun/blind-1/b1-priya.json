@@ -1,0 +1,20 @@
+{
+  "persona": "Priya",
+  "device": "desk",
+  "funA": 4,
+  "funB": 3,
+  "choice": "A",
+  "wouldOpenEither": "maybe",
+  "why": "A gave me numbers I could plan with: an exact forecast that moves as I build, a bottleneck report that named the right machine, prices that climb as orders fill, and Sal's score to beat. When the lit spots went quiet on shift 5 I had to work out my own layout, and it paid off: three stars and $1,310 over Sal. B spent its first shifts on forced picks and three identical $600 shifts, blamed the wrong machine in its report, and locked me out of the third star with a pick I could not undo. I would maybe open A tomorrow to redo the same yard better; I would not open B.",
+  "bestOfA": "Build, read the exact forecast, run, then get a plain-words 'what held you back' that points at the real bottleneck. Best moment: on shift 6 the dock I had planned two shifts earlier took the forecast from $4,050 (short of the order) to $5,400, and I finished $1,310 ahead of Sal with all six orders.",
+  "worstOfA": "The lit spots and Sal's advice walk shifts 1 to 4 into a draw with Sal ('level with Sal' four times, then only $40 behind because of my own reroll), so each shift had one obvious answer. Two-part cards say 'lit spot for the Scrap Hopper' while the Crusher is the selected part, so my first tap put the crusher in the hopper's place, and 'fits this line now' on my third hopper was worth exactly $42.",
+  "bestOfB": "Every card says 'On its own: $X more a shift' before I commit, and the forecast adds 'At this rate: 2 stars, 149 of 160 ingots'. The made/waited/stuck counters under each machine are real data, and finishing '11 ingots short of three stars' is a near-miss I would want to chase.",
+  "worstOfB": "Shifts 1 and 2 are forced picks tagged 'Needed for the job', then shifts 2, 3 and 4 all paid exactly $600 while I only pressed skip. The report said the crusher held me back while the yard showed the crusher waiting on the furnace. The guide lit the wrong tile ('slots right in'), there is no undo for a pick, and my shift 4 pick (splitter, no layout that worked) quietly ended any chance of three stars.",
+  "stuckIn": [
+    "A, shift 2: the Hopper + Crusher card said 'Click the lit spot for the Scrap Hopper' but the Crusher was the selected part, so I dropped the crusher on the hopper's spot. Got out with Undo, then tapping the hopper on the shelf first. It happened again on shift 4 and I only avoided it because I knew the trick.",
+    "A, shift 5: all three cards said 'No easy spot yet' and every machine was welded to the dock with no free side for a third furnace. Got out by turning the idle crusher upward, putting the furnace above it, and taking the Shipping Dock card on shift 6.",
+    "B, shift 3: the only lit tile for the Furnace was before the crusher (raw scrap would become slag), and I could not see where a second furnace could go.",
+    "B, shift 4: I could not find any two-furnace layout with the splitter (the furnace only takes from behind, the splitter only sends left and right, the dock sits in a corner beside a junk pile and the rails crate). The guide lit the wrong tile, I could not undo the pick, and I rolled the yard back with Ctrl+Z and lost the third star.",
+    "B, shift 2 report: 'The crusher held you back for 37 of 80 seconds' contradicted the counters on the yard (crusher waited 25 s, furnace the slow one), so I did not know which to trust."
+  ]
+}

@@ -349,12 +349,15 @@ test('a star says nothing the job bar does not: the first two are only stars, th
           if (n.dataset?.testid === 'star-pop') window.__pops.push({ text: n.textContent, quiet: n.classList.contains('jd-star-pop-quiet') });
     }).observe(document.querySelector('[data-testid=board-slot]'), { childList: true });
   });
+  let shift = 0;
   for (const a of actions) {
     if (a.t === 'pick') await api('pick', a.i);
     else if (a.t === 'run') {
       await api('run');
       await mode('running');
-      await page.getByTestId('speed-4').click();
+      // the last shift is skipped: an order filled in a skipped shift, or in its last ticks on a slow machine, still gets its moment
+      if (++shift === 6) await page.getByTestId('skip').click();
+      else await page.getByTestId('speed-4').click();
       await mode('summary');
     } else if (a.t === 'next') {
       await api('next');

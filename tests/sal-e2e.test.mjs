@@ -50,6 +50,31 @@ test('a tap on the lit spot puts the lit part in: nothing to take off the shelf 
   await page.ctx.close();
 });
 
+test('a kit: the part the coach lights is the one in hand, and a tap on its spot puts that one in', { timeout: 60000 }, async () => {
+  const page = await f.page();
+  const { api, draft, mode, settled, at, when } = page.jd;
+  await page.goto(f.gameUrl('scene=game&seed=sal-kit'));
+  await draft();
+  await page.getByTestId('job-start').click();
+  await page.jd.noDialog('job-card');
+  const offers = (await api('state')).offers;
+  const i = offers.indexOf('hopper');
+  if (i < 0) return void (await page.ctx.close()); // this yard deals no Hopper first: nothing to check
+  await page.getByTestId(`offer-${i}`).click();
+  await mode('build');
+  await settled();
+  const spot = await page.evaluate(() => document.querySelector('[data-spot^=cell]')?.dataset.spot);
+  if (!spot) return void (await page.ctx.close());
+  const hint = await api('hint');
+  const named = /Scrap Hopper/.test(hint) ? 'hopper' : /Crusher/.test(hint) ? 'crusher' : null;
+  assert.ok(named, hint);
+  const [x, y] = spot.replace('cell:', '').split(',').map(Number);
+  const p = await at(cellCenter(x, y));
+  await page.mouse.click(p.x, p.y);
+  await when(([cx, cy, k]) => window.__jd.state().layout.machines.some((m) => m.x === cx && m.y === cy && m.kind === k), [x, y, named]);
+  await page.ctx.close();
+});
+
 test('the lit spots can be turned off on the job card, and stay off: the coach says to work it out', { timeout: 60000 }, async () => {
   const page = await f.page();
   const { api, draft, mode, settled } = page.jd;

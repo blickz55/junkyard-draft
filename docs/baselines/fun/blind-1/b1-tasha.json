@@ -1,0 +1,21 @@
+{
+  "persona": "Tasha",
+  "device": "phone",
+  "funA": 3,
+  "funB": 3,
+  "choice": "A",
+  "wouldOpenEither": "maybe",
+  "why": "A gave me a small win every shift: an order filled, a circle turned yellow, the money got big, and at the end it let me retry the last shift straight away. B had the star bar like my candy levels and the nice 'at this rate: two stars' line, but its first shifts paid almost nothing, it told me to put the splitter somewhere that broke my line, and half the buttons were hidden under the pay line. I would open A again if I remembered it, but nothing in either one throws a party like my candy game does, so I would not think of it by myself.",
+  "bestOfA": "Every shift ended with a win: 'Order filled', a circle going yellow, the total getting big ($15,822) and a green 'more than last shift'. The three-star finish of the lesson, and an end screen that said 'One more order for three stars' with a button to try shift 6 again, were the bits I liked.",
+  "worstOfA": "The middle of the game: cards that said 'No easy spot yet' and left me guessing where to put things, my first tap putting down the wrong machine while Sal said something else, and a last shift where my part sat 'unused' and I missed the order by $550. Everything is brown and a star gets no party.",
+  "bestOfB": "The star bar at the top, like my candy levels, filling up (25, 50, 112 of 160), and the line 'At this rate: 2 stars, 149 of 160' before I press start. The big gold '+$288' and the second star lighting up in shift 5 was the best moment.",
+  "worstOfB": "A flat start (0 ingots the first shift, then three shifts in a row at $600), Sal telling me to tap the belt for the Splitter and my pay dropping to $0, cards cut off and the Turn and Undo buttons hidden under the pay line so I had to scroll, and finishing 11 ingots short of three stars with no quick retry.",
+  "stuckIn": [
+    "A, shift 2 of today's yard: Sal said tap the lit spot for the Scrap Hopper, but the part waiting on the shelf was the Crusher, so my tap put down the wrong machine and I did not understand why until I picked the part from the shelf myself.",
+    "A, shift 5: every card said 'No easy spot yet', tapping a spot gave 'That's a junk pile', 'Show me' only opened a furnace card, and the pay line never changed, so I was guessing where the Tuner should go.",
+    "A, shift 6: all three cards said 'No easy spot yet', I put the Plate Press where I guessed, it ended 'unused', and I missed the last order by $550 with no idea what would have worked. I never touched 'New offers (-$40)' because I could not tell what it bought.",
+    "B, shifts 2 and 5: the third card was cut off at the bottom of the screen and my first tap did nothing until I scrolled the lower panel.",
+    "B, shift 4: Sal said tap the belt to put the Splitter in, my pay went to $0 with a red 'line stops' mark I could not read, and Turn and Undo were hidden under the pay line until I scrolled; after about fifteen taps I undid everything.",
+    "B, shift 6: the extra Scrap Hopper pointed the wrong way, it took four taps to turn it, the pay line never changed, and only after the shift did it say nothing ahead takes its scrap."
+  ]
+}

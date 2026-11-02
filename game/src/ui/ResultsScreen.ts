@@ -1,6 +1,7 @@
 import { isTestEdition, verifierUrl as resolveVerifierUrl } from '../render/config';
 /** Results screen as DOM (DOSSIER-v1 0.4.0): score, round bars, what shipped, the checked board, submission and sharing. Every string comes from the table (0.9.0). */
 import type Phaser from 'phaser';
+import '../content/strings-more';
 import { h, btn, ui, textureImg, promptText, showText, foremanBox, setForeman } from './dom';
 import { foremanSays, resultsBand } from '../content/foreman';
 import { runStars, shippedTotal, type RunState } from '../sim/run';
@@ -42,6 +43,7 @@ import { loadReactions } from '../render/reactions';
 import { friendButton, reactionBar, talkButton } from './ReactionBar';
 import { syncNow } from '../render/link';
 import { salGame } from '../render/sal';
+import { recordSalBeaten } from '../render/storage';
 import { recordWatched } from '../render/storage';
 import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
 import { groupHeaders, groupParam, loadGroup } from '../render/groups';
@@ -187,6 +189,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
     : null;
   // Sal's game on this yard, with his recording a tap away: the second game's reason. Never for a recording, a try from a shift, or a lesson.
   const sal = job?.orders && !o.replayed ? salGame(run.seed) : null;
+  if (sal && !fork && run.score > sal.score) recordSalBeaten(run.seed);
   const watchSal = sal
     ? btn(
         t('results.watchSal'),

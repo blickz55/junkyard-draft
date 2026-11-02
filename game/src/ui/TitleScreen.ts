@@ -60,7 +60,8 @@ import { isFresh, latestPlacement } from '../render/divisions';
 import { periodLabel, placeLine } from '../content/division';
 import { reactionLine, type ReactionCounts } from '../content/reactions';
 import { flushPending, describeOutcomes } from '../render/pending';
-import { loadPending } from '../render/storage';
+import { loadPending, loadSalBeaten } from '../render/storage';
+import { salLater } from '../render/sal';
 import { groupHeaders, groupParam, loadGroup, saveGroup } from '../render/groups';
 import { t } from '../content/strings';
 import { pwa } from '../render/pwa';
@@ -228,6 +229,23 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   );
   if (testing) modeSpan.style.display = 'none'; // there is nothing else for today's yard to be, so "practice" only raises the question
   const jobBox = h('div', { tid: 'today-job' });
+  let salKnown: number | null = null; // the number to beat, in place of "you haven't played": Home has no height to spare at 130 %
+  const todayLine = h('div', { class: 'jd-dim', tid: 'today-line', style: 'font-size:0.8125em' }); // PLAN-v3 0.6.3: days played and the streak, no loss copy when it breaks
+  function paintToday() {
+    todayLine.textContent = [
+      todayBest
+        ? t('title.todayBest', { score: money(todayBest.score) })
+        : save?.seed === todaySeed()
+          ? t('title.todayUnderway')
+          : salKnown != null
+            ? t('home.salToday', { amount: money(salKnown) })
+            : t('title.todayNotPlayed'),
+      daysPlayed() ? streakLine(daysPlayed(), currentStreak()) : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }
+  paintToday();
   const showJob = (seed: string) => {
     const job = yardFor(seed).job;
     jobBox.replaceChildren();
@@ -239,20 +257,16 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
       starRow(job),
       ...(job.orders ? [] : [recipeRow(job)]),
     );
+    // the number to beat, worked out a shift at a time once Home is up
+    if (job.orders)
+      salLater(seed, (g) => {
+        salKnown = g.score;
+        paintToday();
+      });
   };
   if (cachedDaily()) showJob(todaySeed()); // else the job appears once we know today's yard, never one job and then another
   const dailyBtn = btn(t('title.daily'), 'daily', playToday, { variant: fresh || save ? 'dark' : 'primary' });
   dailyBtn.classList.add('jd-home-go');
-  const todayLine = h(
-    'div',
-    { class: 'jd-dim', tid: 'today-line', style: 'font-size:0.8125em' },
-    [
-      todayBest ? t('title.todayBest', { score: money(todayBest.score) }) : save?.seed === todaySeed() ? t('title.todayUnderway') : t('title.todayNotPlayed'),
-      daysPlayed() ? streakLine(daysPlayed(), currentStreak()) : '',
-    ]
-      .filter(Boolean)
-      .join(' · '),
-  ); // PLAN-v3 0.6.3: days played and the streak, no loss copy when it breaks
   const todayCard = h(
     'section',
     { class: 'jd-home-card jd-home-today', tid: 'today-card' },
@@ -303,6 +317,9 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     { class: 'jd-home-card jd-home-rank', tid: 'rank' },
     h('div', { class: 'jd-rank-line', tid: 'rank-line' }, rankLine(stars)),
     h('div', { class: 'jd-dim', tid: 'rank-next', style: 'font-size:0.8125em' }, rankNext(stars)),
+    loadSalBeaten().length
+      ? h('div', { class: 'jd-gold', tid: 'sal-beaten', style: 'font-size:0.8125em' }, t('title.salBeaten', { n: loadSalBeaten().length }))
+      : null,
     divisionBox,
     h(
       'div',

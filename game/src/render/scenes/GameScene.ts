@@ -15,7 +15,7 @@ import { decideQuality, QUALITY_PROBE_FRAMES } from '../quality';
 import { InputController, type Inspected, type InputHost } from '../InputController';
 import { SimView } from '../SimView';
 import { forkPayload, reportPlayer, type ReplayOrigin } from '../replayActions';
-import { hintFor, lessonAllows, lessonPick, lessonReady, lessonWants } from '../guide';
+import { hintFor, lessonAllows, lessonPick, lessonReady, lessonWants, nextPlanned } from '../guide';
 import { StallMonitor, stallText } from '../StallMonitor';
 import { PopPool } from '../PopPool';
 import { GameTelemetry } from '../GameTelemetry';
@@ -644,7 +644,8 @@ export class GameScene extends Phaser.Scene {
     if (this.run.phase !== 'draft' || (this.tutorial && i !== lessonPick(this.run))) return;
     if (this.act({ t: 'pick', i })) {
       audio.pick();
-      this.inputCtl.selectedId = this.run.bin[this.run.bin.length - 1]?.id ?? null;
+      // the part the coach lights first, so the frame on the shelf and the words agree (the fourth panel: a kit's Crusher was in hand while the Hopper was lit)
+      this.inputCtl.selectedId = (this.tutorial ? null : nextPlanned(this.run)?.part?.id) ?? this.run.bin[this.run.bin.length - 1]?.id ?? null;
       this.syncMachines();
       this.renderSide();
     }
@@ -810,6 +811,7 @@ export class GameScene extends Phaser.Scene {
   }
   /** Controller hook: the round is recorded; tear down the live visuals and show the summary. */
   private onRoundEnd(rec: RoundRecord, visual: number) {
+    if (this.run.job?.orders && !this.tutorial) this.panel.setOrder(this.run, rec.earned, true); // filled in the last ticks, or in a skipped shift: still its moment
     {
       const prev = this.run.rounds.length >= 2 ? this.run.rounds[this.run.rounds.length - 2].earned : -1;
       this.panel.bannerForeman = this.replayLabel || prev < 0 ? '' : foremanSays(rec.earned > prev ? 'roundGood' : 'roundFlat'); // a first shift has nothing to be better than

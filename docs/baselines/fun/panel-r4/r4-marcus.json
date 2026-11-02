@@ -1,0 +1,68 @@
+{
+  "persona": "Marcus",
+  "device": "phone",
+  "goalInOwnWords": "Build a line that turns scrap into ingots and ships them at the dock for money. Each shift you pick one new part, build it in, run the shift, try to fill that shift's order, and finish the six shifts with a bigger total than Sal the foreman.",
+  "stoppedWhere": "The results screen after my first full game on today's yard (all three stars, $17,132, beat Sal by $1,310), right after sending the survey and getting the completion code.",
+  "stoppedWhy": "A lesson plus six shifts is a full lunch break of game for me, and I had what I came for: three stars and a win over Sal. Nothing on screen pulled me into another round right away (no board in this version, only my own number to beat). I might try tomorrow's yard if I remember, because now I know I can swap and turn parts.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 17132,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 2 of today's yard, build step after picking Hopper + Crusher",
+      "what": "Sal said 'Tap the lit spot for the Scrap Hopper. Step 1 of 2.' and the Hopper glowed blue on the shelf, but the part actually in my hand was the Crusher (orange outline, panel said Crusher). Tapping the lit square dropped a Crusher there, the lit square disappeared and Sal's line did not change.",
+      "gotOutHow": "Tapped the Hopper on the shelf (panel changed to Scrap Hopper), pressed Undo to take the Crusher off, then tapped the lit square again. About four wasted taps; from then on I tapped the glowing shelf part first."
+    },
+    {
+      "where": "Shift 5 pick and build",
+      "what": "The tip said a Tuner touching the furnace would clear the bottleneck, but all three cards said 'No easy spot yet' and every side of both furnaces was already occupied. 'Show me' only popped a card describing the furnace. Nothing told me what to do about 'no easy spot'.",
+      "gotOutHow": "Took the Tuner anyway; Sal said 'Put the Tuner where you think. The pay shows if it helps.' Tried a free-looking square (red message: junk pile, nothing can stand there), the belt corner and the splitter spot; the forecast stayed at $3,600 each time, so I ran the shift as it was."
+    },
+    {
+      "where": "Shift 6 build, wanting a third furnace",
+      "what": "The Furnace + Splitter card said 'No easy spot yet' and the dock was boxed in, so a new furnace had no way to get its ingots home. Nobody had told me parts can be swapped by tapping a taken square, or aimed with Turn. I swapped the hopper out by accident, then also turned a hopper the wrong way because it had already been aimed correctly when placed.",
+      "gotOutHow": "Worked it out by poking: furnace in the square above the dock, hopper one square up facing down into the crusher, crusher turned to face the furnace; undid the bad turn. The forecast went from $4,050 to $5,400 and the shift paid exactly that."
+    }
+  ],
+  "confused": [
+    "On the home screen 'Today's job' card: six prices in a row ($450 . $800 . $1,400 ...) and the word 'orders' arrive together; I only understood an order from the top bar ('Order $450, $0 so far') later.",
+    "Lesson 1: 'If every shift pays this: 0 of 20 ingots' under the forecast made no sense until the third shift, when it showed '3 stars 24 of 20 ingots' and I saw it was a projection over all three shifts.",
+    "Lesson 1 end: a red 'held you back' tag appeared on the furnace with no explanation yet; I only guessed it meant the slow spot.",
+    "Sal: 'You keep ONE part. The others go back on the truck.' What truck? (It did not matter, but it sounded like I would lose something.)",
+    "The shelf outlines: the part Sal asked for had a blue glow while a different part was the one actually selected (orange outline, named in the panel), so 'tap the lit spot' put the wrong part down.",
+    "'No easy spot yet' on every card in shifts 5 and 6: no hint whether to move something, sell something or pick another card.",
+    "'Show me' next to the tip did not show a spot, it described the furnace.",
+    "The tip 'add a hopper' after shift 3 bought me only $42 (forecast $3,108 -> $3,150); the very next tip blamed the furnace. The same tip after shift 1 had been worth about $360, so I could not tell when to trust it.",
+    "Plate Press: two shards for one plate never beat one shard for one ingot, and nothing says when a plate is worth it.",
+    "Under the pick cards 'From shift 4, plates sell for $42 too' was cut off by the bottom edge and I never knew if more text sat below it.",
+    "Tuner tag 'sped up 79' - sped up what, 79 what?"
+  ],
+  "annoyed": [
+    "For the first four shifts of a real job the game points at the exact square to tap, so I filled in a form rather than designed anything. The fun started when it stopped.",
+    "The wrong-part-in-hand mistake in shift 2 cost me taps and made the game feel broken for a moment.",
+    "Tips and forecast disagreed in shift 4: 'add a hopper' gave +$42, then the next tip changed its mind to the furnace.",
+    "Dead end labelled 'No easy spot yet' with no help, right when the real thinking began.",
+    "Nobody told me parts can be swapped, moved and turned; I found out by accident.",
+    "The test version has no leaderboard, so a good score has nowhere to go but my own phone.",
+    "Turn is a blind 90 degree rotation: I rotated a part that had already been aimed correctly and made it worse."
+  ],
+  "pleased": [
+    "The forecast before each shift ('This shift will pay $1,470 (up $582)') was exactly right every single time. I trust that number completely.",
+    "'What held you back' after each shift: one sentence, exact seconds, a red tag on the machine. That is my job in a game.",
+    "Lesson 1 was short, had no walls of text, and the jump $37 -> $111 -> $576 made the whole point.",
+    "Skip to the end of the shift and 4x save time; it respects a lunch break.",
+    "Orders raising every price 25% makes each shift feel bigger than the last.",
+    "Clear red message when I tried to build on a junk pile.",
+    "Beating Sal's score, three stars, 'That's the game.' - it felt earned."
+  ],
+  "bestMoment": "Shift 6: working out on my own that the dock was boxed in, moving the hopper up and putting a third furnace above the dock, and watching the forecast jump from $4,050 to $5,400 before I started the shift. Then it paid exactly that and I beat Sal by $1,310.",
+  "worstMoment": "Shift 5: the tip said a Tuner would fix the furnace, the Tuner card said 'No easy spot yet', 'Show me' did not help, and nothing I tried moved the number.",
+  "oneChange": "Let the thinking start sooner: after the lesson stop telling me which square to tap, and tell me early (and make 'Show me' demonstrate it) that parts can be swapped, moved and turned to make room, so 'No easy spot yet' reads as a puzzle I know how to attack instead of a dead end.",
+  "completionCode": "YQPK-XYBH"
+}

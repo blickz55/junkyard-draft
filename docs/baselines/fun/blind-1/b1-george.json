@@ -1,0 +1,21 @@
+{
+  "persona": "George",
+  "device": "phone",
+  "funA": 3,
+  "funB": 4,
+  "choice": "B",
+  "wouldOpenEither": "maybe",
+  "why": "B gave me something to beat: Sal's number, and a sixth order I missed by one square, and it let me try that last shift again without starting over. A taught me nicely, but by the end I was just obeying the lit squares and the real game handed me the right part each time, so nothing pulled me back. I would open B tomorrow to have another go at that last order, though I am not sure it would become a habit like the crossword.",
+  "bestOfA": "Sal's lit squares and the 'This shift will pay' line, which came out exactly right every time; and lesson 3, where the belt backed up in red and I watched the slowest machine for myself before being told what it was.",
+  "worstOfA": "Three lessons, about fifteen minutes, before I got a real game, each headed 'YOUR FIRST JOB' again; and the first real picks were handed to me ('This job needs the Crusher'). Shifts ended before I could tap a machine unless I found Pause, and the third card was cut off at the bottom of the phone.",
+  "bestOfB": "Orders that grow, with Sal's score to beat; cards that say whether they fit and show next shift's offers; 'Put it where you think. The pay shows if it helps'; and an ending that stings in a good way ('Sal beat you by $40') with 'Try again from shift 6'.",
+  "worstOfB": "From shift 5 every card said 'No easy spot yet' and the advice told me to add a Tuner or furnace I already had, so I could not find a way to fill the sixth order and wasted $40 on new offers; when two parts arrive at once nobody says which to tap first, and the 'junk pile' message was cut off at the screen edge.",
+  "stuckIn": [
+    "A, today's yard, second pick: the third card (the Furnace the job needed) was cut off at the bottom of the phone, tapping its middle did nothing, and I only found it by tapping the sliver that showed.",
+    "A, lesson 1: the first shifts ended in about twenty seconds before I could tap a machine as Sal asked; I only found Pause in shift 3.",
+    "A, lessons 2 and 3: the red 'stuck 25 s' and 'waited 38 s' labels, and the line '2 ingots a shift from here earns a star', meant nothing to me until lesson 3 explained the slowest machine.",
+    "B, today's yard shift 2: Hopper + Crusher put two parts on the shelf, I tapped the lit spot with the wrong part in hand (the Crusher went in), got a cut-off 'junk pile' message, and only recovered by guessing at Undo.",
+    "B, today's yard shifts 5 and 6: all three cards said 'No easy spot yet', every square touching a furnace was taken, I could not find a placement that raised the forecast, and I paid $40 for new offers that were no better.",
+    "A and B: while paused, the bottom of the screen says 'This shift: $0', which looks as if the money has vanished."
+  ]
+}

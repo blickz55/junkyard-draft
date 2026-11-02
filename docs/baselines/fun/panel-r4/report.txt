@@ -1,0 +1,26 @@
+4 agents in r4
+median fun 3, median clear 3
+finished a game: 4, played another by choice: 0
+come back tomorrow: yes 0, maybe 4, no 0
+would pay: yes 0, maybe 0, no 4
+stuck at least once: 4
+
+Dana (phone): fun 3, clear 4, lessons 1, games 1, best 3★ $15782, again false
+  goal: Turn scrap into gold bars with a little line of machines, fill the day's six orders, and try to beat the foreman Sal's money score.
+  stopped: I'd had my ten minutes and a bit more, and the last two shifts turned into guessing: nothing lit up, every card said 'No easy spot yet', my extra furnace sat 'unused', and I lost to Sal by exactly the $40 I'd spent on a button I didn't understand. 'Try again from shift 6' was tempting, but I never worked out how to feed that furnace, so I'd just get stuck again. I'd probably open it again tomorrow for a new yard, but I wouldn't replay this one.
+  one change: Don't leave me guessing on the last shifts: light the spot (or say plainly that nothing fits) the way the early shifts did, so a close game feels fixable instead of unfair.
+
+Leo (phone): fun 3, clear 3, lessons 1, games 1, best 2★ $15842, again false
+  goal: You pick one part each round and build a conveyor line so scrap turns into gold bars you sell for money. Fill the orders to get stars and beat the foreman Sal's score.
+  stopped: I'd already beaten Sal, and only by $20 by selling two spare cards, which feels cheap. The retry for the third star was a puzzle with no clue: all three cards said 'No easy spot yet', the dock is boxed in by other machines, and the pay would not move off $4,050. I'm not tapping around for another few minutes, and there is nobody to send a score to.
+  one change: A real score to beat: a board with other people or friends (or a way to send my score to a friend), instead of a foreman ghost I tie by just following the lit spots.
+
+Marcus (phone): fun 4, clear 3, lessons 1, games 1, best 3★ $17132, again false
+  goal: Build a line that turns scrap into ingots and ships them at the dock for money. Each shift you pick one new part, build it in, run the shift, try to fill that shift's order, and finish the six shifts with a bigger total than Sal the foreman.
+  stopped: A lesson plus six shifts is a full lunch break of game for me, and I had what I came for: three stars and a win over Sal. Nothing on screen pulled me into another round right away (no board in this version, only my own number to beat). I might try tomorrow's yard if I remember, because now I know I can swap and turn parts.
+  one change: Let the thinking start sooner: after the lesson stop telling me which square to tap, and tell me early (and make 'Show me' demonstrate it) that parts can be swapped, moved and turned to make room, so 'No easy spot yet' reads as a puzzle I know how to attack instead of a dead end.
+
+Samuel (phone): fun 3, clear 3, lessons 1, games 1, best 2★ $15782, again false
+  goal: Make a line of machines so the rocks become gold bars and the crates box pays me. Fill the orders for the stars and make more money than Sal.
+  stopped: I did the 3 minute lesson, one whole game (6 shifts, 2 stars, $15,782, lost to Sal by $40) and one try of the last shift (tied Sal at $15,822). The first four shifts were easy because the game lit the squares for me. In the last two shifts the lit squares stopped, I could not find where to put the Tuner or the furnace, and I could not fill the last order for the third star. I did not feel like starting another 10 minute game right now.
+  one change: Keep showing me where the part can go (lit squares or one example) in the last shifts too, and say what 'touching' and 'No easy spot yet' mean, so I can fill the last order and get the third star.

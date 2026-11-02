@@ -4,6 +4,7 @@
  * but never ranked) and its best recording watched. A modal DOM layer like the tips panel: Esc or Close dismisses it.
  */
 import type Phaser from 'phaser';
+import '../content/strings-more';
 import { h, btn, ui } from './dom';
 import { withArt } from './opening';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';

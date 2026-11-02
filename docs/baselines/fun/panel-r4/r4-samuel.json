@@ -1,0 +1,67 @@
+{
+  "persona": "Samuel",
+  "device": "phone",
+  "goalInOwnWords": "Make a line of machines so the rocks become gold bars and the crates box pays me. Fill the orders for the stars and make more money than Sal.",
+  "stoppedWhere": "The results screen after one extra try of the last shift (Level with Sal, $15,822, 2 of 3 stars), right after I sent the questions and got the code.",
+  "stoppedWhy": "I did the 3 minute lesson, one whole game (6 shifts, 2 stars, $15,782, lost to Sal by $40) and one try of the last shift (tied Sal at $15,822). The first four shifts were easy because the game lit the squares for me. In the last two shifts the lit squares stopped, I could not find where to put the Tuner or the furnace, and I could not fill the last order for the third star. I did not feel like starting another 10 minute game right now.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 15782,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Real game, shift 4, placing the Scrap Hopper and the Crusher",
+      "what": "Sal said tap the lit spot for the Scrap Hopper. I tapped only the glowing square and a Crusher went in instead, and nothing told me it was the wrong part. The blue glow on the shelf (what to tap) and the orange edge (what is in my hand) look like two different things and nothing explained them.",
+      "gotOutHow": "Pressed Undo, tapped the hopper on the shelf first, then the glowing square."
+    },
+    {
+      "where": "Real game, shift 5, Tuner",
+      "what": "Sal's box said a Tuner touching the furnace would clear it, but no square was lit and every side of that furnace already had something on it. I could not find a place that touches it.",
+      "gotOutHow": "Put it on an empty square near a crusher, saw the pay number did not change ('2 sped up'), and started the shift anyway."
+    },
+    {
+      "where": "Real game, shift 6, Furnace + Splitter",
+      "what": "Again no lit squares ('put it where you think'). I could not make a new furnace reach the crates box, the furnace I placed said 'unused', and I could not find the $550 for the last order. I paid $40 for New offers and then lost to Sal by exactly $40.",
+      "gotOutHow": "Did not get out. Started the shift as it was. Then pressed Try again from shift 6, skipped New offers, put a Plate Press on any empty square, and only tied Sal."
+    }
+  ],
+  "confused": [
+    "The first card used 'learn the ropes' and 'ingots'. I only understood the numbers and the stars.",
+    "'Pick ONE card ... the others go back on the truck'. What truck?",
+    "The shelf: Sal said tap the Conveyor then the lit spot, but the belt piece was already glowing, so I could not tell if my first tap did anything.",
+    "Two glows on the shelf (blue and orange) with no explanation, see the stuck list.",
+    "The grey line under the cards ('Next shift: Hopper + Crusher - Shipping Dock - ...') and other lines cut off at the bottom of the screen; I did not know what they meant or that I had to scroll.",
+    "Shift 1 of the real game: the screen already said 'This shift will pay $600, that fills the order' while Sal asked for four steps of building. Did I have to build at all?",
+    "The pay number dipped from $600 to $576 while the second furnace was placed but not yet joined to the belt, and then jumped to $888.",
+    "'Buy a belt: $20', 'Turn', 'Move' and 'Back to the shelf': I never knew what they were for.",
+    "'No easy spot yet' on a card: does it mean I cannot place it, or that it will not help?",
+    "'Touching': next to it, or also a corner?",
+    "Small numbers like '63 of 80 seconds' and '77 sped up': I could not turn them into a decision.",
+    "'a try: doesn't go on the board': my better $15,822 does not count and the $15,782 game does."
+  ],
+  "annoyed": [
+    "I paid $40 for New offers to get the furnace card, could not place the furnace, and lost to Sal by exactly $40.",
+    "The game held my hand with lit squares for four shifts and then took the help away with no lesson on how to find a spot myself.",
+    "The same steps every shift (pick the green card, tap the shelf, tap the lit square): I never made a real choice until shift 5.",
+    "Lots of small words in the cards and in Sal's boxes for a slow reader."
+  ],
+  "pleased": [
+    "The first lesson was short (3 minutes) and the lit squares told me exactly what to tap.",
+    "Seeing the money number before I press Start ('This shift will pay $576').",
+    "Gold bars running down the belt and +$24 popping at the crates box.",
+    "The ORDER FILLED banner and the prices going up every order ($24, $30, $36, $42).",
+    "Simple sums on the results ('37 x scrap @ $1 = $37') and the bars shift by shift.",
+    "Undo worked at once, so I was not afraid to press things.",
+    "Sal as a number to beat ('Level with Sal', 'Sal beat you by $40').",
+    "'What held you back' with the red label on the slow machine."
+  ],
+  "bestMoment": "The end of the lesson: the gold bars came out of the furnace, the money jumped from $148 to $724 and all three stars lit up. Close second: the first ORDER FILLED banner in the real game.",
+  "worstMoment": "Seeing '$40 behind Sal' on the last shift, after paying $40 for new cards that I had no place to put.",
+  "oneChange": "Keep showing me where the part can go (lit squares or one example) in the last shifts too, and say what 'touching' and 'No easy spot yet' mean, so I can fill the last order and get the third star.",
+  "completionCode": "JS83-DESF"
+}
