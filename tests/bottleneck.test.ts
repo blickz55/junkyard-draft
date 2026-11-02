@@ -25,7 +25,7 @@ test('saturated furnace: hopper → crusher → furnace → dock; the furnace (3
   assert.ok(b.heldTicks >= Math.ceil(RULES.ticksPerRound * HELD_FRACTION) && b.heldTicks <= RULES.ticksPerRound, `held ${b.heldTicks} ticks`);
   assert.ok(res.shipped.ingot > 0, 'the line works, it is just slow');
   assert.deepEqual(b.fixes, ['tuner', 'splitter']);
-  assert.match(line, /^The furnace held you back for \d+ of 80 seconds\. A Tuner next to it, or a second furnace behind a Splitter, would clear it\.$/);
+  assert.match(line, /^The furnace held you back for \d+ of 80 seconds\. A Tuner touching it, or a second furnace behind a Splitter, would clear it\.$/);
   // in round 2 the tuner is not in the pool yet (offered from round 3): the sentence names only the splitter fix
   const early = analyseRound(L, res, 2);
   assert.deepEqual(early.fixes, ['splitter']);

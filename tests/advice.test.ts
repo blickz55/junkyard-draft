@@ -61,7 +61,7 @@ test('a machine takes from behind or the sides (rules v6): fed either way it doe
   assert.match(placementWarning(lay(mk(2, 'conveyor', 6, 3, 0)), 'crusher', 7, 3, 0, 50) ?? '', /out of the yard/);
 });
 
-test('tuner (rules v3): warns when no processor touches it, silent beside a crusher, furnace or press; takes and gives nothing', () => {
+test('tuner: warns when no machine touches it, silent beside a hopper, crusher, furnace or press; carries what a belt carries (rules v8)', () => {
   const layout = {
     width: 8,
     height: 6,
@@ -71,16 +71,12 @@ test('tuner (rules v3): warns when no processor touches it, silent beside a crus
       { id: 3, kind: 'dock' as const, x: 3, y: 2, dir: 0 as const },
     ],
   };
-  assert.match(placementWarning(layout, 'tuner', 5, 5, 0, 9) ?? '', /only helps a Crusher, Furnace or Press right next to it/);
+  assert.match(placementWarning(layout, 'tuner', 5, 5, 0, 9) ?? '', /only helps the machines it touches/);
   assert.equal(placementWarning(layout, 'tuner', 2, 1, 0, 9), null, 'above the furnace');
   assert.equal(placementWarning(layout, 'tuner', 2, 3, 0, 9), null, 'below the furnace');
-  assert.match(
-    placementWarning(layout, 'tuner', 1, 1, 0, 9) ?? '',
-    /only helps a Crusher, Furnace or Press right next to it/,
-    'above a hopper is not a processor',
-  );
-  assert.deepEqual(inputTravelDirs('tuner', 0), []);
-  assert.deepEqual(outputDirs('tuner', 0), []);
+  assert.equal(placementWarning(layout, 'tuner', 1, 1, 0, 9), null, 'above a hopper: it speeds that too (rules v8)');
+  assert.deepEqual(inputTravelDirs('tuner', 0).sort(), [0, 1, 3], 'it carries what a belt carries');
+  assert.deepEqual(outputDirs('tuner', 0), [0]);
 });
 
 test('belts and machines take from behind and the sides; a splitter takes from behind and sends ahead, left and right; docks take all', () => {

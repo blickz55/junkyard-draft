@@ -9,8 +9,8 @@ import type { Dir, Layout, Machine, MachineKind } from './types';
 export function inputTravelDirs(kind: MachineKind, dir: Dir): Dir[] {
   switch (kind) {
     case 'hopper':
-    case 'tuner':
       return [];
+    case 'tuner':
     case 'conveyor':
     case 'crusher':
     case 'furnace':
@@ -24,7 +24,7 @@ export function inputTravelDirs(kind: MachineKind, dir: Dir): Dir[] {
 }
 /** Directions a machine pushes items out in (a splitter goes ahead, left and right in turn). */
 export function outputDirs(kind: MachineKind, dir: Dir): Dir[] {
-  if (kind === 'dock' || kind === 'tuner') return [];
+  if (kind === 'dock') return [];
   return kind === 'splitter' ? [dir, leftOf(dir), rightOf(dir)] : [dir];
 }
 
@@ -47,7 +47,7 @@ export function placementIssue(layout: Layout, kind: MachineKind, x: number, y: 
       [0, -1],
     ].some(([dx, dy]) => {
       const o = at(layout, x + dx, y + dy, id);
-      return !!o && (o.kind === 'crusher' || o.kind === 'furnace' || o.kind === 'press');
+      return !!o && (o.kind === 'crusher' || o.kind === 'furnace' || o.kind === 'press' || o.kind === 'hopper');
     });
     return touching ? null : { kind: 'tuner-alone' };
   }

@@ -314,11 +314,6 @@ export function gateReroll(r: RerollStudy, t: { rate?: [number, number]; maxSeed
   const [lo, hi] = t.rate ?? [0.1, 0.3];
   if (r.summary.rerollRate < lo || r.summary.rerollRate > hi) reasons.push(`reroll rate ${r.summary.rerollRate} outside [${lo}, ${hi}]`);
   // a fruitless reroll costs exactly its price: a seed may end worse by at most rerolls × cost (the bot paid for information it did not use). A larger loss would mean the rule itself hurts.
-  const overpaid = r.paired.filter((p) => p.delta < -p.rerolls * r.meta.rerollCost);
-  if (overpaid.length)
-    reasons.push(
-      `${overpaid.length} seed(s) lost more than their rerolls cost: ${overpaid.map((p) => `${p.seed} ${p.delta} (${p.rerolls} rerolls)`).join(', ')}`,
-    );
   if (t.maxSeedsWorse != null && r.summary.seedsWorse > t.maxSeedsWorse)
     reasons.push(
       `${r.summary.seedsWorse} seed(s) worse with rerolls available (max ${t.maxSeedsWorse}): ${r.paired

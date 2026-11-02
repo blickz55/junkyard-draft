@@ -53,7 +53,10 @@ test('undo takes a whole swap back in one step, through the controller; redo put
   assert.equal(ctl.redo(), true);
   assert.ok(ctl.run.layout.machines.some((m) => m.id === part.id));
   assert.equal(ctl.undo(), true);
-  assert.equal(canUndo(ctl.run), false, 'nothing left: the pick is not a build edit');
+  assert.equal(canUndo(ctl.run), true, 'the pick can come back too, until the shift starts');
+  assert.equal(ctl.undo(), true);
+  assert.equal(ctl.run.phase, 'draft');
+  assert.equal(canUndo(ctl.run), false, 'and that is the end of it');
   assert.equal(undo(ctl.run), null);
 });
 

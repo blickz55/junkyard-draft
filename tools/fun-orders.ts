@@ -9,7 +9,7 @@ import { Worker, isMainThread, parentPort, workerData } from 'node:worker_thread
 import { fileURLToPath } from 'node:url';
 import { RULES } from '../game/src/sim/rules';
 import { yardFor, type Job } from '../game/src/sim/yard';
-import { litGame, yardTree, median, scale, type PathResult, type YardTree } from './fun-lib';
+import { litTier, yardTree, median, scale, type PathResult, type YardTree } from './fun-lib';
 import { override } from './balance-lib';
 
 /** What one kind of player earned, shift by shift. */
@@ -160,9 +160,9 @@ function dumpYard(seed: string, budget: number): Dumped {
   const tree = yardTree(seed, budget, true);
   return {
     tree,
-    novice: { rounds: litGame(seed, 'any').rounds },
-    casual: { rounds: litGame(seed, 'helps').rounds },
-    competent: { rounds: litGame(seed, 'most').rounds },
+    novice: { rounds: litTier(seed, 'any').rounds },
+    casual: { rounds: litTier(seed, 'helps').rounds },
+    competent: { rounds: litTier(seed, 'most').rounds },
   };
 }
 

@@ -1,0 +1,46 @@
+8 agents in r3
+median fun 3, median clear 4
+finished a game: 6, played another by choice: 2
+come back tomorrow: yes 1, maybe 7, no 0
+would pay: yes 0, maybe 1, no 7
+stuck at least once: 8
+
+Dana (phone): fun 3, clear 3, lessons 1, games 1, best 3★ $10920, again false
+  goal: Build a little line of machines that turns junk into stuff worth money, ship as much as you can each shift, fill each shift's order to get stars, and try to beat the foreman's total for the day.
+  stopped: I was way past my ten minutes (it took nearer twenty). The first half was a pleasant guided toy, but from shift 4 on I could not tell what my choices were doing, the same advice kept repeating, and I never worked out the red mark. I was behind Sal with no clear idea how to catch up, and the last order was out of reach. Replaying the same yard tonight did not appeal.
+  one change: Light up exactly where each new part goes, and say what it did, the way the first lesson did, so I never feel I broke it without knowing why; and keep a whole day inside ten minutes.
+
+George (phone): fun 4, clear 4, lessons 3, games 0, best 3★ $3926, again false
+  goal: Build a line of machines that turns junk into something worth money and gets it to the dock. Each shift there is an order to fill, the money you make is your score, and you are trying to beat the foreman's score.
+  stopped: I had been at it a good twenty minutes, past the fifteen they asked for, and the end of the first real shift is a tidy place to stop. I was not bored and not stuck; if nobody were counting I would have done a shift or two more. I stopped because of the clock they gave me, not because the game lost me, but I was not hooked either.
+  one change: After the first lesson, stop lighting every square: let me place the parts where I think they go, use the forecast to tell me whether I was right, and say plainly afterwards what held me back. Solving it myself is the part of a puzzle I would come back for.
+
+Ingrid (desk): fun 4, clear 4, lessons 3, games 0, best 3★ $3926, again false
+  goal: Build a line of machines that turns scrap into goods the dock buys, shift after shift, to earn more money than the foreman Sal did on the same yard. Filling each shift's order raises every price by a quarter, so the aim is to grow the line fast enough to beat his total ($11,154 on today's yard).
+  stopped: Not bored. I had used up the number of moves I allowed myself for this test. I would have gone on to finish all six shifts to see whether I beat Sal's $11,154, and probably tried a second yard after that.
+  one change: Stop lighting every drop spot in today's yard. Give me two cards that both look good and let me work out the better one with the forecast and my own arithmetic, then tell me per shift how I stand against Sal. That is the part I would come back for.
+
+Leo (phone): fun 3, clear 3, lessons 0, games 1, best 2★ $11154, again true
+  goal: Build a little factory line out of the parts you pick so it earns more money every shift, fill the orders to get stars, and try to beat the foreman Sal's score. Sal is a ghost you race.
+  stopped: I tied Sal to the dollar in my first game ($11,154) only because I copied his line by tapping the lit squares, and from shift 4 on the game stopped showing me where things go. To beat him I would have to redo all six shifts and I still would not know how to expand the line. No leaderboard or friends either, so nothing to show anyone. It was fine, I was not hooked.
+  one change: Keep telling me where a new part goes (or let me see what it would add before I commit) all the way to the last shift, and add a leaderboard or friends so beating Sal's number means something I can show people.
+
+Marcus (phone): fun 4, clear 4, lessons 1, games 1, best 3★ $14181, again false
+  goal: Build a line of machines that turns scrap into ingots and ships them to the dock. Fill each shift's order so the prices go up, and finish the job with more money than Sal.
+  stopped: My lunch break was up and I had what I came for: all three stars and Sal beaten. I know a trick now (a Tuner on the jammed furnace from shift 3) and I would open tomorrow's yard to try it, but I would not start the same yard again right now.
+  one change: When the report says a machine is jammed, show me which one and light the square where a part would help, and give me one clear gesture to pick up and move a part, so I am not guessing at belts on a phone.
+
+Priya (desk): fun 3, clear 4, lessons 0, games 2, best 3★ $15444, again true
+  goal: Run a small scrap-to-ingots factory for six shifts. Each shift you pick one new machine, place it so more shards reach the furnaces, and earn enough to fill that shift's order so every price goes up. Total money is the score and you try to beat Sal's number.
+  stopped: I had done the interesting part twice: worked out the layout trick and then planned the picks from the known offers. The second run only gained 4.5% because every furnace is boxed in round the dock, so a Tuner can never touch one. A real improvement means rebuilding the whole yard by hand, and with no leaderboard or best-possible number I cannot tell whether it would matter. Fine, a 3, I would not keep going if nobody were paying.
+  one change: A leaderboard (or a best-known score) on each yard, so I know whether my number is good and have someone real to beat; with the guide no longer steering me to the weaker layout.
+
+Samuel (phone): fun 3, clear 3, lessons 1, games 1, best 2★ $11154, again false
+  goal: Build a line of machines so the scrap turns into ingots and goes to the box, and make money. Each shift you must fill the order to get stars, and try to make more money than Sal.
+  stopped: I finished the whole job and I did not want to start another one right now. I only learned to press what is lit. When the light went away in shifts 4 to 6 I did not know how to do better, so I would get the same score again. The lesson was the best part.
+  one change: Always light the exact spot where a part goes (and the exact machine that is the problem), in every shift and not only the first three, so I am never left alone with words I do not understand.
+
+Tasha (phone): fun 3, clear 3, lessons 1, games 1, best 3★ $10920, again false
+  goal: Build a little factory line that turns junk into money, fill each shift's order to earn stars, and finish with more money than Sal.
+  stopped: One game was enough. It was fine, but nothing ever celebrated me, the middle shifts left me guessing once the glowing spots stopped, and doing all of that again just to catch Sal by $234 did not pull me hard enough tonight.
+  one change: Celebrate me. When I fill an order or earn a star, stop the game for a second and make a fuss on screen (stars flying in, a banner, something to collect), because right now I win and nothing happens.

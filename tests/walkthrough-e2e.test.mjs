@@ -333,7 +333,7 @@ test(
 );
 
 test('a star says nothing the job bar does not: the first two are only stars, the third says the job is done', { timeout: 120000 }, async () => {
-  const seed = 'star-10'; // Sal fills all six orders on this yard
+  const seed = 'star-6'; // Sal fills all six orders on this yard
   const { actions } = salGame(seed);
   const page = await f.page();
   const { api, mode, when, draft, noDialog } = page.jd;
@@ -377,7 +377,7 @@ test('a real yard: the job card, then every screen answers where am I, what is t
   await page.waitForSelector('[data-testid=job-card]');
   assert.equal(await page.getByTestId('job-goal').textContent(), 'Fill six orders');
   assert.equal((await page.getByTestId('order-list').textContent()).split(' · ').length, 6, 'all six orders, in a row');
-  assert.match(await page.getByTestId('job-why').textContent(), /pay \$24 each\. Each shift has an order\. Fill it and every price goes up 25%/);
+  assert.equal(await page.getByTestId('job-why').textContent(), 'Fill an order and every price goes up 25% for the rest of the job.');
   const stars = (await api('state')).job.stars;
   await page.getByTestId('job-start').click();
   await page.jd.noDialog('job-card');
@@ -513,6 +513,7 @@ test('the panel picture faces the way the machine faces, every turn', { timeout:
   await draft();
   await api('pick', (await api('state')).offers.indexOf('crusher'));
   await mode('build');
+  await api('act', { t: 'sell', id: (await api('state')).bin[0].id }); // with the part gone no spot is lit, so a tap on the belt only selects it
   await settled();
   const belt = (await api('state')).layout.machines.find((m) => m.kind === 'conveyor');
   const p = await at(cellCenter(belt.x, belt.y));

@@ -71,23 +71,22 @@ export interface ResultsHost extends Phaser.Scene {
   exportGif(round?: number, onProgress?: (f: number) => void): Promise<{ filename: string; savedTo: string; size: number; ms: number; frames: number }>;
 }
 
-export function mountResults(
-  scene: ResultsHost,
-  run: RunState,
-  o: {
-    replayed: boolean;
-    replayLabel?: string;
-    newOverall: boolean;
-    newSeed: boolean;
-    challenge?: Challenge;
-    replayHash?: string;
-    replayPlayer?: string;
-    newFork?: boolean;
-    prevSeedBest?: number | null;
-    /** total stars before and after this game (rules v4); absent for a recording or a try */
-    stars?: { before: number; after: number };
-  },
-) {
+/** What the results screen was told about a game: kept when a player steps away to watch Sal's game and comes back. */
+export interface ResultsShown {
+  replayed: boolean;
+  replayLabel?: string;
+  newOverall: boolean;
+  newSeed: boolean;
+  challenge?: Challenge;
+  replayHash?: string;
+  replayPlayer?: string;
+  newFork?: boolean;
+  prevSeedBest?: number | null;
+  /** total stars before and after this game (rules v4); absent for a recording or a try */
+  stars?: { before: number; after: number };
+}
+
+export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown) {
   const fork = run.forkedFrom ?? null; // PLAN-v4 0.7.3
   const bests = loadBests();
   const go = (seed: string) => {
@@ -122,8 +121,8 @@ export function mountResults(
       deltas.append(
         h(
           'span',
-          { class: d > 0 ? 'jd-green' : d < 0 ? 'jd-dim' : 'jd-amber', tid: 'delta-par' },
-          d > 0 ? t('results.deltaParOver', { d: money(d) }) : d < 0 ? t('results.deltaParUnder', { d: money(d) }) : t('results.deltaParEqual'),
+          { class: d > 0 ? 'jd-gold jd-pop' : d < 0 ? 'jd-amber' : 'jd-amber', tid: 'delta-par', style: 'font-weight:700' },
+          d > 0 ? t('results.deltaParOver', { d: money(d) }) : d < 0 ? t('results.deltaParUnder', { d: money(-d) }) : t('results.deltaParEqual'),
         ),
       );
     }
@@ -187,22 +186,32 @@ export function mountResults(
       })()
     : null;
   // Sal's game on this yard, with his recording a tap away: the second game's reason. Never for a recording, a try from a shift, or a lesson.
-  const salBlock =
-    job?.orders && !o.replayed && !fork
-      ? (() => {
-          const sal = salGame(run.seed);
-          const lead = run.score - sal.score;
-          const text =
-            lead > 0 ? t('results.salBeat', { amount: money(lead) }) : lead < 0 ? t('results.salLost', { amount: money(-lead) }) : t('results.salLevel');
-          return h(
-            'div',
-            { class: 'jd-row jd-center', tid: 'sal-result', style: 'gap:0.4em 0.8em; margin-top:0.3em' },
-            h('span', { class: lead > 0 ? 'jd-green' : 'jd-amber', tid: 'sal-line' }, text),
-            btn(t('results.watchSal'), 'watch-sal', () => scene.scene.start('Game', { seed: run.seed, replay: sal.actions, replayLabel: t('recording.sal') }), {
-              small: true,
-            }),
-          );
-        })()
+  const sal = job?.orders && !o.replayed ? salGame(run.seed) : null;
+  const watchSal = sal
+    ? btn(
+        t('results.watchSal'),
+        'watch-sal',
+        () => scene.scene.start('Game', { seed: run.seed, replay: sal.actions, replayLabel: t('recording.sal'), comeBack: { run, shown: o } }),
+        { small: true },
+      )
+    : null;
+  // the first order missed, as a try: it goes on no board, and it saves building the same first shifts again to get at the one that went wrong
+  const missed = job?.orders && !o.replayed ? run.rounds.findIndex((r, i) => r.earned < job.orders![i]) : -1;
+  const tryFrom =
+    missed > 0
+      ? btn(
+          t('results.tryFrom', { n: missed + 1 }),
+          'try-from',
+          () => {
+            audio.unlock();
+            scene.scene.start('Game', {
+              seed: run.seed,
+              fresh: false,
+              fork: { origin: { hash: null, player: t('results.yourGame') }, actions: run.actions, round: missed },
+            });
+          },
+          { small: true },
+        )
       : null;
   const newRank = o.stars && rankFor(o.stars.after).index > rankFor(o.stars.before).index;
   const rankBlock = o.stars
@@ -220,14 +229,14 @@ export function mountResults(
     { style: 'text-align:center' },
     jobBlock,
     h('div', { class: 'jd-gold jd-pop jd-results-score', tid: 'score' }, money(run.score)),
-    salBlock,
+    deltas,
+    h('div', { class: 'jd-row jd-center', style: 'gap:0.4em 0.6em; margin-top:0.25em' }, watchSal, tryFrom),
     headline,
     rankBlock,
     social,
     gameTalkSlot,
     talkSlot,
     o.replayed && o.replayHash ? reactionBar(scene, verifierUrl, o.replayHash) : null,
-    deltas,
     h(
       'div',
       {
@@ -287,7 +296,7 @@ export function mountResults(
   );
 
   // non-ranked badges (PLAN-v1 0.4.6): recognition, never a ladder; Minimalist needs the foreman's mark, so the row is refreshed when it lands
-  let botPar: number | null = null;
+  let botPar: number | null = sal?.score ?? null; // the same number the server works out, and it needs no server
   const badgeRow = h('div', { class: 'jd-row jd-center', tid: 'badges', style: 'gap:0.5em; margin-top:0.3em; min-height:1.6em' });
   const renderBadges = () => {
     const earned = badgesFor(run, botPar);
@@ -331,6 +340,8 @@ export function mountResults(
     },
     {} as Record<string, number>,
   );
+  /** What each material really paid: prices move from shift to shift, so a count times today's price would not add up to the score. */
+  const paidFor = (m: 'ingot' | 'plate' | 'shards' | 'scrap' | 'slag') => run.rounds.reduce((n, r) => n + r.result.shipped[m] * priceOf(r.layout, m), 0);
   const shippedPanel = h('div', { class: 'jd-panel' }, h('div', { class: 'jd-head' }, t('results.shipped')));
   for (const m of ['ingot', 'plate', 'shards', 'scrap', 'slag'] as const)
     if (shipped[m])
@@ -342,8 +353,7 @@ export function mountResults(
           t('results.shippedLine', {
             n: shipped[m],
             mat: materialName(m),
-            each: money(priceOf(run.layout, m)),
-            total: money(shipped[m] * priceOf(run.layout, m)),
+            total: money(paidFor(m)),
           }),
         ),
       );

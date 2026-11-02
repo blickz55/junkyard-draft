@@ -77,8 +77,7 @@ import path from 'node:path';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
-import { playSeed } from '../tools/autoplay-lib';
-import { Rng } from '../game/src/sim/rng';
+import { salGame } from '../game/src/render/sal';
 import { decodeReplay, canonicalReplayJson, type ReplayFile } from '../game/src/sim/replay';
 import { replay as replayRun, runStars, type RunState } from '../game/src/sim/run';
 import { RULES_VERSION } from '../game/src/sim/types';
@@ -1793,26 +1792,14 @@ export class Verifier {
   }
 }
 
-// ---------- bot par: the autoplayer as a day-one target ----------
-export const PAR_RUNS = 3;
-export const PAR_TRIES = 40;
-/**
- * A shallow search: on a job yard the mark comes from the recipe line and a widened one, so the wide search costs four times the
- * time for the same number (on seven generated yards, reach 8/4 with five runs and 2/1 with three gave identical marks). At the
- * old depth a generated yard took 15 s on a fast machine and passed the 20 s cap on a small server, and no daily would have had one.
- */
-export const PAR_REACH = { final: 2, pick: 1 };
-/** Median autoplayer score over PAR_RUNS independent searches (fixed rng streams, so identical on every machine). Synchronous: run it in a worker. */
-export function computeParSync(seed: string, runs = PAR_RUNS, tries = PAR_TRIES): number {
-  const scores: number[] = [];
-  for (let k = 0; k < runs; k++) scores.push(playSeed(seed, new Rng(`${seed}:par:${k}`), tries, { reach: PAR_REACH }).report.score);
-  scores.sort((a, b) => a - b);
-  return scores[Math.floor(scores.length / 2)];
-}
+// ---------- the foreman's mark: Sal's game on the yard, the number a player's own device works out for itself ----------
+export const PAR_RUNS = 1;
+export const PAR_TRIES = 0;
+/** Sal's game (render/sal.ts): identical on every machine. Synchronous: run it in a worker. */
+export const computeParSync = (seed: string): number => salGame(seed).score;
 // worker entry: this same module is loaded in a worker thread with { parSeed } and answers with the par
 if (!isMainThread && parentPort && workerData && typeof (workerData as { parSeed?: unknown }).parSeed === 'string') {
-  const wd = workerData as { parSeed: string; runs?: number; tries?: number };
-  parentPort.postMessage(computeParSync(wd.parSeed, wd.runs, wd.tries));
+  parentPort.postMessage(computeParSync((workerData as { parSeed: string }).parSeed));
 }
 // worker entry for re-simulation (0.8.2): a persistent worker answers { id, replay } with { id, result } until terminated
 if (!isMainThread && parentPort && workerData && (workerData as { resimWorker?: unknown }).resimWorker === true) {
@@ -1967,9 +1954,9 @@ function loaderArgs(): string[] {
   return out;
 }
 /** Compute a par off the request path: a worker thread running this module, terminated at the wall-clock cap. */
-export function computeParInWorker(seed: string, capMs = 20_000, runs = PAR_RUNS, tries = PAR_TRIES): Promise<number> {
+export function computeParInWorker(seed: string, capMs = 20_000): Promise<number> {
   return new Promise((resolve, reject) => {
-    const w = new Worker(new URL(import.meta.url), { workerData: { parSeed: seed, runs, tries }, execArgv: loaderArgs() });
+    const w = new Worker(new URL(import.meta.url), { workerData: { parSeed: seed }, execArgv: loaderArgs() });
     const timer = setTimeout(() => {
       void w.terminate();
       reject(new Error(`par for ${seed} exceeded ${capMs} ms`));

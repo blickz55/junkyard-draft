@@ -58,9 +58,7 @@ test('the game: the coach speaks in the panel, Sal on the shift banner and on th
   await api('finishRun');
   await mode('summary');
   await frames();
-  const banner = await page.getByTestId('foreman-banner').textContent();
-  assert.match(banner, /^SAL: .{10,}/, `the shift banner carries Sal's line: ${banner}`);
-  await page.screenshot({ path: path.join(SHOTS, `foreman-summary-${Date.now()}.png`) });
+  assert.equal(await page.locator('[data-testid=foreman-banner]').count(), 0, 'a first shift has nothing to be better than, so Sal says nothing about it');
   await api('next');
   await when(() => window.__jd.phase() === 'draft' && window.__jd.state().round === 2);
   for (let r = 2; r <= 6; r++) {
@@ -68,6 +66,12 @@ test('the game: the coach speaks in the panel, Sal on the shift banner and on th
     await api('run');
     await api('finishRun');
     await mode('summary');
+    if (r === 2) {
+      await frames();
+      const banner = await page.getByTestId('foreman-banner').textContent();
+      assert.match(banner, /^SAL: .{10,}/, `the shift banner carries Sal's line: ${banner}`);
+      await page.screenshot({ path: path.join(SHOTS, `foreman-summary-${Date.now()}.png`) });
+    }
     await api('next');
   }
   await results(10000);

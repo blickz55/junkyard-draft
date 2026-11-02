@@ -206,7 +206,7 @@ export function yardFor(seed: string): Yard {
   // the yard opens with the job's line already working: every pick is a choice, and shift 1 already pays
   const straight = p.belt.map((b, i) => ((i === 0 ? p.hopper.dir : p.belt[i - 1].dir) === b.dir ? i : -1)).filter((i) => i >= 0);
   belt[straight[0]].kind = 'crusher';
-  belt[straight[1]].kind = JOB_MACHINE[job.material];
+  belt[straight[Math.min(2, straight.length - 1)]].kind = JOB_MACHINE[job.material]; // a belt piece between them: where a first Splitter goes
   const machines: Yard['machines'] = [
     { kind: 'hopper', x: p.hopper.x, y: p.hopper.y, dir: p.hopper.dir },
     ...belt,

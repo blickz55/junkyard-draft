@@ -5,16 +5,15 @@
  * says whether an edit is that move, so a lesson has one way through.
  */
 import { apply, canBuyBelt, cardParts, newRun, orderFor, RunError, type Action, type RunState } from '../sim/run';
+import { isTutorialSeed } from '../sim/yard';
 import type { Dir, Machine, MachineKind } from '../sim/types';
-import { DIR_DX, DIR_DY, RULES } from '../sim/rules';
-import { outputDirs } from '../sim/advice';
+import { RULES } from '../sim/rules';
 import { hasText, t, type StringKey } from '../content/strings';
 import { money } from '../content/format';
 import { machineName } from '../content/machines';
 import { nextNeeded } from '../content/job';
 import { lessonOf, type About, type Move } from '../content/lessons';
 import { flowLinks } from './FlowOverlay';
-import { beltShape } from './placement';
 import { cardGain, type Placed } from './estimate';
 
 /** Something to touch: a card, a shelf slot, a spot in the yard, or a button. */
@@ -40,6 +39,8 @@ export interface GuideContext {
   /** the recording being watched: no advice */ watching: string | null;
   /** build | running | paused | summary, from the scene */ mode: string;
   /** the machine selected right now */ selected?: number | null;
+  /** the machine in hand */ held?: number | null;
+  /** the player turned the lit spots off */ lights?: boolean;
   resumeNotice?: string | null;
 }
 export interface Guidance {
@@ -49,23 +50,6 @@ export interface Guidance {
   /** what the parts in this step do, in the lesson */ about?: { kind: MachineKind; text: string }[];
 }
 
-/** Parts that go in the line, on a belt piece. */
-const BELT_PARTS: readonly MachineKind[] = ['crusher', 'furnace', 'press', 'splitter'];
-
-/** The machines of the line in the order things travel, from the first hopper. */
-function lineFromHopper(run: RunState): Machine[] {
-  const L = run.layout;
-  const at = (x: number, y: number) => L.machines.find((m) => m.x === x && m.y === y);
-  const out: Machine[] = [];
-  let m = L.machines.find((q) => q.kind === 'hopper');
-  while (m && !out.includes(m)) {
-    out.push(m);
-    const d = outputDirs(m.kind, m.dir)[0];
-    if (d == null) break;
-    m = at(m.x + DIR_DX[d], m.y + DIR_DY[d]);
-  }
-  return out;
-}
 /** The numbers a lesson's words use. */
 const WORDS = {
   scrap: money(RULES.value.scrap),
@@ -182,8 +166,25 @@ export function cardPlan(r: RunState): Placed[] {
   return planned.plan;
 }
 /** The way the plan wants a part to face, when this is one of its spots. */
-export const plannedFacing = (r: RunState, kind: MachineKind, x: number, y: number): Dir | undefined =>
-  cardPlan(r).find((p) => p.kind === kind && p.x === x && p.y === y)?.dir;
+export function plannedFacing(r: RunState, kind: MachineKind, x: number, y: number): Dir | undefined {
+  if (isTutorialSeed(r.seed)) {
+    const m = nextMove(r);
+    return m?.do === 'place' && m.kind === kind && m.x === x && m.y === y ? m.dir : undefined;
+  }
+  return cardPlan(r).find((p) => p.kind === kind && p.x === x && p.y === y)?.dir;
+}
+
+/** The first step of the plan not made yet: what the coach lights and what a tap on the lit spot does. `part` is null when the shelf has none. */
+export function nextPlanned(r: RunState): { step: Placed; part: Machine | null; at: number; of: number } | null {
+  const plan = cardPlan(r);
+  const at = plan.findIndex((p) => !r.layout.machines.some((m) => m.kind === p.kind && m.x === p.x && m.y === p.y));
+  return at < 0 ? null : { step: plan[at], part: r.bin.find((m) => m.kind === plan[at].kind) ?? null, at, of: plan.length };
+}
+/** Halfway through a plan: a line in pieces earns less until the last one is in, and the forecast should not read as a mistake. */
+export const planUnderway = (r: RunState): boolean => {
+  const next = nextPlanned(r);
+  return !!next?.part && next.at > 0;
+};
 
 /** The coach outside the lesson: the pick, the build, the shift, the summary, each one instruction. */
 function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[] } {
@@ -201,35 +202,32 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[] } 
           : t('coach.pick');
     return { text, spots: [] };
   }
-  // the card's plan, one lit spot at a time; a part put somewhere else ends it, and the words below take over
-  const step = cardPlan(r).find((p) => !r.layout.machines.some((m) => m.kind === p.kind && m.x === p.x && m.y === p.y));
-  if (step) {
-    const i = r.bin.findIndex((m) => m.kind === step.kind);
-    const spot: Spot = { kind: 'cell', x: step.x, y: step.y };
-    if (i >= 0) {
-      const how = ctx.touch ? (ctx.selected === r.bin[i].id ? 'Selected' : 'Touch') : '';
-      return { text: t(`coach.plan${how}` as StringKey, { name: machineName(step.kind) }), spots: [{ kind: 'shelf', i }, spot] };
-    }
-    if (step.kind === 'conveyor' && canBuyBelt(r) === null) return { text: t('coach.planBuy'), spots: [{ kind: 'buy' }, spot] };
+  const moving = ctx.held != null ? r.layout.machines.find((m) => m.id === ctx.held) : undefined;
+  if (moving) return { text: t('coach.moveHere', { name: machineName(moving.kind) }), spots: [] };
+  // the card's plan, one lit spot at a time; a part put somewhere else ends it, and the plain words take over
+  const next = ctx.lights === false ? null : nextPlanned(r);
+  if (next?.part) {
+    const said = t(ctx.touch ? 'coach.planTouch' : 'coach.plan', { name: next.step.kind === 'conveyor' ? t('coach.planBelt') : machineName(next.step.kind) });
+    return {
+      text: next.of > 1 ? `${said} ${t('coach.planOf', { n: next.at + 1, total: next.of })}` : said,
+      spots: [
+        { kind: 'shelf', i: r.bin.indexOf(next.part) },
+        { kind: 'cell', x: next.step.x, y: next.step.y },
+      ],
+    };
   }
-  // the parts just picked wait on the shelf (spare parts never hold the coach up: a card's parts have the newest ids in the game)
+  if (next?.step.kind === 'conveyor' && canBuyBelt(r) === null)
+    return { text: t('coach.planBuy'), spots: [{ kind: 'buy' }, { kind: 'cell', x: next.step.x, y: next.step.y }] };
+  // a card's parts have the newest ids in the game: spare parts never hold the coach up, and where no spot is known the coach says so
   const newest = Math.max(0, ...r.layout.machines.map((m) => m.id), ...r.bin.map((m) => m.id));
   const card = r.picks.length ? cardParts(r.picks[r.picks.length - 1], r.job, r.seed).length : 0;
   const i = card ? r.bin.findIndex((m) => m.id > newest - card) : -1;
-  if (i >= 0) {
-    const kind = r.bin[i].kind;
-    const belt = BELT_PARTS.includes(kind);
-    const key = kind === 'tuner' ? 'coach.placeTuner' : belt ? 'coach.place' : 'coach.placeYard';
-    const how = ctx.touch ? (ctx.selected === r.bin[i].id ? 'Selected' : 'Touch') : '';
-    const homes = belt ? lineFromHopper(r).filter((m) => m.kind === 'conveyor' && beltShape(r.layout, m) === 'straight') : [];
-    return {
-      text: t(`${key}${how}` as StringKey, { name: machineName(kind) }),
-      spots: [{ kind: 'shelf', i }, ...homes.map((m) => ({ kind: 'cell' as const, x: m.x, y: m.y, soft: true }))],
-    };
-  }
-  if (flowLinks(r.layout).some((l) => !l.ok)) {
+  if (i >= 0) return { text: t('coach.placeFree', { name: machineName(r.bin[i].kind) }), spots: [{ kind: 'shelf', i }] };
+  const loose = flowLinks(r.layout).find((l) => !l.ok);
+  if (loose) {
     const outOfBelts = !r.bin.some((m) => m.kind === 'conveyor') && canBuyBelt(r) === null;
-    return outOfBelts ? { text: t('coach.brokenBuy'), spots: [{ kind: 'buy' }] } : { text: t('coach.broken'), spots: [] };
+    const spot: Spot = { kind: 'cell', x: loose.x, y: loose.y };
+    return outOfBelts ? { text: t('coach.brokenBuy'), spots: [spot, { kind: 'buy' }] } : { text: t('coach.broken'), spots: [spot] };
   }
   return { text: t('coach.ready'), spots: [{ kind: 'run' }] };
 }

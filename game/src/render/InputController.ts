@@ -12,10 +12,10 @@
 import Phaser from 'phaser';
 import type { Action, RunState } from '../sim/run';
 import type { Machine, MachineKind } from '../sim/types';
-import { loadKeyMap } from './storage';
+import { loadKeyMap, loadSettings } from './storage';
 import { DIR_DX, DIR_DY, RULES } from '../sim/rules';
 import { dropActions, smartFacing, strokeActions } from './placement';
-import { plannedFacing } from './guide';
+import { nextPlanned, plannedFacing } from './guide';
 import { money } from '../content/format';
 import { inputTravelDirs, outputDirs } from '../sim/advice';
 import { explainRunError, placementWarning } from '../content/advice';
@@ -362,6 +362,10 @@ export class InputController {
     v.c.setDepth(2);
     this.host.syncMachines();
   }
+  /** The selected machine goes in hand, as one on the shelf does: the next tap is where it goes. */
+  holdSelected() {
+    if (this.selectedId != null) this.heldId = this.selectedId;
+  }
   /** The shift starts: nothing in hand, nothing selected, no cursor, no toast. */
   freeze() {
     this.cancelDrag();
@@ -421,7 +425,7 @@ export class InputController {
   /**
    * A tap. Any time: the piece tapped says what it does. While building: a shelf part goes in or out of hand, the part in hand
    * lands where you tap (swapping with what stood there), a machine is selected, the selected machine turns on a second tap,
-   * empty yard lets go.
+   * empty yard lets go. The lit spot needs no part in hand: a tap there puts the lit part in.
    */
   private tap(p: Phaser.Input.Pointer) {
     const hit = this.scene.input
@@ -437,7 +441,10 @@ export class InputController {
     }
     const selected = this.machineById(this.selectedId);
     const held = this.machineById(this.heldId) ?? (selected && selected.x < 0 ? selected : undefined); // a part selected on the shelf is in hand
-    if (hit?.inBin) {
+    const lit = held || hit?.inBin || this.host.lesson || !loadSettings().lights ? null : nextPlanned(this.run);
+    if (lit?.part && cell && lit.step.x === cell.x && lit.step.y === cell.y) {
+      if (this.dropAt(lit.part, cell.x, cell.y)) this.selectedId = lit.part.id;
+    } else if (hit?.inBin) {
       this.heldId = this.heldId === hit.m.id ? null : hit.m.id;
       this.selectedId = hit.m.id;
       this.cursor = null;

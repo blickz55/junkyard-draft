@@ -9,6 +9,7 @@ import type { CardInput } from '../card';
 import type { Rank } from '../share';
 import { ui } from '../../ui/dom';
 import type { ClipResult } from '../clip';
+import type { ResultsShown } from '../../ui/ResultsScreen';
 import { loadPlayer, loadSubmissions } from '../storage';
 import { canonicalReplayJson } from '../../sim/replay';
 
@@ -130,6 +131,22 @@ export class ResultsScene extends Phaser.Scene {
     }
   }
 
+  /** The screen itself. A first visit never gets this far unless it plays a whole game, so it loads when one ends. */
+  private show(data: object, run: RunState, shown: ResultsShown) {
+    this.lastRank = null;
+    this.lastPlayer = '';
+    this.lastShareText = '';
+    this.lastPercentile = null;
+    this.lastN = 0;
+    this.lastMedal = null;
+    this.lastCard = null;
+    this.cardInput = null;
+    void import('../../ui/lazy').then(({ mountResults }) => {
+      if (this.sys.settings.data === data && this.sys.isActive()) mountResults(this, run, shown);
+    });
+    this.events.once('shutdown', () => ui.unmount());
+  }
+
   /** Render and save a looping GIF of one round (default the best); offline, so it works without MediaRecorder. */
   async exportGif(round?: number, onProgress?: (f: number) => void): Promise<NonNullable<ResultsScene['lastGif']>> {
     if (this.exporting) throw new Error('already exporting');
@@ -166,12 +183,25 @@ export class ResultsScene extends Phaser.Scene {
     }
   }
 
-  create(data: { run: RunState; replayed?: boolean; replayLabel?: string; challenge?: Challenge; replayHash?: string; replayPlayer?: string }) {
+  create(data: {
+    run: RunState;
+    replayed?: boolean;
+    replayLabel?: string;
+    challenge?: Challenge;
+    replayHash?: string;
+    replayPlayer?: string;
+    /** back from Sal's recording: this game was counted when it ended */
+    shown?: ResultsShown;
+  }) {
     const run = data.run;
     this.run = run;
     this.verifiedHash = null;
     this.hashPromise = null;
     fitScreen(this);
+    if (data.shown) {
+      this.show(data, run, data.shown);
+      return;
+    }
     const fork = !!run.forkedFrom; // PLAN-v4 0.7.3: a fork is practice: it never touches the save, the bests or the days played
     if (!data.replayed && !fork) clearSave(); // a watched replay is someone else's run: the player's own unfinished save stays untouched
     const rec = data.replayed || fork ? { newOverall: false, newSeed: false, prevSeedBest: null } : recordBest(run.seed, run.score);
@@ -184,30 +214,17 @@ export class ResultsScene extends Phaser.Scene {
     } // 0.8.7: the device's own history per seed, shown on the results board when the verifier is away
     if (!data.replayed && run.job && runStars(run) === 3) audio.jobDone();
     else audio.roundEnd(true);
-    this.lastRank = null;
-    this.lastPlayer = '';
-    this.lastShareText = '';
-    this.lastPercentile = null;
-    this.lastN = 0;
-    this.lastMedal = null;
-    this.lastCard = null;
-    this.cardInput = null;
-    const shownFor = this.sys.settings.data; // a first visit never gets this far unless it plays a whole game, so the screen loads when one ends
-    void import('../../ui/lazy').then(({ mountResults }) => {
-      if (this.sys.settings.data !== shownFor || !this.sys.isActive()) return;
-      mountResults(this, run, {
-        replayed: !!data.replayed,
-        replayLabel: data.replayLabel,
-        newOverall: rec.newOverall,
-        newSeed: rec.newSeed,
-        prevSeedBest: rec.prevSeedBest,
-        stars,
-        challenge: data.challenge,
-        replayHash: data.replayHash,
-        replayPlayer: data.replayPlayer,
-        newFork: forkRec.newFork,
-      });
+    this.show(data, run, {
+      replayed: !!data.replayed,
+      replayLabel: data.replayLabel,
+      newOverall: rec.newOverall,
+      newSeed: rec.newSeed,
+      prevSeedBest: rec.prevSeedBest,
+      stars,
+      challenge: data.challenge,
+      replayHash: data.replayHash,
+      replayPlayer: data.replayPlayer,
+      newFork: forkRec.newFork,
     });
-    this.events.once('shutdown', () => ui.unmount());
   }
 }

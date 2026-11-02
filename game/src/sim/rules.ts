@@ -3,7 +3,7 @@ import type { Dir, MachineKind, Material } from './types';
 /** Machines that hold an item for a fixed number of ticks (the only keys RULES.process may have). */
 export type ProcessorKind = 'crusher' | 'furnace' | 'press';
 
-/** Tuning constants for rules version 7. Changing any value requires bumping RULES_VERSION. */
+/** Tuning constants for rules version 8. Changing any value requires bumping RULES_VERSION. */
 export const RULES = {
   gridWidth: 8,
   gridHeight: 6,
@@ -34,7 +34,7 @@ export const RULES = {
    * so nothing changes; shipping it means listing rounds and bumping RULES_VERSION (the owner's go/no-go, docs/DESIGN.md).
    */
   lateOfferGuarantee: { rounds: [] as number[], kinds: ['hopper', 'crusher'] as MachineKind[] },
-  /** A Tuner shortens the hold of every orthogonally adjacent processor by this many ticks (never below one tick; two Tuners do not stack). */
+  /** A Tuner shortens the hold of every orthogonally adjacent processor, and a Hopper's period, by this many ticks (never below one tick; two Tuners do not stack). It carries a belt's load as well, so it can go in the line itself. */
   tunerBonus: 1,
   /** A Tuner only affects processors whose normal hold is at least this many ticks (2 = every processor; 3 = the furnace alone today). */
   tunerMinHold: 2,
@@ -62,7 +62,7 @@ export const RULES = {
   job: {
     price: 24,
     weights: { ingot: 2, plate: 1 } as Record<'ingot' | 'plate', number>,
-    orders: { ingot: [450, 640, 1250, 1900, 2500, 3900], plate: [380, 450, 1200, 1800, 2500, 3300] } as Record<'ingot' | 'plate', readonly number[]>,
+    orders: { ingot: [450, 800, 1400, 2150, 3200, 4600], plate: [380, 500, 1300, 1900, 3000, 4300] } as Record<'ingot' | 'plate', readonly number[]>,
     raise: 25,
     stars: [2, 4, 6] as readonly [number, number, number],
     /** the shift the other product starts selling at the job's price: a finished line has a new customer */

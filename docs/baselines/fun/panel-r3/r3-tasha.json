@@ -1,0 +1,67 @@
+{
+  "persona": "Tasha",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory line that turns junk into money, fill each shift's order to earn stars, and finish with more money than Sal.",
+  "stoppedWhere": "The results screen after my first full game (six shifts, 4 of 6 orders filled, $10,920, two of three stars, Sal beat me by $234), right after sending the survey and getting the code. The lesson had given me all three stars.",
+  "stoppedWhy": "One game was enough. It was fine, but nothing ever celebrated me, the middle shifts left me guessing once the glowing spots stopped, and doing all of that again just to catch Sal by $234 did not pull me hard enough tonight.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 10920,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Real game, shift 4, placing Furnace + Splitter",
+      "what": "Sal said tap the belt but nothing was lit this time, so I did not know which belt. After I guessed, a red mark appeared and Sal said fix it, with no hint how. Pressing Turn on the splitter dropped the forecast from $2,058 to $1,050.",
+      "gotOutHow": "Pressed Undo, then started the shift anyway because the forecast still said it filled the order."
+    },
+    {
+      "where": "Real game, shift 5, placing the Tuner",
+      "what": "Sal said tap a spot right next to a machine, but the furnace he kept mentioning had no empty tile beside it. Swapping a tile crashed the forecast, and a tuner above the crusher changed nothing and the yard labelled it nothing next to it.",
+      "gotOutHow": "Gave up, undid the swap and started the shift $148 short of the order."
+    },
+    {
+      "where": "Real game, shift 6",
+      "what": "The order was $1,548 out of reach and no spot was lit for the hopper, so I could not tell what would help.",
+      "gotOutHow": "Did not try to fix it. Pressed Start and watched the ending."
+    }
+  ],
+  "confused": [
+    "Lesson shift 1: the card said This shift will pay $37 but also 0 of 20 ingots, and the line strip still listed Crusher and Furnace, so was my line finished or not?",
+    "When a part on the shelf already had a yellow frame, Sal still said tap it, and I did not know whether to tap it again.",
+    "Putting the splitter on my furnace sent the furnace back to the shelf and I thought I had lost it.",
+    "The forecast went down after I did what the glow told me (600 to 576 dollars) and I did not know why.",
+    "Every pick from shift 4 on said On its own: nothing yet and I never found out what that means.",
+    "A red held things up label on the yard, and labels that overlap each other so I could not read the shipped amount.",
+    "The advice at the bottom repeated word for word every shift, even after I built exactly what it said, and I could not tell which furnace it meant.",
+    "A red mark that said fix it, and a tuner right above a crusher that the yard labelled nothing next to it.",
+    "I filled two, three and four orders and never saw a star arrive, so I did not know the star marks counted until the end screen."
+  ],
+  "annoyed": [
+    "Sal said my device was struggling and to change it in Settings, but my phone is fine, so it felt like being told off.",
+    "Nothing celebrated me: no star flying in, no banner when an order filled, I only learned things by reading small text after the shift.",
+    "The star and rank reward at the end is just words and a small picture, with nothing to collect.",
+    "Everything is dark brown and grey, not bright like the games I play.",
+    "The Show me box opened over the top of my yard.",
+    "One game took most of ten minutes.",
+    "A red circle for a missed order and no clear way to fix it."
+  ],
+  "pleased": [
+    "The lesson told me exactly what to tap and in what order, so I never felt lost at the start.",
+    "The forecast line, This shift will pay $576 (up $465) and That fills the order, gave me a number to look forward to before pressing go.",
+    "The green line saying how much more than last shift I made.",
+    "Sal as a rival: level with Sal, then $42 behind, then Sal beat you by $234 made me want to catch him.",
+    "The speed buttons, and that 4x stayed on from shift to shift.",
+    "The chunky machines, and the furnaces glowing with ingots flying along at 4x are nice to watch.",
+    "What held you back after shift 1 said add a hopper, and a card for it was right there.",
+    "New rank: Yard Hand."
+  ],
+  "bestMoment": "In the lesson, seeing This shift will pay $576 (up $465) with three stars promised before I even pressed start, then the first big real shift at 4x with the furnaces glowing and $888 landing, level with Sal.",
+  "worstMoment": "Shifts 4 and 5: Sal said tap the belt with nothing lit, a red mark said fix it with no help, then my fifth order circle turned red with Missed the order by $148 and the same advice repeated.",
+  "oneChange": "Celebrate me. When I fill an order or earn a star, stop the game for a second and make a fuss on screen (stars flying in, a banner, something to collect), because right now I win and nothing happens.",
+  "completionCode": "EBXC-C8HB"
+}

@@ -34,6 +34,8 @@ export interface Bottleneck {
   feeders: number;
   /** draft-pool kinds that would help next round, in sentence order; empty when the fix is a rotation or a rearrangement */
   fixes: MachineKind[];
+  /** machines of the named kind on the yard (saturated): the second of something is not the fourth */
+  twins?: number;
 }
 
 /** A jammed-tick share of the round from which a machine counts as holding the line (10 of 80). */
@@ -154,9 +156,9 @@ export function analyseRound(layout: Layout, result: RunResult, nextRound: numbe
         fixes: (['dock', 'press'] as MachineKind[]).filter((k) => inPool(k, nextRound)),
       };
     const fixes: MachineKind[] = [];
-    if (inPool('tuner', nextRound)) fixes.push('tuner');
+    if (inPool('tuner', nextRound) && !result.cellStats[top.cell]?.tuned) fixes.push('tuner'); // advice a player has already taken is noise
     if (inPool('splitter', nextRound) && inPool(m.kind, nextRound)) fixes.push('splitter');
-    return { ...base, kind: 'saturated', machine: m, heldTicks: top.ticks, fixes };
+    return { ...base, kind: 'saturated', machine: m, heldTicks: top.ticks, fixes, twins: layout.machines.filter((q) => q.kind === m.kind).length };
   }
   // 5. supply-bound: the least busy processor that saw items
   let starved: { m: Machine; u: number; passed: number } | null = null;

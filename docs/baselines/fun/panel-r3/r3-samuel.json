@@ -1,0 +1,61 @@
+{
+  "persona": "Samuel",
+  "device": "phone",
+  "goalInOwnWords": "Build a line of machines so the scrap turns into ingots and goes to the box, and make money. Each shift you must fill the order to get stars, and try to make more money than Sal.",
+  "stoppedWhere": "The results screen after the 6th shift of today's yard (2 stars, $11,154, 'Level with Sal'), then the feedback questions and the completion code.",
+  "stoppedWhy": "I finished the whole job and I did not want to start another one right now. I only learned to press what is lit. When the light went away in shifts 4 to 6 I did not know how to do better, so I would get the same score again. The lesson was the best part.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 11154,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Today's yard, shift 4: Sal says 'Tap the Furnace, then tap the belt'",
+      "what": "No belt was lit on the yard, so I could not tell which belt he meant. 'Show me' only showed the furnace card again, not where to put the new part.",
+      "gotOutHow": "I guessed one belt. The forecast fell from $2,100 to $2,058, so I pressed Undo and started the shift as it was."
+    },
+    {
+      "where": "Today's yard, shift 5: '$52 short of the $2,500 order'",
+      "what": "I could not work out how to find $52 more. A Furnace and a Splitter were still on my shelf from before and nothing told me to use them.",
+      "gotOutHow": "I did not. I started the shift, missed the order by $52 and the 5th circle turned red."
+    },
+    {
+      "where": "Today's yard, shift 6: Sal says 'Now tap the belt to put the Plate Press in'",
+      "what": "Again no lit belt and no free belt I could see. The forecast said $1,452 short of the $3,900 order and no card said 'Adds to this line now'.",
+      "gotOutHow": "I gave up and pressed Start shift 6 without placing anything. The shift paid the same as the one before."
+    }
+  ],
+  "confused": [
+    "What a Splitter does. The card says 'to share the work' and Sal made me place it, but I never understood why.",
+    "In shifts 4 and 6 Sal says 'tap the belt' but nothing is lit, so I do not know which belt.",
+    "The advice 'A Tuner next to it, or a second furnace behind a Splitter, would clear it' came after shifts 2, 3, 4, 5 and 6, even after I put a Tuner in (it went next to a different furnace and nobody said that).",
+    "'Level with Sal' showed after every shift and I only understood at the end that my total was exactly Sal's game ($11,154), because I did what the lights told me.",
+    "The last screen says 288 ingots x $48 = $13,824 but my score is $11,154. Two big numbers that do not match.",
+    "Cards in shifts 4 and 6 all say 'On its own: nothing yet', so I had no way to know which one to pick.",
+    "In the first real shift a lit spot was on top of a furnace I already had; I did not see why I would put a part there."
+  ],
+  "annoyed": [
+    "The same advice sentence repeated five times and never changed after I followed it.",
+    "Missing an order by $52 with no clue how to fix it, and the game let me start the shift anyway.",
+    "Card descriptions are cut off with '...' (for example 'Takes 2...' and 'that machin...').",
+    "Too much English text. I skip most of it and only read the numbers and the glowing words."
+  ],
+  "pleased": [
+    "Lesson 1 took about 3 minutes and the lights told me exactly what to tap.",
+    "The money jump in the lesson: $37, then $111, then $576. I understood it from the numbers alone.",
+    "'This shift will pay $X' before I start, and Undo that really takes it back.",
+    "Gold stars popping and the bar filling when ingots arrive.",
+    "'Show me' on the result gives a short card on the furnace, and the red 'held things up' on the yard matches the sentence.",
+    "'2 more orders for 3 stars' is a goal I can read without English.",
+    "Shift by shift bars on the end screen."
+  ],
+  "bestMoment": "Last shift of the lesson: pressing Start shift 3, ingots coming out, money jumping to $724 and the gold stars popping, 'all three stars in the bag'.",
+  "worstMoment": "Shift 6 of today's yard: Sal says 'tap the belt', nothing is lit, I am $1,452 short, I just press start and the result says 'The same as last shift'.",
+  "oneChange": "Always light the exact spot where a part goes (and the exact machine that is the problem), in every shift and not only the first three, so I am never left alone with words I do not understand.",
+  "completionCode": "8MK4-68TK"
+}

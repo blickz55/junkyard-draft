@@ -1,4 +1,4 @@
-# Junkyard Draft — design (rules v7)
+# Junkyard Draft — design (rules v8)
 
 ## Pitch
 
@@ -20,6 +20,21 @@ The owner asked for trial and error against a scorecard. Rules 5 scored 55 of 10
 **Evidence.** Trials on 24 tune yards from a base of about 50: the second buyer +13, kits +10, a head start 0 to +5 by itself, Tuner changes +2. Orders were priced on paper first (`tools/fun-orders.ts`, replaying the tree of each yard with raises applied), which lifted the paper score from about 30 to about 71; held out from the tuning, the chosen table gave flat shifts 6.7 %, last shift best 95.8 %, real picks 24.3 %, median orders filled novice 2, casual 4, competent 6, expert 6, and all six orders for 62.5 % of competent games and 66.7 % of expert games. A third of expert games miss one, which is where a second try comes from. The whole card on the built game, on the same 40 held-out yards as rules 5: **77 of 100, lowest dimension 50** (rules 5: 55 and 23), flat shifts 4 %, last shift best 87.5 %, real picks 20 %, the ruins −22, −30, −47, −11, −38, −3 (`docs/baselines/fun/card-rules6.json`).
 
 **Paid for.** The rules are harder to state: "fill the order, your prices rise" is a second number beside the money, and the card and every screen had to learn it. `tests/guide.test.ts` and the job bar's order strip carry that. The old star marks in units are gone from job yards (`orders` absent keeps them for the lessons' own marks and the tests that name them).
+
+## Decision: what the third panel changed (rules v8, 2026-11-02)
+
+Eight agents played rules 7 cold. Median fun 3, clear 4, six finished a game, two played another by choice, tomorrow: one yes, seven maybe, no one no. All eight were stuck at least once, and they were stuck at the same places (`docs/baselines/fun/panel-r3/`).
+
+- **The Tuner stands in the line (rules).** It carries what a belt carries, so it can replace a belt piece beside the machine it speeds up. Four agents lost shifts to a Furnace with no free side, and one ended up asking why a Tuner "next to it" could not go anywhere. It speeds a Hopper too: a line short of feed had one answer, the Hopper card, which won 65 to 80 % of the picks it was in. Now a Tuner wins about as often as a Hopper in every shift from 2 to 5.
+- **A belt piece between the Crusher and the job's machine (rules).** The first Splitter drops onto it. Before, the plan had to lift a working Furnace off the yard to make room, the forecast dipped, and five agents thought they had broken something.
+- **A pick can be taken back until the shift starts (rules).** Build it, read the forecast, take it back, try another. Nothing has happened yet and nothing is hidden, and it replaces the figure on the card: the two agents who most wanted to reason about a pick get to do it with the real number.
+- **Words that were false are gone.** "Tap the belt" with nothing lit, "the red mark" with no mark to find, advice repeated word for word after the player had taken it, and a results line, 283 × ingot at $48 = $13,584, next to a score of $10,920. Six agents named that last one: prices move, so it now adds up what each shift really paid.
+- **Asked for and built:** a tap on the lit spot puts the lit part in; a Move button, so a machine can be picked up on purpose; the limit lit on the yard labels, which no longer overlap; an order filled stops the eye with a band across the yard; a try from the first order missed, which goes on no board; Lit spots on or off on the job card, because two agents asked for less help and four for more. A card says "Fits this line now" or "No easy spot yet", because "nothing yet" read as worthless and one such card was worth $966 to an agent who rearranged the line.
+- **Sal is the foreman's mark everywhere.** The server worked out a mark with the autoplayer and the device worked out Sal's game, two numbers with one name. The verifier now plays Sal's game too, in milliseconds, and the autoplayer has left the image.
+- **A rush job lost.** A card that is money and no part, a share of the shift's order, on the idea that it could rescue a near miss. Four versions on 24 yards scored 2 to 4 lower and real picks did not move, so it went.
+- **The orders moved again:** ingot $450, $800, $1,400, $2,150, $3,200, $4,600 and plate $380, $500, $1,300, $1,900, $3,000, $4,300. A stronger Tuner lifts everyone, so on 60 tune yards a random card with the lights reaches the first star on 90 to 100 % of yards, Sal the second on 60 to 75 % and the third on 10 to 15 %.
+
+**Paid for.** The Tuner has lost a small spatial puzzle, the crook of a corner. Lesson 3 still places it between two Furnaces, facing the Splitter so that nothing goes in head-on.
 
 ## Decision: lit spots, a card that says whether, and Sal's game (rules v7, 2026-11-02)
 
@@ -85,7 +100,7 @@ The owner asked for a restart in the lesson and wondered about every level. **Ev
 
 ## Starter workshop
 
-A seed's own yard: hopper, a generated belt with a Crusher and the job's machine on it, a dock, junk piles, four spare conveyors on the shelf. The `classic-*` seeds keep the old fixed one: Hopper → Conveyor ×3 → Dock in row 3, shipping raw scrap for $1 each (38 per shift).
+A seed's own yard: hopper, a generated belt with a Crusher and the job's machine on it and a belt piece between them, a dock, junk piles, four spare conveyors on the shelf. The `classic-*` seeds keep the old fixed one: Hopper → Conveyor ×3 → Dock in row 3, shipping raw scrap for $1 each (38 per shift).
 
 ## Machines
 
@@ -97,6 +112,7 @@ A seed's own yard: hopper, a generated belt with a Crusher and the job's machine
 | Crusher       | behind or either side | forward                 | Scrap → Shards. Holds 2 ticks. Other materials pass through unchanged.                                                                                                |
 | Furnace       | behind or either side | forward                 | Shards → Ingot. Raw scrap → Slag. Holds 3 ticks. Ingots pass through.                                                                                                 |
 | Plate Press   | behind or either side | forward                 | Stores shards; the 2nd shard becomes one Plate ($8) and holds 2 ticks. The stored shard is absorbed (no refund at round end). Other materials pass through (2 ticks). |
+| Tuner         | behind or either side | forward                 | Carries what a belt carries. Every Hopper, Crusher, Furnace or Press touching it works a second faster; two do not stack.                                             |
 | Shipping Dock | any side              | —                       | Consumes items instantly and pays their value.                                                                                                                        |
 
 Orientation is still the puzzle, with fewer ways to be wrong: nothing goes into a machine head-on, a Splitter only takes from behind, and everything else side-loads so lines can merge.

@@ -1,0 +1,62 @@
+{
+  "persona": "Marcus",
+  "device": "phone",
+  "goalInOwnWords": "Build a line of machines that turns scrap into ingots and ships them to the dock. Fill each shift's order so the prices go up, and finish the job with more money than Sal.",
+  "stoppedWhere": "The results screen after my first full game on today's yard (three stars, $14,181, beat Sal by $3,027), then the feedback form and its completion code.",
+  "stoppedWhy": "My lunch break was up and I had what I came for: all three stars and Sal beaten. I know a trick now (a Tuner on the jammed furnace from shift 3) and I would open tomorrow's yard to try it, but I would not start the same yard again right now.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 14181,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "yes",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 4 of the real job, building after picking Furnace + Splitter",
+      "what": "Sal said 'Tap the Furnace, then tap the belt' and then 'Now tap the belt to put the Furnace in', but no square was lit this time. I could not tell which belt, or where a third furnace could even go on that yard.",
+      "gotOutHow": "Tried the belt under the dock furnace: the forecast went down (two furnaces in a row), Sal asked for another 'belt' with nothing lit, so I hit Undo and ran the shift without using the parts I had picked."
+    },
+    {
+      "where": "Shift 5, trying to get a Tuner next to the furnace the report said was jammed",
+      "what": "All four sides of the jammed furnace were taken. Nothing said how to free one, how to pick a part back up, or that a dock can be moved. A swipe from a machine moved it and swapped it with the dock instead of turning it, and Sal's 'the red mark shows where the line stops' pointed at a mark I could not see.",
+      "gotOutHow": "Poked at it: Back to the shelf on the Tuner, dropped the Tuner on the dock square, put the dock to the right of the other furnace (the first tap did nothing because I had not tapped the part on the shelf first), Undo after the bad swipe, then the Turn button once. About ten taps. The forecast went from $2,448 to $3,600."
+    }
+  ],
+  "confused": [
+    "Lesson shift 1: 'This shift will pay $37' but 'At this rate: 0 of 20 ingots', with a Crusher and a Furnace still missing and Sal saying just start.",
+    "Two of the lesson's three shifts passed with zero ingots on a 20-ingot job, so I feared I would run out of shifts before making any.",
+    "The first Furnace + Splitter step made the forecast go down (two furnaces in a row), so I did not know if I was doing it wrong.",
+    "Labels on the yard pile on top of each other (a red 'held things up' over '$1,470 shipped') and 'held things up' is never explained.",
+    "The report says 'the furnace held you back' when I had two or three furnaces. Show me on the results screen did nothing I could see; only Show me on the pick screen lit the machine and opened its card.",
+    "Sal says 'tap the belt' and 'the red mark shows where the line stops' with nothing lit or no red mark to find.",
+    "Cards say 'On its own: nothing yet' and I never learned what that means for me.",
+    "Nothing says a Tuner only helps a machine it touches, so putting it by the wrong furnace looked fine and did almost nothing.",
+    "The hint says 'swipe from a machine to aim it, hold and drag to move it', but a short swipe moved the machine and swapped it with another part.",
+    "A part glowing on the shelf looks selected but is not; my first tap on the yard did nothing and nothing said why.",
+    "End screen: '336 x ingot ($54 each) = $18,144' does not add up to my score of $14,181."
+  ],
+  "annoyed": [
+    "Moving and aiming parts on a phone is fiddly: about ten taps and two wrong turns to rearrange two machines.",
+    "The guide went blank in shift 4 right when I wanted it, and I ran a shift with parts I had picked but never placed.",
+    "The first lesson spends two shifts earning almost nothing before the first ingot.",
+    "The job card before the real game is a paragraph of rules (25 percent, plates from shift 4) that I skimmed.",
+    "Text on the yard overlaps."
+  ],
+  "pleased": [
+    "The 'what held you back' report after every shift, naming the machine and the seconds lost: exactly how I read a bad shift at work.",
+    "The live forecast ('This shift will pay $3,600, that fills the $2,500 order' or '$52 short') while I build, so I can try something and see it before I commit.",
+    "Shifts are short and run at 4x, so a whole game fits in a lunch break.",
+    "In the lesson Sal lit one square at a time and I never had to read a manual.",
+    "The junk-pile bubble: 'Nothing can stand here: go around it' was clear and honest.",
+    "The jump from $37 to $111 to $576 in the lesson, with gold ingots and a star popping.",
+    "Working out the Tuner fix myself from the report and watching the forecast jump.",
+    "The three-star screen with the shift-by-shift bars and 'You beat Sal'."
+  ],
+  "bestMoment": "Putting the Tuner on the jammed furnace, watching the forecast go from $2,448 to $3,600, then running it and seeing Sal fall $1,152 behind.",
+  "worstMoment": "Shift 4: Sal saying 'tap the belt' twice with nothing lit, my guess making the forecast worse, and giving up on the parts I had picked.",
+  "oneChange": "When the report says a machine is jammed, show me which one and light the square where a part would help, and give me one clear gesture to pick up and move a part, so I am not guessing at belts on a phone.",
+  "completionCode": "SBDT-GGZQ"
+}

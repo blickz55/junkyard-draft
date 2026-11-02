@@ -1,0 +1,70 @@
+{
+  "persona": "Dana",
+  "device": "phone",
+  "goalInOwnWords": "Build a little line of machines that turns junk into stuff worth money, ship as much as you can each shift, fill each shift's order to get stars, and try to beat the foreman's total for the day.",
+  "stoppedWhere": "Home screen, after finishing all six shifts of today's yard (two stars, $10,920, Sal beat me by $234), peeking at Sal's recording, then the feedback survey.",
+  "stoppedWhy": "I was way past my ten minutes (it took nearer twenty). The first half was a pleasant guided toy, but from shift 4 on I could not tell what my choices were doing, the same advice kept repeating, and I never worked out the red mark. I was behind Sal with no clear idea how to catch up, and the last order was out of reach. Replaying the same yard tonight did not appeal.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 10920,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Today's yard, shift 4, adding Furnace + Splitter",
+      "what": "Sal said 'tap the belt' but nothing was lit and I could not tell which belt. I put the furnace into the only belt, the forecast dropped from $2,100 to $2,058, then he asked for the splitter in the last bit of belt and said 'the red mark shows where the line stops, fix it'. I could see a tiny red mark at the edge of the yard and never found out how to fix it.",
+      "gotOutHow": "Tapped Turn on the splitter and watched the forecast go to $1,050 and '$850 short', then turned twice more until it was green again at $2,058. Ignored the red mark and started the shift. It cost me $42 and I fell from level with Sal to $42 behind."
+    },
+    {
+      "where": "Today's yard, shift 5, placing the Tuner",
+      "what": "Sal said 'tap a spot right next to a machine' and lit nothing. The forecast stayed $148 short of the order wherever I tried, and afterwards the Tuner was labelled 'nothing next to it' even though it was touching the crusher.",
+      "gotOutHow": "Did not. Started the shift short and missed the order by $148."
+    },
+    {
+      "where": "Today's yard, shift 6, Plate Press",
+      "what": "Sal said 'tap the belt to put the Plate Press in' but there was no belt left on my yard and nothing was lit. The $3,900 order was $1,548 out of reach anyway.",
+      "gotOutHow": "Gave up placing it and ran the last shift as it was."
+    }
+  ],
+  "confused": [
+    "Lesson 1: Sal said 'Line closed. Start the shift' while Crusher and Furnace were still shown as missing in 'Your line needs'. It only made sense after the shift paid $1 a lump.",
+    "Lesson 1: the belt piece that came back to the shelf, and then a second spare one, and nobody said what they were for.",
+    "Today's job card: 'every price goes up 25% for the rest of the job'. I worked out what an order is only by watching shift 1.",
+    "The Splitter: four-way arrows and 'share the work' did not tell me what it does or where it should go.",
+    "Why the forecast went down when I added a second furnace in a row, then back up after more steps (shift 1) and not at all in shift 4.",
+    "The Tuner card text is cut off with '...' so I never read what it does. The same happens on the Plate Press and Furnace cards.",
+    "The little red 'held things up' label on the yard: I do not know what it means or if it is bad.",
+    "A Tuner touching a crusher was labelled 'nothing next to it'.",
+    "The red mark and 'Fix it, then start' on shifts 4 and 5: I could not tell what to change.",
+    "Results page: '283 x ingot ($48 each) = $13,584' sitting next to a score of $10,920.",
+    "Results page: 'Paint, titles and medals never change play' when I had seen no paint, titles or medals."
+  ],
+  "annoyed": [
+    "The same 'a Tuner next to it, or a second furnace behind a Splitter, would clear it' sentence after four shifts running, even once I had both. I stopped reading the box.",
+    "Shifts 4 to 6: 'tap the belt' and 'tap a spot next to a machine' with nothing lit, after the first shifts where every spot was lit for me.",
+    "Little labels on the yard piling on top of each other ('$2,058 shipped' under 'held things up'), so I could not read either.",
+    "Tapping 'Stop watching' on Sal's game dropped me on Home and I lost my results page.",
+    "The money total at the top lost its dollar sign while it counted up.",
+    "Sal asked me to tap a part that was already lit and selected (lesson, shift 2).",
+    "It took nearer twenty minutes to finish one day; too long for a break."
+  ],
+  "pleased": [
+    "The forecast 'This shift will pay $X' before I press go. It was the one thing that told me whether I was doing it right.",
+    "Lesson 1: short, clear, and Sal told me exactly what to tap. Three stars on my first try.",
+    "Watching the money jump from $37 to $111 to $576 as I added a crusher and then a furnace ('three times the money from the same scrap').",
+    "'Sal's game on this yard: $11,154. Beat it.' and 'You're level with Sal' after each shift: a number to chase, the Wordle itch.",
+    "The 4x speed button, so I did not have to sit through every shift.",
+    "'Show me' on the held-back tip lit up the furnace and told me what it does.",
+    "Two stars popping up in the middle of the yard when I filled four orders.",
+    "The home screen remembered my best score and my rank (Yard Hand).",
+    "'Sal beat you by $234' is close enough to make me want a rematch, in principle."
+  ],
+  "bestMoment": "Lesson 1, shift 3: put the furnace in and the forecast jumped to '$576 (up $465), 24 of 20 ingots'; all three stars on the first try.",
+  "worstMoment": "Shift 4: told to 'tap the belt' with nothing lit, watching the number fall, a red mark I could not fix, and feeling I had made it worse without being able to tell why.",
+  "oneChange": "Light up exactly where each new part goes, and say what it did, the way the first lesson did, so I never feel I broke it without knowing why; and keep a whole day inside ten minutes.",
+  "completionCode": "SRNB-ASCQ"
+}

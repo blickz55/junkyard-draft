@@ -12,8 +12,13 @@ test('undo: place → rotate → undo → undo restores the pre-place state; the
   let s = newRun('classic-undo-seed');
   assert.equal(canUndo(s), false, 'nothing to undo while drafting');
   apply(s, { t: 'pick', i: 0 });
-  assert.equal(canUndo(s), false, 'a draft pick is not a build edit');
-  assert.equal(undo(s), null);
+  assert.equal(canUndo(s), true, 'a pick can be taken back until its shift starts (rules v8)');
+  const offers = s.offers.slice();
+  const back = undo(s);
+  assert.ok(back);
+  assert.equal(back.state.phase, 'draft');
+  assert.deepEqual(back.state.offers, offers, 'the same three cards');
+  assert.deepEqual(back.state.bin, [], 'and the part has gone back');
   const before = snapshot(s);
   const part = s.bin[0];
   apply(s, { t: 'place', id: part.id, x: 5, y: 4, dir: 0 });
@@ -30,7 +35,7 @@ test('undo: place → rotate → undo → undo restores the pre-place state; the
   assert.equal(u2.undone[0].t, 'place');
   assert.equal(snapshot(s), before, 'two undos give back the pre-place layout, bin and score');
   assert.equal(s.actions.length, 1, 'the replay is a flat list of the actions that remain (just the pick)');
-  assert.equal(canUndo(s), false);
+  assert.equal(canUndo(s), true, 'the pick is what is left');
   // redo both, then finish the run: the replay must still verify with the same score
   assert.equal(redo(s, u2.undone[0]), true);
   assert.equal(redo(s, u1.undone[0]), true);
@@ -67,7 +72,10 @@ test('undo never crosses a run or a sell boundary incorrectly; stale redo is ref
   assert.equal(canUndo(t), false, 'nothing to undo once the round has run');
   apply(t, { t: 'next' });
   apply(t, { t: 'pick', i: 0 });
-  assert.equal(canUndo(t), false, "the previous round's place is not undoable from the next build phase");
+  assert.equal(canUndo(t), true, 'the pick of this shift');
+  const undone = undo(t);
+  assert.ok(undone);
+  assert.equal(canUndo(undone.state), false, 'and no further: nothing crosses into the shift before');
   // a redo whose target no longer fits is refused without changing state
   const occupied = { t: 'place' as const, id: t.bin[0].id, x: 5, y: 4, dir: 0 as const };
   const snap = snapshot(t);

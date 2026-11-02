@@ -310,9 +310,9 @@ const POLISH_FACTOR = 6;
  * A player who goes where the coach points, in the game itself: a card, then its parts on the lit spots, nothing moved after that. Three ways
  * of choosing the card: any of them, one that says it adds something now, or the one that adds most, which is Sal's game (render/sal.ts).
  */
-export function litGame(seed: string, choose: 'any' | 'helps' | 'most'): PathResult {
+export function litGame(seed: string, choose: 'any' | 'helps' | 'most', sample = 0): PathResult {
   const s = newRun(seed);
-  const rng = new Rng(`${seed}:fun:lit:${choose}`);
+  const rng = new Rng(`${seed}:fun:lit:${choose}:${sample}`);
   const act = (a: Action) => apply(s, a);
   while (s.phase !== 'finished') {
     if (s.phase === 'draft') {
@@ -348,6 +348,12 @@ export function litGame(seed: string, choose: 'any' | 'helps' | 'most'): PathRes
     filled,
     close,
   };
+}
+
+/** The middle of several such games: one random game says as much about the luck as about the kind of player. */
+export function litTier(seed: string, choose: 'any' | 'helps' | 'most', samples = 5): PathResult {
+  const games = Array.from({ length: choose === 'most' ? 1 : samples }, (_, i) => litGame(seed, choose, i)).sort((a, b) => a.score - b.score);
+  return games[Math.floor(games.length / 2)];
 }
 
 /** The card's own best try, set down on a layout: where the search starts as well as from the bare line, so what the coach knows the search knows. */

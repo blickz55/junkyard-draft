@@ -7,6 +7,7 @@ import Phaser from 'phaser';
 import { DPR } from '../dpr';
 import { viewport } from '../viewport';
 import type { Challenge } from '../challenge';
+import type { ResultsShown } from '../../ui/ResultsScreen';
 import { forkFrom } from '../../sim/fork';
 import type { ForkOrigin } from '../../sim/run';
 import { RULES_VERSION } from '../../sim/types';
@@ -127,6 +128,7 @@ export class GameScene extends Phaser.Scene {
 
   /** A challenge being played (PLAN-v4 0.7.1); only when it names this very seed, so an overlay never appears on another seed. */
   private challenge: Challenge | null = null;
+  private comeBack: { run: RunState; shown: ResultsShown } | null = null;
   /** the watched replay's identity, so a fork can name its origin (PLAN-v4 0.7.3) */
   private replayOrigin: ReplayOrigin | null = null;
   init(data: {
@@ -140,7 +142,10 @@ export class GameScene extends Phaser.Scene {
     replayHash?: string;
     replayPlayer?: string;
     fork?: { origin: Omit<ForkOrigin, 'round'>; actions: Action[]; round: number };
+    /** the game whose results a recording was opened from: it ends back there */
+    comeBack?: { run: RunState; shown: ResultsShown };
   }) {
+    this.comeBack = data.comeBack ?? null;
     applyPaint(this.game, data.replay ? (data.look ?? PLAIN) : loadLook()); // a recording plays in its author's paint (0.11.12)
     this.challenge = data.challenge && data.challenge.seed === data.seed && !data.replay && !data.fork ? data.challenge : null;
     this.replayOrigin = data.replay ? { hash: data.replayHash ?? null, player: data.replayPlayer ?? 'replay', actions: data.replay } : null;
@@ -167,6 +172,7 @@ export class GameScene extends Phaser.Scene {
           this.updateHint();
         },
         onFinished: () => {
+          if (this.comeBack) return this.stopReplay(); // Sal's game ends where the player left to watch it
           this.scene.start('Results', {
             run: this.run,
             replayed: this.replayLabel != null,
@@ -242,6 +248,10 @@ export class GameScene extends Phaser.Scene {
         redo: () => this.redo(),
         openTips: (id) => this.openTips(id ?? this.suggestedTip ?? undefined),
         rotateSelected: () => this.rotateSelected(),
+        moveSelected: () => {
+          this.inputCtl.holdSelected();
+          this.updateHint();
+        },
         toBin: (id) => {
           const m = this.run.layout.machines.find((q) => q.id === id);
           if (m && this.actAll(liftActions(this.run, m))) this.inputCtl.selectedId = null;
@@ -462,7 +472,8 @@ export class GameScene extends Phaser.Scene {
     if (!this.replayLabel) return;
     this.ctl.stopReplay();
     audio.resume();
-    this.scene.start('Title');
+    if (this.comeBack) this.scene.start('Results', { run: this.comeBack.run, shown: this.comeBack.shown });
+    else this.scene.start('Title');
   }
   private updateHud(live = false) {
     this.panel.setHud(this.run, this.run.score, false);
@@ -721,6 +732,8 @@ export class GameScene extends Phaser.Scene {
       tutorial: this.tutorial,
       touch: coarsePointer(),
       selected: this.inputCtl?.selectedId,
+      held: this.inputCtl?.heldId,
+      lights: loadSettings().lights,
       watching: this.replayLabel,
       mode: this.mode,
       resumeNotice: this.ctl.resumeNotice,
@@ -799,7 +812,7 @@ export class GameScene extends Phaser.Scene {
   private onRoundEnd(rec: RoundRecord, visual: number) {
     {
       const prev = this.run.rounds.length >= 2 ? this.run.rounds[this.run.rounds.length - 2].earned : -1;
-      this.panel.bannerForeman = this.replayLabel ? '' : foremanSays(rec.earned > prev ? 'roundGood' : 'roundFlat');
+      this.panel.bannerForeman = this.replayLabel || prev < 0 ? '' : foremanSays(rec.earned > prev ? 'roundGood' : 'roundFlat'); // a first shift has nothing to be better than
       if (prev >= 0 && rec.earned > prev && !this.replayLabel) this.panel.cheer(rec.earned - prev);
     } // 0.9.1
     if (import.meta.env.DEV && rec.earned !== visual) console.error(`DETERMINISM MISMATCH: visual ${visual} vs authoritative ${rec.earned}`);
@@ -826,7 +839,6 @@ export class GameScene extends Phaser.Scene {
         const quality = decideQuality(this.dprProbe);
         updateSettings({ renderQuality: quality });
         this.dprProbe = null;
-        if (quality === 'low') this.panel.setHint(t('hint.lowQuality'));
       }
     }
     if (this.ctl.advance(delta)) return; // the round ended: onRoundEnd tore the live visuals down

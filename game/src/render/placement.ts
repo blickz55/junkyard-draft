@@ -31,9 +31,9 @@ function takes(l: Layout, x: number, y: number, d: Dir, ignore?: number): boolea
  * around it keeps its current facing.
  */
 export function smartFacing(l: Layout, kind: MachineKind, x: number, y: number, current: Dir, ignore?: number): Dir {
-  if (kind === 'dock' || kind === 'tuner') return current;
+  if (kind === 'dock') return current;
   const feeds = feedsInto(l, x, y, ignore);
-  if (feeds.length && kind !== 'conveyor') return feeds[0];
+  if (feeds.length && kind !== 'conveyor' && kind !== 'tuner') return feeds[0];
   const ahead = feeds[0] ?? current;
   const order: Dir[] = [ahead, leftOf(ahead), rightOf(ahead), opposite(ahead)];
   const out = order.find((d) => !feeds.includes(opposite(d)) && takes(l, x, y, d, ignore));
@@ -60,8 +60,7 @@ export function dropActions(run: RunState, m: Machine, x: number, y: number, fac
 export function liftActions(run: RunState, m: Machine): Action[] {
   const lift: Action[] = [{ t: 'unplace', id: m.id }];
   const belt = run.bin.find((b) => b.kind === 'conveyor');
-  if (m.kind === 'conveyor' || m.kind === 'dock' || m.kind === 'tuner' || m.kind === 'hopper' || !belt || !feedsInto(run.layout, m.x, m.y, m.id).length)
-    return lift;
+  if (m.kind === 'conveyor' || m.kind === 'dock' || m.kind === 'hopper' || !belt || !feedsInto(run.layout, m.x, m.y, m.id).length) return lift;
   return [...lift, { t: 'place', id: belt.id, x: m.x, y: m.y, dir: m.dir }];
 }
 
@@ -90,7 +89,7 @@ export function strokeActions(run: RunState, cells: readonly Cell[]): Stroke {
   let nextId = run.nextId;
   let money = run.score;
   const start = at(l, cells[0].x, cells[0].y);
-  if (start && start.kind !== 'dock' && start.kind !== 'tuner') {
+  if (start && start.kind !== 'dock') {
     const dir = stepDir(cells[0], cells[1]);
     if (dir !== start.dir) out.actions.push({ t: 'place', id: start.id, x: start.x, y: start.y, dir });
   }

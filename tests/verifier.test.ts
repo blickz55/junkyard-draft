@@ -963,11 +963,11 @@ test('histogram (PLAN-v1 0.4.1): bins and percentile for 1, 4 and 200 entries; n
 });
 
 test('bot par (PLAN-v1 0.4.5): deterministic across runs and threads, computed off the request path, never blocks a submission, backs off after a failure', async () => {
-  const a = computeParSync('par-seed', 3, 12);
-  const b = computeParSync('par-seed', 3, 12);
+  const a = computeParSync('par-seed');
+  const b = computeParSync('par-seed');
   assert.equal(a, b, 'the same seed gives the same par in the same process');
   assert.ok(a > 0);
-  const viaWorker = await computeParInWorker('par-seed', 60_000, 3, 12);
+  const viaWorker = await computeParInWorker('par-seed', 60_000);
   assert.equal(viaWorker, a, 'a worker thread (fresh module instance) computes the identical par');
   // a service with a par job that hangs: the submission path is unaffected, the histogram says null meanwhile
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jd-par-'));

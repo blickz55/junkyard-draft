@@ -2,7 +2,7 @@
 # verified board. Build: docker build -t junkyard-verifier .   Run: see server/README.md
 # The bundle is always built inside the image (server/dist and server/data are in .dockerignore), so host-generated
 # output and its permissions never reach the container; the final file is copied world-readable for the nonroot user.
-# The verifier imports game/src/sim, game/src/telemetry, game/src/identity, game/src/daily and tools/autoplay-lib.ts (review F06): tests/verifier.test.ts rebuilds
+# The verifier imports game/src/sim, game/src/telemetry, game/src/identity, game/src/daily and the three pure modules of Sal's game (review F06): tests/verifier.test.ts rebuilds
 # the bundle from exactly the paths this file copies (minus .dockerignore), so a new import that the image lacks fails the suite.
 # web-push (0.10.4) is not bundled: the final stage installs the production dependencies and server/push.ts loads it on first use.
 # No Docker on the dev machine: the image itself is built and smoke-tested by .github/workflows/ci.yml.
@@ -17,7 +17,9 @@ COPY game/src/telemetry ./game/src/telemetry
 COPY game/src/identity ./game/src/identity
 COPY game/src/daily ./game/src/daily
 COPY game/src/content ./game/src/content
-COPY tools/autoplay-lib.ts ./tools/autoplay-lib.ts
+COPY game/src/render/sal.ts ./game/src/render/sal.ts
+COPY game/src/render/estimate.ts ./game/src/render/estimate.ts
+COPY game/src/render/placement.ts ./game/src/render/placement.ts
 COPY server ./server
 RUN npm run verifier:build
 

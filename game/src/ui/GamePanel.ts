@@ -16,7 +16,7 @@ import { h, btn, ui, textureImg } from './dom';
 import { canBuyBelt, canReroll, cardParts, draftOffers, orderFor, shippedTotal, type RunState } from '../sim/run';
 import type { Job } from '../sim/yard';
 import { analyseRound } from '../sim/bottleneck';
-import { bottleneckLine } from '../content/bottleneck';
+import { againLine, bottleneckLine, sameLimit } from '../content/bottleneck';
 import type { Machine, MachineKind, Material } from '../sim/types';
 import { RULES } from '../sim/rules';
 import { priceOf, starsFor } from '../sim/yard';
@@ -34,7 +34,7 @@ import type { Spot } from '../render/guide';
 import { t } from '../content/strings';
 import { shiftsOf } from '../content/lessons';
 import { money, int } from '../content/format';
-import { machineName, machineBlurb, machineWord, materialName } from '../content/machines';
+import { cardLine, machineName, machineBlurb, machineWord, materialName } from '../content/machines';
 import {
   jobLine,
   jobRecipe,
@@ -51,6 +51,7 @@ import {
 import { yardLabel } from '../content/yard';
 import { cardGain } from '../render/estimate';
 import { salKnown, salLater } from '../render/sal';
+import { planUnderway } from '../render/guide';
 import { recipeRow } from './JobCard';
 import { reactionBar } from './ReactionBar';
 import { verifierUrl as resolveVerifierUrl } from '../render/config';
@@ -63,7 +64,7 @@ function cardName(kind: MachineKind, r: RunState): string {
 }
 function cardBlurb(kind: MachineKind, r: RunState): string {
   const parts = cardParts(kind, r.job, r.seed);
-  if (parts.length === 1) return machineBlurb(kind, r.layout);
+  if (parts.length === 1) return cardLine(kind, r.layout);
   return kind === 'hopper' ? t('game.kitHopperBlurb') : t('game.kitJobBlurb', { name: machineWord(kind) });
 }
 
@@ -118,6 +119,8 @@ export interface PanelActions {
   /** light a machine and say what it does: the "Show me" of the advice card */ showMachine(id: number): void;
   toggleMute(): boolean;
   /** a star mark was passed during a shift */ starReached(n: number): void;
+  /** the selected machine goes in hand: the next tap on the yard is where it goes */
+  moveSelected(): void;
   /** buy new offers (rules v3): the scene applies { t: 'reroll' } through the controller */
   reroll(): void;
   /** continue the watched recording from the shift just finished as a practice try (PLAN-v4 0.7.3) */
@@ -381,8 +384,8 @@ export class GamePanel {
       const stars = r.job ? r.job.stars.filter((n) => r.filled + 1 >= n).length : 0;
       const newStar = stars > r.job!.stars.filter((n) => r.filled >= n).length;
       this.actions.starReached(newStar ? stars : 1);
+      this.ribbon(t('job.orderPop'), t('job.orderRaise', { raise: RULES.job.raise }));
       if (newStar) this.starPop(stars);
-      else this.cheerText(t('job.orderPop'));
     }
   }
   /** The job's progress. `live` during a shift: passing a mark is a moment. */
@@ -400,6 +403,12 @@ export class GamePanel {
       this.starPop(reached);
     }
     j.reached = reached;
+  }
+  /** An order filled is the moment of a shift: it stops the eye even at four times the speed. */
+  private ribbon(text: string, under: string) {
+    const el = h('div', { class: 'jd-ribbon', tid: 'order-ribbon' }, text, h('small', {}, under));
+    this.boardEl.append(el);
+    setTimeout(() => el.remove(), prefs.reducedMotion ? 2200 : 1600);
   }
   private starPop(n: number) {
     const words = starWords(n);
@@ -567,6 +576,8 @@ export class GamePanel {
     if (!last) return null;
     const b = analyseRound(last.layout, last.result, r.round);
     const missing = missingForJob(r);
+    const before = r.rounds[r.rounds.length - 2];
+    if (!missing && before && sameLimit(b, analyseRound(before.layout, before.result, r.round - 1))) return null; // said last shift: the banner keeps it short
     const here = !missing && b.machine ? r.layout.machines.find((m) => m.id === b.machine!.id) : undefined;
     return h(
       'div',
@@ -622,7 +633,10 @@ export class GamePanel {
         ? h(
             'div',
             { class: 'jd-row jd-steps-tools', style: 'gap:0.3em' },
-            btn(t('game.undo'), 'undo', () => this.actions.undo(), { small: true, disabled: !s.canUndo }),
+            btn(t(r.actions[r.actions.length - 1]?.t === 'pick' ? 'game.undoPick' : 'game.undo'), 'undo', () => this.actions.undo(), {
+              small: true,
+              disabled: !s.canUndo,
+            }),
             btn(t('game.redo'), 'redo', () => this.actions.redo(), { small: true, disabled: !s.canRedo }),
             tipsBtn,
           )
@@ -870,6 +884,7 @@ export class GamePanel {
               'div',
               { class: 'jd-row', style: 'margin-top:0.4em; gap:0.4em' },
               btn(t('game.rotate'), 'rotate', () => this.actions.rotateSelected(), { small: true }),
+              sel.x >= 0 && !s.lesson ? btn(t('game.move'), 'move', () => this.actions.moveSelected(), { small: true }) : null,
               sel.x >= 0
                 ? btn(t('game.toShelf'), 'tobin', () => this.actions.toBin(sel.id), { small: true })
                 : s.lesson && s.lessonWants !== 'sell'
@@ -929,12 +944,21 @@ export class GamePanel {
       return h(
         'div',
         { class: 'jd-forecast', tid: 'forecast', role: 'status' },
-        h('div', { class: will.earned > 0 ? 'jd-gold' : 'jd-red', tid: 'forecast-pay' }, pay),
+        h(
+          'div',
+          { class: will.earned > 0 ? 'jd-gold' : 'jd-red', tid: 'forecast-pay' },
+          change > 0
+            ? `${pay} ${t('game.forecastUp', { amount: money(change) })}`
+            : change < 0
+              ? `${pay} ${t('game.forecastDown', { amount: money(-change) })}`
+              : pay,
+        ),
         h(
           'div',
           { class: fills ? 'jd-green' : 'jd-amber', tid: 'forecast-job' },
           fills ? t('game.forecastFills', { order: money(order) }) : t('game.forecastShort', { amount: money(order - will.earned), order: money(order) }),
         ),
+        planUnderway(r) ? h('div', { class: 'jd-dim', tid: 'forecast-dip', style: 'font-size:0.8125em' }, t('game.planDip')) : null,
       );
     }
     return h(
@@ -1041,23 +1065,16 @@ export class GamePanel {
       // what held the line (production roadmap 0.8.8), after what the job is missing; the pick and the build keep showing it
       const bottleneck = analyseRound(rec.layout, res, rec.round + 1);
       const missing = missingForJob(r);
-      const here = !missing && bottleneck.machine ? r.layout.machines.find((m) => m.id === bottleneck.machine!.id) : undefined;
+      const prior = r.rounds[r.rounds.length - 2];
+      const again = !missing && !!prior && sameLimit(bottleneck, analyseRound(prior.layout, prior.result, rec.round));
       this.side.append(h('div', { class: 'jd-head', style: 'margin-top:0.6em' }, t('game.heldHead')));
       this.side.append(
         h(
           'div',
           { class: !missing && bottleneck.kind === 'balanced' ? 'jd-green' : 'jd-amber', tid: 'bottleneck', style: 'font-size:0.8125em' },
-          missing ?? bottleneckLine(bottleneck),
+          missing ?? (again ? againLine(bottleneck) : bottleneckLine(bottleneck)),
         ),
       );
-      if (here)
-        this.side.append(
-          h(
-            'div',
-            { style: 'margin-top:0.3em' },
-            btn(t('hint.showMe'), 'show-me', () => this.actions.showMachine(here.id), { small: true }),
-          ),
-        );
     }
     if (r.rounds.length > 1) {
       this.side.append(h('div', { class: 'jd-head', style: 'margin-top:0.6em' }, t('game.historyHead')));
@@ -1076,18 +1093,26 @@ export class GamePanel {
     if (spent) this.side.append(h('div', { class: 'jd-dim', tid: 'spent', style: 'font-size:0.8125em' }, t('game.spent', { amount: money(spent) })));
     this.side.append(this.legend());
   }
-  /** Where the job stands after this shift, in one line; empty on a yard with no job. */
-  private jobNote(r: RunState): string {
+  /** Where the job stands after this shift, in a line; nothing on a yard with no job. */
+  private jobNote(r: RunState): HTMLElement | null {
     const rec = r.rounds[r.rounds.length - 1];
     const order = r.job?.orders?.[rec.round - 1];
+    const note = (...parts: (string | HTMLElement)[]) => h('div', { class: 'jd-banner-job', tid: 'job-pace' }, ...parts);
     if (order !== undefined) {
-      const said = rec.earned >= order ? t('job.filled', { raise: RULES.job.raise }) : t('job.missed', { amount: money(order - rec.earned) });
-      return `${said} ${t('job.filledCount', { n: r.filled, total: r.job?.orders?.length ?? 0 })}`;
+      const won = rec.earned >= order;
+      return note(
+        h(
+          'span',
+          { class: won ? 'jd-gold jd-banner-won' : 'jd-amber' },
+          won ? t('job.filled', { raise: RULES.job.raise }) : t('job.missed', { amount: money(order - rec.earned) }),
+        ),
+        ` ${t('job.filledCount', { n: r.filled, total: r.job?.orders?.length ?? 0 })}`,
+      );
     }
     const p = paceOf(r);
-    if (!p || !r.job) return '';
+    if (!p || !r.job) return null;
     const done = t('job.shift', { n: int(p.thisShift), mat: materialOf(r.job.material, p.thisShift) });
-    return p.nextStar == null ? `${done} · ${t('job.got')}` : done;
+    return note(p.nextStar == null ? `${done} · ${t('job.got')}` : done);
   }
   /** Against Sal's game on this yard, money for money. His game is worked out the first time it is asked for, so a saved game picks it up by its next shift. */
   private salRace(r: RunState): HTMLElement | null {
@@ -1144,7 +1169,7 @@ export class GamePanel {
           ),
         ),
         this.shiftChange(r),
-        note ? h('div', { class: 'jd-banner-job', tid: 'job-pace' }, note) : null,
+        note,
         this.salRace(r),
         this.bannerForeman
           ? h(
@@ -1179,13 +1204,12 @@ export class GamePanel {
       let cls = '';
       let warn = true;
       if (m.kind === 'hopper') {
-        line1 = st ? t('game.badgeOut', { n: int(st.spawned) }) : t('game.badgeIdle');
-        if (st && m.id === culprit) line2 = t('game.badgeBlocked', { n: int(st.blockedTicks) });
+        if (!st) line1 = t('game.badgeIdle');
+        else if (m.id === culprit) line2 = t('game.badgeBlocked', { n: int(st.blockedTicks) });
         if (!st) cls = 'jd-dim';
       } else if (m.kind === 'dock') {
         if (st && st.shipped) {
           line1 = money(st.earned);
-          line2 = t('game.badgeShipped', { n: int(st.shipped) });
           cls = 'jd-green';
           warn = false;
         } else {
@@ -1193,7 +1217,7 @@ export class GamePanel {
           cls = 'jd-dim';
         }
       } else if (m.kind === 'crusher' || m.kind === 'furnace' || m.kind === 'press') {
-        line1 = st && st.passed ? t('game.badgeMade', { n: int(st.processed) }) : t('game.badgeUnused');
+        if (!st || !st.passed) line1 = t('game.badgeUnused'); // the rest is on the machine: a tap says what it made, and a phone has no room for it
         if (!st || !st.processed) cls = 'jd-dim';
         if (st && m.id === culprit) line2 = t('game.badgeHeldUp');
         else if (m.kind === 'press' && st && st.stored) {
@@ -1217,10 +1241,14 @@ export class GamePanel {
         }
       }
       if (!line1 && !line2) continue;
+      const top = m.id === culprit; // the one that matters stands clear of the labels along the bottom of the cells beside it
       layer.append(
         h(
           'div',
-          { class: 'jd-badge', style: `left:${em(m.x * CELL + CELL / 2)}; top:${em((m.y + 1) * CELL - 2)}` }, // inside the grid layer, which sits on the drawn grid
+          {
+            class: `jd-badge${top ? ' jd-badge-top' : ''}`,
+            style: `left:${em(m.x * CELL + CELL / 2)}; top:${em(top ? m.y * CELL + 2 : (m.y + 1) * CELL - 2)}`,
+          }, // inside the grid layer, which sits on the drawn grid
           line1 ? h('div', { class: cls }, line1) : null,
           line2 ? h('div', { class: warn ? 'jd-red' : 'jd-dim' }, line2) : null,
         ),
@@ -1335,6 +1363,11 @@ export const GAME_STYLE = `
 #ui .jd-banner { margin-top: 0.5em; background: rgba(20, 17, 13, 0.6); border: 2px solid #f0a830; border-radius: 0.5em; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5em 0.75em; padding: 0.4em 0.7em; }
 #ui .jd-banner-money { font-family: var(--jd-display); font-size: 2em; font-weight: 700; line-height: 1; }
 #ui .jd-banner-job { font-size: 0.8125em; font-weight: 600; color: #f1e8d8; }
+#ui .jd-banner-won { font-family: var(--jd-display); font-size: 1.3em; font-weight: 700; display: block; }
+#ui .jd-ribbon { position: absolute; left: 0; right: 0; top: 36%; z-index: 5; pointer-events: none; text-align: center; padding: 0.3em 0 0.35em; background: linear-gradient(90deg, rgba(245, 197, 66, 0) 0%, rgba(245, 197, 66, 0.94) 10%, rgba(255, 228, 140, 0.98) 50%, rgba(245, 197, 66, 0.94) 90%, rgba(245, 197, 66, 0) 100%); color: #2a1e08; font-family: var(--jd-display); font-weight: 700; font-size: 1.875em; line-height: 1.05; text-transform: uppercase; letter-spacing: 0.03em; box-shadow: 0 0 1.4em rgba(245, 197, 66, 0.55); animation: jd-ribbon 1.5s ease-out both; }
+#ui .jd-ribbon small { display: block; font-family: var(--jd-body, inherit); font-size: 0.5em; font-weight: 600; text-transform: none; letter-spacing: 0; }
+@keyframes jd-ribbon { 0% { transform: scaleX(0.15); opacity: 0; } 12% { transform: scaleX(1.05); opacity: 1; } 22% { transform: scaleX(1); } 78% { opacity: 1; } 100% { opacity: 0; } }
+#ui.jd-reduced-motion .jd-ribbon { animation: none; }
 #ui .jd-banner-foreman { font-size: 0.75em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #ui .jd-progress { height: 0.6em; border-radius: 0.3em; overflow: hidden; background: #15120e; margin-top: 0.75em; }
 #ui .jd-progress-fill { height: 100%; width: 0; background: linear-gradient(90deg, #d08a22, #f0a830); }
@@ -1349,6 +1382,7 @@ export const GAME_STYLE = `
 #ui .jd-about-row { display: flex; gap: 0.6em; align-items: center; font-size: 0.875em; line-height: 1.25; }
 #ui .jd-about-row img { width: 2.6em; height: 2.6em; flex: 0 0 auto; }
 #ui .jd-offer img { width: 3.6em; height: 3.6em; flex: 0 0 auto; }
+#ui .jd-badge-top { transform: translate(-50%, 0); z-index: 1; }
 #ui .jd-offer-text { flex: 1; min-width: 0; }
 #ui .jd-offer-name { font-family: var(--jd-display); font-weight: 700; font-size: 1.25em; line-height: 1.1; }
 #ui .jd-offer-blurb { font-size: 0.8125em; line-height: 1.25; margin-top: 0.1em; }
@@ -1377,7 +1411,7 @@ export const GAME_STYLE = `
   #ui .jd-hud-best { display: none; }
   #ui .jd-hud-seed { display: none; }
   #ui .jd-hud-where { flex: 1 1 auto; }
-  #ui .jd-hud-scoreblock { flex: 0 0 auto; } /* the score stays whole */
+  #ui .jd-hud-scoreblock { flex: 0 0 auto; overflow: visible; } /* the score stays whole, and its pulse keeps its dollar sign */
   #ui .jd-job { order: 5; flex: 1 1 100%; }
   #ui .jd-banner-foreman { display: none; }
   #ui .jd-offer { padding: 0.25em 0.55em; margin-top: 0.3em; gap: 0.55em; }

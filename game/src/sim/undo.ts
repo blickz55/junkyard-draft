@@ -2,12 +2,13 @@
  * Undo / redo over the build phase (PLAN-v1 0.3.3). The replay stays a flat list of final actions: undo
  * removes the last layout edit and re-derives the state from seed + remaining actions (cheap: the sim is
  * deterministic), so an undone rotation restores the previous facing exactly and the exported replay still
- * verifies. Nothing is undone across a run, a draft pick or a round boundary.
+ * verifies. Nothing is undone across a run or a round boundary. A pick can be taken back until its shift starts: nothing has happened yet,
+ * and trying a card to see what the forecast says is thinking, not luck (the third panel, 2026-11-02).
  */
 import { apply, replay, type Action, type RunState } from './run';
 import { RULES_VERSION } from './types';
 
-export const UNDOABLE: ReadonlySet<Action['t']> = new Set<Action['t']>(['place', 'unplace', 'rotate', 'sell', 'buy']);
+export const UNDOABLE: ReadonlySet<Action['t']> = new Set<Action['t']>(['pick', 'place', 'unplace', 'rotate', 'sell', 'buy']);
 
 /** True while building and the last recorded action is a layout edit of this build phase. */
 export function canUndo(s: RunState): boolean {

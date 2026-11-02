@@ -1,0 +1,70 @@
+{
+  "persona": "Priya",
+  "device": "desk",
+  "goalInOwnWords": "Run a small scrap-to-ingots factory for six shifts. Each shift you pick one new machine, place it so more shards reach the furnaces, and earn enough to fill that shift's order so every price goes up. Total money is the score and you try to beat Sal's number.",
+  "stoppedWhere": "The results screen after my second finished game on today's yard ($15,444, new personal best), right after sending the survey and getting the completion code.",
+  "stoppedWhy": "I had done the interesting part twice: worked out the layout trick and then planned the picks from the known offers. The second run only gained 4.5% because every furnace is boxed in round the dock, so a Tuner can never touch one. A real improvement means rebuilding the whole yard by hand, and with no leaderboard or best-possible number I cannot tell whether it would matter. Fine, a 3, I would not keep going if nobody were paying.",
+  "lessonsFinished": 0,
+  "gamesFinished": 2,
+  "bestStars": 3,
+  "bestMoney": 15444,
+  "playedAnotherByChoice": true,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 1 build, splitter step",
+      "what": "The lit spot for the Splitter was my own existing furnace. I could not work out why the game wanted a splitter dropped on top of a working furnace.",
+      "gotOutHow": "Did what it said. The furnace went back to the shelf and the next lit spot (under the splitter) made it clear."
+    },
+    {
+      "where": "Shift 4 of game one, new furnace",
+      "what": "The game said 'Furnace points out of the yard. Tap it to turn it' and showed a red mark where the line stops. I could not tell which way one tap would turn it.",
+      "gotOutHow": "Pressed Turn blind: left, up, right, down. Three taps to face the dock. Forecast went from $2,058 to $3,066 once it was right."
+    },
+    {
+      "where": "Shift 4 pick screen, game one",
+      "what": "All three cards said 'On its own: nothing yet' while the readout said a second furnace behind a Splitter would clear the bottleneck. I could not tell which card was worth anything.",
+      "gotOutHow": "Did my own arithmetic (80 shards a shift, furnaces take about 26 each), took Furnace + Splitter and rebuilt the layout by hand. It was worth about $966 that shift."
+    },
+    {
+      "where": "Shift 5 and 6, Tuner and third hopper",
+      "what": "No furnace had a free side, so a Tuner could not go where it would matter (I tried the junk pile and was refused). On shift 6 the new hopper did nothing at all: the old hopper showed 0 out and the readout told me to add a Tuner next to a crusher that already had one.",
+      "gotOutHow": "Did not get out. Took the lit spot (worth one ingot) and moved on. In game two I put the third feed straight into the second furnace and it was worth five ingots."
+    }
+  ],
+  "confused": [
+    "On shift 1 the guide told me to drop the Splitter onto my existing furnace, which swapped it back to the shelf without saying so.",
+    "On shift 4 the lit-spot line said 'Drag the Furnace onto the belt. It slots right in', which would have fed my ingots into another furnace.",
+    "The readout said 'a second furnace behind a Splitter would clear it' while the Furnace + Splitter card said 'On its own: nothing yet'.",
+    "Parts turn themselves when dropped (my hopper spun to face the crusher), then Turn spins them a way I could not predict; a furnace took three taps.",
+    "'What shipped: 357 x ingot ($54 each) = $19,278' sits right under a score of $14,772.",
+    "'You're level with Sal' showed for three shifts running; only later did I see that Sal's game is exactly the lit-spot layout.",
+    "What the Tuner's counter ('79 sped up') meant. I worked out from the numbers that one Tuner speeds every machine it touches.",
+    "'Adds to this line now' and 'On its own: nothing yet' do not predict what a card is worth: the card marked nothing gave +$966 on shift 4 and the Tuner marked 'adds now' gave one ingot."
+  ],
+  "annoyed": [
+    "The lit-spot hints steer you to the weaker layout (shift 4: guided $2,100, my own $3,066) and there is no way to switch them off.",
+    "I cannot see what a card is worth in this yard before I take it, and a pick cannot be undone. Both Tuners I took showed about one ingot on the forecast when I placed them.",
+    "The after-shift advice repeats the same sentence for several shifts, even when it is plainly out of date ('held you back for 12 of 80 seconds').",
+    "Rebuilding the same shift 1 layout in the second game is five drags of busywork.",
+    "No leaderboard and no best-possible number, so I cannot tell whether $15,444 is good.",
+    "The block round the dock is a dead end: junk piles and a dock with only three open sides leave every furnace boxed in, with no free side for a Tuner.",
+    "'New offers (-$40)' is a gamble I cannot price."
+  ],
+  "pleased": [
+    "The live forecast ('This shift will pay $X') updates on every placement and matched the result to the dollar every single shift.",
+    "The after-shift readout with a count on every machine (made, out, held things up) is the first time a game has shown me my bottleneck in plain words.",
+    "Throwing away the guide on shift 4 and beating the guided layout by 46% on my own, and the game saying 'You're $966 ahead of Sal'.",
+    "Offers are fixed per yard and shown a shift ahead, so a second run is a real planning puzzle.",
+    "Clear refusals: 'That's a junk pile. Nothing can stand here: go around it', and the red mark where the line stops.",
+    "Belts turn their own corners, and 4x speed plus skip-to-end make the shifts quick.",
+    "'New personal best' and the list of my games on the yard."
+  ],
+  "bestMoment": "Shift 4 of game one: I ignored the lit spot, moved the second hopper and crusher up the left edge, put the new splitter under the crusher and the new furnace beside the dock. The forecast jumped from $2,100 to $3,066, the shift paid exactly that, and the game said I was $966 ahead of Sal.",
+  "worstMoment": "Shift 6 of game one: I took the third hopper, it did nothing, the old hopper showed 0 out, and the readout confidently told me to add a Tuner next to a crusher that already had one. Close second: '357 ingots at $54 = $19,278' printed above a $14,772 score.",
+  "oneChange": "A leaderboard (or a best-known score) on each yard, so I know whether my number is good and have someone real to beat; with the guide no longer steering me to the weaker layout.",
+  "completionCode": "K59P-GB9C"
+}

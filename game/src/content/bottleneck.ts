@@ -17,6 +17,11 @@ const would = (phrases: string[]): string => {
   return rest.length ? `${cap}, or ${rest.join(', or ')}, ${t('bottleneck.wouldClear')}.` : `${cap} ${t('bottleneck.wouldClear')}.`;
 };
 
+/** The same machine, the same advice: said once, and after that only that it is still so. */
+export const sameLimit = (a: Bottleneck, b: Bottleneck): boolean =>
+  !!a.machine && a.kind === b.kind && a.machine.id === b.machine?.id && a.fixes.join() === b.fixes.join();
+export const againLine = (b: Bottleneck): string => t('bottleneck.again', { name: machineWord(b.machine!.kind), held: int(b.heldTicks), total: int(b.ticks) });
+
 export function bottleneckLine(b: Bottleneck): string {
   const m = b.machine;
   switch (b.kind) {
@@ -42,9 +47,8 @@ export function bottleneckLine(b: Bottleneck): string {
         });
       }
       const name = machineWord(m!.kind);
-      const fixes = [b.fixes.includes('tuner') ? t('bottleneck.fixTuner') : '', b.fixes.includes('splitter') ? t('bottleneck.fixSecond', { name }) : ''].filter(
-        Boolean,
-      );
+      const twin = (b.twins ?? 1) > 1 ? t('bottleneck.fixAnother', { name }) : t('bottleneck.fixSecond', { name });
+      const fixes = [b.fixes.includes('tuner') ? t('bottleneck.fixTuner') : '', b.fixes.includes('splitter') ? twin : ''].filter(Boolean);
       return t('bottleneck.saturated', { name, held: int(b.heldTicks), total: int(b.ticks), fix: would(fixes) || t('bottleneck.fixNone') });
     }
     case 'starved':

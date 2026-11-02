@@ -20,23 +20,17 @@ test("outside the lesson the coach says one thing per moment and names the shift
   const place = hintFor(s, ctx());
   const plan = cardPlan(s);
   assert.ok(plan.length >= 4, 'the card says what it adds, so the coach knows where');
-  assert.equal(place.text, `Drag the ${machineName(plan[0].kind)} to the lit spot.`, 'one spot at a time');
+  assert.equal(place.text, `Click the lit spot for the ${machineName(plan[0].kind)}. Step 1 of ${plan.length}.`, 'one spot at a time');
   assert.deepEqual(place.spots, [
     { kind: 'shelf', i: s.bin.findIndex((m) => m.kind === plan[0].kind) },
     { kind: 'cell', x: plan[0].x, y: plan[0].y },
   ]);
-  assert.equal(hintFor(s, { ...ctx(), touch: true }).text, `Tap the ${machineName(plan[0].kind)}, then tap the lit spot.`);
+  assert.equal(hintFor(s, { ...ctx(), touch: true }).text, `Tap the lit spot for the ${machineName(plan[0].kind)}. Step 1 of ${plan.length}.`);
   const first = s.bin.find((m) => m.kind === plan[0].kind)!;
-  assert.equal(
-    hintFor(s, { ...ctx(), touch: true, selected: first.id }).text,
-    `Now tap the lit spot for the ${machineName(plan[0].kind)}.`,
-    'already selected: no need to tap it',
-  );
-  // a part put somewhere else ends the plan: the plain words take over
-  const lost = hintFor(s, ctx());
+  // a part put somewhere else ends the plan: the plain words take over, and they promise nothing they cannot show
   for (const a of dropActions(s, first, 0, 0)) apply(s, a);
-  assert.notEqual(hintFor(s, ctx()).text, lost.text);
-  assert.ok(!hintFor(s, ctx()).spots.some((p) => p.kind === 'cell' && !p.soft), 'no spot is lit once the plan is off');
+  assert.match(hintFor(s, ctx()).text, /where you think\. The pay shows if it helps\.$/);
+  assert.ok(!hintFor(s, ctx()).spots.some((p) => p.kind === 'cell'), 'no spot is lit once the plan is off');
   apply(s, { t: 'unplace', id: first.id });
   while (s.bin.length) apply(s, { t: 'sell', id: s.bin[0].id });
   const ready = hintFor(s, ctx());
@@ -76,9 +70,12 @@ test('a broken line with no belt on the shelf: the coach says a belt can be boug
   apply(s, { t: 'sell', id: s.bin[s.bin.length - 1].id });
   const belt = s.layout.machines.filter((m) => m.kind === 'conveyor').at(-1)!;
   apply(s, { t: 'unplace', id: belt.id });
-  assert.equal(hintFor(s, ctx()).text, 'The red mark shows where the line stops. Fix it, then start.', 'the belt is right there on the shelf');
+  const before = s.layout.machines.filter((m) => m.kind === 'conveyor').at(-1)!;
+  const broken = hintFor(s, ctx());
+  assert.equal(broken.text, 'This piece leads nowhere. Turn it or move it, then start.', 'the belt is right there on the shelf');
+  assert.deepEqual(broken.spots, [{ kind: 'cell', x: before.x, y: before.y }], 'and the piece is lit');
   apply(s, { t: 'sell', id: belt.id });
   const g = hintFor(s, ctx());
-  assert.equal(g.text, 'The red mark shows where the line stops. Out of belts? Buy one.');
-  assert.deepEqual(g.spots, [{ kind: 'buy' }]);
+  assert.equal(g.text, 'This piece leads nowhere. Out of belts? Buy one.');
+  assert.deepEqual(g.spots, [{ kind: 'cell', x: before.x, y: before.y }, { kind: 'buy' }]);
 });

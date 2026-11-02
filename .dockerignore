@@ -10,8 +10,7 @@ _delivery
 docs
 desktop
 tests
-tools/*
-!tools/autoplay-lib.ts
+tools
 control-room
 vendor
 .claude

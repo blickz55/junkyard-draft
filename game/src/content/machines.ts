@@ -31,6 +31,24 @@ export function machineBlurb(kind: MachineKind, layout: Pick<Layout, 'premium' |
       return t(`machine.${kind}.blurb` as const);
   }
 }
+/** The one line on a card in the pick: short enough for a phone. The Inspector has the whole story. */
+export function cardLine(kind: MachineKind, layout: Pick<Layout, 'premium' | 'premium2' | 'rate'> = {}): string {
+  switch (kind) {
+    case 'crusher':
+      return t('card.crusher', { shards: money(RULES.value.shards), time: RULES.process.crusher });
+    case 'furnace':
+      return t('card.furnace', { ingot: money(priceOf(layout, 'ingot')), time: RULES.process.furnace });
+    case 'press':
+      return t('card.press', { plate: money(priceOf(layout, 'plate')) });
+    case 'hopper':
+    case 'dock':
+    case 'tuner':
+    case 'splitter':
+      return t(`card.${kind}` as const);
+    default:
+      return machineBlurb(kind, layout);
+  }
+}
 export const machineInfo = (kind: MachineKind): MachineInfo => ({ name: machineName(kind), blurb: machineBlurb(kind) });
 /** The short lower-case name used inside sentences ("the furnace at 5,3"). */
 export const machineWord = (kind: MachineKind): string => (kind === 'hopper' || kind === 'dock' || kind === 'press' ? kind : machineName(kind).toLowerCase());

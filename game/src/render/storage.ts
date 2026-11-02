@@ -71,6 +71,7 @@ export interface Settings {
   reducedAudio: boolean;
   /** the foreman (0.9.1): every line, or the teaching lines only */ chatter: 'full' | 'less';
   /** how fast shifts run: a player who likes 4× should not have to ask again every game */ speed: number;
+  /** the coach lights where a card's parts go; a player who would rather work it out turns it off on the job card */ lights: boolean;
 }
 /** Default for reduced motion follows the OS preference until the player chooses. */
 const systemReducedMotion = () => {
@@ -123,6 +124,7 @@ export function validateSettings(raw: unknown, fallback: Settings): Settings {
     reducedAudio: typeof raw.reducedAudio === 'boolean' ? raw.reducedAudio : fallback.reducedAudio,
     chatter: raw.chatter === 'less' ? 'less' : fallback.chatter,
     speed: raw.speed === 2 || raw.speed === 4 ? raw.speed : fallback.speed,
+    lights: raw.lights !== false,
   };
 }
 export function validateSave(raw: unknown): SaveGame | null {
@@ -248,6 +250,7 @@ export const loadSettings = (): Settings =>
     reducedAudio: false,
     chatter: 'full',
     speed: 1,
+    lights: true,
   });
 export const saveSettings = (s: Settings) => write(K.settings, s);
 /** Read-modify-write so audio and accessibility settings never clobber each other. */

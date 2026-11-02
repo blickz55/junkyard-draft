@@ -87,11 +87,11 @@ function accepts(s: SimState, cell: number, travel: Dir): boolean {
   if (!m) return false;
   switch (m.kind) {
     case 'hopper':
-    case 'tuner':
-      return false; // a tuner has no input: it works on its neighbours
+      return false;
     case 'dock':
       return true;
     case 'conveyor':
+    case 'tuner': // it carries what a belt carries, and works on its neighbours as it does
     case 'crusher':
     case 'furnace':
     case 'press':
@@ -225,10 +225,14 @@ export function step(s: SimState): SimEvent[] {
       s.tickEvents.push({ tick: s.tick, kind: 'jam', cell: it.cell, itemId: it.id });
     }
   // 4. hoppers spawn into the cell ahead
-  if (s.tick % RULES.hopperPeriod === 0) {
+  {
     for (let c = 0; c < s.grid.length; c++) {
       const m = s.grid[c];
       if (!m || m.kind !== 'hopper') continue;
+      const tuner = adjacentTuner(s, c);
+      const period = tuner >= 0 ? Math.max(1, RULES.hopperPeriod - RULES.tunerBonus) : RULES.hopperPeriod;
+      if (s.tick % period !== 0) continue;
+      if (tuner >= 0 && s.tick % RULES.hopperPeriod !== 0) stats(s, tuner).tuned++;
       const target = neighbor(s, c, m.dir);
       if (target >= 0 && accepts(s, target, m.dir) && !s.itemAt[target] && s.grid[target]!.kind !== 'dock') {
         const tm = s.grid[target]!;

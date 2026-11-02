@@ -1,0 +1,57 @@
+{
+  "persona": "Ingrid",
+  "device": "desk",
+  "goalInOwnWords": "Build a line of machines that turns scrap into goods the dock buys, shift after shift, to earn more money than the foreman Sal did on the same yard. Filling each shift's order raises every price by a quarter, so the aim is to grow the line fast enough to beat his total ($11,154 on today's yard).",
+  "stoppedWhere": "Today's yard, shift 2 of 6, in the build step (hopper and crusher picked but not yet placed, $888 banked, forecast $1,110 for that shift). I went Menu, Save and go home, Give feedback from there.",
+  "stoppedWhy": "Not bored. I had used up the number of moves I allowed myself for this test. I would have gone on to finish all six shifts to see whether I beat Sal's $11,154, and probably tried a second yard after that.",
+  "lessonsFinished": 3,
+  "gamesFinished": 0,
+  "bestStars": 3,
+  "bestMoney": 3926,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "maybe",
+  "stuck": [
+    {
+      "where": "Lesson 2, first shift, build step (forecast)",
+      "what": "The forecast said 'At this rate: two stars, 36 of 40 plates' but $432 is only 18 plates at $24. I could not tell whether the plate count or the money was wrong.",
+      "gotOutHow": "After the shift paid 18 plates, the header carried the 18 into shift 2 and the next forecast read 42 (18 + 24). So it is a lesson-wide total at this pace. I worked that out with sums; no text said it."
+    },
+    {
+      "where": "Lesson 2, end of the last shift",
+      "what": "Why the first hopper showed '15 out' (it had dropped 40 the shift before), so two feeds gave 24 plates instead of the 40 I had calculated.",
+      "gotOutHow": "Did not get out. The end-of-lesson box covered the yard, Escape and tapping behind it did nothing, so I pressed Next lesson. (In lesson 3 a similar drop, 4 out against 26, was explained by Sal as the furnace backing up the line.)"
+    }
+  ],
+  "confused": [
+    "'At this rate: 36 of 40 plates' on lesson 2's first shift looked like double the real count until I worked out it is the lesson total across shifts.",
+    "Plates were $8 and ingots $24 in lesson 1, then plates $24 and ingots $12 in lesson 2. Only the job card line 'Plates pay $24 each' warns you; I only noticed because I had memorised the first list. I did not check whether the price list at the bottom changes.",
+    "The red 'held things up' tag sat on the Press in lesson 2, where Sal said the Press could take more, so it was waiting for input, not holding anything up. It is correct on the Furnace in lesson 3.",
+    "Sal says 'The line paid more this shift. Build on it.' even after the first shift of a lesson, where there is nothing to compare with.",
+    "Sal said 'Tap it twice to turn it' and one tap was enough.",
+    "When a second feed joined, the first hopper's output fell from 40 to 15 (lesson 2) and to 4 (lesson 3); the main panel does not say which line wins at a join.",
+    "In today's yard the first drop (a second furnace right after the first) cut the forecast from $600 to $576 before later steps raised it to $888; I trusted the lit spots without knowing why.",
+    "Home says 'You haven't played today's yard yet' while a Keep playing button for a game in progress sits right above it.",
+    "The end of lesson 1 says 'money for the board' but home says there is no leaderboard in this test version."
+  ],
+  "annoyed": [
+    "The end-of-lesson box covers the yard and cannot be closed, so I could not read the machine labels I wanted as evidence.",
+    "In today's yard the lit spots still told me where to drop every piece, so the first real shift was following instructions, not deciding.",
+    "Sal's canned 'paid more this shift' line, and the 'tap twice' hint, are small wrong notes in an otherwise exact game."
+  ],
+  "pleased": [
+    "Every number I checked added up: receipts like '37 x ingot @ $24 = $888', shift by shift totals, 37 + 111 = 148, 552 + 840 + 1,272 + 1,272 + 10 - 20 = 3,926.",
+    "The forecast before each shift was exact to the dollar, and it shows 'up $X' against the last layout.",
+    "Prices are stated and consistent: belt $20 to buy and $10 to sell back, new offers $40 out of my score, and a 25% price rise that showed up as $24 to $30 (37 x $30 = $1,110).",
+    "'Sal's game on this yard: $11,154. Beat it.' and 'You're level with Sal' give me a standard to measure against.",
+    "The 'What held you back' block names the bottleneck and the next step in plain words.",
+    "Lessons are short and each ends with one sentence I could repeat back.",
+    "The cards say what they do to the line right now ('Adds to this line now', 'On its own: nothing yet'), and the next shift's cards are shown ahead so I can plan."
+  ],
+  "bestMoment": "Lesson 3, third shift: I bought a $20 belt, the forecast said it would add $432 a shift, and the shift paid exactly $1,272 and the ledger balanced to the dollar at $3,926. A decision with a price, a prediction, a check, and it came true.",
+  "worstMoment": "Finishing lesson 2: I had calculated 40 plates from two feeds, got 24, saw the first hopper at '15 out' behind the end-of-lesson box, and could not close the box to find out why.",
+  "oneChange": "Stop lighting every drop spot in today's yard. Give me two cards that both look good and let me work out the better one with the forecast and my own arithmetic, then tell me per shift how I stand against Sal. That is the part I would come back for.",
+  "completionCode": "PZBQ-YBUF"
+}

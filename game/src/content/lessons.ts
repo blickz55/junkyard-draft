@@ -41,6 +41,7 @@ export interface Lesson {
 
 const R: Dir = 0;
 const D: Dir = 1;
+const L: Dir = 2;
 const U: Dir = 3;
 
 export const LESSONS: readonly Lesson[] = [
@@ -120,7 +121,7 @@ export const LESSONS: readonly Lesson[] = [
       { moves: [], start: 'lesson.startWatch', after: 'lesson.afterWatch' },
       {
         pick: { kind: 'tuner', say: 'lesson.pickTuner' },
-        moves: [{ do: 'place', kind: 'tuner', x: 4, y: 2, dir: R, say: 'lesson.dropTuner', about: [{ kind: 'tuner', key: 'lesson.about.tuner' }] }],
+        moves: [{ do: 'place', kind: 'tuner', x: 4, y: 2, dir: L, say: 'lesson.dropTuner', about: [{ kind: 'tuner', key: 'lesson.about.tuner' }] }], // facing the Splitter to come, so nothing goes in
         start: 'lesson.startTuner',
         after: 'lesson.afterTuner',
       },

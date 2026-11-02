@@ -247,7 +247,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     'div',
     { class: 'jd-dim', tid: 'today-line', style: 'font-size:0.8125em' },
     [
-      todayBest ? t('title.todayBest', { score: money(todayBest.score) }) : t('title.todayNotPlayed'),
+      todayBest ? t('title.todayBest', { score: money(todayBest.score) }) : save?.seed === todaySeed() ? t('title.todayUnderway') : t('title.todayNotPlayed'),
       daysPlayed() ? streakLine(daysPlayed(), currentStreak()) : '',
     ]
       .filter(Boolean)

@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
 import { RULES } from '../game/src/sim/rules';
-import { cardOf, litGame, printCard, yardTree, type TierGame, type YardResult, type Card } from './fun-lib';
+import { cardOf, litTier, printCard, yardTree, type TierGame, type YardResult, type Card } from './fun-lib';
 import { override } from './balance-lib';
 
 interface Variant {
@@ -42,7 +42,7 @@ function measure(seed: string, budget: number, deep: boolean, keepPaths = false)
   });
   // all three go where the coach points and move nothing after: a novice takes any card, a casual player one that says it helps, and a
   // competent one the card that helps most, which is Sal's game
-  const tiers = { novice: asPlain(litGame(seed, 'any')), casual: asPlain(litGame(seed, 'helps')), competent: asPlain(litGame(seed, 'most')) };
+  const tiers = { novice: asPlain(litTier(seed, 'any')), casual: asPlain(litTier(seed, 'helps')), competent: asPlain(litTier(seed, 'most')) };
   return { tree, tiers, deeper: deep ? yardTree(seed, budget * 8).best.score : undefined };
 }
 

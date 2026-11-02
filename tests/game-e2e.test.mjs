@@ -431,10 +431,14 @@ test(
     let lastBottleneck = '';
     for (let r = 2; r <= 6; r++) {
       await when((rr) => window.__jd.phase() === 'draft' && window.__jd.state().round === rr, r);
-      if (r === 3)
-        assert.ok((await page.getByTestId('last-shift').textContent()).includes(lastBottleneck), "the last shift's advice stays on screen through the pick");
+      // the last shift's advice stays on screen through the pick and the build, once: the same advice again is noise
+      const advice = async (what) => {
+        if (lastBottleneck.includes(' again, ')) assert.equal(await page.getByTestId('last-shift').count(), 0, `said once, not again: ${what}`);
+        else assert.ok((await page.getByTestId('last-shift').textContent()).includes(lastBottleneck), what);
+      };
+      if (r === 3) await advice('through the pick');
       await api('pick', 0);
-      if (r === 3) assert.ok((await page.getByTestId('last-shift').textContent()).includes(lastBottleneck), 'and through the build');
+      if (r === 3) await advice('and through the build');
       if (r === 2) {
         const before = (await api('state')).score;
         const binPart = (await api('state')).bin.find((m) => m.x < 0);
@@ -540,14 +544,18 @@ test(
     assert.equal(await page.locator('[data-testid=tie-rule]').count(), 0, 'the tie rule speaks only when two scores tie; the fair play page always has it');
     // the results card (production roadmap 0.9.2): the standing sentence leads, then the money, then the deltas; round bars, the board and the Play / Share / Watch rows follow in that order
     await textMatches('headline', /^#1 of 1 game on this yard$/, 10000);
-    assert.match(await page.getByTestId('delta-par').textContent(), /^(\+\$[\d,]+ over|−\$[\d,]+ under|exactly) Sal's mark$/, "Sal's mark delta");
+    assert.match(await page.getByTestId('delta-par').textContent(), /^(You beat Sal by \$[\d,]+|Sal beat you by \$[\d,]+|Level with Sal)$/, "Sal's mark delta");
     assert.equal(await page.getByTestId('delta-best').textContent(), 'your first game on this yard');
     const order = await page.evaluate(() =>
-      ['score', 'headline', 'deltas', 'actions-play', 'round-bars', 'board', 'actions-share', 'actions-watch']
+      ['score', 'deltas', 'headline', 'actions-play', 'round-bars', 'board', 'actions-share', 'actions-watch']
         .map((id) => document.querySelector(`[data-testid=${id}]`))
         .map((el, i, arr) => !!el && (i === 0 || (arr[i - 1].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0)),
     );
-    assert.deepEqual(order, Array(8).fill(true), 'the card reads money, standing, deltas, what to do next, shift bars, the board, Share, Watch');
+    assert.deepEqual(
+      order,
+      Array(8).fill(true),
+      'the card reads money, against Sal and your best, standing, what to do next, shift bars, the board, Share, Watch',
+    );
     for (const [w, hh] of [
       [390, 844],
       [1920, 1080],

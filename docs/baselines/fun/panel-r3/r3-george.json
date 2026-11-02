@@ -1,0 +1,62 @@
+{
+  "persona": "George",
+  "device": "phone",
+  "goalInOwnWords": "Build a line of machines that turns junk into something worth money and gets it to the dock. Each shift there is an order to fill, the money you make is your score, and you are trying to beat the foreman's score.",
+  "stoppedWhere": "Today's yard, on the 'Shift 1 done' screen between shift 1 and shift 2 of 6 ($888, order filled, level with Sal). I chose Menu, then Save and go home, then Give feedback.",
+  "stoppedWhy": "I had been at it a good twenty minutes, past the fifteen they asked for, and the end of the first real shift is a tidy place to stop. I was not bored and not stuck; if nobody were counting I would have done a shift or two more. I stopped because of the clock they gave me, not because the game lost me, but I was not hooked either.",
+  "lessonsFinished": 3,
+  "gamesFinished": 0,
+  "bestStars": 3,
+  "bestMoney": 3926,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Lesson 2, first set-up, the belt piece Sal said pointed the wrong way",
+      "what": "I tapped it once and nothing visible changed. I did not know whether I had broken it or whether it really needed two taps as Sal said.",
+      "gotOutHow": "Tapped it a second time and it turned straight toward the dock."
+    },
+    {
+      "where": "Lesson 2, after shift 1",
+      "what": "The forecast had said two stars and 36 of 40 plates, but I shipped 18. The red 'held things up' tag sat on the Press although Sal said the Press could take more. Two messages on the screen seemed to disagree and I could not tell which to believe.",
+      "gotOutHow": "Gave up on the tag. The next forecast (42 of 40 after I added a second feed, 18 plus 24) showed me that 'at this rate' means the whole job added up, not one shift."
+    },
+    {
+      "where": "Today's yard, shift 1, placing the second Furnace and the Splitter",
+      "what": "The forecast fell from $600 to $576 after I did exactly what Sal lit up, twice, and nothing said why.",
+      "gotOutHow": "Kept following the lit squares until the line was joined up; then it read $888 and the shift paid exactly that."
+    }
+  ],
+  "confused": [
+    "'Line closed. Start the shift.' in lesson 1: closed what? And the forecast said $37 with '0 of 20 ingots' while the checklist still showed Crusher and Furnace missing.",
+    "'You keep ONE part. The others go back on the truck.' I never learned why only one, and a spare Crusher or Furnace sat on my shelf from the start with no word on what it was for until Sal said 'the spare' much later.",
+    "Lesson 3 told me to pick the Tuner while a spare Furnace was already sitting on my shelf; my first thought was a second Furnace and I did not see why the Tuner came first.",
+    "The red 'held things up' tag: on the Press it contradicted Sal, and at the end of lesson 1 and lesson 3 it ran into the 'made' and 'shipped' labels so I could not read either.",
+    "'At this rate' in the forecast is never explained; it is the total over all the shifts, which I only worked out by arithmetic.",
+    "'Money for the board': the home screen says there is no leaderboard in this test version, so I do not know what the board is.",
+    "The first tap on a belt piece when Sal says 'tap it twice' shows no change, so I wondered if it was broken.",
+    "Buying a belt takes $20 off my score. It is explained, but a score that goes down startled me for a moment.",
+    "The box that opens today's yard is a dense paragraph: 'every price goes up 25% for the rest of the job' and 'from shift 4, plates sell for $24 too' I only half understood."
+  ],
+  "annoyed": [
+    "About fifteen seconds of watching rocks go down a belt every shift with nothing to do. There are speed buttons and a skip, but I did not dare use them in case they changed the result.",
+    "In all three lessons the foreman lights every square and every card, so I could not go wrong and never had to decide anything. It felt like a puzzle book with the answers already pencilled in.",
+    "The 'held things up' words blaming a machine that Sal then says is not at fault, and overlapping other labels.",
+    "The yard and the panels are dark and busy for my eyes; the small print on the home screen is faint."
+  ],
+  "pleased": [
+    "Every result is a plain sum I can check in my head: '37 x scrap @ $1 = $37', '24 x ingot @ $24 = $576'.",
+    "The forecast before I press Start ('This shift will pay $576 (up $465)') lets me test an idea before committing, like checking an answer fits before inking it.",
+    "Sal gives one short instruction at a time and a reason with it ('The Press only wants shards, so new scrap has to be crushed first'), and each lesson ends with a one-line summary I could copy into a margin.",
+    "Nothing rushes me: no timer, no way to lose, and Undo is there.",
+    "Lesson 3: watching the line back up behind the Furnace and being told in one sentence that it was the slowest machine.",
+    "After the first real shift: 'Order filled', 'You're level with Sal', and 'What held you back' with a plain hint for next time. A score to beat, set by a person, is exactly what I like."
+  ],
+  "bestMoment": "Lesson 3: seeing the first hopper and crusher go red as the line backed up behind the Furnace, then Sal saying in one plain sentence that the Furnace was the slowest machine. It was the first time I understood a reason by looking, not just by being told where to tap. A close second was 'You're level with Sal' after the first real shift.",
+  "worstMoment": "Lesson 2, after the first shift: the forecast had promised 36 plates and I made 18, and a red 'held things up' tag sat on the Press while Sal said the Press could take more. Two things on the screen seemed to disagree and I did not know which to trust.",
+  "oneChange": "After the first lesson, stop lighting every square: let me place the parts where I think they go, use the forecast to tell me whether I was right, and say plainly afterwards what held me back. Solving it myself is the part of a puzzle I would come back for.",
+  "completionCode": "VHVV-4KF5"
+}

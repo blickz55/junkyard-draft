@@ -1,0 +1,63 @@
+{
+  "persona": "Leo",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory line out of the parts you pick so it earns more money every shift, fill the orders to get stars, and try to beat the foreman Sal's score. Sal is a ghost you race.",
+  "stoppedWhere": "Second game, after shift 1 (I was $171 behind Sal). Opened Menu, Save and go home, then the feedback survey and got the code.",
+  "stoppedWhy": "I tied Sal to the dollar in my first game ($11,154) only because I copied his line by tapping the lit squares, and from shift 4 on the game stopped showing me where things go. To beat him I would have to redo all six shifts and I still would not know how to expand the line. No leaderboard or friends either, so nothing to show anyone. It was fine, I was not hooked.",
+  "lessonsFinished": 0,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 11154,
+  "playedAnotherByChoice": true,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 4 build, after picking Furnace + Splitter",
+      "what": "Sal said 'Tap the Furnace, then tap the belt' but no square was lit and there were two belts. I put the furnace on one, the forecast dropped from $2,100 to $2,058, then the splitter went on the last belt, a red mark appeared and Sal said 'Fix it'. Turning it crashed the forecast to $1,050. I could not work out where a third furnace is supposed to go.",
+      "gotOutHow": "Undid everything with Undo and started the shift with the line I had. The new furnace and splitter sat unused on the shelf."
+    },
+    {
+      "where": "Shift 4 to 6 hints",
+      "what": "The 'what held you back' note kept saying a Tuner or a second furnace behind a Splitter would clear it, after I already had both. The Show me button only repeated the furnace info card and was half hidden below the bottom edge of the screen.",
+      "gotOutHow": "Did not. Ignored the hint and kept starting shifts."
+    },
+    {
+      "where": "Shift 6 build, after picking Hopper + Crusher",
+      "what": "Sal said 'Tap the Scrap Hopper, then tap a spot in the yard' but the crusher was the part that got placed when I tapped, the shelf had scrolled sideways so the crusher was half off the edge, and no spot was lit. I put it somewhere useless.",
+      "gotOutHow": "Gave up and started the shift with the same line as the shift before."
+    }
+  ],
+  "confused": [
+    "'Ingots pay $24 each' in the job popup: I did not know what an ingot was until I saw the gold bars.",
+    "Sal says 'Conveyor' but the button says 'Buy a belt': same thing?",
+    "Cards that say 'On its own: nothing yet' with no hint of where they would help.",
+    "Parts swap places when I place them (a furnace knocked a belt back to the shelf, a splitter knocked the furnace back to the shelf).",
+    "The repeated hint about a Tuner/second furnace when I already had them.",
+    "'You're level with Sal' every single shift; I only worked out later that I was copying Sal's exact line.",
+    "End screen says '288 x ingot ($48 each) = $13,824' but my score is $11,154; the numbers do not add up.",
+    "'Show me' button sits half off the bottom of the screen and only reopens the furnace info."
+  ],
+  "annoyed": [
+    "The guidance cliff: three shifts of 'tap the lit spot', then 'tap the belt' with nothing lit, then 'a spot in the yard'.",
+    "The red 'fix it' mark that I could not fix, and Turn making the forecast worse.",
+    "Playing again means redoing the same easy first shifts by tapping, with no way to jump to the part I want to improve.",
+    "No leaderboard, so I cannot show a friend.",
+    "Missed an order by $52 and the game did not give me any way to see what to change."
+  ],
+  "pleased": [
+    "Shifts are short, about 10 to 15 seconds, and the money counter ticking up is satisfying.",
+    "'This shift will pay $X, that fills the order' updating live while I build is great, like a cheat code.",
+    "'Sal's game on this yard: $11,154. Beat it.' gives me a score to chase straight away.",
+    "Tap a part, tap the lit square, belts turn themselves: easy at the start.",
+    "The 'junk pile, nothing can stand here: go around it' bubble was clear and instant.",
+    "Skip to end of shift and 1x/2x/4x speeds exist.",
+    "Near misses like $52 short sting in a good way, and the 'You're $171 behind Sal' message is clear."
+  ],
+  "bestMoment": "Shift 2 and 3: the line running, gold bars glowing in the furnaces, +$30 pops on the crate and the score jumping to $4,158 while 'You're level with Sal' showed.",
+  "worstMoment": "Shift 4 build: following Sal's instructions made the forecast go down, a red 'fix it' mark appeared that I could not fix, and I undid everything and just pressed start.",
+  "oneChange": "Keep telling me where a new part goes (or let me see what it would add before I commit) all the way to the last shift, and add a leaderboard or friends so beating Sal's number means something I can show people.",
+  "completionCode": "SKPP-MMD9"
+}

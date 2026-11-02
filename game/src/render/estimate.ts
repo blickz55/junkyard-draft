@@ -34,6 +34,22 @@ const NOTHING: Try = { earned: 0, plan: [] };
 const blocked = (l: Layout, x: number, y: number) => x < 0 || y < 0 || x >= l.width || y >= l.height || !!l.rubble?.includes(y * l.width + x);
 const at = (l: Layout, x: number, y: number) => l.machines.find((m) => m.x === x && m.y === y);
 const part = (kind: MachineKind, x: number, y: number, dir: Dir, id = -1): Machine => ({ id, kind, x, y, dir });
+/**
+ * What a try earns, with a sliver for free cells beside the machines that do the work. It only ever breaks a tie, and it matters: the first
+ * spot found boxed a line in by shift 4, and then no card had a spot left at all (the third panel).
+ */
+function worth(l: Layout, machines: Machine[]): number {
+  let room = 0;
+  for (const m of machines) {
+    if (m.kind !== 'crusher' && m.kind !== 'furnace' && m.kind !== 'press') continue;
+    for (const d of ALL) {
+      const x = m.x + DIR_DX[d],
+        y = m.y + DIR_DY[d];
+      if (!blocked(l, x, y) && !machines.some((q) => q.x === x && q.y === y)) room++;
+    }
+  }
+  return runLayout({ ...l, machines }).earned + room / 1000;
+}
 
 /** The best a single part can do, on a free cell or in place of a belt piece. */
 function single(l: Layout, kind: MachineKind): Try {
@@ -45,8 +61,8 @@ function single(l: Layout, kind: MachineKind): Try {
       const under = at(l, x, y);
       if (under && under.kind !== 'conveyor') continue;
       const rest = under ? l.machines.filter((m) => m !== under) : l.machines;
-      for (const dir of faces) {
-        const earned = runLayout({ ...l, machines: [...rest, part(kind, x, y, dir)] }).earned;
+      for (const dir of kind === 'tuner' && under ? [under.dir] : faces) {
+        const earned = worth(l, [...rest, part(kind, x, y, dir)]);
         if (earned > best.earned) best = { earned, plan: [{ kind, x, y, dir }] };
       }
     }
@@ -67,7 +83,7 @@ function feed(l: Layout): Try {
           if (blocked(l, hx, hy) || at(l, hx, hy)) continue;
           const hopper = part('hopper', hx, hy, ((side + 2) % 4) as Dir, -2);
           const crusher = part('crusher', x, y, dir);
-          const earned = runLayout({ ...l, machines: [...l.machines, crusher, hopper] }).earned;
+          const earned = worth(l, [...l.machines, crusher, hopper]);
           if (earned > best.earned) best = { earned, plan: [hopper, crusher].map(({ kind, x, y, dir }) => ({ kind, x, y, dir })) };
         }
     }
@@ -122,7 +138,7 @@ function branch(l: Layout, kind: MachineKind, belts: number): Try {
               for (const d2 of ALL) tries.push([b1, part('conveyor', nx, ny, d2, -4)]);
             }
           for (const route of tries) {
-            const earned = runLayout({ ...l, machines: [...base, twin, ...route] }).earned;
+            const earned = worth(l, [...base, twin, ...route]);
             if (earned > best.earned) best = { earned, plan: [...front, splitter, ...filler, twin, ...route].map(plain) };
           }
         }
@@ -142,5 +158,6 @@ export function cardGain(layout: Layout, parts: readonly MachineKind[], belts = 
     return b.earned > s.earned ? b : s;
   };
   const best = !kit ? single(layout, parts[0]) : parts[0] === 'hopper' ? feed(layout) : twin(parts[0]);
-  return best.earned > base ? { gain: best.earned - base, plan: best.plan } : { gain: 0, plan: [] };
+  const gain = Math.floor(best.earned) - base;
+  return gain > 0 ? { gain, plan: best.plan } : { gain: 0, plan: [] };
 }

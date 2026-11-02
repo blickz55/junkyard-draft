@@ -314,7 +314,7 @@ test('every_live_save_remains_resumable: seed bounds apply at creation and the a
   assert.equal(actionBudget(s).essential >= 0, true);
 });
 
-test('tuner (rules v3, PLAN-v2 0.5.3): adjacent processors hold one tick less on any side, never under one tick, tuners do not stack, nothing else is affected, no item ever enters a tuner', () => {
+test('tuner (rules v3, v8): adjacent processors hold one tick less on any side, never under one tick, tuners do not stack, nothing else is affected, no item ever enters a tuner', () => {
   const line = (extra: Machine[]) => runLayout(lay(m('hopper', 0, 1), m('crusher', 1, 1), m('furnace', 2, 1), m('dock', 3, 1), ...extra), 60);
   const plain = line([]);
   for (const [x, y] of [
@@ -348,10 +348,14 @@ test('tuner (rules v3, PLAN-v2 0.5.3): adjacent processors hold one tick less on
   const convPlain = runLayout(lay(m('hopper', 0, 1), m('conveyor', 1, 1), m('conveyor', 2, 1), m('dock', 3, 1)), 40);
   assert.equal(conv.earned, convPlain.earned);
   assert.equal((conv.cellStats[cellIndex(1, 0, 8)]?.tuned ?? 0) + (conv.cellStats[cellIndex(3, 0, 8)]?.tuned ?? 0), 0);
-  // nothing enters a tuner: a hopper facing it is blocked
-  const blocked = runLayout(lay(m('hopper', 0, 1), m('tuner', 1, 1)), 10);
-  assert.equal(blocked.spawned, 0);
-  assert.ok((blocked.cellStats[cellIndex(0, 1, 8)]?.blockedTicks ?? 0) > 0);
+  // it carries what a belt carries (rules v8), and head-on nothing goes in
+  const carried = runLayout(lay(m('hopper', 0, 1), m('tuner', 1, 1), m('dock', 2, 1)), 20);
+  assert.ok(carried.shipped.scrap > 0, 'a Tuner in the line passes things on');
+  const headOn = runLayout(lay(m('hopper', 0, 1), m('tuner', 1, 1, 2)), 10);
+  assert.equal(headOn.spawned, 0);
+  // a Hopper it touches drops scrap every second instead of every two
+  const fed = (extra: Machine[]) => runLayout(lay(m('hopper', 0, 1), m('conveyor', 1, 1), m('dock', 2, 1), ...extra), 40).spawned;
+  assert.ok(fed([m('tuner', 0, 0)]) > fed([]) * 1.8, 'a tuned Hopper drops about twice as much');
   // conservation holds with tuners in the line
   const t = line([m('tuner', 2, 0)]);
   assert.ok(t.spawned >= Object.values(t.shipped).reduce((a, b) => a + b, 0) + t.absorbed);

@@ -5,10 +5,14 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
-### Rules version 7: orders — 2026-11-02 (saves and scores from version 5 do not carry over)
+### Rules version 8: orders — 2026-11-02 (saves and scores from version 5 do not carry over)
 - **Beat Sal.** The foreman plays every yard too. The job card says what he made of it, each shift tells you how far ahead or behind you are, and the results let you watch his game.
 - **Lit spots.** After a pick the game shows where its parts earn their keep, one spot at a time, and the part already faces the right way. Put it somewhere else if you know better.
-- **A card says whether it helps, not how much.** It says "Adds to this line now" or "On its own: nothing yet". What it really adds shows once it is built.
+- **A card says whether it fits, not how much.** It says "Fits this line now" or "No easy spot yet". What it really adds shows once it is built, and a pick can be taken back until the shift starts, so you can try one and see.
+- **The Tuner goes in the line.** It carries what a belt carries, and every machine it touches works a second faster, a Hopper too.
+- **Try again from the first order you missed.** It goes on no board, and it saves building the same first shifts again.
+- **Move** picks a machine up on purpose, and a tap on the lit spot needs nothing in hand. Lit spots can be turned off on the job card.
+- **An order filled is a moment:** a band across the yard, and stars that land one at a time at the end.
 - **Six orders.** Each shift has an order in money, and each one is bigger than the last. Fill it and every price rises 25 % for the rest of the game. Miss it and you lose only that raise. Stars are for orders filled: two, four and six.
 - **The line already runs.** Every yard opens with the Crusher and the job's machine on the belt, so the first shift pays and the first choice is how to make it pay more.
 - **A card can pay by itself.** A Hopper brings a Crusher with it, and the job's machine brings a Splitter.

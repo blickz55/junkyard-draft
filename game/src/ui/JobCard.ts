@@ -12,9 +12,10 @@ import { isMintedDailySeed } from '../sim/daily';
 import { RULES } from '../sim/rules';
 import { t } from '../content/strings';
 import { int, money } from '../content/format';
-import { jobFlavour, jobLine, jobRecipe, materialMany, otherMaterial, starMarks } from '../content/job';
+import { jobFlavour, jobLine, jobRecipe, materialMany, starMarks } from '../content/job';
 import { machineShort } from '../content/machines';
 import { salLater } from '../render/sal';
+import { loadSettings, updateSettings } from '../render/storage';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** Stars as marks: the three targets side by side. */
@@ -48,6 +49,8 @@ export const recipeRow = (job: Job, built?: (kind: string) => boolean) =>
     }),
   );
 
+const lightsLabel = () => t(loadSettings().lights ? 'job.lightsOn' : 'job.lightsOff');
+
 export function openJobCard(scene: Phaser.Scene, seed: string, job: Job, onStart: () => void) {
   const salMark = h('div', { class: 'jd-amber', tid: 'sal-mark' });
   if (job.orders) salLater(seed, (g) => (salMark.textContent = t('job.salMark', { amount: money(g.score) })));
@@ -74,15 +77,26 @@ export function openJobCard(scene: Phaser.Scene, seed: string, job: Job, onStart
         'div',
         { class: 'jd-dim', tid: 'job-why' },
         job.orders
-          ? [
-              t('job.pays', { mat: cap(materialMany(job.material)), price: money(RULES.job.price) }),
-              t('job.ordersWhy', { raise: RULES.job.raise }),
-              t('job.buyer', { n: RULES.job.secondBuyerFrom, mat: materialMany(otherMaterial(job)), price: money(RULES.job.price) }),
-            ].join(' ')
+          ? t('job.ordersWhy', { raise: RULES.job.raise })
           : `${t('job.pays', { mat: cap(materialMany(job.material)), price: money(RULES.job.price) })} ${t('job.why')}`,
       ),
     ],
-    choices: [{ label: t('job.start'), tid: 'job-start', primary: true, run: onStart }],
+    choices: [
+      { label: t('job.start'), tid: 'job-start', primary: true, run: onStart },
+      ...(job.orders
+        ? [
+            {
+              label: lightsLabel(),
+              tid: 'job-lights',
+              keepOpen: true,
+              run: (b?: HTMLButtonElement) => {
+                updateSettings({ lights: !loadSettings().lights });
+                if (b) b.textContent = lightsLabel();
+              },
+            },
+          ]
+        : []),
+    ],
     onDismiss: onStart,
   });
 }

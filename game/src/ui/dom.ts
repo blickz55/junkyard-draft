@@ -158,7 +158,11 @@ const STYLE = `
 #ui .jd-actions { gap: 0.5em; margin-top: 0.3em; justify-content: center; }
 #ui .jd-results-job { display: flex; flex-direction: column; align-items: center; }
 #ui .jd-results-stars { font-size: 3em; line-height: 1; letter-spacing: 0.08em; color: #4a4235; }
-#ui .jd-results-stars .on { color: #f5c542; text-shadow: 0 0 0.4em rgba(245, 197, 66, 0.5); display: inline-block; }
+#ui .jd-results-stars .on { color: #f5c542; text-shadow: 0 0 0.4em rgba(245, 197, 66, 0.5); display: inline-block; animation: jd-star-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+#ui .jd-results-stars .on:nth-child(2) { animation-delay: 0.35s; }
+#ui .jd-results-stars .on:nth-child(3) { animation-delay: 0.7s; }
+@keyframes jd-star-in { from { transform: scale(3) rotate(-25deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+#ui.jd-reduced-motion .jd-results-stars .on { animation: none; }
 #ui .jd-results-jobline { font-family: var(--jd-display); font-weight: 700; font-size: 1.5em; line-height: 1.15; }
 #ui .jd-results-score { font-family: var(--jd-display); font-size: 3.5em; font-weight: 700; line-height: 1.05; }
 #ui .jd-results-rank { font-size: 0.875em; margin-top: 0.25em; }

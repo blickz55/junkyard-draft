@@ -3,7 +3,7 @@
  * output directions, whether the neighbour takes items from that side. Pure geometry from sim/advice.ts, the same answer the
  * ghost's arrows and the placement warnings give; nothing is simulated. The drawing half takes a Graphics and a cell mapper.
  */
-import type { Layout, Dir } from '../sim/types';
+import type { Layout, Dir, Machine } from '../sim/types';
 import { DIR_DX, DIR_DY } from '../sim/rules';
 import { inputTravelDirs, outputDirs } from '../sim/advice';
 import { CELL } from './textures';
@@ -19,7 +19,12 @@ export interface FlowLink {
 
 export function flowLinks(layout: Layout): FlowLink[] {
   const out: FlowLink[] = [];
-  for (const m of layout.machines)
+  const fed = (m: Machine) =>
+    layout.machines.some((q) =>
+      outputDirs(q.kind, q.dir).some((o) => q.x + DIR_DX[o] === m.x && q.y + DIR_DY[o] === m.y && inputTravelDirs(m.kind, m.dir).includes(o)),
+    );
+  for (const m of layout.machines) {
+    if (m.kind === 'tuner' && !fed(m)) continue; // beside a machine it carries nothing: nothing can stop there
     for (const o of outputDirs(m.kind, m.dir)) {
       const nx = m.x + DIR_DX[o],
         ny = m.y + DIR_DY[o];
@@ -28,6 +33,7 @@ export function flowLinks(layout: Layout): FlowLink[] {
       if (!ok && m.kind === 'splitter' && o !== m.dir) continue; // a Splitter's sides are there if wanted: an open side is no fault
       out.push({ x: m.x, y: m.y, dir: o, ok, ...(ok && m.kind === 'conveyor' && target.kind === 'conveyor' ? { belt: true } : {}) });
     }
+  }
   return out;
 }
 

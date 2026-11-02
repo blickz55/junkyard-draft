@@ -73,7 +73,7 @@ export function buildPolicy(): Policy {
         `${RULES.rounds} rounds on an ${RULES.gridWidth}×${RULES.gridHeight} grid, ${RULES.ticksPerRound} ticks per round. Score = total money shipped.`,
         `Belts: bought one at a time while building, $${RULES.beltCost} each from the running score, refused below it or when the shelf's ${RULES.shelfSlots} slots are full. Conveyors are never offered in the draft. A spare part sells for $${RULES.sellValue}, so buying and selling never pays.`,
         `Reroll: once per round in the draft for $${RULES.rerollCost} from the running score; the new offers come from their own stream, so a reroll never changes a later round.`,
-        `Tuner: adjacent crusher, furnace and press work ${RULES.tunerBonus} tick faster; offered from round ${RULES.offerFromRound.tuner ?? 1}.`,
+        `Tuner: adjacent hopper, crusher, furnace and press work ${RULES.tunerBonus} tick faster, and it carries what a belt carries; offered from round ${RULES.job.tunerFrom} on a job's yard.`,
         `Late-round offer guarantee ("lateOfferGuarantee"): ${RULES.lateOfferGuarantee.rounds.length ? `in rounds ${RULES.lateOfferGuarantee.rounds.join(', ')} a draft always carries a ${RULES.lateOfferGuarantee.kinds.join(' or ')}` : 'off: measured in the 0.9.6 study and not shipped; every draft is the plain draw'}.`,
         `The full tuning table (prices, weights, process times) is the "rules" object of this document.`,
       ],
@@ -87,7 +87,7 @@ export function buildPolicy(): Policy {
         'Pausing a round and stepping it one tick at a time while paused (the Step button or the "." key) are allowed everywhere, the ranked daily included: they change how you watch the simulation, never what it does, and a replay carries no timing.',
         'One best entry per player per seed: a better verified run replaces the earlier one and its stored replay; an equal or worse run is verified but not recorded. Anonymous entries (no identity) are never claimable and stay as they are.',
         `Retention: stored replays for each seed's top ${DEFAULT_REPLAYS_PER_SEED} entries; at most ${DEFAULT_MAX_ENTRIES_PER_SEED} entries per seed and ${DEFAULT_MAX_SEEDS} seeds (least recently active dropped); boards return at most ${MAX_BOARD_LIMIT} entries, the daily ${MAX_DAILY_LIMIT}, the archive ${MAX_ARCHIVE_LIMIT} days per page.`,
-        "Bot par is the shipped autoplayer's median on a seed, computed by the verifier: a target labelled as a bot, never an entry.",
+        "The foreman's mark is Sal's game on a seed: each round the card that adds most to the line as it stands, built where the game's own estimate says. The game and the verifier work it out the same way. It is a target labelled as his, never an entry.",
       ],
     },
     {

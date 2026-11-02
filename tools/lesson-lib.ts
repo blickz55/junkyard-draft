@@ -4,6 +4,7 @@
  */
 import { apply, newRun, type Action, type RunState } from '../game/src/sim/run';
 import { dropActions } from '../game/src/render/placement';
+import { plannedFacing } from '../game/src/render/guide';
 import type { Lesson, Move } from '../game/src/content/lessons';
 
 /** What a player does for one move of a script. */
@@ -15,6 +16,7 @@ export function actionsFor(s: RunState, m: Move): Action[] {
         s.bin.find((q) => q.kind === m.kind)!,
         m.x,
         m.y,
+        plannedFacing(s, m.kind, m.x, m.y),
       );
     case 'turn':
       return [{ t: 'rotate', id: s.layout.machines.find((q) => q.x === m.x && q.y === m.y)!.id }];
