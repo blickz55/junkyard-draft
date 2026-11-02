@@ -748,7 +748,8 @@ export class GamePanel {
   }
 
   private renderBuild(s: PanelState, r: RunState) {
-    const advice = s.lesson ? null : this.lastShift(r);
+    // the advice stays until the line changes: after that it reads as being about the new line, and the forecast speaks for that
+    const advice = s.lesson || this.lineChanged(r) ? null : this.lastShift(r);
     if (advice) this.side.append(advice);
     const recipe = this.recipe(r);
     if (recipe) this.side.append(recipe);
@@ -856,6 +857,16 @@ export class GamePanel {
     );
   }
 
+  private lineChanged(r: RunState): boolean {
+    const was = r.rounds[r.rounds.length - 1]?.layout;
+    const sig = (machines: readonly Machine[]) =>
+      machines
+        .map((m) => `${m.id}.${m.x}.${m.y}.${m.dir}`)
+        .sort()
+        .join();
+    return !!was && sig(was.machines) !== sig(r.layout.machines);
+  }
+
   /** What things sell for: built once and re-appended (it never changes on one yard); closed until asked. */
   private legend(): HTMLElement {
     if (this.legendEl) return this.legendEl;
@@ -954,6 +965,8 @@ export class GamePanel {
       );
     }
     if (r.sold) this.side.append(h('div', { class: 'jd-dim', style: 'font-size:0.8125em' }, t('game.soldParts', { amount: money(r.sold) })));
+    const spent = r.rerolls * RULES.rerollCost + r.belts * RULES.beltCost;
+    if (spent) this.side.append(h('div', { class: 'jd-dim', tid: 'spent', style: 'font-size:0.8125em' }, t('game.spent', { amount: money(spent) })));
     this.side.append(this.legend());
   }
   /** Where the job stands after this shift, in one line; empty on a yard with no job. */
@@ -961,10 +974,7 @@ export class GamePanel {
     const p = paceOf(r);
     if (!p || !r.job) return '';
     const done = t('job.shift', { n: int(p.thisShift), mat: materialOf(r.job.material, p.thisShift) });
-    if (p.nextStar == null) return `${done} · ${t('job.got')}`;
-    return p.perShift == null
-      ? done
-      : `${done} · ${t('job.more', { n: int(p.perShift), mat: materialOf(r.job.material, p.perShift), stars: starMarks(p.nextStar) })}`;
+    return p.nextStar == null ? `${done} · ${t('job.got')}` : done;
   }
   /** Against the shift before: a pick that worked has to show. */
   private shiftChange(r: RunState): HTMLElement | null {
@@ -1036,6 +1046,7 @@ export class GamePanel {
     const layer = this.gridLayer;
     layer.replaceChildren();
     layer.append(h('div', { class: 'jd-grid-dim' }));
+    const culprit = analyseRound(rec.layout, res, rec.round + 1).machine?.id;
     for (const m of g.machines) {
       const st = res.cellStats[cellIndex(m.x, m.y, g.width)];
       let line1 = '';
@@ -1044,7 +1055,7 @@ export class GamePanel {
       let warn = true;
       if (m.kind === 'hopper') {
         line1 = st ? t('game.badgeOut', { n: int(st.spawned) }) : t('game.badgeIdle');
-        if (st && st.blockedTicks > 5) line2 = t('game.badgeBlocked', { n: int(st.blockedTicks) });
+        if (st && m.id === culprit) line2 = t('game.badgeBlocked', { n: int(st.blockedTicks) });
         if (!st) cls = 'jd-dim';
       } else if (m.kind === 'dock') {
         if (st && st.shipped) {
@@ -1059,7 +1070,7 @@ export class GamePanel {
       } else if (m.kind === 'crusher' || m.kind === 'furnace' || m.kind === 'press') {
         line1 = st && st.passed ? t('game.badgeMade', { n: int(st.processed) }) : t('game.badgeUnused');
         if (!st || !st.processed) cls = 'jd-dim';
-        if (st && st.jammedTicks > 8) line2 = t('game.badgeWaited', { n: int(st.jammedTicks) });
+        if (st && m.id === culprit) line2 = t('game.badgeHeldUp');
         else if (m.kind === 'press' && st && st.stored) {
           line2 = t('game.badgeHeld', { n: int(st.stored) });
           warn = false;
@@ -1074,7 +1085,7 @@ export class GamePanel {
           cls = 'jd-dim';
         }
       } else {
-        if (st && st.jammedTicks > 8) line2 = t('game.badgeWaited', { n: int(st.jammedTicks) });
+        if (st && m.id === culprit) line2 = t('game.badgeHeldUp');
         else if (!st || !st.passed) {
           line1 = t('game.badgeUnused');
           cls = 'jd-dim';

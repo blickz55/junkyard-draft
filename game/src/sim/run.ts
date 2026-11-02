@@ -120,6 +120,12 @@ export function starterLayout(seed = 'classic-yard'): { layout: Layout; nextId: 
   if (yard.job) layout.premium = yard.job.material;
   return { layout, nextId: id };
 }
+/** What a card puts on the shelf: on trial, a Hopper comes with its Crusher and a Furnace with its Splitter, so that one pick can always widen the line. */
+export function cardParts(kind: MachineKind): MachineKind[] {
+  if (TRIAL.kits && kind === 'hopper') return ['hopper', 'crusher'];
+  if (TRIAL.kits && kind === 'furnace') return ['furnace', 'splitter'];
+  return [kind];
+}
 /** What a shift changes about the yard, for the rules on trial. */
 export function shiftTerms(seed: string, round: number, job: Job | null): Pick<Layout, 'feed' | 'premium2'> {
   if (!job || isTutorialSeed(seed)) return {};
@@ -232,7 +238,7 @@ export function apply(s: RunState, a: Action): RunState {
       if (s.phase !== 'draft') throw new RunError('not drafting');
       if (a.i < 0 || a.i >= s.offers.length) throw new RunError('bad offer index');
       const kind = s.offers[a.i];
-      s.bin.push({ id: s.nextId++, kind, x: -1, y: -1, dir: 0 });
+      for (const part of cardParts(kind)) s.bin.push({ id: s.nextId++, kind: part, x: -1, y: -1, dir: 0 });
       s.picks.push(kind);
       s.phase = 'build';
       break;

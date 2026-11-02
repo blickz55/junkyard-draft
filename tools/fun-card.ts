@@ -45,6 +45,17 @@ export const RUINED: Variant[] = [
   { label: 'two-second shifts', rules: { ticksPerRound: 12 } },
   { label: 'a yard the size of a table', rules: { 'yard.rubbleMin': 18, 'yard.rubbleMax': 22 } },
 ];
+/** The deal when a Hopper brings its Crusher and a Furnace its Splitter: those two stop being cards of their own. */
+const KIT_DEAL = {
+  'draftWeights.crusher': 0,
+  'draftWeights.splitter': 0,
+  'draftWeights.hopper': 20,
+  'draftWeights.furnace': 20,
+  'draftWeights.tuner': 14,
+  'draftWeights.dock': 8,
+  'draftWeights.press': 10,
+  'offerFromRound.tuner': 2,
+};
 /** Rules on trial. */
 const TRIALS: Variant[] = [
   { label: 'splitter ahead', trial: { splitterAhead: 1 } },
@@ -64,6 +75,11 @@ const TRIALS: Variant[] = [
   },
   { label: 'head easy buyer', trial: { headStart: 1, splitterAhead: 1, sideEntry: 1, buyerFrom: 4 } },
   { label: 'head easy ramp buyer', trial: { headStart: 1, splitterAhead: 1, sideEntry: 1, rampFrom: 4, buyerFrom: 4 } },
+  { label: 'kits', trial: { kits: 1 }, rules: KIT_DEAL },
+  { label: 'head kits', trial: { kits: 1, headStart: 1 }, rules: KIT_DEAL },
+  { label: 'head easy kits', trial: { kits: 1, headStart: 1, splitterAhead: 1, sideEntry: 1 }, rules: KIT_DEAL },
+  { label: 'head easy kits buyer', trial: { kits: 1, headStart: 1, splitterAhead: 1, sideEntry: 1, buyerFrom: 4 }, rules: KIT_DEAL },
+  { label: 'easy kits', trial: { kits: 1, splitterAhead: 1, sideEntry: 1 }, rules: KIT_DEAL },
   { label: 'tuner hopper', trial: { tunerHopper: 1 } },
   { label: 'tuner all', trial: { tunerHopper: 1, tunerStack: 1 } },
   { label: 'tuner all common', trial: { tunerHopper: 1, tunerStack: 1 }, rules: { 'draftWeights.tuner': 24, 'offerFromRound.tuner': 2 } },

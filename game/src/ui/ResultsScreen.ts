@@ -691,7 +691,7 @@ export function mountResults(
     } catch {
       showOfflineBoard();
       if (!o.replayed) setHeadline(t('results.headOffline'), false);
-      if (!foremanSettled && !o.replayed) {
+      if (!foremanSettled && !o.replayed && !isTestEdition()) {
         setForeman(foreman, foremanSays('resultsOffline'));
         foremanSettled = true;
       }

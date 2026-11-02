@@ -6,7 +6,7 @@ import type Phaser from 'phaser';
 import { h } from './dom';
 import { choiceDialog } from './choice';
 import type { Job } from '../sim/yard';
-import { isTutorialSeed } from '../sim/yard';
+import { isTutorialSeed, TUTORIAL_SEED } from '../sim/yard';
 import { isWeeklySeed } from '../sim/weekly';
 import { isMintedDailySeed } from '../sim/daily';
 import { RULES } from '../sim/rules';
@@ -40,7 +40,16 @@ export const recipeRow = (job: Job, built?: (kind: string) => boolean) =>
   );
 
 export function openJobCard(scene: Phaser.Scene, seed: string, job: Job, onStart: () => void) {
-  const head = isTutorialSeed(seed) ? 'job.headLesson' : isWeeklySeed(seed) ? 'job.headWeek' : isMintedDailySeed(seed) ? 'job.headToday' : 'job.head';
+  const head =
+    seed === TUTORIAL_SEED
+      ? 'job.headLesson'
+      : isTutorialSeed(seed)
+        ? 'job.head'
+        : isWeeklySeed(seed)
+          ? 'job.headWeek'
+          : isMintedDailySeed(seed)
+            ? 'job.headToday'
+            : 'job.head';
   choiceDialog(scene, {
     title: t(head),
     tid: 'job-card',

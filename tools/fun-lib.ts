@@ -6,7 +6,7 @@
  * second try at a day's yard. Nothing here is player-facing and nothing under game/src may import it.
  */
 import { DIR_DX, DIR_DY, RULES } from '../game/src/sim/rules';
-import { draftOffers, newRun, shiftTerms } from '../game/src/sim/run';
+import { cardParts, draftOffers, newRun, shiftTerms } from '../game/src/sim/run';
 import { analyseRound } from '../game/src/sim/bottleneck';
 import { createSim, step } from '../game/src/sim/sim';
 import { Rng } from '../game/src/sim/rng';
@@ -277,7 +277,7 @@ export function yardTree(seed: string, budget: number, keepPaths = false): YardT
     const price = RULES.beltCost / Math.max(1, rounds - held.length + 1);
     const p = solve(
       { ...(parent ? parent.layout : run.layout), ...shiftTerms(seed, Math.max(1, held.length), run.job) },
-      [...(parent?.spare ?? []), ...(added ? [added] : [])],
+      [...(parent?.spare ?? []), ...(added ? cardParts(added) : [])],
       free,
       price,
       parent ? budget : 0,

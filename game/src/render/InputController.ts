@@ -78,6 +78,9 @@ export interface InputHost {
   binSlotXY(i: number): { px: number; py: number };
 }
 
+/** How long a refusal stays on the yard. */
+const REFUSAL_MS = 5000;
+
 export class InputController {
   dragging: MachineView | null = null;
   private dragFrom: { x: number; y: number } | null = null;
@@ -465,6 +468,10 @@ export class InputController {
   showReject(text: string, cell: { x: number; y: number } | null) {
     this.lastReject = text;
     this.showToast({ text, kind: 'refusal', x: cell?.x ?? this.cursor?.x ?? 0, y: cell?.y ?? this.cursor?.y ?? 0 });
+    const shown = this.toast;
+    setTimeout(() => {
+      if (this.toast === shown) this.clearToast('refusal'); // a note left standing reads as a new refusal of the next thing tried
+    }, REFUSAL_MS);
   }
   showToast(toast: Toast) {
     this.toast = toast;

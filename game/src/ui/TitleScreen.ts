@@ -226,6 +226,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     { class: 'jd-dim', tid: 'daily-mode', style: 'font-size:0.8125em; white-space:nowrap', title: t('title.modeTitle') },
     cachedDaily() ? t('common.minted') : t('title.modePracticeUntil'),
   );
+  if (testing) modeSpan.style.display = 'none'; // there is nothing else for today's yard to be, so "practice" only raises the question
   const jobBox = h('div', { tid: 'today-job' });
   const showJob = (seed: string) => {
     const job = yardFor(seed).job;
