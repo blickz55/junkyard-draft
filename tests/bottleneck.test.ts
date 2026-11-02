@@ -33,8 +33,8 @@ test('saturated furnace: hopper → crusher → furnace → dock; the furnace (3
   assert.deepEqual(analyseRound(L, runLayout(L), 4), b, 'deterministic');
 });
 
-test('blocked hopper: a hopper pushing into the side of a crusher is blocked on every try; the fix is a rotation, not a draft', () => {
-  const { b, line } = analyse(lay(m('hopper', 1, 2), m('crusher', 2, 2, 3), m('dock', 2, 1)));
+test('blocked hopper: a hopper pushing head-on into a machine is blocked on every try; the fix is a rotation, not a draft', () => {
+  const { b, line } = analyse(lay(m('hopper', 1, 2), m('crusher', 2, 2, 2), m('dock', 2, 1)));
   assert.equal(b.kind, 'dead-end');
   assert.equal(b.machine?.kind, 'hopper');
   assert.equal(b.count, RULES.ticksPerRound / RULES.hopperPeriod);

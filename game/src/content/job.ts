@@ -16,7 +16,9 @@ export const materialMany = (m: Material): string => t(`material.${m}.many` as S
 export const materialOf = (m: Material, n: number): string => (n === 1 ? t(`material.${m}` as StringKey) : materialMany(m));
 /** The job's target is its third star. */
 export const jobTarget = (job: Job): number => job.stars[2];
-export const jobLine = (job: Job): string => t('job.ship', { n: int(jobTarget(job)), mat: materialMany(job.material) });
+export const jobLine = (job: Job): string => (job.orders ? t('job.orders') : t('job.ship', { n: int(jobTarget(job)), mat: materialMany(job.material) }));
+/** The other product, which a second buyer starts paying the job's price for. */
+export const otherMaterial = (job: Job): Material => (job.material === 'ingot' ? 'plate' : 'ingot');
 export const starMarks = (n: number): string => '★'.repeat(n);
 /** What a star says as it lands. The first two say nothing: the stars on the bar are the news. The third says the job is done. */
 export const starWords = (n: number): string | null => (n === 3 ? t('job.done') : null);

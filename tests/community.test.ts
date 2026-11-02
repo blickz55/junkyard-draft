@@ -26,7 +26,6 @@ import { t, type StringKey } from '../game/src/content/strings';
 import { apply, newRun } from '../game/src/sim/run';
 import { encodeReplay, exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
-import { dropOnLine } from './e2e/line';
 
 const TABLES = [
   'accounts',
@@ -61,12 +60,12 @@ function playedRun(seed: string, pick = 0) {
   }
   return s;
 }
-/** A game that ships more than `playedRun`: the first shift builds the recipe's first step. */
+/** A game that scores more than `playedRun`: it sells what each shift leaves on the shelf. */
 function betterRun(seed: string) {
   const s = newRun(seed);
   for (let r = 1; r <= RULES.rounds; r++) {
-    apply(s, { t: 'pick', i: Math.max(0, s.offers.indexOf('crusher')) });
-    if (r === 1) dropOnLine(s, 'crusher');
+    apply(s, { t: 'pick', i: 0 });
+    while (s.bin.length) apply(s, { t: 'sell', id: s.bin[0].id });
     apply(s, { t: 'run' });
     apply(s, { t: 'next' });
   }

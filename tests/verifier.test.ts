@@ -1555,6 +1555,7 @@ test('cold storage: frozen days older than HOT_DAYS move to monthly files with e
       r.date,
       {
         rank: v.board(r.seed, 100).map((e) => [e.replayHash, e.score, e.replayAvailable]),
+        ten: v.board(r.seed, 10).map((e) => e.playerId),
         hg: v.histogram(r.seed),
         medals: v.medalsForSeed(r.seed, now),
         par: v.par(r.seed),
@@ -1658,7 +1659,9 @@ test('cold storage: frozen days older than HOT_DAYS move to monthly files with e
       'another kept cold replay is served (the day is closed, so no reveal gate)',
     );
     const h = (await (await fetch(`${base}/health`)).json()) as { cold: { days: number; replays: number } };
-    assert.deepEqual(h.cold, { days: 21, replays: 189 } /* 210 kept, minus the deleted player's one per day (0.8.1) */);
+    const theirs = Object.values(before).filter((d, i) => i < 21 && d.ten.includes(pid)).length;
+    assert.ok(theirs > 0);
+    assert.deepEqual(h.cold, { days: 21, replays: 210 - theirs } /* minus the deleted player's, on the days they made the ten (0.8.1) */);
     const b = (await (await fetch(`${base}/board?seed=${encodeURIComponent(coldRec.seed)}&limit=100`)).json()) as { entries: { replayAvailable: boolean }[] };
     assert.equal(b.entries.length, 50);
     assert.equal(b.entries.filter((e) => e.replayAvailable).length, 9, "the ten kept replays minus the deleted player's (0.8.1)");

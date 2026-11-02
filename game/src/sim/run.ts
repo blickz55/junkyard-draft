@@ -1,5 +1,5 @@
 import { Rng } from './rng';
-import { RULES, TRIAL } from './rules';
+import { RULES } from './rules';
 import { runLayout, validateLayout } from './sim';
 import type { Dir, Layout, Machine, MachineKind, Material, RunResult } from './types';
 import { RULES_VERSION } from './types';
@@ -53,27 +53,26 @@ export interface RunState {
   rerolledRound: number;
   /** belts bought this run (each cost RULES.beltCost, already deducted from score) */
   belts: number;
+  /** orders filled so far (rules v6) */
+  filled: number;
   /** set on a practice fork of someone's replay (PLAN-v4 0.7.3): never exported, submitted or recorded as the player's own run; no effect on the simulation */
   forkedFrom?: ForkOrigin;
   nextId: number;
   actions: Action[];
 }
 
-/** The parts a draft must include (rules v4): the crusher in the first draft, the job's own machine in the second, so the job can always be started. */
+/** The parts a draft must include: on a yard with no job, the crusher in the first draft. A job's yard opens with its line running (rules v6). */
 function guaranteed(seed: string, round: number): MachineKind[] {
-  if (TRIAL.headStart) return [];
-  if (round === 1) return ['crusher'];
-  const job = yardFor(seed).job;
-  return round === 2 && job ? [JOB_MACHINE[job.material]] : [];
+  return round === 1 && !yardFor(seed).job ? ['crusher'] : [];
 }
 export function draftOffers(seed: string, round: number): MachineKind[] {
   const scripted = lessonYard(seed)?.offers[round]; // a lesson deals what it means to teach; shifts past its end are an ordinary draft
   if (scripted) return scripted.slice();
-  return offersFrom(new Rng(`${seed}:draft:${round}`), round, guaranteed(seed, round));
+  return offersFrom(new Rng(`${seed}:draft:${round}`), round, guaranteed(seed, round), yardFor(seed).job);
 }
 /** The offers a reroll buys: a purpose-specific stream, so buying one can never change a later round's draft; no crusher guarantee. */
 export function rerollOffers(seed: string, round: number): MachineKind[] {
-  return offersFrom(new Rng(`${seed}:draft:${round}:reroll:1`), round, []);
+  return offersFrom(new Rng(`${seed}:draft:${round}:reroll:1`), round, [], yardFor(seed).job);
 }
 /** Why a reroll is not allowed right now, or null when it is. */
 export function canReroll(s: Pick<RunState, 'phase' | 'seed' | 'round' | 'rerolledRound' | 'score'>): string | null {
@@ -90,10 +89,22 @@ export function canBuyBelt(s: Pick<RunState, 'phase' | 'score' | 'bin'>): string
   if (s.bin.length >= RULES.shelfSlots) return 'the shelf is full';
   return null;
 }
-function offersFrom(rng: Rng, round: number, must: readonly MachineKind[]): MachineKind[] {
+/** The cards a yard deals from, in the order the draw reads them, so that a job's product and its rival swap places and nothing else moves. */
+function dealFor(job: Job | null, round: number): Partial<Record<MachineKind, number>> {
+  if (!job) {
+    const weights = { ...RULES.draftWeights } as Partial<Record<MachineKind, number>>;
+    for (const k of Object.keys(weights) as MachineKind[]) if (!weights[k] || (RULES.offerFromRound[k] ?? 1) > round) delete weights[k]; // experimental kinds are never offered; tiered kinds not before their round
+    return weights;
+  }
+  const d = RULES.job.deal;
+  const own = JOB_MACHINE[job.material];
+  const weights: Partial<Record<MachineKind, number>> = { [own]: d.job, hopper: d.hopper, [own === 'furnace' ? 'press' : 'furnace']: d.other, dock: d.dock };
+  if (round >= RULES.job.tunerFrom) weights.tuner = d.tuner;
+  return weights;
+}
+function offersFrom(rng: Rng, round: number, must: readonly MachineKind[], job: Job | null): MachineKind[] {
   const offers: MachineKind[] = [...must];
-  const weights = { ...RULES.draftWeights } as Record<MachineKind, number>;
-  for (const k of Object.keys(weights) as MachineKind[]) if (weights[k] <= 0 || (RULES.offerFromRound[k] ?? 1) > round) delete weights[k]; // experimental kinds are never offered; tiered kinds not before their round
+  const weights = dealFor(job, round) as Record<MachineKind, number>;
   let guard = 0;
   while (offers.length < 3 && guard++ < 50) {
     const k = rng.weighted(weights);
@@ -120,26 +131,29 @@ export function starterLayout(seed = 'classic-yard'): { layout: Layout; nextId: 
   if (yard.job) layout.premium = yard.job.material;
   return { layout, nextId: id };
 }
-/** What a card puts on the shelf: on trial, a Hopper comes with its Crusher and a Furnace with its Splitter, so that one pick can always widen the line. */
-export function cardParts(kind: MachineKind): MachineKind[] {
-  if (TRIAL.kits && kind === 'hopper') return ['hopper', 'crusher'];
-  if (TRIAL.kits && kind === 'furnace') return ['furnace', 'splitter'];
-  return [kind];
+/** What a card puts on the shelf (rules v6): on a job's yard a Hopper comes with its Crusher and the job's machine with a Splitter, so that one card can always widen the line. */
+export function cardParts(kind: MachineKind, job: Job | null, seed = ''): MachineKind[] {
+  if (!job?.orders || isTutorialSeed(seed)) return [kind];
+  if (kind === 'hopper') return ['hopper', 'crusher'];
+  return kind === JOB_MACHINE[job.material] ? [kind, 'splitter'] : [kind];
 }
-/** What a shift changes about the yard, for the rules on trial. */
-export function shiftTerms(seed: string, round: number, job: Job | null): Pick<Layout, 'feed' | 'premium2'> {
-  if (!job || isTutorialSeed(seed)) return {};
-  const terms: Pick<Layout, 'feed' | 'premium2'> = {}; // no key at all when nothing applies: a layout is hashed as it stands
-  if (TRIAL.rampFrom && round >= TRIAL.rampFrom) terms.feed = TRIAL.rampPeriod;
-  if (TRIAL.buyerFrom && round >= TRIAL.buyerFrom) terms.premium2 = job.material === 'ingot' ? 'plate' : 'ingot';
+/** What a shift changes about the yard: the second buyer from their shift, and the prices orders have raised. */
+export function shiftTerms(round: number, job: Job | null, filled: number): Pick<Layout, 'premium2' | 'rate'> {
+  if (!job?.orders) return {};
+  const terms: Pick<Layout, 'premium2' | 'rate'> = {}; // no key when nothing applies: a layout is hashed as it stands
+  if (round >= RULES.job.secondBuyerFrom) terms.premium2 = job.material === 'ingot' ? 'plate' : 'ingot';
+  if (filled > 0) terms.rate = 100 + filled * RULES.job.raise;
   return terms;
 }
+/** This shift's order, or null on a yard with none. */
+export const orderFor = (s: Pick<RunState, 'job' | 'round'>): number | null => s.job?.orders?.[s.round - 1] ?? null;
 /** A copy of a layout that shares no machine with it: what a shift runs on and what a round records. */
 export const copyLayout = (l: Layout): Layout => ({ ...l, machines: l.machines.map((m) => ({ ...m })) });
 /** Units of a material this run has shipped so far. */
 export const shippedTotal = (s: Pick<RunState, 'rounds'>, mat: Material): number => s.rounds.reduce((n, r) => n + r.result.shipped[mat], 0);
 /** Stars this run has earned on its job so far (0 on a classic yard). */
-export const runStars = (s: Pick<RunState, 'rounds' | 'job'>): 0 | 1 | 2 | 3 => (s.job ? starsFor(s.job, shippedTotal(s, s.job.material)) : 0);
+export const runStars = (s: Pick<RunState, 'rounds' | 'job' | 'filled'>): 0 | 1 | 2 | 3 =>
+  s.job ? starsFor(s.job, s.job.orders ? s.filled : shippedTotal(s, s.job.material)) : 0;
 
 export class RunError extends Error {}
 
@@ -172,11 +186,12 @@ export function newRun(seed: string): RunState {
     rerolls: 0,
     rerolledRound: 0,
     belts: 0,
+    filled: 0,
     nextId,
     actions: [],
   };
   for (const kind of yard.shelf) s.bin.push({ id: s.nextId++, kind, x: -1, y: -1, dir: 0 });
-  Object.assign(s.layout, shiftTerms(seed, 1, yard.job));
+  Object.assign(s.layout, shiftTerms(1, yard.job, 0));
   return s;
 }
 
@@ -238,7 +253,7 @@ export function apply(s: RunState, a: Action): RunState {
       if (s.phase !== 'draft') throw new RunError('not drafting');
       if (a.i < 0 || a.i >= s.offers.length) throw new RunError('bad offer index');
       const kind = s.offers[a.i];
-      for (const part of cardParts(kind)) s.bin.push({ id: s.nextId++, kind: part, x: -1, y: -1, dir: 0 });
+      for (const part of cardParts(kind, s.job, s.seed)) s.bin.push({ id: s.nextId++, kind: part, x: -1, y: -1, dir: 0 });
       s.picks.push(kind);
       s.phase = 'build';
       break;
@@ -293,6 +308,8 @@ export function apply(s: RunState, a: Action): RunState {
       const result = runLayout(layout);
       s.rounds.push({ round: s.round, earned: result.earned, layout, result });
       s.score += result.earned;
+      const order = orderFor(s);
+      if (order !== null && result.earned >= order) s.filled++;
       s.phase = 'result';
       break;
     }
@@ -320,7 +337,7 @@ export function apply(s: RunState, a: Action): RunState {
         break;
       }
       s.round++;
-      Object.assign(s.layout, shiftTerms(s.seed, s.round, s.job));
+      Object.assign(s.layout, shiftTerms(s.round, s.job, s.filled));
       s.offers = draftOffers(s.seed, s.round);
       s.phase = 'draft';
       break;

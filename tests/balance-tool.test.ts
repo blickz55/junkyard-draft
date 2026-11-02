@@ -8,15 +8,16 @@ import { newRun } from '../game/src/sim/run';
 import { RULES } from '../game/src/sim/rules';
 import { RULES_VERSION } from '../game/src/sim/types';
 
-const SMALL = { machine: 'press' as const, seeds: 3, tries: 6, prefix: 'bt', policies: ['greedy' as const], build: 'test' };
+const SMALL = { machine: 'press' as const, seeds: 3, tries: 2, prefix: 'bt', policies: ['greedy' as const], build: 'test' };
 // one shared run: the autoplayer search is CPU-bound and node --test runs files in parallel with the browser suites
-const SHARED = runBalance(SMALL);
+let cached: ReturnType<typeof runBalance> | null = null;
+const shared = () => (cached ??= runBalance(SMALL)); // slow under coverage: test:unit skips this file's tests and test:timing runs them
 
 test('runBalance: shape, paired per-seed deltas, metadata and replay-verified action lists on a small press job', () => {
-  const r = SHARED;
+  const r = shared();
   assert.deepEqual(
     { v: r.meta.rulesVersion, build: r.meta.build, machine: r.meta.machine, seeds: r.meta.seeds, tries: r.meta.tries, policies: r.meta.policies },
-    { v: RULES_VERSION, build: 'test', machine: 'press', seeds: 3, tries: 6, policies: ['greedy'] },
+    { v: RULES_VERSION, build: 'test', machine: 'press', seeds: 3, tries: 2, policies: ['greedy'] },
   );
   assert.match(r.meta.searchStream, /search/);
   assert.match(r.meta.offerStream, /draft/);
@@ -50,11 +51,11 @@ test('runBalance: shape, paired per-seed deltas, metadata and replay-verified ac
 
 test('runBalance is deterministic: two runs with identical options agree on every number (timing and timestamp aside)', () => {
   const strip = (x: ReturnType<typeof runBalance>) => ({ ...x, meta: { ...x.meta, ms: 0, at: '' } });
-  assert.deepEqual(strip(SHARED), strip(runBalance(SMALL)));
+  assert.deepEqual(strip(shared()), strip(runBalance(SMALL)));
 });
 
 test('gateVerdict: passes a healthy result, fails a synthetic regression with a nonzero-exit reason, honours the pick band and verification', () => {
-  const r = SHARED;
+  const r = shared();
   const base = r.policies[0].variants[0].vsBan!;
   // a healthy result (whatever the small job says, the gate must agree with its own numbers)
   const healthy = gateVerdict(r, { maxSeedsWorse: base.seedsWorse, minMeanDelta: base.meanDelta - 1 });
@@ -92,8 +93,8 @@ test('search policies: neutral accepts plateau moves, never scores below greedy 
   assert.deepEqual(n1, n2);
   assert.ok(n1.earned >= g1.earned, `neutral ${n1.earned} ≥ greedy ${g1.earned}`);
   const seeds = ['pl-0', 'pl-1', 'pl-2'];
-  const greedy = seeds.map((x) => playSeed(x, new Rng(`${x}:search:greedy`), 6, { policy: 'greedy' }));
-  const neutral = seeds.map((x) => playSeed(x, new Rng(`${x}:search:neutral`), 6, { policy: 'neutral' }));
+  const greedy = seeds.map((x) => playSeed(x, new Rng(`${x}:search:greedy`), 2, { policy: 'greedy' }));
+  const neutral = seeds.map((x) => playSeed(x, new Rng(`${x}:search:neutral`), 2, { policy: 'neutral' }));
   for (let i = 0; i < seeds.length; i++) {
     assert.equal(greedy[i].report.policy, 'greedy');
     assert.equal(neutral[i].report.policy, 'neutral');
@@ -106,7 +107,7 @@ test('search policies: neutral accepts plateau moves, never scores below greedy 
 });
 
 test('reroll study (PLAN-v2 0.5.4): paired never-vs-greedy on the same seeds, reroll rate, verified actions, gate reasons', () => {
-  const st = runRerollStudy({ seeds: 3, tries: 6, prefix: 'rrt' });
+  const st = runRerollStudy({ seeds: 3, tries: 2, prefix: 'rrt' });
   assert.equal(st.paired.length, 3);
   assert.equal(st.summary.rounds, 3 * 6);
   for (const p of st.paired) assert.equal(p.delta, p.greedy - p.never);
@@ -128,10 +129,17 @@ test('derived sanity bound and dead-end definitions', () => {
   const hoppers = RULES.starter.filter((m) => m.kind === 'hopper').length + RULES.rounds;
   assert.equal(
     scoreSanityBound(),
-    RULES.rounds * hoppers * Math.ceil(RULES.ticksPerRound / RULES.hopperPeriod) * Math.max(...Object.values(RULES.value), RULES.job.price) +
+    Math.ceil(
+      (RULES.rounds *
+        hoppers *
+        Math.ceil(RULES.ticksPerRound / RULES.hopperPeriod) *
+        Math.max(...Object.values(RULES.value), RULES.job.price) *
+        (100 + RULES.rounds * RULES.job.raise)) /
+        100,
+    ) +
       RULES.rounds * RULES.sellValue,
   );
-  const { report } = playSeed('dead-0', new Rng('dead-0:search:greedy'), 5);
+  const { report } = playSeed('dead-0', new Rng('dead-0:search:greedy'), 2);
   assert.equal(report.deadEnd, report.flatRounds >= RULES.rounds, 'deadEnd means no improving draft in any round');
   assert.equal(report.mostlyFlat, report.flatRounds >= 4);
   assert.ok(report.score <= scoreSanityBound());

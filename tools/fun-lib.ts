@@ -252,13 +252,32 @@ export function solve(
 
 export interface PathResult {
   picks: MachineKind[];
-  /** earned in each shift */
+  /** paid in each shift, raises and all */
   rounds: number[];
   /** the job's product shipped in each shift */
   units: number[];
   score: number;
   stars: number;
   belts: number;
+  /** the shifts whose orders were filled */
+  filled: number[];
+  /** orders missed by under a tenth */
+  close: number;
+}
+/** What a game's shifts pay: earnings are worked out at list prices, and each order filled raises the rest of the game. */
+export function paidGame(earned: readonly number[], job: Job | null): { pay: number[]; filled: number[]; close: number } {
+  const pay: number[] = [];
+  const filled: number[] = [];
+  let close = 0;
+  earned.forEach((e, i) => {
+    const paid = Math.round((e * (100 + filled.length * RULES.job.raise)) / 100);
+    pay.push(paid);
+    const order = job?.orders?.[i];
+    if (order === undefined) return;
+    if (paid >= order) filled.push(i + 1);
+    else if (paid >= order * 0.9) close++;
+  });
+  return { pay, filled, close };
 }
 
 export interface YardTree {
@@ -302,8 +321,8 @@ export function plainGame(seed: string, choose: 'random' | 'best'): PathResult {
   const units: number[] = [];
   let belts = 0;
   for (let round = 1; round <= RULES.rounds; round++) {
-    const terms = shiftTerms(seed, round, run.job);
-    const tryCard = (kind: MachineKind) => solve({ ...layout, ...terms }, [...spare, ...cardParts(kind)], free, 0, 0, rng, anchors, run.job);
+    const terms = shiftTerms(round, run.job, 0);
+    const tryCard = (kind: MachineKind) => solve({ ...layout, ...terms }, [...spare, ...cardParts(kind, run.job, seed)], free, 0, 0, rng, anchors, run.job);
     const offers = draftOffers(seed, round);
     const kind = choose === 'random' ? offers[rng.int(offers.length)] : offers.map((k) => ({ k, v: tryCard(k).value })).sort((a, b) => b.v - a.v)[0].k;
     const p = tryCard(kind);
@@ -314,9 +333,9 @@ export function plainGame(seed: string, choose: 'random' | 'best'): PathResult {
     units.push(run.job ? p.shipped[run.job.material] : 0);
     belts = Math.max(belts, p.belts - free);
   }
-  const score = rounds.reduce((a, b) => a + b, 0) - belts * RULES.beltCost;
-  const shipped = units.reduce((a, b) => a + b, 0);
-  return { picks, rounds, units, score, stars: run.job ? starsFor(run.job, shipped) : 0, belts };
+  const { pay, filled, close } = paidGame(rounds, run.job);
+  const score = pay.reduce((a, b) => a + b, 0) - belts * RULES.beltCost;
+  return { picks, rounds: pay, units, score, stars: run.job ? starsFor(run.job, filled.length) : 0, belts, filled, close };
 }
 
 /** Search every set of parts on a yard and add up every path through its offers. `budget` is the annealing steps per set. */
@@ -336,8 +355,8 @@ export function yardTree(seed: string, budget: number, keepPaths = false): YardT
     if (known) return known;
     const price = RULES.beltCost / Math.max(1, rounds - held.length + 1);
     const p = solve(
-      { ...(parent ? parent.layout : run.layout), ...shiftTerms(seed, Math.max(1, held.length), run.job) },
-      [...(parent?.spare ?? []), ...(added ? cardParts(added) : [])],
+      { ...(parent ? parent.layout : run.layout), ...shiftTerms(Math.max(1, held.length), run.job, 0) },
+      [...(parent?.spare ?? []), ...(added ? cardParts(added, run.job, seed) : [])],
       free,
       price,
       parent ? budget : 0,
@@ -369,7 +388,12 @@ export function yardTree(seed: string, budget: number, keepPaths = false): YardT
   walk(0, [], []);
 
   const beltsUsed = (w: Walk) => Math.max(0, ...w.plans.map((p) => p.belts - free));
-  const scoreOf = (w: Walk) => w.plans.reduce((n, p) => n + p.earned, 0) - beltsUsed(w) * RULES.beltCost;
+  const paidOf = (w: Walk) =>
+    paidGame(
+      w.plans.map((p) => p.earned),
+      run.job,
+    );
+  const scoreOf = (w: Walk) => paidOf(w).pay.reduce((a, b) => a + b, 0) - beltsUsed(w) * RULES.beltCost;
   const rank = () => paths.map((w) => ({ w, score: scoreOf(w) })).sort((a, b) => b.score - a.score);
   // the sets the best paths run through get a much longer search: wide lines are found there or not at all
   const polished = new Set<Plan>();
@@ -398,9 +422,17 @@ export function yardTree(seed: string, budget: number, keepPaths = false): YardT
   const scored = rank();
   const top = scored[0];
   const result = (w: Walk, score: number): PathResult => {
-    const units = w.plans.map(unitsOf);
-    const shipped = units.reduce((a, b) => a + b, 0);
-    return { picks: w.picks, rounds: w.plans.map((p) => p.earned), units, score, stars: run.job ? starsFor(run.job, shipped) : 0, belts: beltsUsed(w) };
+    const { pay, filled, close } = paidOf(w);
+    return {
+      picks: w.picks,
+      rounds: pay,
+      units: w.plans.map(unitsOf),
+      score,
+      stars: run.job ? starsFor(run.job, filled.length) : 0,
+      belts: beltsUsed(w),
+      filled,
+      close,
+    };
   };
   const best = result(top.w, top.score);
 
@@ -453,6 +485,8 @@ export interface TierGame {
   score: number;
   units: number;
   stars: number;
+  /** orders missed by under a tenth */
+  close: number;
 }
 export interface YardResult {
   tree: YardTree;
@@ -491,27 +525,11 @@ const dim = (name: string, weight: number, score: number, read: Record<string, n
   read: Object.fromEntries(Object.entries(read).map(([k, v]) => [k, round3(v)])),
 });
 
-/** A game shipped within 10 % under its next star, so one more try could reach it. */
-export const nearMiss = (units: number, job: Job | null): boolean => {
-  if (!job) return false;
-  const next = job.stars.find((n) => units < n);
-  return next !== undefined && units >= next * 0.9;
-};
-/** The shift a game's last star landed in, 0 when it earned none. */
-export const lastStarShift = (units: readonly number[], job: Job | null): number => {
+/** The shift a game's last star landed in, 0 when it earned none: the star marks count orders filled. */
+export const lastStarShift = (filled: readonly number[], job: Job | null): number => {
   if (!job) return 0;
-  const stars = starsFor(
-    job,
-    units.reduce((a, b) => a + b, 0),
-  );
-  if (!stars) return 0;
-  const mark = job.stars[stars - 1];
-  let total = 0;
-  for (let i = 0; i < units.length; i++) {
-    total += units[i];
-    if (total >= mark) return i + 1;
-  }
-  return 0;
+  const stars = starsFor(job, filled.length);
+  return stars ? filled[job.stars[stars - 1] - 1] : 0;
 };
 
 /** The card, from the yards as measured. docs/GOALS.md says what the bars are and why. */
@@ -575,15 +593,11 @@ export function cardOf(yards: readonly YardResult[]): Card {
   const expertBand = expert3 < 0.4 ? scale(expert3, 0, 0.4) : expert3 > 0.7 ? scale(expert3, 1, 0.7) : 100;
   const ladder = 0.3 * scale(novice1, 0.3, 0.9) + 0.3 * scale(competent2, 0.2, 0.7) + 0.4 * expertBand;
 
-  const games = yards.flatMap((y) => [
-    { units: y.tiers.casual.units, job: y.tree.job },
-    { units: y.tiers.competent.units, job: y.tree.job },
-    { units: y.tree.best.units.reduce((a, b) => a + b, 0), job: y.tree.job },
-  ]);
-  const near = share(games, (g) => nearMiss(g.units, g.job));
+  const games = yards.flatMap((y) => [y.tiers.casual.close, y.tiers.competent.close, y.tree.best.close]);
+  const near = share(games, (close) => close > 0);
   const oneMore = scale(near, 0.05, 0.33);
 
-  const lateStar = share(trees, (t) => lastStarShift(t.best.units, t.job) >= RULES.rounds - 1);
+  const lateStar = share(trees, (t) => lastStarShift(t.best.filled, t.job) >= RULES.rounds - 1);
   const growth = median(bests.map((b) => b.rounds[b.rounds.length - 1] / Math.max(1, b.rounds[1] ?? 1)));
   const climax = 0.6 * scale(lateStar, 0.1, 0.7) + 0.4 * scale(growth, 1.1, 3);
 
@@ -601,8 +615,8 @@ export function cardOf(yards: readonly YardResult[]): Card {
     dim('Every pick a real choice', 15, choices, { realPicks: real, healthyCards: healthy }),
     dim('Skill shows', 15, skill, { tiersInOrder: ordered, expertOverNovice: ratio, deeperGain: deeper }),
     dim('The problem keeps moving', 10, moving, { limitsPerGame: distinct }),
-    dim('More than one way to win', 10, ways, { threeWaysYards: threeWays, modalBestSet: modal }),
-    dim('The stars are a ladder', 10, ladder, { novice1: novice1, competent2: competent2, expert3: expert3 }),
+    dim('More than one way to win', 5, ways, { threeWaysYards: threeWays, modalBestSet: modal }),
+    dim('The stars are a ladder', 15, ladder, { novice1: novice1, competent2: competent2, expert3: expert3 }),
     dim('One more try', 10, oneMore, { nearMisses: near }),
     dim('A climax', 5, climax, { lastStarLate: lateStar, growthShift2ToLast: growth }),
     dim('Yards differ', 5, differ, { scoreSpread: spread, distinctBestSets: distinctBest }),

@@ -138,7 +138,7 @@ test('first draft: the coach says pick one; a key picks it', { timeout: 60000 },
   const st0 = await api('state');
   assert.equal(st0.round, 1);
   assert.ok(st0.offers.includes('crusher'), 'round 1 offers a crusher');
-  assert.match(await api('hint'), /^Pick ONE part\. The other two go back on the truck\.$/);
+  assert.match(await api('hint'), /^Pick ONE card\. The other two go back on the truck\.$/);
   await page.keyboard.press(['Digit1', 'Digit2', 'Digit3'][st0.offers.indexOf('crusher')]);
   await when(() => window.__jd.phase() === 'build');
   const st = await api('state');
@@ -223,7 +223,9 @@ test(
     assert.equal(st.bin.length, 0);
     await page.keyboard.press('r');
     await frames();
-    assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id).dir, 1, 'R rotates the machine just placed');
+    const placed = kbConv.dir; // it faces the way the line wants: a machine takes from the side, so it may point up into the crusher
+    const turned = (placed + 1) % 4;
+    assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id).dir, turned, 'R rotates the machine just placed');
     // undo_restores_facing (PLAN-v1 0.3.3): Ctrl+Z undoes the rotation, Ctrl+Y re-applies it, the panel buttons track it
     const undoBtn = () =>
       page.evaluate(() => {
@@ -233,9 +235,9 @@ test(
       });
     assert.deepEqual(await undoBtn(), { undo: 1, redo: 0.4 }, 'Undo enabled after an edit, Redo disabled');
     await page.keyboard.press('Control+z');
-    await when((id) => window.__jd.state().layout.machines.find((mm) => mm.id === id)?.dir === 0, kbConv.id, 5000);
+    await when(([id, d]) => window.__jd.state().layout.machines.find((mm) => mm.id === id)?.dir === d, [kbConv.id, placed], 5000);
     await frames(3);
-    assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id).dir, 0, 'Ctrl+Z restores the previous facing');
+    assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id).dir, placed, 'Ctrl+Z restores the previous facing');
     assert.deepEqual(await undoBtn(), { undo: 1, redo: 1 }, 'Redo enabled after an undo');
     await page.keyboard.press('Control+z');
     await when((id) => window.__jd.state().bin.some((mm) => mm.id === id), kbConv.id, 5000);
@@ -248,9 +250,9 @@ test(
     await when((id) => window.__jd.state().layout.machines.some((mm) => mm.id === id), kbConv.id, 5000);
     await frames(3);
     await page.keyboard.press('Control+y');
-    await when((id) => window.__jd.state().layout.machines.find((mm) => mm.id === id)?.dir === 1, kbConv.id, 5000);
+    await when(([id, d]) => window.__jd.state().layout.machines.find((mm) => mm.id === id)?.dir === d, [kbConv.id, turned], 5000);
     await frames(3);
-    assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id)?.dir, 1, 'two Ctrl+Y re-place and re-rotate it');
+    assert.equal((await api('state')).layout.machines.find((mm) => mm.id === kbConv.id)?.dir, turned, 'two Ctrl+Y re-place and re-rotate it');
     assert.deepEqual(await undoBtn(), { undo: 1, redo: 0.4 });
     await page.keyboard.press('Enter');
     await frames();
@@ -1236,7 +1238,7 @@ test(
     assert.ok(bars >= 1, `the standing of each checked game on this device is a bar (${bars})`);
     assert.match(await page.getByTestId('record-trend').textContent(), /games? · the latest/);
     assert.match(await page.getByTestId('record-medals').textContent(), /No medal yet/);
-    assert.match(await page.getByTestId('record-bests').textContent(), /Best \$\d+ on yard /);
+    assert.match(await page.getByTestId('record-bests').textContent(), /Best \$[\d,]+ on (today's )?yard/);
     assert.equal(await page.locator('[data-testid=record-kind-crusher]').count(), 1, 'the crusher drafted in round 1 is counted');
     assert.match(await page.getByTestId('record-note').textContent(), /read from this device/);
     await shot('record');

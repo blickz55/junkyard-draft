@@ -67,7 +67,7 @@ import { pwa } from '../render/pwa';
 import { money, int, localHour } from '../content/format';
 import { pushSupported, loadReminder } from '../render/push';
 import { openHowTo } from './HowTo';
-import { recipeRow, starRow } from './JobCard';
+import { orderRow, recipeRow, starRow } from './JobCard';
 import { choiceDialog } from './choice';
 import { LESSONS } from '../content/lessons';
 import { jobFlavour, jobLine, starMarks } from '../content/job';
@@ -235,8 +235,9 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     jobBox.append(
       h('div', { class: 'jd-dim jd-job-flavour' }, jobFlavour(seed, job)),
       h('div', { class: 'jd-job-goal', tid: 'job-goal' }, jobLine(job)),
+      ...(job.orders ? [orderRow(job)] : []),
       starRow(job),
-      recipeRow(job),
+      ...(job.orders ? [] : [recipeRow(job)]),
     );
   };
   if (cachedDaily()) showJob(todaySeed()); // else the job appears once we know today's yard, never one job and then another

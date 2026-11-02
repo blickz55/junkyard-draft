@@ -50,12 +50,11 @@ test('every RunError from apply maps to a non-empty player string', () => {
   assert.ok(explainRunError('something new').length > 0);
 });
 
-test('crusher beside a hopper warns (behind only); fed in line it does not', () => {
+test('a machine takes from behind or the sides (rules v6): fed either way it does not warn, and unfed it says so', () => {
   const hopper = mk(1, 'hopper', 1, 2, 0);
-  const warn = placementWarning(lay(hopper), 'crusher', 1, 3, 0, 50);
-  assert.match(warn ?? '', /only takes things from behind/);
   assert.equal(placementWarning(lay(hopper), 'crusher', 2, 2, 0, 50), null);
-  assert.match(placementWarning(lay(hopper), 'crusher', 2, 2, 1, 50) ?? '', /only takes things from behind/);
+  assert.equal(placementWarning(lay(hopper), 'crusher', 2, 2, 1, 50), null, 'fed from its side');
+  assert.match(placementWarning(lay(hopper), 'crusher', 1, 3, 0, 50) ?? '', /nothing feeds|points elsewhere|only takes/);
   assert.match(placementWarning(lay(), 'crusher', 3, 3, 0, 50) ?? '', /nothing feeds/);
   assert.match(placementWarning(lay(mk(2, 'hopper', 1, 2, 3)), 'crusher', 2, 2, 0, 50) ?? '', /points elsewhere/);
   assert.match(placementWarning(lay(hopper), 'crusher', 7, 3, 0, 50) ?? '', /^Crusher only takes things/);
@@ -84,11 +83,12 @@ test('tuner (rules v3): warns when no processor touches it, silent beside a crus
   assert.deepEqual(outputDirs('tuner', 0), []);
 });
 
-test('conveyors accept from the sides; splitters output left and right; docks take all', () => {
+test('belts and machines take from behind and the sides; a splitter takes from behind and sends ahead, left and right; docks take all', () => {
   assert.deepEqual(inputTravelDirs('conveyor', 0).sort(), [0, 1, 3]);
-  assert.deepEqual(inputTravelDirs('crusher', 2), [2]);
+  assert.deepEqual(inputTravelDirs('crusher', 2).sort(), [1, 2, 3]);
+  assert.deepEqual(inputTravelDirs('splitter', 2), [2]);
   assert.deepEqual(inputTravelDirs('hopper', 0), []);
-  assert.deepEqual(outputDirs('splitter', 0).sort(), [1, 3]);
+  assert.deepEqual(outputDirs('splitter', 0).sort(), [0, 1, 3]);
   assert.deepEqual(outputDirs('dock', 0), []);
   assert.equal(placementWarning(lay(mk(1, 'hopper', 2, 1, 1)), 'conveyor', 2, 2, 0, 50), null);
 });

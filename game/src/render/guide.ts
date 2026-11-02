@@ -4,7 +4,7 @@
  * the spots. A lesson is a script (content/lessons.ts): the first move not done yet is the instruction, and `lessonAllows`
  * says whether an edit is that move, so a lesson has one way through.
  */
-import { apply, canBuyBelt, RunError, type Action, type RunState } from '../sim/run';
+import { apply, canBuyBelt, cardParts, orderFor, RunError, type Action, type RunState } from '../sim/run';
 import type { Machine, MachineKind } from '../sim/types';
 import { DIR_DX, DIR_DY, RULES } from '../sim/rules';
 import { outputDirs } from '../sim/advice';
@@ -169,16 +169,24 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[] } 
   if (r.phase === 'result') return { text: t(r.round >= RULES.rounds ? 'hint.summaryFinal' : 'hint.summary'), spots: [{ kind: 'next' }] };
   if (r.phase === 'draft') {
     const wanted = nextNeeded(r);
-    return { text: wanted && r.offers.includes(wanted) ? t('coach.pickNeed', { name: machineName(wanted) }) : t('coach.pick'), spots: [] };
+    const order = orderFor(r);
+    const text =
+      wanted && r.offers.includes(wanted)
+        ? t('coach.pickNeed', { name: machineName(wanted) })
+        : order !== null
+          ? t('coach.pickOrder', { amount: money(order) })
+          : t('coach.pick');
+    return { text, spots: [] };
   }
-  // the part just picked waits on the shelf (spare parts never hold the coach up: the picked part has the newest id in the game)
+  // the parts just picked wait on the shelf (spare parts never hold the coach up: a card's parts have the newest ids in the game)
   const newest = Math.max(0, ...r.layout.machines.map((m) => m.id), ...r.bin.map((m) => m.id));
-  const i = r.picks.length ? r.bin.findIndex((m) => m.id === newest) : -1;
+  const card = r.picks.length ? cardParts(r.picks[r.picks.length - 1], r.job, r.seed).length : 0;
+  const i = card ? r.bin.findIndex((m) => m.id > newest - card) : -1;
   if (i >= 0) {
     const kind = r.bin[i].kind;
     const belt = BELT_PARTS.includes(kind);
     const key = kind === 'tuner' ? 'coach.placeTuner' : belt ? 'coach.place' : 'coach.placeYard';
-    const how = ctx.touch ? (ctx.selected === newest ? 'Selected' : 'Touch') : '';
+    const how = ctx.touch ? (ctx.selected === r.bin[i].id ? 'Selected' : 'Touch') : '';
     const homes = belt ? lineFromHopper(r).filter((m) => m.kind === 'conveyor' && beltShape(r.layout, m) === 'straight') : [];
     return {
       text: t(`${key}${how}` as StringKey, { name: machineName(kind) }),

@@ -21,9 +21,9 @@ function finish(seed: string, edit?: (s: RunState) => void): RunState {
 const roundOf = (layout: Layout, round: number) => ({ round, earned: 0, layout, result: runLayout(layout) });
 
 test('badges (PLAN-v1 0.4.6): Clean needs zero waits and zero blocked ticks in every round; a head-on conveyor forfeits it', () => {
-  const clean = finish('badge-clean');
+  const clean = finish('classic-badge-clean');
   assert.ok(ids(clean, null).includes('clean'), 'the untouched starter line never jams');
-  const jammed = finish('badge-jam', (s) => {
+  const jammed = finish('classic-badge-jam', (s) => {
     const c = s.layout.machines.find((m) => m.x === 3 && m.y === 2)!;
     apply(s, { t: 'rotate', id: c.id });
     apply(s, { t: 'rotate', id: c.id });

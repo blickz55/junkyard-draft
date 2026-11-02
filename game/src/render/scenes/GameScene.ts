@@ -466,7 +466,8 @@ export class GameScene extends Phaser.Scene {
   }
   private updateHud(live = false) {
     this.panel.setHud(this.run, this.run.score, false);
-    if (this.run.job) this.panel.setJob(shippedTotal(this.run, this.run.job.material), live);
+    if (this.run.job?.orders) this.panel.setOrder(this.run, this.mode === 'summary' ? (this.run.rounds[this.run.rounds.length - 1]?.earned ?? 0) : 0, false);
+    else if (this.run.job) this.panel.setJob(shippedTotal(this.run, this.run.job.material), live);
   }
 
   private cellXY(x: number, y: number) {
@@ -835,7 +836,8 @@ export class GameScene extends Phaser.Scene {
       this.hudDirty = false;
       this.lastHudAt = now;
       this.panel.setHud(this.run, this.run.score + sim.earned, true);
-      if (this.run.job) this.panel.setJob(shippedTotal(this.run, this.run.job.material) + sim.shipped[this.run.job.material], true);
+      if (this.run.job?.orders) this.panel.setOrder(this.run, sim.earned, true);
+      else if (this.run.job) this.panel.setJob(shippedTotal(this.run, this.run.job.material) + sim.shipped[this.run.job.material], true);
     }
     this.view.animate(sim, this.ctl.tickPhase, delta, this.speed, _time);
     this.panel.setProgress(sim.tick, sim.earned);

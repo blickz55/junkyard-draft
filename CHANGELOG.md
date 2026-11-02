@@ -5,6 +5,13 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### Rules version 6: orders — 2026-11-01 (saves and scores from version 5 do not carry over)
+- **Six orders.** Each shift has an order in money, and each one is bigger than the last. Fill it and every price rises 25 % for the rest of the game. Miss it and you lose only that raise. Stars are for orders filled: two, four and six.
+- **The line already runs.** Every yard opens with the Crusher and the job's machine on the belt, so the first shift pays and the first choice is how to make it pay more.
+- **A card can pay by itself.** A Hopper brings a Crusher with it, and the job's machine brings a Splitter.
+- **A second buyer** pays the job's price for the other product from shift 4.
+- **Fewer ways to be wrong.** Machines take from behind or either side, only never head-on, and a Splitter sends ahead as well as left and right. Four spare belts on the shelf.
+
 ### A private test link — 2026-11-01 (no rules change)
 - **A tester build:** the lessons, today's yard and practice yards on a private link, with no server. It says it is a test, and never tells anyone they are offline. Leaderboards, sharing, crews and the talk stay out of sight until there is a server and an address to share.
 - **Where testers stop:** the link records how far each tester got, step by step, within seconds and as the page closes, so someone who quits still leaves a mark. It is anonymous, Home says so, and Settings turns it off.

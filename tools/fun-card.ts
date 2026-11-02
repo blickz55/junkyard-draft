@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
-import { RULES, TRIAL } from '../game/src/sim/rules';
+import { RULES } from '../game/src/sim/rules';
 import { yardFor } from '../game/src/sim/yard';
 import { Rng } from '../game/src/sim/rng';
 import { playSeed } from './autoplay-lib';
@@ -19,107 +19,39 @@ interface Variant {
   label: string;
   /** dotted numeric RULES overrides */
   rules?: Record<string, number>;
-  /** rules on trial to switch on */
-  trial?: Partial<typeof TRIAL>;
 }
 /** Versions of the game made worse on purpose, each breaking one thing the card claims to see. */
 export const RUINED: Variant[] = [
-  {
-    label: 'one card only',
-    rules: {
-      'draftWeights.crusher': 0,
-      'draftWeights.furnace': 0,
-      'draftWeights.splitter': 0,
-      'draftWeights.press': 0,
-      'draftWeights.dock': 0,
-      'draftWeights.tuner': 0,
-    },
-  },
+  { label: 'one card only', rules: { 'job.deal.job': 0, 'job.deal.other': 0, 'job.deal.dock': 0, 'job.deal.tuner': 0 } },
   { label: 'raw scrap pays like the job', rules: { 'value.scrap': 24, 'value.shards': 24, 'value.slag': 24 } },
   { label: 'machines crawl', rules: { 'process.crusher': 12, 'process.furnace': 16, 'process.press': 12 } },
   {
     label: 'stars for nothing',
-    rules: { 'job.stars.ingot.0': 1, 'job.stars.ingot.1': 2, 'job.stars.ingot.2': 3, 'job.stars.plate.0': 1, 'job.stars.plate.1': 2, 'job.stars.plate.2': 3 },
+    rules: Object.fromEntries(['ingot', 'plate'].flatMap((m) => [0, 1, 2, 3, 4, 5].map((i) => [`job.orders.${m}.${i}`, 1]))),
   },
   { label: 'two-second shifts', rules: { ticksPerRound: 12 } },
-  { label: 'a yard the size of a table', rules: { 'yard.rubbleMin': 18, 'yard.rubbleMax': 22 } },
+  { label: 'every yard alike', rules: { 'yard.shapes.bend': 0, 'yard.shapes.zigzag': 0, 'yard.rubbleMin': 0, 'yard.rubbleMax': 0, 'job.weights.plate': 0 } },
 ];
-/** The deal when a Hopper brings its Crusher and a Furnace its Splitter: those two stop being cards of their own. */
-const KIT_DEAL = {
-  'draftWeights.crusher': 0,
-  'draftWeights.splitter': 0,
-  'draftWeights.hopper': 20,
-  'draftWeights.furnace': 20,
-  'draftWeights.tuner': 14,
-  'draftWeights.dock': 8,
-  'draftWeights.press': 10,
-  'offerFromRound.tuner': 2,
-};
-/** Rules on trial. */
-const TRIALS: Variant[] = [
-  { label: 'splitter ahead', trial: { splitterAhead: 1 } },
-  { label: 'side entry', trial: { sideEntry: 1 } },
-  { label: 'easy wiring', trial: { splitterAhead: 1, sideEntry: 1 } },
-  { label: 'ramp 4', trial: { rampFrom: 4 } },
-  { label: 'buyer 4', trial: { buyerFrom: 4 } },
-  { label: 'easy ramp 4', trial: { splitterAhead: 1, sideEntry: 1, rampFrom: 4 } },
-  { label: 'easy buyer 4', trial: { splitterAhead: 1, sideEntry: 1, buyerFrom: 4 } },
-  { label: 'easy ramp buyer', trial: { splitterAhead: 1, sideEntry: 1, rampFrom: 4, buyerFrom: 4 } },
-  { label: 'head start', trial: { headStart: 1 } },
-  { label: 'head easy', trial: { headStart: 1, splitterAhead: 1, sideEntry: 1 } },
-  {
-    label: 'head easy tuner',
-    trial: { headStart: 1, splitterAhead: 1, sideEntry: 1, tunerHopper: 1, tunerStack: 1 },
-    rules: { 'draftWeights.tuner': 24, 'offerFromRound.tuner': 2 },
-  },
-  { label: 'head easy buyer', trial: { headStart: 1, splitterAhead: 1, sideEntry: 1, buyerFrom: 4 } },
-  { label: 'head easy ramp buyer', trial: { headStart: 1, splitterAhead: 1, sideEntry: 1, rampFrom: 4, buyerFrom: 4 } },
-  { label: 'rich', trial: { headStart: 1, splitterAhead: 1, sideEntry: 1 }, rules: { hopperPeriod: 1, 'process.crusher': 1 } },
-  { label: 'rich kits', trial: { kits: 1, headStart: 1, splitterAhead: 1, sideEntry: 1 }, rules: { ...KIT_DEAL, hopperPeriod: 1, 'process.crusher': 1 } },
-  { label: 'rich buyer', trial: { headStart: 1, splitterAhead: 1, sideEntry: 1, buyerFrom: 4 }, rules: { hopperPeriod: 1, 'process.crusher': 1 } },
-  {
-    label: 'rich slow furnace',
-    trial: { headStart: 1, splitterAhead: 1, sideEntry: 1 },
-    rules: { hopperPeriod: 1, 'process.crusher': 1, 'process.furnace': 4 },
-  },
-  { label: 'kits', trial: { kits: 1 }, rules: KIT_DEAL },
-  { label: 'head kits', trial: { kits: 1, headStart: 1 }, rules: KIT_DEAL },
-  { label: 'head easy kits', trial: { kits: 1, headStart: 1, splitterAhead: 1, sideEntry: 1 }, rules: KIT_DEAL },
-  { label: 'head easy kits buyer', trial: { kits: 1, headStart: 1, splitterAhead: 1, sideEntry: 1, buyerFrom: 4 }, rules: KIT_DEAL },
-  { label: 'easy kits', trial: { kits: 1, splitterAhead: 1, sideEntry: 1 }, rules: KIT_DEAL },
-  { label: 'tuner hopper', trial: { tunerHopper: 1 } },
-  { label: 'tuner all', trial: { tunerHopper: 1, tunerStack: 1 } },
-  { label: 'tuner all common', trial: { tunerHopper: 1, tunerStack: 1 }, rules: { 'draftWeights.tuner': 24, 'offerFromRound.tuner': 2 } },
-  {
-    label: 'easy tuner',
-    trial: { splitterAhead: 1, sideEntry: 1, tunerHopper: 1, tunerStack: 1 },
-    rules: { 'draftWeights.tuner': 24, 'offerFromRound.tuner': 2 },
-  },
-  {
-    label: 'easy tuner buyer',
-    trial: { splitterAhead: 1, sideEntry: 1, tunerHopper: 1, tunerStack: 1, buyerFrom: 4 },
-    rules: { 'draftWeights.tuner': 24, 'offerFromRound.tuner': 2 },
-  },
-  {
-    label: 'easy tuner fast crusher',
-    trial: { splitterAhead: 1, sideEntry: 1, tunerHopper: 1, tunerStack: 1 },
-    rules: { 'draftWeights.tuner': 24, 'offerFromRound.tuner': 2, 'process.crusher': 1 },
-  },
-];
+/** Rules on trial: nothing just now. A trial goes in `game/src/sim` behind a value here, and comes out with the result. */
+const TRIALS: Variant[] = [];
 const VARIANTS: Variant[] = [...RUINED, ...TRIALS];
 
 function tierGame(seed: string, tries: number, reach: number): TierGame {
   const { report } = playSeed(seed, new Rng(`${seed}:fun:${tries}`), tries, { reach: { final: reach, pick: reach } });
   const job = yardFor(seed).job!;
   const units = job.material === 'ingot' ? report.ingots : report.plates;
-  return { score: report.score, units, stars: starsFor(job, units) };
+  const orders = job.orders ?? [];
+  const filled = report.rounds.filter((r, i) => r >= orders[i]).length;
+  const close = report.rounds.filter((r, i) => r < orders[i] && r >= orders[i] * 0.9).length;
+  return { score: report.score, units, stars: starsFor(job, filled), close };
 }
 function measure(seed: string, budget: number, deep: boolean, keepPaths = false): YardResult {
   const tree = yardTree(seed, budget, keepPaths);
-  const asPlain = (p: { score: number; units: number[]; stars: number }): TierGame => ({
+  const asPlain = (p: { score: number; units: number[]; stars: number; close: number }): TierGame => ({
     score: p.score,
     units: p.units.reduce((a, b) => a + b, 0),
     stars: p.stars,
+    close: p.close,
   });
   // a novice takes any card and drops it in its best spot; a casual player takes the card that adds most right now; neither rearranges
   const tiers = { novice: asPlain(plainGame(seed, 'random')), casual: asPlain(plainGame(seed, 'best')), competent: tierGame(seed, 30, 3) };
@@ -129,7 +61,6 @@ function measure(seed: string, budget: number, deep: boolean, keepPaths = false)
 if (!isMainThread && parentPort) {
   const { variant, budget } = workerData as { variant: Variant | null; budget: number };
   if (variant?.rules) override(variant.rules);
-  if (variant?.trial) Object.assign(TRIAL, variant.trial);
   parentPort.on('message', (m: { seed: string; deep: boolean }) => parentPort!.postMessage(measure(m.seed, budget, m.deep)));
 }
 

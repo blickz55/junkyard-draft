@@ -171,12 +171,16 @@ export function mountResults(
             { class: 'jd-results-jobline', tid: 'results-jobline' },
             earned === 3
               ? t('results.allStars')
-              : t('results.nearMiss', { n: int(job.stars[earned] - n), mat: materialOf(job.material, job.stars[earned] - n), stars: starMarks(earned + 1) }),
+              : job.orders
+                ? t('results.ordersShort', { n: job.stars[earned] - run.filled, stars: starMarks(earned + 1) })
+                : t('results.nearMiss', { n: int(job.stars[earned] - n), mat: materialOf(job.material, job.stars[earned] - n), stars: starMarks(earned + 1) }),
           ),
           h(
             'div',
             { class: 'jd-dim', tid: 'results-jobcount', style: 'font-size:0.875em' },
-            t('results.jobLine', { n: int(n), target: int(jobTarget(job)), mat: materialMany(job.material) }),
+            job.orders
+              ? t('job.filledCount', { n: run.filled, total: job.orders.length })
+              : t('results.jobLine', { n: int(n), target: int(jobTarget(job)), mat: materialMany(job.material) }),
           ),
         );
       })()

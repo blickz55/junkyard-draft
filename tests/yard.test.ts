@@ -3,12 +3,11 @@
 // mean what they say (the plain recipe earns two, on every yard).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { apply, draftOffers, newRun, runStars, RunError, shippedTotal, TUTORIAL_SEED } from '../game/src/sim/run';
+import { apply, cardParts, draftOffers, newRun, runStars, RunError, shippedTotal, TUTORIAL_SEED } from '../game/src/sim/run';
 import { isClassicSeed, isTutorialSeed, JOB_MACHINE, lessonYard, priceOf, starsFor, yardFor } from '../game/src/sim/yard';
 import { RULES } from '../game/src/sim/rules';
 import { runLayout, validateLayout } from '../game/src/sim/sim';
 import { straightPieces } from './e2e/line';
-import { plainLine } from '../tools/job-study';
 
 const seeds = Array.from({ length: 300 }, (_, i) => `yard-${i}`);
 const signature = (seed: string) => JSON.stringify(yardFor(seed));
@@ -18,30 +17,25 @@ test('a yard is a pure function of its seed, and different seeds open on differe
   assert.ok(new Set(seeds.map(signature)).size >= seeds.length * 0.98, 'practically no two yards alike');
   const belts = new Set(seeds.map((s) => JSON.stringify(yardFor(s).machines)));
   assert.ok(belts.size >= seeds.length * 0.6, `${belts.size} different belts in ${seeds.length} yards`);
-  const shapes = new Set(seeds.map((s) => yardFor(s).machines.filter((m) => m.kind === 'conveyor').length));
+  const shapes = new Set(seeds.map((s) => yardFor(s).machines.length));
   assert.ok(shapes.size >= 3, `belt lengths vary: ${[...shapes].join(', ')}`);
-  const bends = seeds.filter(
-    (s) =>
-      new Set(
-        yardFor(s)
-          .machines.filter((m) => m.kind === 'conveyor')
-          .map((m) => m.dir),
-      ).size > 1,
-  ).length;
+  const line = (s: string) => yardFor(s).machines.filter((m) => m.kind !== 'hopper' && m.kind !== 'dock');
+  const bends = seeds.filter((s) => new Set(line(s).map((m) => m.dir)).size > 1).length;
   assert.ok(bends > seeds.length / 2 && bends < seeds.length, `most belts bend, some run straight (${bends} of ${seeds.length})`);
   const headings = new Set(seeds.map((s) => yardFor(s).machines[0].dir));
   assert.equal(headings.size, 4, 'hoppers face every way');
 });
 
-test('every generated yard is playable: the belt ships scrap as it stands, the recipe has straight pieces, rubble is scattered, the job is set', () => {
+test("every generated yard opens with the job's line running: it ships the job's goods as it stands, rubble is scattered, the job is set", () => {
   for (const seed of seeds) {
     const s = newRun(seed);
     const y = yardFor(seed);
     assert.deepEqual(validateLayout(s.layout), [], `${seed}: legal`);
     assert.equal(s.layout.machines.filter((m) => m.kind === 'hopper').length, 1, `${seed}: one hopper`);
     assert.equal(s.layout.machines.filter((m) => m.kind === 'dock').length, 1, `${seed}: one dock`);
-    assert.ok(runLayout(s.layout).shipped.scrap >= 35, `${seed}: the belt ships scrap before anything is built (${runLayout(s.layout).shipped.scrap})`);
-    assert.ok(straightPieces(s).length >= RULES.yard.straightPieces, `${seed}: ${straightPieces(s).length} straight pieces`);
+    const shipped = runLayout(s.layout).shipped[s.job!.material];
+    assert.ok(shipped >= 15, `${seed}: the line ships the job's goods before anything is built (${shipped})`);
+    assert.ok(straightPieces(s).length >= RULES.yard.straightPieces - 2, `${seed}: ${straightPieces(s).length} straight pieces left`);
     assert.ok(y.rubble.length >= RULES.yard.rubbleMin && y.rubble.length <= RULES.yard.rubbleMax, `${seed}: ${y.rubble.length} piles`);
     const xy = (c: number) => ({ x: c % RULES.gridWidth, y: Math.floor(c / RULES.gridWidth) });
     for (const c of y.rubble) {
@@ -64,15 +58,15 @@ test('every generated yard is playable: the belt ships scrap as it stands, the r
   assert.ok(jobs.filter((j) => j === 'ingot').length > jobs.filter((j) => j === 'plate').length, 'ingot jobs are the common ones');
 });
 
-test("the job's parts are guaranteed: the crusher in the first draft, the job's own machine in the second", () => {
+test("a card can always widen the line: a Hopper brings its Crusher and the job's machine a Splitter; lessons and classic yards deal single parts", () => {
   for (const seed of seeds) {
     const job = yardFor(seed).job!;
-    assert.ok(draftOffers(seed, 1).includes('crusher'), `${seed}: crusher in draft 1`);
-    assert.ok(draftOffers(seed, 2).includes(JOB_MACHINE[job.material]), `${seed}: ${JOB_MACHINE[job.material]} in draft 2`);
-    for (const r of [1, 2]) assert.equal(new Set(draftOffers(seed, r)).size, 3, `${seed}: three different cards in draft ${r}`);
+    assert.deepEqual(cardParts('hopper', job, seed), ['hopper', 'crusher']);
+    assert.deepEqual(cardParts(JOB_MACHINE[job.material], job, seed), [JOB_MACHINE[job.material], 'splitter']);
+    assert.deepEqual(cardParts('tuner', job, seed), ['tuner']);
   }
-  const positions = new Set(seeds.map((s) => draftOffers(s, 2).indexOf(JOB_MACHINE[yardFor(s).job!.material])));
-  assert.equal(positions.size, 3, 'the guaranteed card is shuffled among the three');
+  assert.deepEqual(cardParts('hopper', null), ['hopper']);
+  assert.deepEqual(cardParts('hopper', yardFor('tutorial-2').job, 'tutorial-2'), ['hopper']);
 });
 
 test('rubble cannot be built on, and the refusal is the rules, not the interface', () => {
@@ -117,11 +111,36 @@ test("the job's product sells for the job's price on its yard and the list price
   );
 });
 
-test('star marks mean what they say: the plain recipe from shift 2 earns exactly two stars on every yard, and is never enough for the third', () => {
-  for (const seed of seeds.slice(0, 80)) {
-    const job = yardFor(seed).job!;
-    const { shipped } = plainLine(seed);
-    assert.equal(starsFor(job, shipped), 2, `${seed}: ${shipped} ${job.material}s against ${job.stars.join('/')}`);
+test('orders: each one filled raises every price, a miss costs only the raise, and the stars count orders filled', () => {
+  const s = newRun('orders-yard');
+  const job = s.job!;
+  const line = runLayout(s.layout).earned;
+  assert.ok(line >= job.orders![0], 'the line as it opens fills the first order');
+  while (s.phase !== 'finished') {
+    if (s.phase === 'draft') apply(s, { t: 'pick', i: 0 });
+    apply(s, { t: 'run' });
+    apply(s, { t: 'next' });
+  }
+  assert.equal(s.rounds[0].earned, line);
+  assert.ok(s.filled >= 1);
+  assert.equal(s.rounds[1].layout.rate, 100 + RULES.job.raise, 'the raise reached shift 2');
+  assert.equal(runStars(s), starsFor(job, s.filled));
+  const rates = s.rounds.map((r) => r.layout.rate ?? 100);
+  assert.deepEqual(
+    rates,
+    rates.slice().sort((a, b) => a - b),
+    'a miss takes nothing back',
+  );
+});
+
+test('the second buyer: from their shift the other product sells at the job price, and never before', () => {
+  const s = newRun('buyer-yard');
+  const other = s.job!.material === 'ingot' ? 'plate' : 'ingot';
+  for (let r = 1; r <= RULES.rounds; r++) {
+    assert.equal(s.layout.premium2, r >= RULES.job.secondBuyerFrom ? other : undefined, `shift ${r}`);
+    apply(s, { t: 'pick', i: 0 });
+    apply(s, { t: 'run' });
+    apply(s, { t: 'next' });
   }
 });
 

@@ -12,17 +12,20 @@ export function inputTravelDirs(kind: MachineKind, dir: Dir): Dir[] {
     case 'tuner':
       return [];
     case 'conveyor':
+    case 'crusher':
+    case 'furnace':
+    case 'press':
       return [dir, leftOf(dir), rightOf(dir)];
     case 'dock':
       return [0, 1, 2, 3];
     default:
-      return [dir]; // splitter, crusher, furnace, press: only from behind
+      return [dir]; // splitter, sieve: only from behind
   }
 }
-/** Directions a machine pushes items out in (a splitter alternates left and right). */
+/** Directions a machine pushes items out in (a splitter goes ahead, left and right in turn). */
 export function outputDirs(kind: MachineKind, dir: Dir): Dir[] {
   if (kind === 'dock' || kind === 'tuner') return [];
-  return kind === 'splitter' ? [leftOf(dir), rightOf(dir)] : [dir];
+  return kind === 'splitter' ? [dir, leftOf(dir), rightOf(dir)] : [dir];
 }
 
 const at = (layout: Layout, x: number, y: number, ignoreId: number): Machine | undefined =>

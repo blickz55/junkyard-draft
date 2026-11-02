@@ -3,7 +3,8 @@
 /** v2 (2026-10-25): Plate Press machine + plate material; conveyor draft weight 34 → 30. */
 /** v3 (rules-v3 branch): Tuner machine (adjacent processors hold one tick less) offered from round 3 through the tier table; Sieve exists as an experimental, never-offered kind. */
 /** v4 (owner playtest, 2026-10-31): the seed builds the yard (belt shape, rubble, job, shelf), the job's product sells for the job's price, the job's machine is guaranteed in shift 2, the lesson opens with a broken belt. */
-export const RULES_VERSION = 5; // bumped on every semantic change; older replays and saves are refused from here on
+/** v6 (the fun card and the agent panels, 2026-11-02): a job's yard opens with its line running; orders each shift, each one filled raising every price; a Hopper card brings a Crusher and the job's machine a Splitter; a Splitter sends things ahead as well as to the sides; machines take from the sides as well as from behind; a second buyer from shift 4. */
+export const RULES_VERSION = 6; // bumped on every semantic change; older replays and saves are refused from here on
 
 export type MachineKind = 'hopper' | 'conveyor' | 'splitter' | 'crusher' | 'furnace' | 'press' | 'dock' | 'sieve' | 'tuner';
 export type Material = 'scrap' | 'shards' | 'plate' | 'ingot' | 'slag';
@@ -39,10 +40,10 @@ export interface Layout {
   rubble?: readonly number[];
   /** the job's product: it sells for RULES.job.price on this layout (rules v4; absent means none) */
   premium?: Material;
-  /** on trial: a second product at the job's price, this shift */
+  /** the second buyer (rules v6): another product at the job's price, this shift */
   premium2?: Material;
-  /** on trial: seconds between scrap from a hopper, this shift */
-  feed?: number;
+  /** what every price is at this shift, in percent (rules v6: orders filled raise it; absent means 100) */
+  rate?: number;
 }
 
 /** `absorb`: a press took a shard into its store (the item ceases to exist; the next shard becomes a plate). */

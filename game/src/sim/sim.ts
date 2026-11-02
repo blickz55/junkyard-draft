@@ -1,4 +1,4 @@
-import { DIR_DX, DIR_DY, isProcessor, leftOf, opposite, rightOf, RULES, transform, TRIAL, type ProcessorKind } from './rules';
+import { DIR_DX, DIR_DY, isProcessor, leftOf, opposite, rightOf, RULES, transform, type ProcessorKind } from './rules';
 import { priceOf } from './yard';
 import type { CellStats, Dir, Item, Layout, Machine, Material, RunResult, SimEvent } from './types';
 
@@ -9,12 +9,11 @@ export interface SimState {
   /** the layout's prices (the job's product pays its premium, rules v4) */
   premium?: Material;
   premium2?: Material;
-  /** seconds between scrap from a hopper */
-  feed: number;
+  rate?: number;
   grid: (Machine | undefined)[];
   items: Item[];
   itemAt: (Item | undefined)[];
-  splitterToggle: Record<number, 0 | 1>;
+  splitterToggle: Record<number, number>;
   /** shards currently stored in each press (by cell) */
   pressStore: Record<number, number>;
   /** items consumed by presses */
@@ -54,7 +53,7 @@ export function createSim(layout: Layout): SimState {
     height: layout.height,
     premium: layout.premium,
     premium2: layout.premium2,
-    feed: layout.feed ?? RULES.hopperPeriod,
+    rate: layout.rate,
     grid,
     items: [],
     itemAt: new Array(n).fill(undefined),
@@ -93,11 +92,10 @@ function accepts(s: SimState, cell: number, travel: Dir): boolean {
     case 'dock':
       return true;
     case 'conveyor':
-      return travel !== opposite(m.dir); // not head-on into its output
     case 'crusher':
     case 'furnace':
     case 'press':
-      return TRIAL.sideEntry ? travel !== opposite(m.dir) : travel === m.dir;
+      return travel !== opposite(m.dir); // behind or either side, never head-on into its output
     case 'splitter':
     case 'sieve':
       return travel === m.dir; // only from behind
@@ -107,16 +105,11 @@ function accepts(s: SimState, cell: number, travel: Dir): boolean {
 /** Where an item may leave `m`. A sieve (rules v3) routes by material: raw scrap forward, anything processed to the right; a blocked chosen exit waits (jam-on-full, no overflow). */
 function outputDirs(s: SimState, m: Machine, cell: number, item?: Item): Dir[] {
   if (m.kind === 'sieve') return [item && item.mat !== 'scrap' ? rightOf(m.dir) : m.dir];
-  if (m.kind === 'splitter' && TRIAL.splitterAhead) {
+  if (m.kind === 'splitter') {
+    // ahead, left, right, in turn, and on past any way that will not take it: dropped on a belt it passes things on, and it splits when a side has somewhere to go
     const ways = [m.dir, leftOf(m.dir), rightOf(m.dir)];
     const t = s.splitterToggle[cell] ?? 0;
     return [ways[t % 3], ways[(t + 1) % 3], ways[(t + 2) % 3]];
-  }
-  if (m.kind === 'splitter') {
-    const t = s.splitterToggle[cell] ?? 0;
-    const first = t === 0 ? leftOf(m.dir) : rightOf(m.dir);
-    const second = t === 0 ? rightOf(m.dir) : leftOf(m.dir);
-    return [first, second];
   }
   return [m.dir];
 }
@@ -129,12 +122,6 @@ function adjacentTuner(s: SimState, cell: number): number {
   }
   return -1;
 }
-
-const adjacentTuners = (s: SimState, cell: number): number =>
-  ([0, 1, 2, 3] as Dir[]).filter((d) => {
-    const n = neighbor(s, cell, d);
-    return n >= 0 && s.grid[n]?.kind === 'tuner';
-  }).length;
 
 /** An item has just entered processing machine `m` at `cell`: transform it and start its hold timer (shortened by an adjacent Tuner, rules v3).
  *  A press stores shards until it has RULES.pressShards; each stored shard is absorbed (the item ends).
@@ -156,7 +143,7 @@ function enterProcessor(s: SimState, kind: ProcessorKind, cell: number, item: It
   let hold: number = RULES.process[kind];
   const tuner = adjacentTuner(s, cell);
   if (tuner >= 0 && hold > 1 && hold >= RULES.tunerMinHold) {
-    hold = Math.max(1, hold - RULES.tunerBonus * (TRIAL.tunerStack ? adjacentTuners(s, cell) : 1));
+    hold = Math.max(1, hold - RULES.tunerBonus);
     stats(s, tuner).tuned++;
   }
   item.hold = hold;
@@ -170,8 +157,7 @@ function enterProcessor(s: SimState, kind: ProcessorKind, cell: number, item: It
 
 /** A splitter has just sent something out along `dir`: the next item goes the next way round. */
 function turnSplitter(s: SimState, m: Machine, cell: number, dir: Dir) {
-  if (TRIAL.splitterAhead) s.splitterToggle[cell] = (([m.dir, leftOf(m.dir), rightOf(m.dir)].indexOf(dir) + 1) % 3) as 0 | 1;
-  else s.splitterToggle[cell] = (s.splitterToggle[cell] ?? 0) === 0 ? 1 : 0;
+  s.splitterToggle[cell] = ([m.dir, leftOf(m.dir), rightOf(m.dir)].indexOf(dir) + 1) % 3;
 }
 
 /** Try to move an item out of its cell; returns true if it moved (or was shipped). */
@@ -239,12 +225,10 @@ export function step(s: SimState): SimEvent[] {
       s.tickEvents.push({ tick: s.tick, kind: 'jam', cell: it.cell, itemId: it.id });
     }
   // 4. hoppers spawn into the cell ahead
-  {
+  if (s.tick % RULES.hopperPeriod === 0) {
     for (let c = 0; c < s.grid.length; c++) {
       const m = s.grid[c];
       if (!m || m.kind !== 'hopper') continue;
-      const every = TRIAL.tunerHopper ? Math.max(1, s.feed - (TRIAL.tunerStack ? adjacentTuners(s, c) : adjacentTuner(s, c) >= 0 ? 1 : 0)) : s.feed;
-      if (s.tick % every !== 0) continue;
       const target = neighbor(s, c, m.dir);
       if (target >= 0 && accepts(s, target, m.dir) && !s.itemAt[target] && s.grid[target]!.kind !== 'dock') {
         const tm = s.grid[target]!;

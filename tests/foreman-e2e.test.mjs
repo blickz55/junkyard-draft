@@ -98,7 +98,7 @@ test('quiet: persisted, gone from home, the banner and the results, the coach un
   await page.goto(f.gameUrl('scene=game&seed=classic-foreman-yard-2'));
   await draft();
   await frames();
-  assert.match(await api('hint'), /^Pick ONE part/, 'the coach still says what to do');
+  assert.match(await api('hint'), /^Pick ONE card/, 'the coach still says what to do');
   await api('pick', 0);
   await api('run');
   await api('finishRun');

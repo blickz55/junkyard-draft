@@ -3,7 +3,7 @@ import type { Dir, MachineKind, Material } from './types';
 /** Machines that hold an item for a fixed number of ticks (the only keys RULES.process may have). */
 export type ProcessorKind = 'crusher' | 'furnace' | 'press';
 
-/** Tuning constants for rules version 5. Changing any value requires bumping RULES_VERSION. */
+/** Tuning constants for rules version 6. Changing any value requires bumping RULES_VERSION. */
 export const RULES = {
   gridWidth: 8,
   gridHeight: 6,
@@ -51,13 +51,25 @@ export const RULES = {
     straightPieces: 3,
     rubbleMin: 2,
     rubbleMax: 4,
-    shelf: ['conveyor', 'conveyor'] as MachineKind[],
+    shelf: ['conveyor', 'conveyor', 'conveyor', 'conveyor'] as MachineKind[],
   },
-  /** The job (rules v4): what a yard is paid to deliver. Its product sells for `price` here, so doing the job and topping the board are the same thing; `stars` are the three marks in units shipped over the game (calibrated by tools/job-study.ts: the plain recipe from shift 2 earns two stars, the third needs a widened line). */
+  /**
+   * The job (rules v4, orders in v6): what a yard is paid to deliver. Its product sells for `price` here. Every yard opens with the job's
+   * line already running, so every pick is a choice, and each shift has an `order`: money to earn in that shift. Each order filled raises
+   * every price by `raise` percent for the rest of the game; a missed order costs the raise and nothing else. `stars` are orders filled.
+   * The table is tools/fun-orders.ts's, chosen on one set of yards and checked on another (docs/DESIGN.md).
+   */
   job: {
     price: 24,
     weights: { ingot: 2, plate: 1 } as Record<'ingot' | 'plate', number>,
-    stars: { ingot: [50, 100, 160] as readonly [number, number, number], plate: [40, 80, 135] as readonly [number, number, number] },
+    orders: { ingot: [450, 700, 1010, 1470, 2010, 2600], plate: [380, 600, 860, 1250, 1710, 2210] } as Record<'ingot' | 'plate', readonly number[]>,
+    raise: 25,
+    stars: [2, 4, 6] as readonly [number, number, number],
+    /** the shift the other product starts selling at the job's price: a finished line has a new customer */
+    secondBuyerFrom: 4,
+    /** the deal on a job's yard: the job's own machine in place of `job`, the other product's in place of `other`. A Hopper comes with its Crusher and the job's machine with a Splitter, so one card can always widen the line. */
+    deal: { job: 20, hopper: 20, tuner: 14, other: 10, dock: 8 },
+    tunerFrom: 2,
   },
   /** Starter layout machine kinds (the classic yard, rules v1 to v3). */
   starter: [
@@ -68,9 +80,6 @@ export const RULES = {
     { kind: 'dock', x: 5, y: 2, dir: 0 },
   ] as { kind: MachineKind; x: number; y: number; dir: Dir }[],
 } as const;
-
-/** Rules on trial (the fun card, docs/GOALS.md): 0 is the rule as it stands, and only the tools switch one on. A winner moves into RULES with a version bump; a loser goes. */
-export const TRIAL = { splitterAhead: 0, sideEntry: 0, rampFrom: 0, rampPeriod: 1, buyerFrom: 0, tunerHopper: 0, tunerStack: 0, headStart: 0, kits: 0 };
 
 /** Every machine kind the simulation knows (the names and blurbs a player reads live in game/src/content/machines.ts, 0.9.0). */
 export const MACHINE_KINDS: readonly MachineKind[] = ['hopper', 'conveyor', 'splitter', 'crusher', 'furnace', 'press', 'dock', 'tuner', 'sieve'];

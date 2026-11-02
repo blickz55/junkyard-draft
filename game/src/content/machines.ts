@@ -17,7 +17,7 @@ export function machineName(kind: MachineKind): string {
   return t(`machine.${kind}.name` as const);
 }
 /** What a card says. On a yard with a job, the job's goods are worth the job's price: pass the layout and the card says so. */
-export function machineBlurb(kind: MachineKind, layout: Pick<Layout, 'premium'> = {}): string {
+export function machineBlurb(kind: MachineKind, layout: Pick<Layout, 'premium' | 'premium2' | 'rate'> = {}): string {
   switch (kind) {
     case 'hopper':
       return t('machine.hopper.blurb', { period: RULES.hopperPeriod });

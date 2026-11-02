@@ -12,18 +12,26 @@ import { isMintedDailySeed } from '../sim/daily';
 import { RULES } from '../sim/rules';
 import { t } from '../content/strings';
 import { int, money } from '../content/format';
-import { jobFlavour, jobLine, jobRecipe, materialMany, starMarks } from '../content/job';
+import { jobFlavour, jobLine, jobRecipe, materialMany, otherMaterial, starMarks } from '../content/job';
 import { machineShort } from '../content/machines';
 
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** Stars as marks: the three targets side by side. */
 export const starRow = (job: Job) =>
   h(
     'div',
     { class: 'jd-job-marks' },
     ...job.stars.map((n, i) =>
-      h('span', { class: 'jd-job-mark' }, h('span', { class: 'jd-gold' }, starMarks(i + 1)), h('b', {}, `${int(n)} ${materialMany(job.material)}`)),
+      h(
+        'span',
+        { class: 'jd-job-mark' },
+        h('span', { class: 'jd-gold' }, starMarks(i + 1)),
+        h('b', {}, job.orders ? t('job.mark', { n }) : `${int(n)} ${materialMany(job.material)}`),
+      ),
     ),
   );
+/** The six orders, in a row. */
+export const orderRow = (job: Job) => h('div', { class: 'jd-order-list', tid: 'order-list' }, (job.orders ?? []).map((o) => money(o)).join(' · '));
 /** The chain the job needs. With `built` it is a checklist: what stands in the yard gets a tick. */
 export const recipeRow = (job: Job, built?: (kind: string) => boolean) =>
   h(
@@ -56,9 +64,20 @@ export function openJobCard(scene: Phaser.Scene, seed: string, job: Job, onStart
     lead: [
       h('div', { class: 'jd-job-flavour jd-dim' }, jobFlavour(seed, job)),
       h('div', { class: 'jd-job-goal', tid: 'job-goal' }, jobLine(job)),
+      ...(job.orders ? [orderRow(job)] : []),
       starRow(job),
-      recipeRow(job),
-      h('div', { class: 'jd-dim', tid: 'job-why' }, `${t('job.pays', { price: money(RULES.job.price) })} ${t('job.why')}`),
+      ...(job.orders ? [] : [recipeRow(job)]),
+      h(
+        'div',
+        { class: 'jd-dim', tid: 'job-why' },
+        job.orders
+          ? [
+              t('job.pays', { mat: cap(materialMany(job.material)), price: money(RULES.job.price) }),
+              t('job.ordersWhy', { raise: RULES.job.raise }),
+              t('job.buyer', { n: RULES.job.secondBuyerFrom, mat: materialMany(otherMaterial(job)), price: money(RULES.job.price) }),
+            ].join(' ')
+          : `${t('job.pays', { mat: cap(materialMany(job.material)), price: money(RULES.job.price) })} ${t('job.why')}`,
+      ),
     ],
     choices: [{ label: t('job.start'), tid: 'job-start', primary: true, run: onStart }],
     onDismiss: onStart,

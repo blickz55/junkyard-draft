@@ -8,7 +8,7 @@ let id = 1;
 const m = (kind: MachineKind, x: number, y: number, dir: Dir = 0): Machine => ({ id: id++, kind, x, y, dir });
 const lay = (...machines: Machine[]): Layout => ({ width: 8, height: 6, machines });
 
-test('flow links: an output connects when the neighbour takes items from that side; head-on, empty and wrong-side outputs are loose', () => {
+test('flow links: an output connects when the neighbour takes items from that side; head-on, empty and wrong-side outputs are loose, and a Splitter only needs its way ahead', () => {
   const L = lay(
     m('hopper', 0, 1),
     m('conveyor', 1, 1),
@@ -30,11 +30,8 @@ test('flow links: an output connects when the neighbour takes items from that si
   assert.deepEqual(at(4, 1), [{ x: 4, y: 1, dir: 0, ok: false }], 'into the back of a conveyor that points at it: loose');
   assert.deepEqual(
     at(6, 3).map((l) => [l.dir, l.ok]),
-    [
-      [3, false],
-      [1, false],
-    ],
-    "a splitter's two outputs into empty cells",
+    [[0, false]],
+    'a Splitter with nothing ahead is loose there; its open sides are no fault',
   );
   assert.deepEqual(
     at(2, 3),

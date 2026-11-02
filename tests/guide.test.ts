@@ -12,24 +12,24 @@ const doAll = (s: Run, actions: Action[]) => actions.forEach((a) => apply(s, a))
 const drop = (s: Run, kind: string, x: number, y: number) => doAll(s, dropActions(s, shelf(s, kind), x, y));
 const spotKinds = (g: { spots: Guidance['spots'] }) => g.spots.map((p) => p.kind);
 
-test('outside the lesson the coach says one thing per moment and names what the job needs', () => {
+test("outside the lesson the coach says one thing per moment and names the shift's order", () => {
   const s = newRun('coach-yard');
   assert.ok(s.job);
   const pick = hintFor(s, ctx());
-  assert.match(pick.text, /^Pick ONE part\./);
-  assert.match(pick.text, /This job needs the Crusher/, 'the guaranteed crusher is named');
+  assert.match(pick.text, /^Pick ONE card\. This shift the order is \$450\.$/);
   assert.equal(pick.step, 0);
   assert.deepEqual(pick.spots, [], 'a real choice lights nothing');
-  apply(s, { t: 'pick', i: s.offers.indexOf('crusher') });
+  apply(s, { t: 'pick', i: s.offers.indexOf('furnace') });
+  const furnace = s.bin.find((m) => m.kind === 'furnace')!;
   const place = hintFor(s, ctx());
-  assert.match(place.text, /^Drag the Crusher onto the belt/);
-  assert.deepEqual(place.spots[0], { kind: 'shelf', i: s.bin.length - 1 });
+  assert.match(place.text, /^Drag the Furnace onto the belt/, 'the first part of the card');
+  assert.deepEqual(place.spots[0], { kind: 'shelf', i: s.bin.indexOf(furnace) });
   assert.ok(place.spots.length > 1 && place.spots.slice(1).every((p) => p.kind === 'cell' && p.soft), 'the belt pieces it could take are lit softly');
-  assert.match(hintFor(s, { ...ctx(), touch: true }).text, /^Tap the Crusher, then tap the belt/);
-  assert.match(hintFor(s, { ...ctx(), touch: true, selected: s.bin[s.bin.length - 1].id }).text, /^Now tap the belt/, 'already selected: no need to tap it');
+  assert.match(hintFor(s, { ...ctx(), touch: true }).text, /^Tap the Furnace, then tap the belt/);
+  assert.match(hintFor(s, { ...ctx(), touch: true, selected: furnace.id }).text, /^Now tap the belt/, 'already selected: no need to tap it');
   const line = s.layout.machines.filter((m) => m.kind === 'conveyor');
-  const mid = line[Math.floor(line.length / 2)];
-  drop(s, 'crusher', mid.x, mid.y);
+  drop(s, 'furnace', line[line.length - 1].x, line[line.length - 1].y);
+  assert.match(hintFor(s, ctx()).text, /^Drag the Splitter onto the belt/, 'the second part of the card comes next');
   while (s.bin.length) apply(s, { t: 'sell', id: s.bin[0].id });
   const ready = hintFor(s, ctx());
   assert.match(ready.text, /Start the shift/);

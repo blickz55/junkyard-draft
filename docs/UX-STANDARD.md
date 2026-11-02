@@ -66,7 +66,7 @@ Beyond the existing list (seed, tick, verifier, replay, hash, histogram, percent
 
 After one lesson a player can say, in their own words:
 
-> "I get a job, like ship 100 ingots. Each shift I keep one part, put it on the belt, and watch it run. Stars for how much I ship. Beat everyone on today's board."
+> "I get a job: six orders, each bigger than the last. Each shift I keep one card, build it into my line, and watch it run. Fill an order and my prices go up. Stars for orders filled. Beat everyone on today's board."
 
 If a playtester cannot say that, the game has failed the standard, however clean the tests are.
 

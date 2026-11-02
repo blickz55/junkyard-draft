@@ -18,7 +18,7 @@ export function straightPieces(s: RunState): Machine[] {
 
 /** Swap a shelf part of this kind (default the newest part) into the first straight piece of the belt. */
 export function dropOnLine(s: RunState, kind?: MachineKind): void {
-  const part = kind ? s.bin.find((m) => m.kind === kind)! : s.bin[s.bin.length - 1];
+  const part = (kind && s.bin.find((m) => m.kind === kind)) || s.bin[s.bin.length - 1];
   const slot = straightPieces(s)[0];
   const { x, y, dir } = slot;
   apply(s, { t: 'unplace', id: slot.id });

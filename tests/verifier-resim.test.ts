@@ -1,6 +1,6 @@
 // Production roadmap 0.8.2: one re-simulation per submission, off the event loop, with a cap and a queue; reason codes; the per-seed index.
 import { test } from 'node:test';
-import { dropOnLine, straightPieces } from './e2e/line';
+import { dropOnLine } from './e2e/line';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -26,7 +26,7 @@ function finishedRun(seed: string, rotations = 0) {
     apply(s, { t: 'pick', i: s.offers.indexOf('crusher') >= 0 ? s.offers.indexOf('crusher') : 0 });
     if (r === 1) {
       dropOnLine(s);
-      const other = straightPieces(s)[0];
+      const other = s.layout.machines.find((m) => m.kind === 'dock')!;
       for (let k = 0; k < rotations; k++) apply(s, { t: 'rotate', id: other.id });
     }
     apply(s, { t: 'run' });

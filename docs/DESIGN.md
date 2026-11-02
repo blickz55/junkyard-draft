@@ -1,8 +1,25 @@
-# Junkyard Draft — design (rules v4)
+# Junkyard Draft — design (rules v6)
 
 ## Pitch
 
-Every yard is a job: ship 160 ingots for the harbor bridge. Keep one salvaged part a shift, drop it on the belt, watch the line run. Six shifts, three stars for the job, money for the board. A full run takes about 5–8 minutes.
+Every yard is a job for the harbor bridge: six orders, each bigger than the last. The line already runs; each shift you keep one card, build its parts in, and watch the money against the order. Every order you fill raises your prices for the rest of the game. Three stars for orders filled, money for the board. A full run takes about 5–8 minutes.
+
+## Decision: orders, kits and a running start (rules v6, the fun card, 2026-11-01)
+
+The owner asked for trial and error against a scorecard. Rules 5 scored 55 of 100 on 40 held-out yards (`docs/baselines/fun/card-rules5.json`), with its lowest dimension at 23: 8.8 % of picks were real choices, 24.5 % of shifts were flat, and a plain recipe with nothing added earned 80 % of the expert's money. The agent panel said the same in words: fun 3 of 5, nobody wanted to play tomorrow, all eight got stuck (`docs/baselines/fun/panel-r1/`). The cause is arithmetic. A line's rate is its slowest stage, and a Hopper, a Crusher and a tuned Furnace tie at one item per 2 seconds, so no single part adds anything: once the recipe ran, shifts 4 to 6 were the same shift three times.
+
+**What changed:**
+
+- **Orders.** A job is now six orders in money (`RULES.job.orders`, one table for ingot jobs and one for plate jobs). Fill a shift's order and every price rises 25 % from the next shift on (`job.raise`, carried on `Layout.rate`); a raise is never taken back and a miss costs only that raise. Two, four and six orders filled are the stars. The money earned is the score, so the job and the board still pull the same way.
+- **A running start.** Every generated yard opens with a Crusher and the job's machine on the belt, so the job's goods ship in the first shift. The first decision is how to widen a line, not how to finish a recipe. The lessons still teach the recipe by hand.
+- **Kits.** A card can now pay by itself: a Hopper brings its Crusher (a new feed), the job's machine brings a Splitter (a new branch). `cardParts` in `sim/run.ts` is the one place that says so. Lessons and `classic-*` yards deal single parts.
+- **The deal.** A job yard deals its own machine, the Hopper, the rival machine, a Dock and from shift 2 a Tuner (`job.deal`, `tunerFrom`), never a lone Crusher or Splitter. Four spare belts on the shelf instead of two.
+- **A second buyer.** From shift 4 the other product sells at the job's price too (`secondBuyerFrom`, `Layout.premium2`), so the rival machine is a real late card.
+- **Machines take from the sides.** A Crusher, Furnace or Press takes items from behind or either side, never head-on; a Splitter takes from behind and sends ahead, left and right in turn. Newcomers turned parts until something fed them, and that was friction, not a puzzle. The Sieve keeps its behind-only rule, deferred as it is.
+
+**Evidence.** Trials on 24 tune yards from a base of about 50: the second buyer +13, kits +10, a head start 0 to +5 by itself, Tuner changes +2. Orders were priced on paper first (`tools/fun-orders.ts`, replaying the tree of each yard with raises applied), which lifted the paper score from about 30 to about 71; held out from the tuning, the chosen table gave flat shifts 6.7 %, last shift best 95.8 %, real picks 24.3 %, median orders filled novice 2, casual 4, competent 6, expert 6, and all six orders for 62.5 % of competent games and 66.7 % of expert games. A third of expert games miss one, which is where a second try comes from. The whole card on the built game is at the end of this section.
+
+**Paid for.** The rules are harder to state: "fill the order, your prices rise" is a second number beside the money, and the card and every screen had to learn it. `tests/guide.test.ts` and the job bar's order strip carry that. The old star marks in units are gone from job yards (`orders` absent keeps them for the lessons' own marks and the tests that name them).
 
 ## Decision: every yard is a job (rules v4, the owner's playtest, 2026-10-31)
 
@@ -48,15 +65,15 @@ The owner asked for a restart in the lesson and wondered about every level. **Ev
 
 ## Loop
 
-1. **Draft** — three seeded offers; pick one (shift 1 always includes a Crusher, shift 2 the job's machine, so the job can always be started).
+1. **Draft** — three seeded offers; pick one card. On a job yard a Hopper card brings its Crusher and the job's machine brings a Splitter.
 2. **Build** — drag parts from the bin onto an 8×6 grid; R / right-click rotates; drop onto the bin to remove. Everything can be rearranged every round. Keyboard-only: arrow keys move a cursor (first press reveals it on the selected machine), Enter places the next bin part or picks up / drops a machine, Tab cycles bin parts into the hand, R rotates, Delete returns to the bin, Esc drops / deselects / hides the cursor.
 3. **Run** — 80 fixed ticks. Items move one cell per tick; processing machines hold items for a fixed number of ticks.
-4. **Result** — money earned, what shipped, and diagnostics (blocked hopper, jammed machines, items stuck in transit).
-5. Repeat for 6 rounds → final score = sum of round earnings → retry same seed / random / daily.
+4. **Result** — money earned against the shift's order, what shipped, and diagnostics (blocked hopper, jammed machines, items stuck in transit). An order filled raises every price from the next shift.
+5. Repeat for 6 rounds → final score = sum of round earnings, stars = orders filled → retry same seed / random / daily.
 
 ## Starter workshop
 
-A seed's own yard: hopper, a generated belt, a dock, junk piles, two spare conveyors on the shelf. The `classic-*` seeds keep the old fixed one: Hopper → Conveyor ×3 → Dock in row 3, shipping raw scrap for $1 each (38 per shift).
+A seed's own yard: hopper, a generated belt with a Crusher and the job's machine on it, a dock, junk piles, four spare conveyors on the shelf. The `classic-*` seeds keep the old fixed one: Hopper → Conveyor ×3 → Dock in row 3, shipping raw scrap for $1 each (38 per shift).
 
 ## Machines
 
@@ -64,13 +81,13 @@ A seed's own yard: hopper, a generated belt, a dock, junk piles, two spare conve
 | ------------- | --------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Scrap Hopper  | none                  | forward                 | Emits one scrap every 2 ticks into the cell ahead if it accepts. Blocked ticks are reported.                                                                          |
 | Conveyor      | behind or either side | forward                 | Moves an item one cell per tick. Never accepts head-on.                                                                                                               |
-| Splitter      | behind only           | alternates left / right | Falls back to the other side if one is blocked.                                                                                                                       |
-| Crusher       | behind only           | forward                 | Scrap → Shards. Holds 2 ticks. Other materials pass through unchanged.                                                                                                |
-| Furnace       | behind only           | forward                 | Shards → Ingot. Raw scrap → Slag. Holds 3 ticks. Ingots pass through.                                                                                                 |
-| Plate Press   | behind only           | forward                 | Stores shards; the 2nd shard becomes one Plate ($8) and holds 2 ticks. The stored shard is absorbed (no refund at round end). Other materials pass through (2 ticks). |
+| Splitter      | behind only           | ahead, left, right      | Sends each item the next way round that is free; ways that lead nowhere are skipped.                                                                                  |
+| Crusher       | behind or either side | forward                 | Scrap → Shards. Holds 2 ticks. Other materials pass through unchanged.                                                                                                |
+| Furnace       | behind or either side | forward                 | Shards → Ingot. Raw scrap → Slag. Holds 3 ticks. Ingots pass through.                                                                                                 |
+| Plate Press   | behind or either side | forward                 | Stores shards; the 2nd shard becomes one Plate ($8) and holds 2 ticks. The stored shard is absorbed (no refund at round end). Other materials pass through (2 ticks). |
 | Shipping Dock | any side              | —                       | Consumes items instantly and pays their value.                                                                                                                        |
 
-Orientation is the core puzzle: processors and splitters only take items from behind. Conveyors side-load so lines can merge.
+Orientation is still the puzzle, with fewer ways to be wrong: nothing goes into a machine head-on, a Splitter only takes from behind, and everything else side-loads so lines can merge.
 
 ## Materials
 
@@ -88,7 +105,7 @@ An unwanted drafted part can be **sold from the bin for $10** (action `sell`, re
 
 ## Draft offer weights
 
-Crusher 18 · Furnace 15 · Splitter 15 · Hopper 10 · Press 10 · Dock 8 · Tuner 10 from shift 3 (distinct kinds per offer, seeded by `seed:draft:round`). Conveyors are bought (rules v5).
+On a job yard (rules v6): the job's machine 20 · Hopper 20 · Tuner 14 from shift 2 · the rival machine 10 · Dock 8 (distinct kinds per offer, seeded by `seed:draft:round`). Conveyors are bought (rules v5). `classic-*` yards keep the old weights: Crusher 18 · Furnace 15 · Splitter 15 · Hopper 10 · Press 10 · Dock 8 · Tuner 10 from shift 3.
 
 ## Determinism & replays
 

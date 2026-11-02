@@ -334,7 +334,7 @@ test(
 );
 
 test('a star says nothing the job bar does not: the first two are only stars, the third says the job is done', { timeout: 120000 }, async () => {
-  const seed = 'star-e'; // our player reaches all three stars on this yard
+  const seed = 'star-f'; // our player fills all six orders on this yard
   const { actions } = playSeed(seed, new Rng(`${seed}:x`), 12);
   const page = await f.page();
   const { api, mode, when, draft, noDialog } = page.jd;
@@ -376,8 +376,9 @@ test('a real yard: the job card, then every screen answers where am I, what is t
   await page.goto(f.gameUrl('scene=game&seed=audit-yard'));
   await draft();
   await page.waitForSelector('[data-testid=job-card]');
-  assert.match(await page.getByTestId('job-goal').textContent(), /^Ship \d+ (ingots|plates)$/);
-  assert.match(await page.getByTestId('job-why').textContent(), /This job pays \$24 for each one\. Reach a mark to earn its star\./);
+  assert.equal(await page.getByTestId('job-goal').textContent(), 'Fill six orders');
+  assert.equal((await page.getByTestId('order-list').textContent()).split(' · ').length, 6, 'all six orders, in a row');
+  assert.match(await page.getByTestId('job-why').textContent(), /pay \$24 each\. Each shift has an order\. Fill it and every price goes up 25%/);
   const stars = (await api('state')).job.stars;
   await page.getByTestId('job-start').click();
   await page.jd.noDialog('job-card');
@@ -395,16 +396,15 @@ test('a real yard: the job card, then every screen answers where am I, what is t
       };
     });
     assert.match(a.where ?? '', /^Shift \d of 6$/, `${what}: where am I`);
-    assert.match(a.point ?? '', /^Ship \d+/, `${what}: what's the point`);
+    assert.match(a.point ?? '', /^Order \$\d/, `${what}: what's the point`);
     assert.ok(a.now && a.words <= 14, `${what}: one short instruction: "${a.now}"`);
     assert.equal(a.out, 'Menu', `${what}: how do I get out`);
     assert.ok(a.primary <= 1, `${what}: at most one primary (${a.primary})`);
     return a;
   };
   assert.equal((await audit('the pick')).step, 'Pick');
-  assert.equal(await page.locator('[data-testid^=offer-need-]').count(), 1, 'one card is marked as needed: picking it costs nothing the job wants');
-  const i = (await api('state')).offers.indexOf('crusher');
-  await page.getByTestId(`offer-${i}`).click();
+  assert.equal(await page.locator('[data-testid^=offer-need-]').count(), 0, 'the line already runs, so no card is the one you must take');
+  await page.getByTestId('offer-0').click();
   await mode('build');
   assert.equal((await audit('the build')).step, 'Build');
   assert.ok(await page.locator('[data-spot^=shelf]').count(), 'the new part is lit on the shelf');
@@ -416,7 +416,10 @@ test('a real yard: the job card, then every screen answers where am I, what is t
   await mode('summary');
   await frames(2);
   await audit('the summary');
-  assert.match(await page.getByTestId('job-pace').textContent(), /\d+ (ingots|plates) this shift/);
+  assert.match(
+    await page.getByTestId('job-pace').textContent(),
+    /^(Order filled|Missed the order).* 1 of 6 orders filled|^Missed the order.* 0 of 6 orders filled/,
+  );
   assert.ok(await page.evaluate(() => document.querySelector('[data-testid=next]').classList.contains('jd-spot')), 'next shift is lit');
   await page.getByTestId('next').click();
   await when(() => window.__jd.phase() === 'draft');

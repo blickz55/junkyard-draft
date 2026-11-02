@@ -21,13 +21,13 @@ function line(): RunState {
 test('a Crusher on a raw line adds what shards pay over scrap', () => {
   const s = newRun('classic-estimate');
   const scrap = runLayout(s.layout).shipped.scrap;
-  assert.equal(cardGain(s.layout, 'crusher').gain, scrap * (RULES.value.shards - RULES.value.scrap));
+  assert.equal(cardGain(s.layout, ['crusher']).gain, scrap * (RULES.value.shards - RULES.value.scrap));
 });
 
 test('a Tuner beside a slow Furnace reads as a gain, and it is the one the line really gets', () => {
   const s = line();
   const before = runLayout(s.layout).earned;
-  const { gain } = cardGain(s.layout, 'tuner');
+  const { gain } = cardGain(s.layout, ['tuner']);
   assert.ok(gain > 0);
   const furnace = s.layout.machines.find((m) => m.kind === 'furnace')!;
   const after = runLayout({ ...s.layout, machines: [...s.layout.machines, { id: 92, kind: 'tuner', x: furnace.x, y: furnace.y + 1, dir: 0 }] }).earned;
@@ -36,7 +36,7 @@ test('a Tuner beside a slow Furnace reads as a gain, and it is the one the line 
 
 test('a card that needs a partner reads as nothing yet, which is true', () => {
   const s = line();
-  assert.equal(cardGain(s.layout, 'press').gain, 0);
+  assert.equal(cardGain(s.layout, ['press']).gain, 0);
 });
 
 test('a machine lifted out of the line leaves a belt piece behind when the shelf has one', () => {

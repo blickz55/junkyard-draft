@@ -9,17 +9,18 @@
  *   classic-*   the original yard: the straight belt, no rubble, no job, an empty shelf
  */
 import { Rng } from './rng';
-import { DIR_DX, DIR_DY, RULES, TRIAL } from './rules';
+import { DIR_DX, DIR_DY, RULES } from './rules';
 import type { Dir, Layout, Machine, MachineKind, Material } from './types';
 
 export type JobMaterial = Extract<Material, 'ingot' | 'plate'>;
 /** The machine that makes a job's product out of shards. */
 export const JOB_MACHINE: Record<JobMaterial, MachineKind> = { ingot: 'furnace', plate: 'press' };
 
-/** What a yard is paid to deliver: its product (which sells for RULES.job.price here) and the three star marks in units shipped. */
+/** What a yard is paid to deliver: its product (which sells for RULES.job.price here), an order a shift, and the three star marks: orders filled, or in a lesson, which has no orders, units shipped. */
 export interface Job {
   material: JobMaterial;
   stars: readonly [number, number, number];
+  orders?: readonly number[];
 }
 export interface Yard {
   machines: Omit<Machine, 'id'>[];
@@ -121,7 +122,7 @@ function rubbleFor(rng: Rng, p: Path): number[] {
 
 function jobFor(rng: Rng): Job {
   const material = rng.weighted(RULES.job.weights) as JobMaterial;
-  return { material, stars: RULES.job.stars[material] };
+  return { material, stars: RULES.job.stars, orders: RULES.job.orders[material] };
 }
 
 const CLASSIC: Yard = { machines: RULES.starter.map((m) => ({ ...m })), rubble: [], job: null, shelf: [], firstPhase: 'draft' };
@@ -202,25 +203,23 @@ export function yardFor(seed: string): Yard {
   const rubble = rubbleFor(rng, p); // the stream's order is part of the yard: rubble, then the job
   const job = jobFor(rng);
   const belt = p.belt.map((b) => ({ kind: 'conveyor' as MachineKind, x: b.x, y: b.y, dir: b.dir }));
-  const shelf = [...RULES.yard.shelf];
-  if (TRIAL.headStart) {
-    // on trial: the yard opens with the job's line already working, so every pick is a choice and shift 1 already pays
-    const straight = p.belt.map((b, i) => ((i === 0 ? p.hopper.dir : p.belt[i - 1].dir) === b.dir ? i : -1)).filter((i) => i >= 0);
-    belt[straight[0]].kind = 'crusher';
-    belt[straight[1]].kind = JOB_MACHINE[job.material];
-    shelf.push('conveyor', 'conveyor');
-  }
+  // the yard opens with the job's line already working: every pick is a choice, and shift 1 already pays
+  const straight = p.belt.map((b, i) => ((i === 0 ? p.hopper.dir : p.belt[i - 1].dir) === b.dir ? i : -1)).filter((i) => i >= 0);
+  belt[straight[0]].kind = 'crusher';
+  belt[straight[1]].kind = JOB_MACHINE[job.material];
   const machines: Yard['machines'] = [
     { kind: 'hopper', x: p.hopper.x, y: p.hopper.y, dir: p.hopper.dir },
     ...belt,
     { kind: 'dock', x: p.dock.x, y: p.dock.y, dir: 0 },
   ];
-  return { machines, rubble, job, shelf, firstPhase: 'draft' };
+  return { machines, rubble, job, shelf: [...RULES.yard.shelf], firstPhase: 'draft' };
 }
 
-/** How many stars a shipped count has earned on a job. */
+/** How many stars a count has earned on a job: orders filled, or in a lesson, units shipped. */
 export const starsFor = (job: Job, shipped: number): 0 | 1 | 2 | 3 => job.stars.filter((n) => shipped >= n).length as 0 | 1 | 2 | 3;
 
 /** What a material sells for on this layout: the list price, or the job's price for its product. */
-export const priceOf = (layout: Pick<Layout, 'premium' | 'premium2'>, mat: Material): number =>
-  layout.premium === mat || layout.premium2 === mat ? RULES.job.price : RULES.value[mat];
+export const priceOf = (layout: Pick<Layout, 'premium' | 'premium2' | 'rate'>, mat: Material): number => {
+  const base = layout.premium === mat || layout.premium2 === mat ? RULES.job.price : RULES.value[mat];
+  return layout.rate ? Math.round((base * layout.rate) / 100) : base;
+};

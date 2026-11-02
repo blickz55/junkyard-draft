@@ -35,7 +35,7 @@ export function smartFacing(l: Layout, kind: MachineKind, x: number, y: number, 
   const feeds = feedsInto(l, x, y, ignore);
   if (feeds.length && kind !== 'conveyor') return feeds[0];
   const ahead = feeds[0] ?? current;
-  const order: Dir[] = [ahead, rightOf(ahead), leftOf(ahead), opposite(ahead)];
+  const order: Dir[] = [ahead, leftOf(ahead), rightOf(ahead), opposite(ahead)];
   const out = order.find((d) => !feeds.includes(opposite(d)) && takes(l, x, y, d, ignore));
   return out ?? ahead;
 }

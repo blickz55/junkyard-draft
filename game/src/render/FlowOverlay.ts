@@ -25,6 +25,7 @@ export function flowLinks(layout: Layout): FlowLink[] {
         ny = m.y + DIR_DY[o];
       const target = layout.machines.find((q) => q.x === nx && q.y === ny);
       const ok = !!target && inputTravelDirs(target.kind, target.dir).includes(o);
+      if (!ok && m.kind === 'splitter' && o !== m.dir) continue; // a Splitter's sides are there if wanted: an open side is no fault
       out.push({ x: m.x, y: m.y, dir: o, ok, ...(ok && m.kind === 'conveyor' && target.kind === 'conveyor' ? { belt: true } : {}) });
     }
   return out;

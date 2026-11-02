@@ -148,6 +148,7 @@ corpus.push({
       const c = s.offers.indexOf('crusher');
       apply(s, { t: 'pick', i: c >= 0 ? c : 0 });
       if (r === 3) {
+        for (const m of s.bin.filter((q) => q.kind !== 'conveyor')) apply(s, { t: 'sell', id: m.id }); // room on the shelf
         apply(s, { t: 'buy' });
         apply(s, { t: 'buy' });
         apply(s, { t: 'sell', id: s.bin[s.bin.length - 1].id });
@@ -162,19 +163,19 @@ corpus.push({
 });
 corpus.push({
   name: 'tutorialish',
-  run: finish('tutorialish', ['crusher']),
+  run: finish('tutorialish', ['tuner']),
   note: 'a tutorial-looking name without the dash: an ordinary seed, never a scenario',
 });
 corpus.push({
   name: 'daily-2026-10-29',
-  run: finish('daily-2026-10-29', ['crusher'], (s) => dropOnLine(s, 'crusher')),
+  run: finish('daily-2026-10-29', ['tuner', 'hopper'], (s) => dropOnLine(s, 'conveyor')),
   note: 'a daily seed label on a generated yard',
 });
 for (const seed of ['golden-yard-1', 'golden-yard-2', 'golden-yard-3']) {
   const job = newRun(seed).job!;
   corpus.push({
     name: seed,
-    run: finish(seed, ['crusher', job.material === 'ingot' ? 'furnace' : 'press'], (s) => dropOnLine(s, 'crusher')),
+    run: finish(seed, ['hopper', job.material === 'ingot' ? 'furnace' : 'press'], (s) => dropOnLine(s)),
     note: `a generated yard on a ${job.material} job: rubble, the job's price and the shelf's spare conveyors are all in the score`,
   });
 }

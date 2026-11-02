@@ -68,11 +68,14 @@ test('splitter doubles furnace throughput', () => {
   assert.ok(split.shipped.ingot > single.shipped.ingot * 1.35, `split ${split.shipped.ingot} vs single ${single.shipped.ingot}`);
 });
 
-test('orientation matters: crusher only accepts from behind, conveyors side-load, dock accepts any side', () => {
-  // hopper facing a crusher that faces away sideways: crusher input must come from behind
-  const wrong = runLayout(lay(m('hopper', 0, 0), m('crusher', 1, 0, 1), m('dock', 2, 0)), 20);
+test('orientation matters: nothing goes in head-on, a machine takes from behind or the sides, conveyors side-load, dock accepts any side', () => {
+  // a hopper facing the front of a crusher: nothing goes in against its output
+  const wrong = runLayout(lay(m('hopper', 0, 0), m('crusher', 1, 0, 2), m('dock', 2, 0)), 20);
   assert.equal(wrong.spawned, 0);
   assert.ok(wrong.cellStats[0].blockedTicks > 0);
+  // the same crusher turned to face sideways takes the hopper's scrap from its side (rules v6)
+  const fromSide = runLayout(lay(m('hopper', 0, 0), m('crusher', 1, 0, 1), m('dock', 1, 1)), 20);
+  assert.ok(fromSide.shipped.shards > 0);
   // side-loading a conveyor from the north then into a dock from the south side
   const side = runLayout(lay(m('hopper', 1, 0, 1), m('conveyor', 1, 1, 0), m('dock', 2, 1)), 20);
   assert.ok(side.shipped.scrap > 0);
@@ -95,14 +98,21 @@ test('determinism: identical layouts produce identical event streams', () => {
   assert.deepEqual(a.events, b.events);
 });
 
-test('draft offers are seeded, distinct, and round 1 always includes a crusher', () => {
-  for (const seed of ['alpha', 'beta', '42', 'junkyard']) {
+test('draft offers are seeded, distinct, and on a classic yard round 1 always includes a crusher', () => {
+  for (const seed of ['classic-alpha', 'classic-beta', 'classic-42', 'classic-junkyard']) {
     const o1 = draftOffers(seed, 1);
     assert.ok(o1.includes('crusher'), `${seed} round 1 offers ${o1}`);
     assert.equal(new Set(o1).size, 3);
     assert.deepEqual(draftOffers(seed, 3), draftOffers(seed, 3));
   }
-  assert.notDeepEqual(draftOffers('alpha', 2), draftOffers('beta', 2));
+  assert.notDeepEqual(draftOffers('classic-alpha', 2), draftOffers('classic-beta', 2));
+});
+
+test('a job deals its own machine, the Hopper, a Tuner from shift 2, the rival machine and a Dock: never a lone Crusher or Splitter', () => {
+  const seen = new Set<string>();
+  for (let i = 0; i < 200; i++) for (let r = 1; r <= RULES.rounds; r++) for (const k of draftOffers(`deal-${i}`, r)) seen.add(k);
+  assert.deepEqual([...seen].sort(), ['dock', 'furnace', 'hopper', 'press', 'tuner']);
+  for (let i = 0; i < 200; i++) assert.ok(!draftOffers(`deal-${i}`, 1).includes('tuner'), 'no tuner in shift 1');
 });
 
 test('run: pick → place → run → next, invalid actions rejected, replay reproduces score', () => {
@@ -191,7 +201,7 @@ test('selling a bin part adds the sell bonus to the score and is replay-verified
   assert.equal(verifyReplay(exportReplay(s)).ok, true);
 });
 
-test('press: two shards become one $8 plate, scrap passes through, absorbed shards are accounted, only from behind', () => {
+test('press: two shards become one $8 plate, scrap passes through, absorbed shards are accounted, nothing goes in head-on', () => {
   const line = runLayout(lay(m('hopper', 0, 0), m('crusher', 1, 0), m('press', 2, 0), m('dock', 3, 0)), 80);
   assert.ok(line.shipped.plate > 0, 'plates shipped');
   assert.equal(line.shipped.shards, 0, 'no loose shards leave a fed press');
@@ -209,8 +219,8 @@ test('press: two shards become one $8 plate, scrap passes through, absorbed shar
   assert.equal(line.absorbed, line.cellStats[2].processed + stored, 'every absorbed shard either became part of a plate or is still stored');
   const raw = runLayout(lay(m('hopper', 0, 0), m('press', 1, 0), m('dock', 2, 0)), 40);
   assert.ok(raw.shipped.scrap > 0 && raw.absorbed === 0 && raw.shipped.plate === 0, 'raw scrap passes through a press unchanged');
-  const wrong = runLayout(lay(m('hopper', 0, 0), m('press', 1, 0, 1), m('dock', 2, 0)), 20);
-  assert.equal(wrong.spawned, 0, 'press only accepts from behind');
+  const wrong = runLayout(lay(m('hopper', 0, 0), m('press', 1, 0, 2), m('dock', 2, 0)), 20);
+  assert.equal(wrong.spawned, 0, 'nothing goes into a press head-on');
   // the decision: a furnace earns more on a single crusher line, but the press backs the crusher up less
   const furnaceLine = runLayout(lay(m('hopper', 0, 0), m('crusher', 1, 0), m('furnace', 2, 0), m('dock', 3, 0)), 80);
   assert.ok(furnaceLine.earned > line.earned, `furnace ${furnaceLine.earned} should beat press ${line.earned}`);
@@ -412,7 +422,7 @@ test('reroll (rules v3, PLAN-v2 0.5.4): once per round in the draft for RULES.re
 
 test('round-tiered offers (PLAN-v2 0.5.3): the tuner is never offered before round 3, the seven 0.2.0 machines are available in every round, offers depend on seed and round only', () => {
   const seen: Record<number, Set<string>> = {};
-  for (let i = 0; i < 300; i++) for (let r = 1; r <= RULES.rounds; r++) for (const k of draftOffers(`tier-${i}`, r)) (seen[r] ||= new Set()).add(k);
+  for (let i = 0; i < 300; i++) for (let r = 1; r <= RULES.rounds; r++) for (const k of draftOffers(`classic-tier-${i}`, r)) (seen[r] ||= new Set()).add(k);
   for (const r of [1, 2]) assert.ok(!seen[r].has('tuner'), `no tuner in round ${r}`);
   assert.ok(
     [3, 4, 5, 6].some((r) => seen[r].has('tuner')),
@@ -422,7 +432,7 @@ test('round-tiered offers (PLAN-v2 0.5.3): the tuner is never offered before rou
     for (const k of ['crusher', 'furnace', 'splitter', 'hopper', 'press', 'dock']) assert.ok(seen[r].has(k), `${k} is offered in round ${r} over 300 seeds`);
   assert.ok(![...Object.values(seen)].some((s) => s.has('sieve')), 'the experimental sieve is never offered');
   assert.ok(![...Object.values(seen)].some((s) => s.has('conveyor')), 'belts are bought, never dealt (rules v5)');
-  assert.deepEqual(draftOffers('tier-7', 4), draftOffers('tier-7', 4), 'deterministic per (seed, round)');
+  assert.deepEqual(draftOffers('classic-tier-7', 4), draftOffers('classic-tier-7', 4), 'deterministic per (seed, round)');
 });
 
 test('classic yards keep their old drafts: a crusher in round 1, one seed one stream, no later guarantee', () => {

@@ -6,7 +6,7 @@ import { jobFlavour, jobLine, jobRecipe, jobTarget, materialOf, missingForJob, n
 import { machineBlurb } from '../game/src/content/machines';
 import { RANK_STARS, rankFor, rankLine, rankNext } from '../game/src/content/ranks';
 import { shareText } from '../game/src/render/share';
-import type { Job } from '../game/src/sim/yard';
+import { JOB_MACHINE, type Job } from '../game/src/sim/yard';
 
 const ingots: Job = { material: 'ingot', stars: [50, 100, 160] };
 
@@ -41,11 +41,14 @@ test('the pace: what this shift shipped, what the same again would come to, and 
 
 test('the next needed machine is one at a time, and the advice says what the job lacks before what held the line', () => {
   const s = newRun('needed-yard');
-  assert.equal(nextNeeded(s), 'crusher');
-  const withCrusher = { ...s, bin: [...s.bin, { id: 99, kind: 'crusher' as const, x: -1, y: -1, dir: 0 as const }] };
-  assert.equal(nextNeeded(withCrusher), s.job!.material === 'ingot' ? 'furnace' : 'press');
+  assert.equal(nextNeeded(s), null, "a yard opens with the job's line running");
+  const job = s.job!;
+  const bare = { ...s, layout: { ...s.layout, machines: s.layout.machines.filter((m) => m.kind !== 'crusher' && m.kind !== JOB_MACHINE[job.material]) } };
+  assert.equal(nextNeeded(bare), 'crusher', 'taken apart, the recipe asks for its first missing part');
+  const withCrusher = { ...bare, bin: [...bare.bin, { id: 99, kind: 'crusher' as const, x: -1, y: -1, dir: 0 as const }] };
+  assert.equal(nextNeeded(withCrusher), JOB_MACHINE[job.material]);
   assert.equal(nextNeeded(newRun('classic-x')), null);
-  const noGoods = { job: s.job, layout: s.layout, rounds: [{ result: { shipped: { ingot: 0, plate: 0 } } }] } as unknown as RunState;
+  const noGoods = { job: s.job, layout: bare.layout, rounds: [{ result: { shipped: { ingot: 0, plate: 0 } } }] } as unknown as RunState;
   assert.match(missingForJob(noGoods) ?? '', /^No (ingots|plates) yet\. Your line still needs the Crusher and the (Furnace|Plate Press)\.$/);
   assert.equal(missingForJob({ ...noGoods, rounds: [] }), null, 'nothing to say before a shift');
   assert.equal(missingForJob({ ...noGoods, job: null }), null, 'no job, no such advice');

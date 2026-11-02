@@ -181,6 +181,7 @@ const STYLE = `
 #ui .jd-choice-note { font-size: 0.75em; text-align: center; }
 #ui .jd-job-flavour { font-size: 0.9375em; }
 #ui .jd-job-goal { font-family: var(--jd-display); font-weight: 700; font-size: 2em; line-height: 1.05; }
+#ui .jd-order-list { font-size: 0.875em; font-weight: 600; margin-top: 0.15em; }
 #ui .jd-job-marks { display: flex; gap: 1.1em; margin-top: 0.25em; flex-wrap: wrap; }
 #ui .jd-job-mark { display: inline-flex; gap: 0.35em; align-items: baseline; }
 #ui .jd-recipe { display: flex; flex-wrap: wrap; align-items: center; gap: 0.15em 0.3em; margin-top: 0.45em; font-size: 0.8125em; }

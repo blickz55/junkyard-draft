@@ -5,10 +5,11 @@ import assert from 'node:assert/strict';
 import { newRun } from '../game/src/sim/run';
 import { runLayout } from '../game/src/sim/sim';
 import { Rng } from '../game/src/sim/rng';
-import { cardOf, evaluate, lastStarShift, median, nearMiss, scale, solve, type PathResult, type YardResult, type YardTree } from '../tools/fun-lib';
+import { cardOf, evaluate, lastStarShift, median, paidGame, scale, solve, type PathResult, type YardResult, type YardTree } from '../tools/fun-lib';
 import { read, underOrders, type Orders } from '../tools/fun-orders';
 
-const JOB = { material: 'ingot', stars: [50, 100, 160] } as const;
+const ORDERS_TABLE = [100, 400, 600, 800, 1000, 1200];
+const JOB = { material: 'ingot', stars: [2, 4, 6], orders: ORDERS_TABLE } as const;
 
 test('scale runs from bad to good, either way round, and stops at the ends', () => {
   assert.equal(scale(5, 0, 10), 50);
@@ -17,18 +18,18 @@ test('scale runs from bad to good, either way round, and stops at the ends', () 
   assert.equal(scale(0.1, 0.5, 0), 80, 'less is better here');
 });
 
-test('a near miss is within a tenth under the next star, and past the last star there is none', () => {
-  assert.equal(nearMiss(148, JOB), true);
-  assert.equal(nearMiss(140, JOB), false);
-  assert.equal(nearMiss(160, JOB), false);
-  assert.equal(nearMiss(95, JOB), true);
-  assert.equal(nearMiss(10, null), false);
+test('a game is paid with the raises its orders earned, and a miss by under a tenth is counted as close', () => {
+  const g = paidGame([100, 400, 400, 420, 400, 400], JOB);
+  assert.deepEqual(g.pay, [100, 500, 600, 735, 700, 700]);
+  assert.deepEqual(g.filled, [1, 2, 3]);
+  assert.equal(g.close, 1, 'the 800 order is missed by under a tenth, the others by far');
 });
 
-test('the last star lands in the shift whose total passes its mark', () => {
-  assert.equal(lastStarShift([0, 30, 30, 30, 30, 30], JOB), 5);
-  assert.equal(lastStarShift([0, 0, 0, 0, 0, 10], JOB), 0);
-  assert.equal(lastStarShift([0, 20, 40, 40, 40, 40], JOB), 6);
+test('the last star lands in the shift of the order that earned it', () => {
+  assert.equal(lastStarShift([1, 2, 3, 4, 5, 6], JOB), 6);
+  assert.equal(lastStarShift([1, 3, 5, 6], JOB), 6);
+  assert.equal(lastStarShift([1, 2, 5], JOB), 2);
+  assert.equal(lastStarShift([3], JOB), 0);
 });
 
 test('the search reads the rules as a shift does, and never hands back less than it started from', () => {
@@ -36,14 +37,23 @@ test('the search reads the rules as a shift does, and never hands back less than
   assert.equal(evaluate(run.layout).earned, runLayout(run.layout).earned);
   const free = run.layout.machines.filter((m) => m.kind === 'conveyor').length + 2;
   const start = evaluate(run.layout).earned;
-  const plan = solve(run.layout, ['crusher'], free, 4, 60, new Rng('t'), new Set(), run.job);
-  assert.ok(plan.earned > start, 'a crusher on a belt pays');
+  const plan = solve(run.layout, ['tuner'], free, 4, 60, new Rng('t'), new Set(), run.job);
+  assert.ok(plan.earned > start, 'a tuner beside the slowest machine pays');
   assert.equal(plan.earned, runLayout(plan.layout).earned);
   assert.deepEqual(plan.spare, []);
 });
 
 function path(picks: string[], rounds: number[], units: number[], stars: number): PathResult {
-  return { picks: picks as PathResult['picks'], rounds, units, score: rounds.reduce((a, b) => a + b, 0), stars, belts: 0 };
+  return {
+    picks: picks as PathResult['picks'],
+    rounds,
+    units,
+    score: rounds.reduce((a, b) => a + b, 0),
+    stars,
+    belts: 0,
+    filled: [1, 2, 3, 4, 5, 6],
+    close: 0,
+  };
 }
 function yard(seed: string, novice: number, casual: number, competent: number, best: PathResult): YardResult {
   const tree: YardTree = {
@@ -58,7 +68,7 @@ function yard(seed: string, novice: number, casual: number, competent: number, b
     forgiving: 0.7,
     nodes: 1,
   };
-  const tier = (score: number, units: number, stars: number) => ({ score, units, stars });
+  const tier = (score: number, units: number, stars: number) => ({ score, units, stars, close: 1 });
   return { tree, tiers: { novice: tier(novice, 60, 1), casual: tier(casual, 148, 2), competent: tier(competent, 150, 2) }, deeper: best.score * 1.06 };
 }
 

@@ -1,4 +1,4 @@
-import { apply, newRun, canReroll, type Action, type RunState } from '../game/src/sim/run';
+import { apply, cardParts, newRun, canReroll, type Action, type RunState } from '../game/src/sim/run';
 import { runLayout } from '../game/src/sim/sim';
 import { Rng } from '../game/src/sim/rng';
 import type { Dir, Layout, Machine, MachineKind } from '../game/src/sim/types';
@@ -198,10 +198,11 @@ export interface PlayOptions {
  * plus every pick sold instead. No legal run can exceed it; a report above it is a bug in the tool or the rules.
  */
 export function scoreSanityBound(): number {
-  const hoppers = RULES.starter.filter((m) => m.kind === 'hopper').length + RULES.rounds;
+  const hoppers = RULES.starter.filter((m) => m.kind === 'hopper').length + RULES.rounds; // a yard's own hopper is the starter's, and each pick can add one
   const itemsPerRound = hoppers * Math.ceil(RULES.ticksPerRound / RULES.hopperPeriod);
   const dearest = Math.max(...Object.values(RULES.value), RULES.job.price);
-  return RULES.rounds * itemsPerRound * dearest + RULES.rounds * RULES.sellValue;
+  const top = (100 + RULES.rounds * RULES.job.raise) / 100; // every order filled raises every price
+  return Math.ceil(RULES.rounds * itemsPerRound * dearest * top) + RULES.rounds * RULES.sellValue;
 }
 
 export function playSeed(seed: string, rng: Rng, tries = 150, opts: PlayOptions = {}): { report: SeedReport; actions: Action[] } {
@@ -234,10 +235,10 @@ export function playSeed(seed: string, rng: Rng, tries = 150, opts: PlayOptions 
     const allowed = s.offers.map((k, i) => i).filter((i) => !opts.ban?.has(s.offers[i]));
     for (const i of allowed.length ? allowed : s.offers.map((_, i) => i)) {
       const trial = { ...s, layout: clone(s.layout), bin: s.bin.slice() };
-      const part: Machine = { id: 9000 + i, kind: s.offers[i], x: -1, y: -1, dir: 0 };
+      const parts: Machine[] = cardParts(s.offers[i], s.job, seed).map((kind, k) => ({ id: 9000 + i * 10 + k, kind, x: -1, y: -1, dir: 0 }));
       const r = improve(
         trial.layout,
-        [...trial.bin, part],
+        [...trial.bin, ...parts],
         new Rng(`${seed}:${s.round}:${i}`),
         Math.max(10, Math.floor(tries / 3)),
         reach.pick,
@@ -261,10 +262,10 @@ export function playSeed(seed: string, rng: Rng, tries = 150, opts: PlayOptions 
       const allowed2 = s.offers.map((k, i) => i).filter((i) => !opts.ban?.has(s.offers[i]));
       for (const i of allowed2.length ? allowed2 : s.offers.map((_, i) => i)) {
         const trial = { ...s, layout: clone(s.layout), bin: s.bin.slice() };
-        const part: Machine = { id: 9000 + i, kind: s.offers[i], x: -1, y: -1, dir: 0 };
+        const parts: Machine[] = cardParts(s.offers[i], s.job, seed).map((kind, k) => ({ id: 9000 + i * 10 + k, kind, x: -1, y: -1, dir: 0 }));
         const r = improve(
           trial.layout,
-          [...trial.bin, part],
+          [...trial.bin, ...parts],
           new Rng(`${seed}:${s.round}:reroll:${i}`),
           Math.max(10, Math.floor(tries / 3)),
           reach.pick,
