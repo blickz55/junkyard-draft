@@ -1,0 +1,21 @@
+{
+  "persona": "George",
+  "device": "phone",
+  "funA": 3,
+  "funB": 2,
+  "choice": "A",
+  "wouldOpenEither": "maybe",
+  "why": "In A I always knew what to do next, I could watch my line fill up with gold bars and the money climb, and nothing made me feel daft. In B the game told me the furnace was my trouble and even which card would cure it, then said 'no easy spot' and left me poking at the floor until I sold the parts, paid forty dollars and got two of the same cards back, and ended with a red mark. I might open A tomorrow to see how the job comes out, but I would not go looking for it.",
+  "bestOfA": "Watching my own line come alive: the rocks into the toothed crusher, the gold bars sliding down to the dock, the money ticking up, and the line before each shift telling me what it would pay and whether it fills the order. The card that fitted said so in green and the squares to tap were lit, so I never felt daft.",
+  "worstOfA": "After the lesson it asked nothing of me: pick the green card, tap the lit squares, press the lit button, over and over. The one time I was left on my own (a spare Dock) nobody told me where it went or whether it mattered, I ended up $10 behind Sal without being told why, and 'the lit spots are his game, beat him by finding better' did not say how.",
+  "bestOfB": "When it explained itself: 'The furnace held you back for 76 of 80 seconds', the 'Show the Furnace' card saying what the machine does, the plain 'That's a junk pile. Nothing can stand here: go around it', and the Tips card with the little picture for the Splitter. It talks like a foreman who knows the job.",
+  "worstOfB": "Three cards at a time all saying 'No easy spot yet', Sal telling me to 'move a machine to make room' without showing me which machine or how, paying $40 for new offers and getting two of the same cards back, then missing the order by $249 and a red circle over a furnace problem I was never shown how to fix. I spent more taps poking at the floor than playing, and ended up selling the parts.",
+  "stuckIn": [
+    "A: shift 2 of today's yard, left with a spare Shipping Dock, no lit square and no idea where it goes or whether it matters; I put it down, it earned nothing ('nothing came'), and I was $10 behind Sal with no explanation",
+    "A: 'The lit spots are his game: beat him by finding better' with nothing to say what better looks like, so I did not know how to improve on copying him",
+    "A: small stumbles over words I did not know (Tuner, Furnace + Splitter, 'Lit spots: on', 'Plates and a second feed') and a 'New offers (-$40)' button that nothing explained; I left them alone",
+    "B: shift 3, 'No easy spot for the Furnace yet. Move a machine to make room.' I did not know how: the splitter on the belt made the pay worse, the furnace on a junk pile was refused, tapping the crusher with the furnace still in hand knocked the crusher off, and I only found out I could sell the spare parts by opening Tips myself",
+    "B: shifts 4 and 5, every card said 'No easy spot yet' and Sal said to pay $40 for New offers; I paid once, got two of the same cards back, and would not pay again, so I stopped",
+    "B: shift 4, I tapped an empty square and the Crusher dropped at the far edge of the yard doing nothing; the forecast said $249 short and I could not see a way to fix it, so I missed the order and the circle went red"
+  ]
+}

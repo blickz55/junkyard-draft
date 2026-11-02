@@ -1,0 +1,65 @@
+{
+  "persona": "Dana",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory from scrap that earns enough money each shift to fill the orders. Fill all six orders for three stars, and try to make more money than Sal the foreman.",
+  "stoppedWhere": "Home screen, right after sending the survey and getting the completion code, having finished today's yard with three stars and then looked at my new rank on Home.",
+  "stoppedWhy": "I did my morning puzzle: three stars, $16,023, beat Sal by $3,199 and got a new rank. That is a whole cup of coffee. A second game would be another ten minutes, there is no leaderboard to climb and I already have all three stars, so nothing pulled me into one right now. Done for today, like Wordle; I would open it again tomorrow for the new yard.",
+  "lessonsFinished": 0,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 16023,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "yes",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 2, building, with a spare Shipping Dock left over",
+      "what": "Sal said to put the dock where I think. The dock glowed on the shelf so I tapped a yard square and nothing was placed; only the yellow frame on the crusher disappeared. I could not tell the dock was not actually picked.",
+      "gotOutHow": "Read the grey line 'Tap a part, then tap where it goes', tapped the dock on the shelf until it had a yellow frame, then tapped the square again. The pay did not change, so I left it there."
+    },
+    {
+      "where": "Shift 4, Plate Press card marked 'No easy spot yet'",
+      "what": "Every crusher already touched its dock, so I could not see where a press could go or what 'Move a machine to make room' meant.",
+      "gotOutHow": "Opened Tips (it had a dot and opened on the press), saw the little picture of crusher, press, dock in a row, then tapped a dock with the press picked, which swapped them, turned the press to send down and put the dock under it. The forecast jumped by $825."
+    }
+  ],
+  "confused": [
+    "Home said 'No finished games yet / 0 games played on this device' although I played yesterday; my $9,840 was filed under 'From earlier versions (v8)' with a computer-looking yard name, 'daily-2026-11-01'.",
+    "After today's game Sal said 'First game in the books', as if yesterday had never happened.",
+    "'Lit spots: when you ask' on the job card: ask how? I tapped it and it became 'always', which I had to guess.",
+    "The blue glow on a piece on the shelf looks like 'picked' but is not; only the yellow frame means picked.",
+    "On shifts 2, 5 and 6 Sal says 'Put the Shipping Dock where you think. The pay shows if it helps.' I never learned whether the spare piece matters or what to do with it.",
+    "Exactly '$10 behind Sal' on shifts 2 and 3, and never explained why.",
+    "'You're level with Sal. The lit spots are his game: beat him by finding better.' Better how? Nothing said where to look until the plate card and the tip on shift 4.",
+    "'No easy spot yet' on the cards: it means rebuilding, not just placing, and I only worked that out after picking the card.",
+    "The Tip says a plate is $8 or $24, the card says $42, then $48, then $54; I could not tell what sets the price.",
+    "The small 'Next shift:' line under the cards: I only understood it was a preview of the next three cards when I scrolled down and read it all.",
+    "'Clean' tag on the results screen: no idea what it means.",
+    "A red label on the press during the run was cut off at the right edge of the screen ('waiting for scra')."
+  ],
+  "annoyed": [
+    "Tapping a yard square while the dock glowed on the shelf did nothing; I had to tap the piece on the shelf first.",
+    "Shifts 1 to 3 were the same loop: pick the green card, tap three lit squares, skip the run. No thinking, so it felt like copying homework.",
+    "The same three cards kept coming back, one green and two marked 'No easy spot yet', so it did not feel like a choice.",
+    "The page stayed scrolled down after I scrolled to read the cut-off line, so Sal's instruction was half hidden on the next screen until I scrolled back up.",
+    "The 'Next shift' preview and the 'New offers' button sit below the cards where you have to scroll to find them.",
+    "The $29.99 a year question after two mornings of play felt cheeky."
+  ],
+  "pleased": [
+    "Home remembered me: rank, stars, 'Today's best' and '2 days played'.",
+    "Sal's one-step-at-a-time instructions and the lit squares: I never had to guess what to tap.",
+    "The forecast above Start: 'This shift will pay $X (up $Y). That fills the order.' I could see before pressing go whether I was doing well.",
+    "The 'ORDER FILLED!' banner and the shift-by-shift bars on the results.",
+    "'You're $398 ahead of Sal' made it a friendly race.",
+    "The 'Last shift' notes, like 'the press sat idle 53 % of the shift. A second hopper would keep it busy', told me exactly what to do next.",
+    "The Tips panel opened on the right tip by itself and had a little picture of the press line.",
+    "'Skip to the end of the shift', so I did not have to watch six runs.",
+    "Three stars, beating Sal and a new rank within one cup of coffee."
+  ],
+  "bestMoment": "Shift 4: I worked out the plate press by myself from the Tip, the forecast jumped by $825, and the next screen said I was $398 ahead of Sal.",
+  "worstMoment": "Shift 2: Sal told me to put the dock where I think, I tapped a square and nothing happened, and I could not tell why.",
+  "oneChange": "Give me a real decision from the first shift. For three shifts the green card and the lit squares did all the thinking, and I only got interested when I had to work out the plate press on shift 4. Say early that the lit squares are only Sal's plan and nudge me toward a smarter idea.",
+  "completionCode": "9APY-DSR7"
+}

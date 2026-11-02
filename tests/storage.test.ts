@@ -249,3 +249,13 @@ test("the rank's stars are each yard's best under any rules: a change of rules s
   assert.deepEqual([before, after], [4, 6], 'a new rank is announced from the rank stars');
   store.clear();
 });
+
+test('games are counted under any rules, so a change of rules does not unmake yesterday', () => {
+  store.clear();
+  storage.recordBest('daily-2026-11-01', 900, 8);
+  storage.recordBest('daily-2026-11-02', 1200, 10);
+  storage.recordBest('daily-2026-11-02', 1300, 10);
+  assert.equal(storage.gamesEver(), 3);
+  assert.equal(storage.loadBests(10).runs, 2, 'the per-rules count stays as it was');
+  store.clear();
+});

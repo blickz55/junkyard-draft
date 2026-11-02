@@ -263,8 +263,10 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
   const card = r.picks.length ? cardParts(r.picks[r.picks.length - 1], r.job, r.seed).length : 0;
   const i = card ? r.bin.findIndex((m) => m.id > newest - card) : -1;
   // where no spot pays, the coach says what could change that instead of promising one (the fourth panel)
-  if (i >= 0)
-    return say({ text: t(cardPlan(r).length ? 'coach.placeFree' : 'coach.noSpot', { name: machineName(r.bin[i].kind) }), spots: [{ kind: 'shelf', i }] });
+  // on a touch screen it says the two taps, because a tap on the yard with nothing in hand only lets go (the seventh panel tapped the yard
+  // for a spare Dock and nothing happened)
+  const free = ctx.touch ? 'coach.placeFreeTouch' : 'coach.placeFree';
+  if (i >= 0) return say({ text: t(cardPlan(r).length ? free : 'coach.noSpot', { name: machineName(r.bin[i].kind) }), spots: [{ kind: 'shelf', i }] });
   const loose = flowLinks(r.layout).find((l) => !l.ok);
   if (loose) {
     const outOfBelts = !r.bin.some((m) => m.kind === 'conveyor') && canBuyBelt(r) === null;

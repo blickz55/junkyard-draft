@@ -1,0 +1,26 @@
+4 agents in r7
+median fun 4, median clear 4
+finished a game: 4, played another by choice: 2
+come back tomorrow: yes 2, maybe 2, no 0
+would pay: yes 0, maybe 1, no 3
+stuck at least once: 4
+
+Dana (phone): fun 4, clear 4, lessons 0, games 1, best 3★ $16023, again false
+  goal: Build a little factory from scrap that earns enough money each shift to fill the orders. Fill all six orders for three stars, and try to make more money than Sal the foreman.
+  stopped: I did my morning puzzle: three stars, $16,023, beat Sal by $3,199 and got a new rank. That is a whole cup of coffee. A second game would be another ten minutes, there is no leaderboard to climb and I already have all three stars, so nothing pulled me into one right now. Done for today, like Wordle; I would open it again tomorrow for the new yard.
+  one change: Give me a real decision from the first shift. For three shifts the green card and the lit squares did all the thinking, and I only got interested when I had to work out the plate press on shift 4. Say early that the lit squares are only Sal's plan and nudge me toward a smarter idea.
+
+Ingrid (desk): fun 4, clear 4, lessons 0, games 1, best 3★ $20334, again false
+  goal: Build a small factory out of scrap and make as much money as I can over six shifts. Each shift has a money target; if I hit it, every price goes up for the rest of the job. Hit all six targets for three stars and finish above Sal, the foreman.
+  stopped: I did today's puzzle, got all three stars and beat the foreman by a lot. The first three shifts were the puzzle for me (working out that supply and furnace speed limit each other). The last three were the same move again - add a hopper, add a furnace - with the game repeating 'add a hopper' at me, plus about ten clicks of turning parts. Like the paper Sudoku, once it is solved I put it down. I did come back on a second day and play a whole game by choice; I did not start a third. I would come back tomorrow for a new yard, not replay this one tonight.
+  one change: Make the second half of a game ask a new question - a limit I have to work around - instead of the same 'add a hopper, add a furnace' again; I would play a yard like that every morning.
+
+Marcus (phone): fun 3, clear 3, lessons 0, games 2, best 3★ $15625, again true
+  goal: Build a line that turns scrap into money, fill the order every shift (six orders, all six is three stars) and finish with more money than Sal.
+  stopped: I had won: three stars, Sal beaten, nothing left to chase on this yard. Then the game called that run practice that does not go on the board, so my stars stayed at 4 and Yard Hand stayed one star away. Replaying the same yard is the same buttons again and I was at my break limit. I would look at tomorrow's yard, not replay this one.
+  one change: Let a better run from 'Try again from shift 5' count. My three-star run was called practice, so my stars stayed at 4 and Yard Hand stayed one star away. If beating the lit spots actually moved me up, I would play again.
+
+Tasha (phone): fun 3, clear 3, lessons 0, games 3, best 2★ $14664, again true
+  goal: Build a little factory line out of scrap, one shift at a time, and make more money than Sal. Fill each shift's order to get stars and make the prices go up.
+  stopped: I had beaten Sal twice and missed the third star by four dollars twice. I had been at it a good while, the shifts had started to feel the same, and my best score got marked as a try that does not count. I would have a last go if someone showed me what to try, but I would put the phone down now and maybe open it again tomorrow for the new yard.
+  one change: Make winning feel like winning: when I fill an order or beat Sal, give me a loud sparkly moment (confetti, stars flying in, a ka-ching), and when I am short, tell me one concrete thing to try instead of 'where you think'.

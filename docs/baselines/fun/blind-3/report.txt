@@ -1,0 +1,4 @@
+Blind comparison 3, 2026-11-02: 73f23a1 (rules 10) against 6c43eaa (rules 9), order swapped between the two agents. Agents are not people.
+george: A was rules 10, B rules 9; chose A (rules 10), fun rules 10 3, rules 9 2, tomorrow maybe. "In A I always knew what to do next"; in B every card said "No easy spot yet" from shift 3.
+priya: A was rules 9, B rules 10; chose B (rules 10), fun rules 10 4, rules 9 3, tomorrow maybe. Every rules 10 card could be placed; she still found both versions too easy against Sal.
+Both chose rules 10, one playing it first and one second.

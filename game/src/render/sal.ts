@@ -41,8 +41,6 @@ function shift(s: RunState, act: (a: Action) => void) {
       if (!part) break;
       dropActions(s, part, p.x, p.y, p.dir).forEach(act);
     }
-    // a part he found no spot for goes for what it fetches: he never comes back for one, and a player should not beat him by the sale
-    for (const m of s.bin.filter((q) => q.kind !== 'conveyor')) act({ t: 'sell', id: m.id });
   }
   act({ t: 'run' });
   act({ t: 'next' });

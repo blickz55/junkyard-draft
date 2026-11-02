@@ -110,6 +110,7 @@ export const STRINGS = {
   'title.howto5': s("Stars are for orders filled. Your score is the money you make. Beat Sal, then the day's board.", 'how to play'),
   'title.bestScore': s('Best: {score} on {yard}', 'bests panel'),
   'title.noGames': s('No finished games yet.', 'bests panel'),
+  'title.bestEarlier': s('Best: {score} on {yard}, under earlier rules', 'bests panel: no game yet under the rules as they stand'),
   'title.todayBest': s("Today's best: {score}", 'bests panel'),
   'title.todayNotPlayed': s("You haven't played today's yard yet", 'bests panel'),
   'home.salToday': s('Sal made {amount} here. Your turn.', "Home, under the button, before you have played: the number to beat on today's yard"),
@@ -874,6 +875,7 @@ export const STRINGS = {
   ),
   'coach.noSpot': s('No easy spot for the {name} yet. Move a machine to make room.', 'the build: no simple spot pays more; moving a machine may make one'),
   'coach.showMe': s('Show me where', 'the build: light where the card pays, when the spots are not lit'),
+  'coach.placeFreeTouch': s('Tap the {name} on the shelf, then where you think it pays.', 'the build on a touch screen: no spot lit for this part'),
   'coach.placeFree': s(
     'Put the {name} where you think. The pay shows if it helps.',
     'the build: no spot found for this part, or the player went their own way',

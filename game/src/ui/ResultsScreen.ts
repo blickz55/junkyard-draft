@@ -43,7 +43,7 @@ import { loadReactions } from '../render/reactions';
 import { friendButton, reactionBar, talkButton } from './ReactionBar';
 import { syncNow } from '../render/link';
 import { salGame } from '../render/sal';
-import { recordSalBeaten } from '../render/storage';
+import { gamesEver, recordSalBeaten } from '../render/storage';
 import { recordWatched } from '../render/storage';
 import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
 import { groupHeaders, groupParam, loadGroup } from '../render/groups';
@@ -313,7 +313,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
   header.append(badgeRow);
   // the foreman (0.9.1): the first game on this device, else the band once everyone today has answered, else offline
   const foreman = foremanBox(
-    !o.replayed && !fork && bests.runs === 1 ? foremanSays('resultsFirst') : '',
+    !o.replayed && !fork && gamesEver() === 1 ? foremanSays('resultsFirst') : '',
     'foreman',
     'margin:0.4em auto 0; max-width:44em; text-align:left',
   );

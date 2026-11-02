@@ -1,0 +1,71 @@
+{
+  "persona": "Marcus",
+  "device": "phone",
+  "goalInOwnWords": "Build a line that turns scrap into money, fill the order every shift (six orders, all six is three stars) and finish with more money than Sal.",
+  "stoppedWhere": "Home screen, right after sending the survey (completion code K2Y2-7M2D). Before that: the results screen of a try from shift 5 on the same yard, three stars, $15,625, Sal beaten by $2,801. The first full game today was 2 stars and $13,936. The second finished run was that try from shift 5, not a new yard.",
+  "stoppedWhy": "I had won: three stars, Sal beaten, nothing left to chase on this yard. Then the game called that run practice that does not go on the board, so my stars stayed at 4 and Yard Hand stayed one star away. Replaying the same yard is the same buttons again and I was at my break limit. I would look at tomorrow's yard, not replay this one.",
+  "lessonsFinished": 0,
+  "gamesFinished": 2,
+  "bestStars": 3,
+  "bestMoney": 15625,
+  "playedAnotherByChoice": true,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 2 pick screen, the spare Shipping Dock",
+      "what": "The lit spots covered the hopper and the crusher but the dock stayed on the shelf, with Sal saying 'put it where you think'. I did not know I had to place or sell it. The game let me start anyway and I finished $10 behind Sal.",
+      "gotOutHow": "In shift 3 I tapped the spare dock on the shelf, saw 'Sell for $10', sold it and was level with Sal again."
+    },
+    {
+      "where": "Shift 4, the 'Furnace + Splitter + Dock' card that said 'No easy spot yet'",
+      "what": "Where to put a second furnace with its splitter and dock. 'Move a machine to make room' did not say which machine. I built it by hand (about 14 taps, five of them just turning the splitter and the furnace) and the forecast ended at $2,139, $11 short of the order, exactly what it said before I built anything.",
+      "gotOutHow": "Pressed Undo 9 times until the card screen came back, then took the green lit-spots card instead."
+    },
+    {
+      "where": "Shifts 3 to 5, the line 'You're level with Sal. The lit spots are his game: beat him by finding better.'",
+      "what": "What 'finding better' than the lit spots meant and which of the 'no easy spot' cards would pay. In shift 5 the lit spots left me $254 short of the $3,200 order and Sal still said 'Ready? Start the shift.'",
+      "gotOutHow": "I did not work it out. In shift 6 I gambled on the Plate Press (two $6 shards into one $48 plate) and the forecast went from $2,946 to $4,302."
+    }
+  ],
+  "confused": [
+    "Home said 'No finished games yet' and '0 games played' although I played a whole game yesterday; my $9,840 was only inside the 'From earlier versions (v8)' fold-out, which I opened by guessing.",
+    "The results of my first game today said 'First game in the books' although it was my second.",
+    "'Lit spots: when you ask' on the job card: I did not know what asking meant (it turned out to be the 'Show me where' button).",
+    "The grey 'Next shift:' line on the pick screen: I only worked out it was a preview of the next cards after scrolling down in shift 4.",
+    "'From shift 4, plates sell for $42 too': too what?",
+    "'No easy spot yet. Move a machine to make room.' Which machine, and move it where? The yard looked half empty to me.",
+    "After picking a card one shelf part glowed blue but a different one (a dock) was the selected one, so my first tap on the yard put the wrong part on my belt.",
+    "Parts I placed myself came out facing the wrong way (the furnace 'Sends down', off the bottom edge) and needed one to three Turn taps each.",
+    "'Beat him by finding better': better how?",
+    "'Ready? Start the shift.' with a glowing Start button on a build the forecast says will miss the order.",
+    "A spare Shipping Dock left on the shelf after the lit spots, with no lit spot and no warning.",
+    "My three-star run was labelled 'practice (a try: doesn't go on the board)' while Home says there is no leaderboard in this test version: what board?",
+    "The green 'Clean' tag on the results: no idea what it means."
+  ],
+  "annoyed": [
+    "About 14 taps to build a second furnace line the game called 'no easy spot yet', and the forecast did not move ($2,139 before and after).",
+    "Backing out of it took 9 Undo taps, one per placement and per turn, and there is no way to start the shift over.",
+    "My three-star run was called practice. It is not on Home (still best $13,936, 4 stars, one star short of Yard Hand).",
+    "Sal says 'Ready?' and the Start button glows when the forecast says I will miss the order.",
+    "The 'Show me where' button label is cut off at the screen edge ('Show me wher').",
+    "Four shifts of the same routine (green card, lit spots, Start, Skip) and the 37 ingots per shift never changed, so it felt like busywork until the plate press.",
+    "Home forgot yesterday's game until I opened the earlier-versions fold-out."
+  ],
+  "pleased": [
+    "Four taps from Home to the first lit spot (Play, Start the job, pick a card, Show me where), no reading needed; the lit spots walk me through it.",
+    "The forecast line ('This shift will pay $4,302 (up $1,356)', 'That fills the $3,200 order') tells me before I start whether a move helps.",
+    "'Skip to the end of the shift': I never had to watch a conveyor.",
+    "Finding that selling the spare dock for $10 closed the gap to Sal, without being told.",
+    "'Try again from shift 5' dropped me straight back at the shelf with no questions.",
+    "Working out the plate press myself: $2,946 up to $4,302 on one shift, then three stars with Sal beaten by $2,801.",
+    "Sal's number on the Home and job screens gives me something to beat.",
+    "The Tips entries are short and have a little demo (furnace, splitter)."
+  ],
+  "bestMoment": "Shift 6 of the first run: I put the plate press where two crushers meet and the forecast jumped $1,356 on one machine. Then the retry from shift 5, 'That fills the $3,200 order' in green, and three stars with Sal beaten by $2,801.",
+  "worstMoment": "Shift 4: about 14 taps building a second furnace, splitter and dock for a card that said 'no easy spot yet', the forecast did not move at all, then 9 Undo taps to back out of it.",
+  "oneChange": "Let a better run from 'Try again from shift 5' count. My three-star run was called practice, so my stars stayed at 4 and Yard Hand stayed one star away. If beating the lit spots actually moved me up, I would play again.",
+  "completionCode": "K2Y2-7M2D"
+}

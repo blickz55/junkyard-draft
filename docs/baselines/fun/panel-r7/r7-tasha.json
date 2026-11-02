@@ -1,0 +1,77 @@
+{
+  "persona": "Tasha",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory line out of scrap, one shift at a time, and make more money than Sal. Fill each shift's order to get stars and make the prices go up.",
+  "stoppedWhere": "On the results screen after my third go today (a try from shift 6, $14,664, 5 of 6 orders filled, 'One more order for three stars'), after sending the survey and getting the code.",
+  "stoppedWhy": "I had beaten Sal twice and missed the third star by four dollars twice. I had been at it a good while, the shifts had started to feel the same, and my best score got marked as a try that does not count. I would have a last go if someone showed me what to try, but I would put the phone down now and maybe open it again tomorrow for the new yard.",
+  "lessonsFinished": 0,
+  "gamesFinished": 3,
+  "bestStars": 2,
+  "bestMoney": 14664,
+  "playedAnotherByChoice": true,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 2 build, and every shift after it: the leftover Shipping Dock in the shelf",
+      "what": "Sal said 'Put the Shipping Dock where you think. The pay shows if it helps.' with no lit square and no Show me where button, and the Start button was not glowing. I could not tell if I had to place it or if the line was already finished.",
+      "gotOutHow": "Ignored it and pressed Start shift. Nothing complained and the money was fine."
+    },
+    {
+      "where": "Shift 5, after tapping every lit square",
+      "what": "The line under the build said I was $254 short of the order. The only help was 'where you think', so I had no idea what would add money.",
+      "gotOutHow": "Tapped a spare dock onto an empty square (the pay did not change), started the shift and missed the order. Only on the 'Try again from shift 5' go did I find something that worked."
+    },
+    {
+      "where": "Shift 5 retry, Plate Press card: 'No easy spot for the Plate Press yet. Move a machine to make room.'",
+      "what": "The yard looked half empty, so 'make room' meant nothing to me, and this card had no Show me where button.",
+      "gotOutHow": "Opened Tips (it had a dot on it), looked at the little picture of hopper, chomper, press, belt and dock, and copied it: tapped the dock at the end of a line (the press swapped in), Turn until it sent down, then a spare dock underneath."
+    },
+    {
+      "where": "Shift 6, forecast showing $4 short of the $4,600 order",
+      "what": "The note said 'A second hopper would keep it busy', but I could only keep one card per shift, so I could not have the press and the hopper. Pressing Undo four times threw away both of my presses and Redo went grey when I picked another card. I never found the missing four dollars.",
+      "gotOutHow": "Did not get out of it. I rebuilt the same two presses on 'Try again from shift 6' and missed by $4 again (a tag on the press said '1 shard left')."
+    }
+  ],
+  "confused": [
+    "The home screen said 'No finished games yet' and '0 games played on this device' while last night's $9,840 game was filed under a closed 'From earlier versions (v8)' line with a date for a name.",
+    "The grey 'Lit spots: when you ask' button on the job card meant nothing to me until a Show me where button appeared later.",
+    "'Put the Shipping Dock where you think' and 'Move a machine to make room': I do not think anything about factories, and the yard looked half empty.",
+    "'You're $10 behind Sal' came up after every one of shifts 2 to 6 while I only tapped what was lit, and 'the lit spots are his game: beat him by finding better' was a puzzle with no clue how to start.",
+    "The results advice 'Plan a shift ahead, or make room, and you pass him.'",
+    "The green 'Clean' tag on the results: clean of what?",
+    "'Buy a belt: $20' and 'New offers (-$40)' were never explained, so I never dared press them. The shelf also kept four belt pieces and spare docks I never used.",
+    "'(a try: doesn't go on the board)' next to 'This test version has no leaderboard': which board? My best score of the night did not appear in 'Your games on this yard'.",
+    "My stars stayed at 4 ('1 more star to Yard Hand') after I beat Sal by over a thousand dollars.",
+    "Tapping a dock square with the press in hand replaced my dock without asking and pushed the dock back to the shelf.",
+    "After scrolling down on the card screen, Sal's note and the Show me where button scrolled out of sight and I had to scroll back up to find them."
+  ],
+  "annoyed": [
+    "Four shifts running I took the same hopper card and tapped the same three lit squares: it felt like homework.",
+    "A shift is about ten seconds of tiny green numbers with nothing dramatic on the screen. Candy Crush would be throwing confetti by then.",
+    "Beating Sal, my best moment, was one line of coloured text with no celebration.",
+    "Undo four times silently threw away a good build and Redo disappeared once I picked a new card.",
+    "My better score ($14,664) was labelled a try that does not count, which I only learned on that screen.",
+    "Missing an order by four dollars twice, with a note telling me to do something I was not allowed to do.",
+    "The Show me where button sat hard against the right edge of the screen and its text looked cut off, and the red tag on the top press said 'waiting for scra...' with the end of the word cut off.",
+    "The whole screen is brown and plain. Nothing sparkles."
+  ],
+  "pleased": [
+    "Tap the glowing square and the part appears: easy and satisfying, and each next square lights itself.",
+    "The 'This shift will pay' line goes up as I build, and the green 'That fills the order' line is a real little reward.",
+    "Sal as a rival: being $10 behind him made me want to catch him, and 'You beat Sal by $1,840' felt good.",
+    "'Order filled. Every price goes up 25%' is a proper prize.",
+    "The Plate Press: one trick and the pay jumped by $1,056.",
+    "The Tips button had a dot on it and the little picture inside showed exactly how the press works. The 'Show the Plate Press' card was clear too.",
+    "The shift-by-shift bars growing every shift look like progress.",
+    "'One more order for three stars' and '1 more star to Yard Hand' gave me something to chase.",
+    "'Try again from shift 5' let me redo the end without replaying the whole game.",
+    "Selling the spare dock gave an instant +$10 at the top."
+  ],
+  "bestMoment": "On the Try again from shift 5 go I copied the little picture from Tips: press, Turn, dock. The pay went from $254 short to 'That fills the $3,200 order' in green, then I finished $434 ahead of Sal for the first time.",
+  "worstMoment": "Undoing four moves and losing my two-press build that was only $4 short, then missing that same order by $4 anyway, with my best score marked as a try that does not count.",
+  "oneChange": "Make winning feel like winning: when I fill an order or beat Sal, give me a loud sparkly moment (confetti, stars flying in, a ka-ching), and when I am short, tell me one concrete thing to try instead of 'where you think'.",
+  "completionCode": "6SSM-W9KD"
+}

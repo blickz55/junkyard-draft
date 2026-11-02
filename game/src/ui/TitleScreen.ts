@@ -24,6 +24,7 @@ import {
   daysPlayed,
   currentStreak,
   careerStars,
+  gamesEver,
   loadLinked,
 } from '../render/storage';
 import { streakLine } from '../content/streak';
@@ -221,6 +222,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
 
   // ---- the one thing to do ----
   const stars = careerStars();
+  const earlier = loadArchivedBests()[0]?.bests.overall ?? null; // no best under these rules yet: the last one under earlier rules, said so
   const todayBest = bests.bySeed[todaySeed()];
   const modeSpan = h(
     'span',
@@ -325,9 +327,13 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     h(
       'div',
       { style: 'font-size:0.875em; margin-top:0.25em' },
-      bests.overall ? t('title.bestScore', { score: money(bests.overall.score), yard: yardLabel(bests.overall.seed) }) : t('title.noGames'),
+      bests.overall
+        ? t('title.bestScore', { score: money(bests.overall.score), yard: yardLabel(bests.overall.seed) })
+        : earlier
+          ? t('title.bestEarlier', { score: money(earlier.score), yard: yardLabel(earlier.seed) })
+          : t('title.noGames'),
     ),
-    h('div', { class: 'jd-dim', style: 'font-size:0.75em' }, t('title.gamesOnDevice', { n: bests.runs })),
+    h('div', { class: 'jd-dim', style: 'font-size:0.75em' }, t('title.gamesOnDevice', { n: gamesEver() })),
     ...loadArchivedBests().map(({ version, bests: ab }) =>
       h(
         'details',

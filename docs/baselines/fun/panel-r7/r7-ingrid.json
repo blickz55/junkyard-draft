@@ -1,0 +1,69 @@
+{
+  "persona": "Ingrid",
+  "device": "desk",
+  "goalInOwnWords": "Build a small factory out of scrap and make as much money as I can over six shifts. Each shift has a money target; if I hit it, every price goes up for the rest of the job. Hit all six targets for three stars and finish above Sal, the foreman.",
+  "stoppedWhere": "On the home screen, straight after the survey gave me the completion code. Before that: one full game on today's yard (results screen: three stars, $20,334, beat Sal by $7,510, new rank Yard Hand) and a look at Your record.",
+  "stoppedWhy": "I did today's puzzle, got all three stars and beat the foreman by a lot. The first three shifts were the puzzle for me (working out that supply and furnace speed limit each other). The last three were the same move again - add a hopper, add a furnace - with the game repeating 'add a hopper' at me, plus about ten clicks of turning parts. Like the paper Sudoku, once it is solved I put it down. I did come back on a second day and play a whole game by choice; I did not start a third. I would come back tomorrow for a new yard, not replay this one tonight.",
+  "lessonsFinished": 0,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 20334,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "yes",
+  "wouldPay": "maybe",
+  "stuck": [
+    {
+      "where": "Shift 6, build step: a new hopper, crusher and dock dropped in a free row",
+      "what": "The game turned the parts by itself and pointed the hopper up and the crusher down. Sal said 'This piece leads nowhere. Turn it or move it, then start.' and Start stayed grey. The glowing piece told me which one, not which way it should face, and I did not know that tapping a placed machine also turns it.",
+      "gotOutHow": "Pressed Turn over and over, watching the forecast and the glow: four presses for the hopper (it only turns one way round), then three taps on the crusher. About ten actions for three parts."
+    },
+    {
+      "where": "Shift 4, build step: the Splitter from the furnace card, which I had no use for",
+      "what": "I parked it in a far corner and Sal said 'This piece leads nowhere. Turn it or move it, then start.' with Start grey. I could not tell what it wanted from a piece that I did not want to use.",
+      "gotOutHow": "Dragged it next to my spare dock so it led somewhere; Sal said 'Ready? Start the shift.' I never used Sell for $10 on it."
+    },
+    {
+      "where": "Shift 1 and shift 2, build step: the furnace card",
+      "what": "Sal said 'No easy spot for the Furnace yet. Move a machine to make room.' I did not know whether machines could be moved, or where a second furnace and a splitter should go.",
+      "gotOutHow": "Tried dragging my old dock off the end of a row; it moved at once, and the forecast told me whether each move helped. Nothing had told me that dragging works."
+    }
+  ],
+  "confused": [
+    "Home said 'No finished games yet' and '0 games played on this device' although I finished a game yesterday; only a small triangle, 'From earlier versions (v8)', explained it, and nothing says what changed between versions.",
+    "The earlier-versions line reads 'yard daily-2026-11-01', which looks like a file name.",
+    "The top bar says 'Today's yard - practice' on what I took to be the real daily yard.",
+    "'No easy spot for the Furnace yet. Move a machine to make room.' - I did not know machines could be moved by dragging.",
+    "Start shift is grey and flat until every part is placed, and nothing says why.",
+    "'Ingot $12, or $24 when the job wants them' - I do not know what the job wanting them means.",
+    "'Every price goes up 25%' reads like compounding, but ingots went $24, $30, $36, $42: 25% of the first price each time. Nobody says so.",
+    "Tapping a placed machine turns it, and so does the Turn button; I only learned the tap from a tooltip about the Splitter. Turning goes one way round only.",
+    "'You're level with Sal' after shift 1 - level on what?",
+    "The line 'That's the game.' on the results screen - I do not know what it is for.",
+    "Sal says 'First game in the books' on the results screen but it was my second game.",
+    "Your record: '0 checked days', a standing and medals that need a leaderboard this version does not have, and '1 yard played - 1 game' when I have played two."
+  ],
+  "annoyed": [
+    "Every part of a card has to be placed before I can start, even the Splitter or Dock I do not want; there is no skip, and no obvious way to get rid of spares (I ended with an idle splitter and two or three idle docks lying about).",
+    "The game turns dropped parts the wrong way round, and then fixing it costs several presses (shift 6).",
+    "'Last shift: More scrap is the next step: add a hopper' sits above every pick screen from shift 2 to 6, and a green 'Fits this line now' and an orange outline lean on a card. I would rather find it myself.",
+    "No way to pass on the last pick when the order was already beaten by $1,400; I took a card worth $273 and spent ten clicks on it.",
+    "The record page is full of 'nothing yet' boxes for a leaderboard that does not exist in this version.",
+    "After shift 3 the game is mostly doing the same thing again."
+  ],
+  "pleased": [
+    "'What things sell for' with the speeds underneath: I could do the arithmetic myself and it came out right (37 ingots = $888).",
+    "'This shift will pay $X' moves as I move parts and matched the result to the dollar every shift. I could test an idea before spending the shift.",
+    "The after-shift receipt ('62 x ingot @ $30 = $1,860') and 'What held you back: The furnace held you back for 49 of 80 seconds' - a number I can use, not an instruction.",
+    "The Tips box: each rule has a small moving picture that shows it without telling me what to do on my board.",
+    "'Put the Scrap Hopper where you think. The pay shows if it helps.' and 'Lit spots: when you ask' - hints only if I ask, and 'The lit spots are his game: beat him by finding better.'",
+    "Undo pick worked without fuss, and the game remembered my 4x speed.",
+    "'Next shift:' lists the next three cards, so I could plan (and saw the furnace card would vanish).",
+    "Beating Sal by $7,510 with my own head, three stars, and the stars adding up (2 yesterday + 3 today = 5)."
+  ],
+  "bestMoment": "Shift 2: I worked out that the Splitter was sending half my shards to a $4 dock when the furnace could pay $30 each, dragged the dock away, and the forecast rose by exactly the $104 I had worked out in my head.",
+  "worstMoment": "Shift 6: about ten clicks to turn a hopper and a crusher the game had pointed the wrong way, for a pick worth $273 when I had already beaten the order by $1,400.",
+  "oneChange": "Make the second half of a game ask a new question - a limit I have to work around - instead of the same 'add a hopper, add a furnace' again; I would play a yard like that every morning.",
+  "completionCode": "DDWW-XC97"
+}

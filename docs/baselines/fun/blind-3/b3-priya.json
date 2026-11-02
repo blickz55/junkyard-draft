@@ -1,0 +1,19 @@
+{
+  "persona": "Priya",
+  "device": "desk",
+  "funA": 3,
+  "funB": 4,
+  "choice": "B",
+  "wouldOpenEither": "maybe",
+  "why": "B stopped wasting my picks: every card came with its own Dock, so I could always place what I was dealt and the forecast told me to the dollar what it was worth, while A spent a pick on a bare Dock and dead-ended on 'No easy spot yet' for a whole shift. On B's second yard, with the hints off, I was rerouting shards into a Tuned furnace and chasing '$13 short', which is the Factorio itch I actually play for. Both are too easy against Sal and neither shows flow numbers, so B is only a 'maybe' tomorrow, but it's the one I would open.",
+  "bestOfA": "The forecast is exact and the 'what held you back' box names the fix. My own layout in shift 3 beat the lit-spot plan by $190, and the last shift came down to my unchanged line clearing the $4,370 order by $7, which was the most tension I got in either build.",
+  "worstOfA": "The dead ends: the Furnace + Splitter card said 'No easy spot yet' with no clue how to make room (about a dozen drags and seven undos, then I gave up), a bare Shipping Dock card cost me a whole pick, and on shift 6 every card was 'No easy spot yet' so I ran with unused parts. The lessons were also a string of seven 'drag it to the lit spot' steps, and the banner said I was $5,809 ahead of Sal while the results said $5,889.",
+  "bestOfB": "Cards with their own Dock mean every pick is a usable extension, so the loop of plan, forecast, result is tight and the line grows fast ($1,002 to $7,452 a shift). On the new yard with the hints off I built my own splitter and furnace layout, then rerouted a crusher's shards onto a Tuned furnace and the forecast jumped $1,527 to $2,160 and was right to the dollar.",
+  "worstOfB": "The first yard is far too easy: I mostly followed the lit spots and beat Sal by $10,820, about 84 percent over his par. The shelf gets crammed and its icons overlap once it holds eight pieces, I grabbed the wrong piece twice, and the free spare Splitters and Docks that came with the cards just sat there. Sal's total is also $20 different between the home screen and his replay.",
+  "stuckIn": [
+    "A, today's yard shift 2: the Furnace + Splitter card said 'No easy spot yet, move a machine to make room' and I could not find room (the Tuner and a junk pile were in the way, and the Tuner does not pass items through); I tried a dozen drags and seven undos, then took a different card.",
+    "A, today's yard shift 6: every card was 'No easy spot yet'; I picked Hopper + Crusher, never found a place for it, and ran the unchanged line, which cleared the $4,370 order by $7.",
+    "B, today's yard shift 1 and the new yard's shift 3: the shelf re-slides and crowds after a pick, so I dragged the wrong piece (a dock instead of the crusher, a spare belt instead of the Tuner) and had to put it back.",
+    "B, today's yard shift 6: 'No easy spot for the Furnace yet, move a machine' and nothing said which machine; I solved it by nudging a dock one cell east."
+  ]
+}

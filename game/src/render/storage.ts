@@ -312,6 +312,9 @@ export const loadArchivedBests = (): { version: number; bests: Bests }[] =>
     .filter(([k, b]) => Number(k) !== RULES_VERSION && (b.overall || b.runs > 0))
     .map(([k, bests]) => ({ version: Number(k), bests }))
     .sort((a, b) => b.version - a.version);
+/** Games this device has finished under any rules: Home and the foreman count them, so a change of rules does not make yesterday's game
+ * never have happened (the seventh panel). */
+export const gamesEver = (): number => Object.values(loadBestsAll().byVersion).reduce((n, b) => n + (b.runs || 0), 0);
 /** Records a finished run locally under `version` (the current rules by default). Returns which records were beaten. */
 /** Records a finished run; `prevSeedBest` is this device's best on the seed before this run (null on the first game there), for the results card's delta (0.9.2). */
 export function recordBest(

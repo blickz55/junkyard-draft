@@ -42,3 +42,7 @@ test("Sal's money after each shift counts what he spent and sold, so the race ag
   const s = replay('sal-after', g.actions, RULES_VERSION);
   assert.equal(s.score, g.score);
 });
+
+test('Sal sells nothing: following the lights ties him to the dollar, spare parts and all (the seventh panel sat $10 behind for three shifts)', () => {
+  for (const seed of ['sal-sells-1', 'sal-sells-2', 'sal-sells-3']) assert.ok(!salGame(seed).actions.some((a) => a.t === 'sell'), seed);
+});

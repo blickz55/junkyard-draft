@@ -21,6 +21,14 @@ The owner asked for trial and error against a scorecard. Rules 5 scored 55 of 10
 
 **Paid for.** The rules are harder to state: "fill the order, your prices rise" is a second number beside the money, and the card and every screen had to learn it. `tests/guide.test.ts` and the job bar's order strip carry that. The old star marks in units are gone from job yards (`orders` absent keeps them for the lessons' own marks and the tests that name them).
 
+## Decision: what the seventh panel found (2026-11-02, no rules change)
+
+Four returning agents on rules 10 (`docs/baselines/fun/panel-r7/`) and a blind comparison of rules 10 against rules 9 (`docs/baselines/fun/blind-3/`). Fun 4, 4, 3, 3; clear 4, 4, 3, 3; two played another game by choice; back tomorrow: two yes, two maybe, where the same day on rules 9 had four maybe. Both blind agents chose rules 10, one playing it first and one second.
+
+- **The wall moved, it did not vanish.** Nobody stood with every card saying "No easy spot yet"; the two who stopped short did so at the last order, $4 and $254 away, which is where the third star is meant to take more than the lights. Three of four found the Plate Press by themselves and called it their best moment.
+- **Fixed:** Home counted games and showed bests under the rules as they stand only, so a returning player read "No finished games yet" (games are now counted under any rules, and an earlier best is shown, said to be under earlier rules); Sal sold a spare kit Dock each shift for $10 and a player following the lights sat exactly $10 behind him for three shifts (Sal sells nothing now); and on a touch screen the coach says to tap the spare part on the shelf first, because a tap on the yard with nothing in hand only lets go. Making that tap place the part was tried and broke the rule a stray tap must keep.
+- **Heard, not changed:** a try from a missed order goes on no board (the owner's decision), and two agents minded that their best run was a try. The turn goes one way only and costs taps. The shelf at eight parts packs closely enough to grab the wrong one.
+
 ## Decision: the cards that grow a line bring their own Dock (rules v10, 2026-11-02)
 
 The sixth panel's casual players stopped at a wall: from shift 3 or 4 every card said "No easy spot yet", on yards with rows to spare, because a new machine had to find its way back to the first Dock within two belts. Played Sal's way on 60 tune yards, no card fitted on 7, 10 and 15 % of picks in shifts 4 to 6, and 3 games went flat.
