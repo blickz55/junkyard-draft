@@ -1,0 +1,26 @@
+4 agents in r6
+median fun 4, median clear 4
+finished a game: 4, played another by choice: 0
+come back tomorrow: yes 0, maybe 4, no 0
+would pay: yes 0, maybe 1, no 3
+stuck at least once: 4
+
+Dana (phone): fun 3, clear 3, lessons 0, games 1, best 1★ $9392, again false
+  goal: Build a little factory line out of scrap, one round at a time, to make as much money as I can. Fill each round's money target to earn stars, and finish with more than Sal, the foreman.
+  stopped: I had my coffee-length of it. The first three shifts were a pleasure because the lit squares and Sal told me exactly what to do. Then in shift 3 the game said a second furnace behind a splitter was what I needed, offered me the card, and could not show me where it goes ('No easy spot yet, move a machine to make room', with no word on which machine). I missed the shift 4 order by $249, the last two orders were out of reach, and one more try from shift 4 would only be the same guessing. The end screen was fine and I did beat Sal, but I would not play another game right now.
+  one change: When a card has no easy spot, show me what to move and where the part would go (light the machine to move, or place it for me) instead of 'Move a machine to make room'; the middle of the game should hold my hand as the first three shifts do.
+
+Ingrid (desk): fun 4, clear 4, lessons 3, games 1, best 3★ $19698, again false
+  goal: Make as much money as possible over six shifts by arranging machines so that scrap turns into ingots. Each shift has a target you must hit, and every target you hit raises the prices for the rest of the job. At the end the total is your score and you compare it with the foreman's.
+  stopped: I finished the whole job with three stars and more than double the foreman's total, which is where I would put the paper down, like finishing the crossword. There is no leaderboard to chase and nothing reminds me to come back, so I did not start the same yard again; I might look at tomorrow's yard if I remember.
+  one change: Give me something worth chasing after I have beaten Sal. His game stalls at $1,791 a shift and I passed his whole total in shift 4, so there was no reason to replay. A tougher target, or a way to compare my line with other people's, would bring me back.
+
+Marcus, 34, warehouse shift lead (phone): fun 3, clear 3, lessons 0, games 1, best 2★ $13118, again false
+  goal: Build a little factory line out of scrap and make more money than Sal the foreman over six shifts, filling each shift's order to earn stars.
+  stopped: I had beaten Sal and yesterday's best and was happy with two stars. The retry dropped me back on the exact screen that ate five minutes of my break, every card 'No easy spot yet' and no dock card for the trick I had worked out. I could not see where the money for the third star would come from, so it would have been blind poking again.
+  one change: When a card has no easy spot, keep guiding me like in the first two shifts: show one example of where it could go, or light a spot after I move the machine the game wants moved, instead of just saying 'move a machine'.
+
+Priya (desk): fun 4, clear 4, lessons 0, games 1, best 3★ $20295, again false
+  goal: Build a little production line out of the parts the cards give me so scrap turns into ingots and reaches the dock. Each shift has an order to fill; fill it and everything sells 25 percent higher for the rest of the job. Fill all six orders for three stars and make more money than Sal.
+  stopped: I had solved it. The game itself told me a second furnace was the fix, I found a better layout than the one it offered, and from shift 3 on there was nothing left to chase: I beat Sal's $9,157 by more than double and there is no leaderboard. A replay of the same yard would buy me about 2 percent by reordering picks. The new yard had the same six order prices, the same kit and the same Tuner line on a different map, so it would be the same recipe again through fiddly clicking. I am not hungry for another one right now; I would try tomorrow's yard if it gave me a target I cannot double on the first go.
+  one change: A real target to chase: a par or leaderboard I cannot double with my first good idea (Sal's $9,157 against my $20,295). Fix the fiddly rotation too, but give me something worth optimising towards.

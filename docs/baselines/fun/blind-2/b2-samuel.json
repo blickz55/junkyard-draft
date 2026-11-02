@@ -1,0 +1,21 @@
+{
+  "persona": "Samuel",
+  "device": "phone",
+  "funA": 3,
+  "funB": 4,
+  "choice": "B",
+  "wouldOpenEither": "maybe",
+  "why": "In B the game told me the lit spots are only Sal's game and I must find better, so when no card fitted I used my head, read the little 'Sends to the left' words, fixed it myself, and the money jumped from $1,749 to $3,303 - the best feeling in both games. In A I only touched the glowing squares and ended exactly level with Sal, and it felt flat. I played A first so I knew the machines when I started B, and the yards were not the same (Sal made less in B), but only B made me think and win.",
+  "bestOfA": "The 3-minute lesson and the first real shifts: tap the piece, tap the glowing square, and I understood everything from the pictures. The 'This shift will pay $X (up $Y)' line before each shift and the 'what held you back' tip after it told me the next step in plain words (add a hopper, then a Tuner). The yellow 'ORDER FILLED' banner in the middle of a shift felt good.",
+  "worstOfA": "I only matched Sal ($16,095 and $16,095) and nothing told me the glowing spots were just Sal's game, so I thought I was playing and I was only copying. The Shipping Dock I put on the glowing spot sat alone and got 'nothing came' (a wasted pick, I felt tricked). The late cards all said 'No easy spot yet' and the answer, 'pick a machine and press Move', was too much, so I stopped. 'Order' was only explained when I saw one fill.",
+  "bestOfB": "Working out the second furnace and then the crusher myself with no lit spot: the pay line went from $1,749 to $3,303, the game said 'You're $1,512 ahead of Sal', and I finished 'All three stars. Job done.' with $16,002 ('You beat Sal by $6,845'). The little 'Sends to the left / down / up' words under each part, and the blue tip after a shift ('Put a Crusher before it: shards make ingots'), let me solve it from the pictures and short words.",
+  "worstOfB": "Shift 3 took a long time with almost no help: 'No easy spot for the Furnace yet', then 'This piece leads nowhere' stayed on the screen without saying WHICH piece (it was the gauge pointing down), and 'Show the Furnace' only describes the furnace, it does not show where to put it. 'New offers (-$40)' hides under the cards (I had to scroll) and gave three more 'No easy spot yet' cards. A lot of reading for basic English, 'Play again' gives the same yard, and there is no leaderboard to show a friend.",
+  "stuckIn": [
+    "A, first job card on today's yard: I was not sure what an 'order' is (small, I kept going and understood it when the first one filled).",
+    "A, shift 5 of 6: the Shipping Dock card lit a spot far from my line; I did not understand how a box with no belt could get anything, and it got 'nothing came'.",
+    "A, 'Try again from shift 6': 'No easy spot for the Tuner yet. To make room, pick a machine on the yard and press Move.' I did not know which machine to move or where, the $40 'New offers' did not help, and I stopped there.",
+    "B, shift 3 of 6: 'No easy spot for the Furnace yet' with no lit spot; it took about 15 taps to find that the gauge (Tuner) was pointing down, because 'This piece leads nowhere' never said which piece.",
+    "B, shift 3 of 6: 'New offers (-$40)' was below the cards and I had to scroll to find it; the new cards were all 'No easy spot yet' again.",
+    "B, shift 4 of 6: I tried to put the spare crusher from the shelf on the yard before picking a card; nothing happened except an info card, until I picked 'Hopper + Crusher' and the Build step began."
+  ]
+}

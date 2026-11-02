@@ -5,6 +5,12 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### Your rank keeps — 2026-11-02 (no rules change)
+
+- **Your rank counts every star you have earned,** under any rules. Bests still start again with new rules, because money under new rules is not money under old.
+- **The race against Sal counts what he spends,** so the last shift's lead is the lead the results show.
+- **How to pass Sal:** level with him or behind, the results say what his game cannot do.
+
 ### Rules version 9: yards that open differently — 2026-11-02 (saves and scores from version 8 do not carry over)
 
 - **A yard opens one of three ways.** Some already run a second of the job's machine with its own Dock; some have a Tuner at the job's machine; the rest open as before. What the line is short of changes, and with it the first good card. Home and the job card say which.

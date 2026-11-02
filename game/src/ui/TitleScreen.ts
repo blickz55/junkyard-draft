@@ -23,7 +23,7 @@ import {
   lessonsDone,
   daysPlayed,
   currentStreak,
-  totalStars,
+  careerStars,
   loadLinked,
 } from '../render/storage';
 import { streakLine } from '../content/streak';
@@ -220,7 +220,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   );
 
   // ---- the one thing to do ----
-  const stars = totalStars();
+  const stars = careerStars();
   const todayBest = bests.bySeed[todaySeed()];
   const modeSpan = h(
     'span',

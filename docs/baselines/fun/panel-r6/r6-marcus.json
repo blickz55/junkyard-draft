@@ -1,0 +1,69 @@
+{
+  "persona": "Marcus, 34, warehouse shift lead",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory line out of scrap and make more money than Sal the foreman over six shifts, filling each shift's order to earn stars.",
+  "stoppedWhere": "After finishing a whole game ($13,118, two stars) I tapped 'Try again from shift 4', landed on the shift 4 pick screen ('No card here fits your line yet'), and left through Menu, Save and go home, to the feedback form.",
+  "stoppedWhy": "I had beaten Sal and yesterday's best and was happy with two stars. The retry dropped me back on the exact screen that ate five minutes of my break, every card 'No easy spot yet' and no dock card for the trick I had worked out. I could not see where the money for the third star would come from, so it would have been blind poking again.",
+  "lessonsFinished": 0,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 13118,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 3, after picking Furnace + Splitter",
+      "what": "Sal said 'No easy spot for the Furnace yet. Move a machine to make room.' with no lit spots. I could not tell which machine to move or where a second furnace and splitter should go, and the Show the Furnace button only explained what a furnace does.",
+      "gotOutHow": "Did not. Tried a few placements, moved the purple tuner (forecast dropped $468, undid it), then started the shift with both parts sitting unused. It paid $1,563 and filled the order anyway."
+    },
+    {
+      "where": "Shift 4 pick screen",
+      "what": "All three cards said 'No easy spot yet'. The 'New offers (-$40)' button was half cut off at the bottom of the phone screen, so my first tap on it did nothing. After paying, the new cards were nearly the same and still had no easy spot.",
+      "gotOutHow": "Scrolled to find the button, paid $40, picked a Tuner, dropped it anywhere, started the shift $249 short of the order and missed it."
+    },
+    {
+      "where": "Shift 5 build, after tapping the lit spot for the Shipping Dock",
+      "what": "The dock was lit in the far top-left corner, away from the line, and then Sal said 'This piece leads nowhere'. I could not see how to make use of it.",
+      "gotOutHow": "Played with it using the 'This shift will pay' number as a hot/cold meter: moved the dock above the idle furnace, turned the furnace up with Turn, turned the crusher up into the furnace, moved the spare tuner beside the furnace. The forecast went $1,791 to $2,841 to $3,387 and the shift paid exactly that."
+    },
+    {
+      "where": "Results, 'Try again from shift 4'",
+      "what": "It dropped me on the same dead-end pick screen (Plate Press, Hopper + Crusher, Furnace + Splitter, all 'No easy spot yet') with no dock card, so the trick I had just found had nowhere to start.",
+      "gotOutHow": "Gave up: Menu, Save and go home, feedback."
+    }
+  ],
+  "confused": [
+    "Home said 0 stars and 'No finished games yet' while yesterday's $9,840 was folded under 'From earlier versions (v8)' and labelled 'yard daily-2026-11-01', which looks like a file name. I played yesterday, why is it an earlier version?",
+    "The grey 'Lit spots: when you ask' button on the job card: I did not know how I would ask, so I switched it to 'always'.",
+    "Sal says 'No card here fits your line yet' but the blue box says a second furnace behind a Splitter would clear it, and that very card says 'No easy spot yet'. Mixed message.",
+    "'Move a machine to make room' never says which machine or where.",
+    "'This piece leads nowhere' showed up on a Tuner (which sends nothing), on a Shipping Dock the game itself had lit a spot for, and on a Crusher pointing straight into a dock whose forecast had just gone up.",
+    "Two frames on the shelf, blue and yellow: I tapped the yard thinking I was placing the Furnace and the Splitter went down instead.",
+    "The Tuner panel says 'Sends down' or 'Sends to the right', but a tuner is supposed to just speed up its neighbours.",
+    "A purple Tuner started glowing blue after I placed things wrongly. I never found out what the glow meant.",
+    "The Tips panel opened on the slag tip, not the Splitter tip I needed."
+  ],
+  "annoyed": [
+    "New offers cost $40 and gave nearly the same junk cards. The same $40 then showed up as 'You're $40 behind Sal' and in the results.",
+    "The New offers button was half off the bottom of my phone screen. Tapping where the list said it was did nothing.",
+    "The lit squares that carried me through shifts 1 and 2 vanish exactly when the game gets hard.",
+    "Parts I could not place sat on the yard as 'unused' clutter and could not be used again.",
+    "'Try again from shift 4' put me straight back at the screen that wasted my time.",
+    "The info card from Show the Furnace covers the top of the yard."
+  ],
+  "pleased": [
+    "Shifts 1 and 2: tap what is lit, hit start, done in under a minute each. Skip to the end of the shift saves my break.",
+    "The 'This shift will pay $X' number is right every time and updates as I move things. It let me solve shift 5 myself.",
+    "Working out that a furnace can point at a new dock and a tuner next to it doubles the pay: $1,791 to $3,387.",
+    "'Last shift: The furnace held you back for 76 of 80 seconds' tells me exactly what the problem was.",
+    "Beating Sal by $3,961 and my own best from yesterday. Home then says 'You've beaten Sal on 1 yard'.",
+    "Results screen: shift by shift bars and a grey third star with '2 more orders' gives me a real target."
+  ],
+  "bestMoment": "Shift 5: after working out for myself how to aim the idle furnace at a dock and put a tuner beside it, the forecast jumped from $1,791 to $3,387 and the shift paid exactly that.",
+  "worstMoment": "Shifts 3 and 4: every card says 'No easy spot yet', 'Move a machine' never says which one, and I paid $40 for new offers that changed nothing.",
+  "oneChange": "When a card has no easy spot, keep guiding me like in the first two shifts: show one example of where it could go, or light a spot after I move the machine the game wants moved, instead of just saying 'move a machine'.",
+  "completionCode": "JYRU-NBFJ"
+}

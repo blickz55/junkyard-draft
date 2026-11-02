@@ -39,8 +39,12 @@ export const RUINED: Variant[] = [
     },
   },
 ];
-/** Rules on trial: nothing just now. A trial goes in `game/src/sim` behind a value here, and comes out with the result. */
-const TRIALS: Variant[] = [];
+/** Rules on trial. A trial goes in `game/src/sim` behind a value here, and comes out with the result. */
+const TRIALS: Variant[] = [
+  // the Press is taken under a tenth of the times it is offered: the second buyer paying more for a plate (RULES.job.buyerPct)
+  { label: 'plates at 150', rules: { 'job.buyerPct.plate': 150 } },
+  { label: 'plates at 200', rules: { 'job.buyerPct.plate': 200 } },
+];
 const VARIANTS: Variant[] = [...RUINED, ...TRIALS];
 
 function measure(seed: string, budget: number, deep: boolean, keepPaths = false): YardResult {

@@ -34,3 +34,11 @@ test('yards differ, so Sal does too', () => {
   const scores = new Set(Array.from({ length: 6 }, (_, i) => salGame(`sal-${i}`).score));
   assert.ok(scores.size >= 4, [...scores].join());
 });
+
+test("Sal's money after each shift counts what he spent and sold, so the race against him ends where the results do", () => {
+  const g = salGame('sal-after');
+  assert.equal(g.after.length, g.rounds.length);
+  assert.equal(g.after[g.after.length - 1], g.score, 'the last shift ends on his score');
+  const s = replay('sal-after', g.actions, RULES_VERSION);
+  assert.equal(s.score, g.score);
+});

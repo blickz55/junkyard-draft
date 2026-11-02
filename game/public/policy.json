@@ -120,6 +120,10 @@
         6
       ],
       "secondBuyerFrom": 4,
+      "buyerPct": {
+        "ingot": 100,
+        "plate": 100
+      },
       "deal": {
         "job": 20,
         "hopper": 20,

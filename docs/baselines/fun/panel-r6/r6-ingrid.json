@@ -1,0 +1,66 @@
+{
+  "persona": "Ingrid",
+  "device": "desk",
+  "goalInOwnWords": "Make as much money as possible over six shifts by arranging machines so that scrap turns into ingots. Each shift has a target you must hit, and every target you hit raises the prices for the rest of the job. At the end the total is your score and you compare it with the foreman's.",
+  "stoppedWhere": "The results screen after the sixth shift (all three stars, $19,698), then the feedback form, the completion-code box and a last look at the home screen.",
+  "stoppedWhy": "I finished the whole job with three stars and more than double the foreman's total, which is where I would put the paper down, like finishing the crossword. There is no leaderboard to chase and nothing reminds me to come back, so I did not start the same yard again; I might look at tomorrow's yard if I remember.",
+  "lessonsFinished": 3,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 19698,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "maybe",
+  "stuck": [
+    {
+      "where": "Shift 1 and shift 2, placing the extra hopper",
+      "what": "Where a new hopper and crusher could add money. My own guess (hopper above the old crusher) added nothing, and the 'Show me where' button disappeared once I placed a part off the game's plan, with no word why.",
+      "gotOutHow": "Undo, then 'Show me where', then tapped the lit squares. The lit squares were the arrangement I was close to working out myself."
+    },
+    {
+      "where": "Shift 3 and shift 4, the Furnace + Splitter card",
+      "what": "Every card said 'No easy spot yet' while the note above said a second furnace was the cure, and Sal said 'Move a machine to make room' without saying which machine or where. I almost paid $40 for new offers.",
+      "gotOutHow": "Read the Tips, worked out that a furnace in the empty corner under the dock could be fed through the Tuner, turned the Tuner and a crusher, and the forecast jumped from $1,563 to $2,895. On shift 4 I moved a hopper and a crusher and put a third furnace in the other corner."
+    },
+    {
+      "where": "Shift 3, turning the crusher next to the Tuner",
+      "what": "Three presses of Turn left the crusher still pointing up. A tap on the machine itself had already turned it one step, which nothing had told me.",
+      "gotOutHow": "Pressed Turn one step at a time and looked each time. A note 'Tap it to turn it' only appeared later, on shift 4."
+    }
+  ],
+  "confused": [
+    "The home screen said 0 stars and 'No finished games yet' although I played yesterday ($9,840, two stars). It was filed under 'From earlier versions (v8)', 'kept for the record', and nothing said whether it counts.",
+    "The top bar says 'Today's yard . practice' although I pressed Play today's yard.",
+    "'Every price goes up 25%': of what, and does it compound? I only learned it is +25% of the original each time ($24, $30, $36, $42...) from the furnace card.",
+    "'No easy spot yet' on a card, including the card the note said would fix the bottleneck: does it mean impossible, or only that the game will not light a spot?",
+    "A tap on a placed machine silently turns it, and Turn counts on from there, so my three presses came back to where I started.",
+    "'Show me where' disappears when I place something somewhere else, without any word about why.",
+    "Numbers about Sal disagree: the last shift said I was $10,461 ahead, the results said I beat him by $10,541, his recording ends at $9,237 but the home screen says he made $9,157 ($80, I guess two re-deals).",
+    "The home screen shows '2 days played' next to '1 game played on this device'.",
+    "Parts I never place (the Splitter) stay on the shelf and fill it, which greys out 'Buy a belt' without saying why.",
+    "I never found out what 'New offers (-$40)' would deal, whether cards that fit or random ones."
+  ],
+  "annoyed": [
+    "The notes after each shift give the remedy away ('a second furnace behind a Splitter would clear it'). I would rather be told which machine limits me and work out the rest.",
+    "The first two shifts were tap-what-is-lit; there was nothing to think about until shift 3.",
+    "Turn only goes clockwise, so some turns need three presses.",
+    "After shift 4 I had already passed Sal's whole game, and the last two shifts felt like running out the clock; the later cards (Dock, Press) had nowhere useful to go.",
+    "A hopper and a crusher cost a card and a turn and added $30 on shift 2. The card said 'Adds a little' and it was true, but I had to build it to see how little."
+  ],
+  "pleased": [
+    "The forecast 'This shift will pay $X' before the start button is exact. Every shift paid the forecast to the dollar.",
+    "'What shipped' and 'What held you back' read like a statement of accounts and name the limit in seconds, with a red label on the machine.",
+    "Working out the second furnace line myself from the Tips and the tuner note, and watching the forecast jump from $1,563 to $2,895.",
+    "'The lit spots are his game: beat him by finding better.' It turned the hints into a challenge.",
+    "The price list and the seconds per machine: everything adds up with a pencil.",
+    "Seeing next shift's cards so I could plan two shifts ahead.",
+    "Tapping a machine on the yard explains it, and the Tips have a picture each.",
+    "The home screen now shows my 3 stars, my best score and 'You've beaten Sal on 1 yard'."
+  ],
+  "bestMoment": "Shift 3: I saw that the empty corner under the dock could take a furnace fed through the Tuner, turned two parts, the forecast jumped from $1,563 to $2,895, and the shift paid exactly that and put me $1,332 ahead of Sal.",
+  "worstMoment": "Start of shift 3: three cards all saying 'No easy spot yet' under a note saying a second furnace was the cure, and Sal telling me to move a machine without saying which. (At the very start the home screen's '0 stars, no finished games' after yesterday's two stars was the first small letdown.)",
+  "oneChange": "Give me something worth chasing after I have beaten Sal. His game stalls at $1,791 a shift and I passed his whole total in shift 4, so there was no reason to replay. A tougher target, or a way to compare my line with other people's, would bring me back.",
+  "completionCode": "EWMN-XU76"
+}

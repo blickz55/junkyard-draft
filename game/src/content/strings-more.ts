@@ -346,6 +346,10 @@ export const MORE_STRINGS = {
   'results.deltaParOver': s('You beat Sal by {d}', 'deltas row'),
   'results.deltaParUnder': s('Sal beat you by {d}', 'deltas row'),
   'results.deltaParEqual': s('Level with Sal', 'deltas row'),
+  'results.salHow': s(
+    'Sal takes the card that pays most this shift and never moves a machine. Plan a shift ahead, or make room, and you pass him.',
+    'the results, level with Sal or behind him: what his game cannot do',
+  ),
   'results.deltaBestFirst': s('your first game on this yard', 'deltas row'),
   'results.deltaBestOver': s('+{d} over your best on this yard', 'deltas row'),
   'results.deltaBestUnder': s('{d} under your best on this yard ({best})', 'deltas row (d carries the minus sign)'),

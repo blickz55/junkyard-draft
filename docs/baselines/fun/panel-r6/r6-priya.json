@@ -1,0 +1,77 @@
+{
+  "persona": "Priya",
+  "device": "desk",
+  "goalInOwnWords": "Build a little production line out of the parts the cards give me so scrap turns into ingots and reaches the dock. Each shift has an order to fill; fill it and everything sells 25 percent higher for the rest of the job. Fill all six orders for three stars and make more money than Sal.",
+  "stoppedWhere": "Home screen, after finishing the whole of today's yard (3 stars, $20,295) and then opening a replay of the same yard and a new practice yard (rivet-forge-499) without playing a shift in either; then the survey.",
+  "stoppedWhy": "I had solved it. The game itself told me a second furnace was the fix, I found a better layout than the one it offered, and from shift 3 on there was nothing left to chase: I beat Sal's $9,157 by more than double and there is no leaderboard. A replay of the same yard would buy me about 2 percent by reordering picks. The new yard had the same six order prices, the same kit and the same Tuner line on a different map, so it would be the same recipe again through fiddly clicking. I am not hungry for another one right now; I would try tomorrow's yard if it gave me a target I cannot double on the first go.",
+  "lessonsFinished": 0,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 20295,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Home screen at the start",
+      "what": "Where my two stars and $9,840 from yesterday had gone: the rank box said 0 stars, 'No finished games yet' and '0 games played on this device'.",
+      "gotOutHow": "Opened the small grey 'From earlier versions (v8)' fold-out, which showed 'best $9,840 (yard daily-2026-11-01) - 1 game, kept for the record'. The stars themselves never came back and nothing said why."
+    },
+    {
+      "where": "Shift 1 build",
+      "what": "How to move a hopper and turn machines. Dragging the hopper one cell left a conveyor behind on the cell it left, a plain click on a machine turned it a quarter turn, and I could not tell what laid the belt.",
+      "gotOutHow": "Clicked the stray belt and sent it back to the shelf, then turned machines by repeated clicks. A help line ('Drag parts onto the belt. Drag across empty yard to lay belt. Click a machine to turn or move it...') only appeared when nothing was selected, after I had already worked it out."
+    },
+    {
+      "where": "Shift 3 pick screen",
+      "what": "Where the second furnace could go. The game had just told me a second furnace behind a Splitter would clear the bottleneck, then every card said 'No easy spot yet' and Sal said 'No card here fits your line yet. New offers deals three more for $40.'",
+      "gotOutHow": "Took the Furnace + Splitter card anyway, pulled my hopper and crusher off the cell above the dock, put the new furnace there and re-seated the crusher and hopper beside it. Forecast went from $1,368 to $2,268."
+    },
+    {
+      "where": "Shift 4 build",
+      "what": "How to give a third furnace an input and an output when the dock had no free side.",
+      "gotOutHow": "Clicked the Tuner and read that it carries what a belt carried, so the Tuner already beside the dock could pass shards into a furnace on the dock's free side. Forecast went from $2,646 to $4,200."
+    }
+  ],
+  "confused": [
+    "Home screen says 0 stars, no finished games and 0 games played, when I finished a game yesterday; the record is only in a tiny 'From earlier versions (v8)' fold-out with a yard code.",
+    "The top bar says 'Today's yard . practice' on the real daily yard and 'First try on this yard'; I could not tell if the run counted for anything.",
+    "'Lit spots: when you ask' on the job card: is that the current setting or what the button will switch to? I never found out.",
+    "Clicking a machine both selects it and rotates it, so I rotated parts I only wanted to look at.",
+    "Dragging a hopper one cell left a conveyor behind that I had not asked for.",
+    "'No easy spot yet' and 'No card here fits your line yet' on the exact card the game had just told me I needed (a second furnace behind a Splitter), with a $40 re-roll as the suggested fix.",
+    "'You're level with Sal. The lit spots are his game: beat him by finding better.' took two readings before I understood the hints are his play.",
+    "'From shift 4, plates sell for $42 too' when the price list said Plate $8; a plate costs two shards, so it is worse than an ingot at the same price. No one told me the plate price changes.",
+    "'What held you back: The crusher again, for 0 of 80 seconds.' lists a bottleneck that held me back for no seconds.",
+    "Last shift said 'You're $11,058 ahead of Sal' and the results said 'You beat Sal by $11,138'; $80 apart for the same number.",
+    "Shipping Dock card says 'Gives your line room to grow' but I could not tell what a second dock would do for me.",
+    "'Play again' on the results screen does not say whether it replays the same yard or gives a new one (it was the same yard, with the same offers)."
+  ],
+  "annoyed": [
+    "Rotation only goes clockwise by click or Turn, so facing a machine the other way took up to three clicks, and I did that many times.",
+    "Parts often arrived facing the wrong way: a crusher fed the wrong furnace, a furnace faced off the board and dropped the forecast, a tuner faced the wrong machine.",
+    "The shelf has seven slots; with more than seven things on it a part is drawn hanging outside the frame.",
+    "Sal kept saying 'No easy spot for the Splitter yet. Move a machine to make room.' for parts I had decided not to use; two Splitters sat on the shelf all game.",
+    "Yesterday's stars were wiped from the rank (0 stars) and the game never said the rules had changed.",
+    "Sal's game on this yard was $9,157 and I made $20,295 with the first good idea; there is no leaderboard, so nothing to chase.",
+    "'Order filled. Every price goes up 25%.' on the last shift, when there is no next shift.",
+    "Fixing a layout costs many small drags and clicks; the maths is fun, the interface is a chore."
+  ],
+  "pleased": [
+    "'This shift will pay $X' was exact to the dollar every shift (1,005, 1,296, 2,268, 4,200, 5,424, 6,102), so I could plan with it and trust it.",
+    "'What shipped' and 'What held you back' after each shift named the true bottleneck ('The furnace held you back for 76 of 80 seconds'), with a red tag on the machine.",
+    "The 'What things sell for' fold-out with prices and timings; the numbers added up when I checked them.",
+    "Tooltips that state a real rule: 'Nothing feeds the Crusher. It takes things from behind or either side, never head-on.' and 'That's a junk pile. Nothing can stand here: go around it.'",
+    "Lit spots only when I ask; no hand-holding unless I want it.",
+    "Beating the game's own 'no easy spot' with a layout it did not offer (forecast $1,368 to $2,268).",
+    "The Tuner doubling as a conveyor and one Tuner serving two machines.",
+    "Seeing next shift's three cards in advance so I can plan a build across shifts.",
+    "Three stars and the shift-by-shift bars on the results screen."
+  ],
+  "bestMoment": "Shift 3: the game said there was no easy spot for a second furnace, I pulled my hopper and crusher off the dock, rebuilt the corner by hand, and the forecast jumped from $1,368 to $2,268 and the shift paid exactly that.",
+  "worstMoment": "Shift 1 build: dragging a hopper one cell left an unrequested belt behind, a click turned a machine I only meant to select, and it took around ten actions to put two parts where I wanted while the help line that explained it was hidden.",
+  "oneChange": "A real target to chase: a par or leaderboard I cannot double with my first good idea (Sal's $9,157 against my $20,295). Fix the fiddly rotation too, but give me something worth optimising towards.",
+  "completionCode": "6YTE-8ABH"
+}

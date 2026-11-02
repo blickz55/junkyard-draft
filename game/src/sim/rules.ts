@@ -84,6 +84,11 @@ export const RULES = {
     stars: [2, 4, 6] as readonly [number, number, number],
     /** the shift the other product starts selling at the job's price: a finished line has a new customer */
     secondBuyerFrom: 4,
+    /**
+     * On trial: what the second buyer pays for each product, in percent of the job's price. A plate takes two shards where an ingot takes
+     * one, so at 100 a Press earns half what a Furnace does per shard and is taken under a tenth of the times it is offered. 100 in play.
+     */
+    buyerPct: { ingot: 100, plate: 100 } as Record<'ingot' | 'plate', number>,
     /** the deal on a job's yard: the job's own machine in place of `job`, the other product's in place of `other`. A Hopper comes with its Crusher and the job's machine with a Splitter, so one card can always widen the line. */
     deal: { job: 20, hopper: 20, tuner: 14, other: 10, dock: 8 },
     tunerFrom: 2,

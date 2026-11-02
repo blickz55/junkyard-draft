@@ -1,0 +1,79 @@
+{
+  "persona": "Dana",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory line out of scrap, one round at a time, to make as much money as I can. Fill each round's money target to earn stars, and finish with more than Sal, the foreman.",
+  "stoppedWhere": "On the end-of-game results screen after shift 6 ($9,392, one star, 3 of 6 orders filled), right after sending the survey and getting the code. I did not press 'Try again from shift 4' or 'Play again'.",
+  "stoppedWhy": "I had my coffee-length of it. The first three shifts were a pleasure because the lit squares and Sal told me exactly what to do. Then in shift 3 the game said a second furnace behind a splitter was what I needed, offered me the card, and could not show me where it goes ('No easy spot yet, move a machine to make room', with no word on which machine). I missed the shift 4 order by $249, the last two orders were out of reach, and one more try from shift 4 would only be the same guessing. The end screen was fine and I did beat Sal, but I would not play another game right now.",
+  "lessonsFinished": 0,
+  "gamesFinished": 1,
+  "bestStars": 1,
+  "bestMoney": 9392,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 3, after picking Furnace + Splitter (the card the game's own advice pointed to)",
+      "what": "Where the second furnace and the splitter go. Nothing was lit. Sal said 'No easy spot for the Furnace yet. Move a machine to make room', then the same for the Splitter, and never said which machine to move or how it would connect.",
+      "gotOutHow": "I did not get out of it. I put the furnace under the dock and turned it three times (the only turn direction is one way), sent the Tuner back to the shelf to make room (the forecast dropped by $201 and the splitter still had no spot), pressed Undo, and ran the shift with the new furnace marked 'unused'."
+    },
+    {
+      "where": "Shift 4, pick screen",
+      "what": "Every card said 'No easy spot yet' and Sal told me to buy new offers for $40. The new set had the same Hopper + Crusher and Furnace + Splitter cards (only the Plate Press became a Tuner), all still 'No easy spot yet'. I could not find any way to close a $249 gap.",
+      "gotOutHow": "Picked the Tuner and put it on the belt piece beside the furnace (it turned itself the right way, but the forecast did not move), then ran the shift and missed the order. Shifts 5 and 6 were then out of reach."
+    },
+    {
+      "where": "Shift 4, 'New offers (-$40)' button",
+      "what": "The button was cut off by the bottom edge of the screen, so my first tap on it did nothing and I did not know why.",
+      "gotOutHow": "Scrolled the lower panel and tapped it again."
+    },
+    {
+      "where": "Start of shift 3, pick screen",
+      "what": "Sal's 'Pick ONE card' line, the Undo pick button and the Pick/Build/Run tabs were scrolled out of sight, because the lower panel stayed scrolled from reading the last results. I only found Sal's 'no easy spot' instruction by scrolling up again.",
+      "gotOutHow": "Scrolled the panel back up."
+    }
+  ],
+  "confused": [
+    "The home screen said 'Scrap Picker, 0 stars', 'No finished games yet' and '0 games played on this device' although I finished a game with two stars yesterday. The only trace was a folded 'From earlier versions (v8)' line saying 'best $9,840 (yard daily-2026-11-01)', which reads like computer talk and 'kept for the record'.",
+    "'1 day played' under the Play button on the Today's Job card meant nothing to me.",
+    "'Lit spots: when you ask' on the job card looked like a button; I had to tap it to learn it flips to 'always', and I only understood it was about the lit squares because I remembered them.",
+    "The '(up $261)' next to the shift forecast: I read it as what the card adds; it turned out to mean more than last shift's pay.",
+    "'You're level with Sal. The lit spots are his game: beat him by finding better.' I never knew what 'better' looked like, and I did beat him in the end without knowing how.",
+    "What 'No easy spot yet' on a card really means: does not fit, needs rearranging, or wait until later.",
+    "'Move a machine to make room' with no hint which machine; I moved the Tuner as asked, Sal repeated the same sentence and the forecast got worse.",
+    "The little tags on the yard after a shift ('38 sped up', '79 sped up', '2 sped up'): I could not tell what the numbers mean.",
+    "A second Tuner on the belt piece beside the furnace changed nothing, and nothing said why.",
+    "The furnace is said to take 3 seconds each and a shift lasts 80 seconds, but it made about 39 in a shift.",
+    "Ingot prices: the sell list said $24, the Tips page said '$12, or $24 when the job wants them', and the furnace card later said $36.",
+    "After shift 6 it said 'You're $155 ahead of Sal', then the end screen said 'You beat Sal by $235'.",
+    "Sal says 'First game in the books' on the end screen, though I played one yesterday.",
+    "The Shipping Dock card ('Gives your line room to grow') placed a dock in a far corner with nothing leading to it; it only made sense a shift later when Hopper + Crusher lit up beside it.",
+    "'Buy a belt: $20' went grey with $5,615 in hand and nothing said why (the shelf was full, I think)."
+  ],
+  "annoyed": [
+    "Paying $40 for new offers on Sal's say-so and getting almost the same three cards back, all still marked 'No easy spot yet'.",
+    "Being told three times that a second furnace behind a splitter would clear the jam, and never being shown how to do it; the middle of the game turned into guesswork exactly where I wanted the lit squares.",
+    "Turning a machine takes up to three taps because it only goes one way round.",
+    "Losing my two stars and my best game from yesterday on the home screen.",
+    "Shifts 5 and 6 felt dead: orders of $3,040 and $4,370 when my line makes under $2,000 and nothing I could find would change that.",
+    "The lower panel staying scrolled, so the instruction line and Undo were off the top of the screen at the start of a shift.",
+    "The New offers button being half off the bottom of the screen."
+  ],
+  "pleased": [
+    "The lit squares and Sal's one-line steps ('Tap the lit spot for the Scrap Hopper. Step 1 of 2.') made the first three shifts effortless; I knew exactly what to do.",
+    "The forecast before running ('This shift will pay $1,005. That fills the $430 order.') takes the guesswork out.",
+    "The 'ORDER FILLED! Every price up 25%' banner with the star, and seeing '+$24' pop up at the dock.",
+    "'What held you back' in plain words with a red tag on the machine ('The furnace held you back for 76 of 80 seconds').",
+    "'What shipped' is sums I can check in my head (37 x ingot at $24 = $888).",
+    "The game remembered my 4x speed, and a shift at 4x is about the length of a sip of coffee.",
+    "The price list under 'What things sell for' and the Tips page with small moving pictures (the Splitter one made sense of what a splitter does).",
+    "The second Tuner turned itself the right way when I put it down.",
+    "The end screen: the bar chart of each shift, what I picked, and 'You beat Sal by $235'."
+  ],
+  "bestMoment": "Shift 1 and 2: tapping the lit squares, pressing Start, watching the first gold ingots pop '+$24' at the dock, and the game saying the order was filled and every price goes up 25%.",
+  "worstMoment": "Shift 3: after the game told me a second furnace with a splitter was the answer, picking that card and getting 'No easy spot for the Furnace yet. Move a machine to make room', doing it, and watching the forecast fall by $201 with nothing lit and no word on what to do next.",
+  "oneChange": "When a card has no easy spot, show me what to move and where the part would go (light the machine to move, or place it for me) instead of 'Move a machine to make room'; the middle of the game should hold my hand as the first three shifts do.",
+  "completionCode": "ZNVT-R6HF"
+}

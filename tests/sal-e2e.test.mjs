@@ -195,6 +195,9 @@ test('the end of a game names Sal, his recording comes back to these results, an
   await results();
   await page.waitForSelector('[data-testid=watch-sal]');
   assert.match(await page.getByTestId('delta-par').textContent(), /^(You beat Sal by \$[\d,]+|Sal beat you by \$[\d,]+|Level with Sal)$/);
+  // nothing was built, so Sal won: the results say what his game cannot do, which is how to pass him
+  assert.match(await page.getByTestId('delta-par').textContent(), /^Sal beat you/);
+  assert.match(await page.getByTestId('sal-how').textContent(), /never moves a machine/);
   const score = await page.getByTestId('score').textContent();
   const games = () => page.evaluate(() => JSON.stringify(localStorage.getItem('jd.bests.v2')).length);
   const stored = await games();

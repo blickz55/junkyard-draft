@@ -1,5 +1,14 @@
 # Status — 2026-11-01 (0.7.0 released; production roadmap v0.8 Real, v0.9 Clear and v0.10 Phone's routine items done; the owner's first playtest taken in full: rules v4, every yard is a job, new lesson, Home and Menu, new art and sound; v0.11 Say something begun, 0.11.0 the community store done, 0.11.1 sign in with email (built, off until the owner's Resend key), 0.11.2 the moderation pipeline (built, off until the owner's Anthropic key), 0.11.3 reactions, 0.11.4 seen-by counts, 0.11.5 the day's talk, 0.11.6 comments on runs, 0.11.8 friends and the feed, 0.11.9 direct messages, 0.11.10 the community hub, 0.11.11 divisions and the in-game inbox, 0.11.12 cosmetics, 0.11.13 the author card and push per kind done, the digest dropped for 1.0 by the owner; the perf gate calibrated, its baseline to come; 0.12.4 accessibility and 0.12.5 verifier operations done; the owner's ⚑ items run in parallel: ears on the sound, eyes on the art, the EU/UK question on play data, a stranger plays the lesson, hosting, legal name and mailboxes, uptime and Discord, playtests round two 0.9.8, the glossary review, Sal's voice review, the 0.9.6 go/no-go, the 0.10.0 screenshots per viewport, the 0.10.5 device run, the VAPID keys)
 
+## Session 2026-11-02 (103) — the sixth panel: one yard, two games (main, no rules change)
+
+- **Panel round 6** on rules 9 (6c43eaa), four returning players (`docs/baselines/fun/panel-r6/`): fun 4, 4, 3, 3; all finished a game; none started another; all "maybe" for tomorrow. With the spots dark, two took three stars and beat Sal by more than double, then had nothing left to chase; following the lights, two hit a wall at shifts 3–4. The day's yard is a cramped one where Sal flatlines at $1,791 from shift 4 (about 4 % of yards; two generator fixes tried, no change).
+- **Blind comparison 2** (rules 9 against rules 8, `docs/baselines/fun/blind-2/`): one each, and both chose the version they played second.
+- **Fixed:** the rank counts stars under any rules (`careerStars`); the race against Sal reads his money after each shift (`SalGame.after`), which had been $80 off the results; the results say how to pass Sal when level or behind. The verifier bundle's size guard moved from 400 to 450 KB (it was 584 bytes over; its job is to catch Phaser, which would be megabytes).
+- **On trial, inert:** what the second buyer pays for each product (`RULES.job.buyerPct`, 100 in play), so the card can try a Plate Press that earns as much per shard as a Furnace.
+- **Measured, not built:** taking one machine off first when nothing fits finds a paying plan in 11 of 24 stuck picks, median +4 %.
+- CI on 6c43eaa: `ci` and `perf` green.
+
 ## Session 2026-11-02 (102) — rules 9: yards that open differently (main; saves and scores from v8 do not carry over)
 
 - **Why:** two agents of round 5 stopped because a second yard opened like the first. Measured: Sal's first card was the Furnace on 33 of 41 ingot yards, paying $840 on 27.

@@ -147,6 +147,9 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
     }
     if (scene.lastMedal)
       deltas.append(h('span', { class: 'jd-badge-pill', tid: 'medal', style: 'font-size:0.75em' }, t('results.medalPill', { medal: cap(scene.lastMedal) })));
+    // level with Sal or behind him: what he cannot do, which is how to pass him (the fifth panel tied him four shifts running and asked how)
+    if (botPar != null && run.score <= botPar && !fork)
+      deltas.append(h('div', { class: 'jd-dim', tid: 'sal-how', style: 'flex-basis:100%; font-size:0.875em' }, t('results.salHow')));
   };
   const yesterdayBest = (() => {
     if (!isToday) return null;

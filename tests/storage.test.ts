@@ -236,3 +236,16 @@ test('storage health: a failing write flips storageFailed once, tells listeners,
     ls.getItem = origGet;
   }
 });
+
+test("the rank's stars are each yard's best under any rules: a change of rules starts the bests again, never the rank", () => {
+  store.clear();
+  storage.recordStars('daily-2026-11-01', 2, 8);
+  storage.recordStars('daily-2026-11-01', 3, 9);
+  storage.recordStars('daily-2026-11-01', 1, 9);
+  storage.recordStars('daily-2026-11-02', 1, 9);
+  assert.equal(storage.careerStars(), 4, 'the best of a yard counts once, whatever rules it was earned under');
+  assert.equal(storage.totalStars(8), 2, 'the per-rules record stays as it was');
+  const { before, after } = storage.recordStars('daily-2026-11-03', 2, 9);
+  assert.deepEqual([before, after], [4, 6], 'a new rank is announced from the rank stars');
+  store.clear();
+});

@@ -810,15 +810,26 @@ export const loadStars = (version: number = RULES_VERSION): Record<string, numbe
   return mine && typeof mine === 'object' ? mine : {};
 };
 export const totalStars = (version: number = RULES_VERSION): number => Object.values(loadStars(version)).reduce((a, b) => a + (Number(b) || 0), 0);
-/** Keep the best stars of a yard; returns the total before and after, so a new rank can be announced. */
+/**
+ * The rank's stars: each yard's best under any rules. A change of rules starts the bests again, because money under new rules is not money
+ * under old ones, but a player's rank is what they have done, and Home saying 0 the morning after a change read as a loss (the sixth panel).
+ */
+export function careerStars(): number {
+  const all = readRaw(K.stars) as Record<string, Record<string, number>> | null;
+  const best: Record<string, number> = {};
+  for (const byYard of Object.values(all && typeof all === 'object' ? all : {}))
+    if (byYard && typeof byYard === 'object') for (const [seed, n] of Object.entries(byYard)) best[seed] = Math.max(best[seed] ?? 0, Number(n) || 0);
+  return Object.values(best).reduce((a, b) => a + b, 0);
+}
+/** Keep the best stars of a yard; returns the rank's stars before and after, so a new rank can be announced. */
 export function recordStars(seed: string, stars: number, version: number = RULES_VERSION): { before: number; after: number } {
-  const before = totalStars(version);
+  const before = careerStars();
   const mine = loadStars(version);
   if (stars > (mine[seed] ?? 0)) {
     const all = (readRaw(K.stars) as Record<string, Record<string, number>> | null) ?? {};
     write(K.stars, { ...all, [String(version)]: { ...mine, [seed]: stars } });
   }
-  return { before, after: totalStars(version) };
+  return { before, after: careerStars() };
 }
 
 /** The yards this device has beaten Sal on, per rules version: Home shows the count, and a game counts once a yard. */

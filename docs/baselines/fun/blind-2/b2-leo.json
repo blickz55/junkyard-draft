@@ -1,0 +1,19 @@
+{
+  "persona": "Leo",
+  "device": "phone",
+  "funA": 2,
+  "funB": 3,
+  "choice": "B",
+  "wouldOpenEither": "maybe",
+  "why": "B never left me stuck: every shift had a green 'fits' card and lit spots, so I finished a whole game in a few minutes, ended exactly level with Sal, and the 'one more order for 3 stars' screen with the 'Try again from shift 6' button actually made me want to tap again. A felt the same for the first few minutes, then every card said 'No easy spot yet', I paid $40 for nothing and had no clue what to move, so I closed it. Neither is something I would go looking for, but B I might open for the daily if I remembered.",
+  "bestOfA": "The lesson's third shift: the line under the yard said it would pay $576 (up $465) before I even pressed start, then little gold bars popped +$24 and the money at the top climbed fast. That was the only real hit in A. I also liked 'Sal's game on this yard: $9,157. Beat it.' and 'You're level with Sal', a rival is a hook.",
+  "worstOfA": "Shift 3 to 4 of today's yard: every card said 'No easy spot yet', the glow vanished, and the game just said 'Move a machine to make room' without saying which machine or where. 'This piece leads nowhere' did not say which piece. New offers cost $40 and gave three more cards that also did not fit. The note to turn the crusher toward the dock made no sense on the board. The start screens and Tips are walls of text too.",
+  "bestOfB": "No walls on the main path: each shift had a green 'Fits this line now' card and lit spots, so a game took a few minutes and I always knew what to tap. The forecast ('this shift will pay $2,664, up $1,194') felt good, and the results screen is the best moment in either version: big $16,095, two stars, 'One more order for 3 stars', and a 'Try again from shift 6' button.",
+  "worstOfB": "The glow plays the game for you: I tied Sal to the dollar without making one real decision. When I wanted to do better there was no help: the last order was '$277 short' and the lit spots had run out. 'No easy spot for the Furnace yet... pick a machine and press Move' then 'Tap where the Shipping Dock should go' with nothing lit. Still lots of text, and the $40 New offers tap left me under Sal.",
+  "stuckIn": [
+    "A, today's yard shift 3: every card said 'No easy spot yet' and I could not tell which machine to move or where; I spun the furnace and splitter at random and 'This piece leads nowhere' did not say which piece.",
+    "A, today's yard shift 4: all three cards 'No easy spot yet'; paid $40 for New offers and got three more cards that did not fit; the 'turn the crusher toward the dock' note did not match anything I could do on the board; I quit here.",
+    "B, shift 6: the forecast said '$277 short of the $4,600 order' and the lit spots had no more moves, so I could not find a way to close the gap and just pressed start.",
+    "B, after 'Try again from shift 6': picked Furnace + Splitter ('No easy spot yet'); Move only said 'Tap where the Shipping Dock should go' with nothing lit, so I had no idea where to build and gave up."
+  ]
+}

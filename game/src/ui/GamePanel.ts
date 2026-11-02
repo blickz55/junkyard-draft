@@ -1160,7 +1160,7 @@ export class GamePanel {
       salLater(r.seed, () => {});
       return null;
     }
-    const lead = r.score - sal.rounds.slice(0, r.rounds.length).reduce((a, b) => a + b, 0);
+    const lead = r.score - (sal.after[r.rounds.length - 1] ?? 0); // his money as it stood, as yours does: what he paid for new offers counts (the sixth panel)
     const text = lead > 0 ? t('job.salAhead', { amount: money(lead) }) : lead < 0 ? t('job.salBehind', { amount: money(-lead) }) : t('job.salLevel');
     return h('div', { class: lead >= 0 ? 'jd-green jd-banner-job' : 'jd-dim jd-banner-job', tid: 'sal-race' }, text);
   }

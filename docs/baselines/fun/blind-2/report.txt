@@ -1,0 +1,4 @@
+Blind comparison 2, 2026-11-02: 6c43eaa (rules 9) against 242b7d3 (rules 8), order swapped between the two agents. Agents are not people.
+leo: A was rules 9, B rules 8; chose B (rules 8), fun rules 9 2, rules 8 3, tomorrow maybe. Today's yard under rules 9 is a cramped one where the lit spots stop at shift 3.
+samuel: A was rules 8, B rules 9; chose B (rules 9), fun rules 9 4, rules 8 3, tomorrow maybe. "The lit spots are his game" sent him to find a better line, and he beat Sal by $6,845.
+Both chose the version they played second: the order counts as much as the build here.

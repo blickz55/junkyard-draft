@@ -11,6 +11,7 @@ import { dropActions } from './placement';
 export interface SalGame {
   score: number;
   /** what each shift paid */ rounds: number[];
+  /** his money after each shift, what he spent on new offers and belts and got for sales included: what a player's money is held against */ after: number[];
   stars: number;
   filled: number;
   /** the game itself, to watch */ actions: Action[];
@@ -48,9 +49,10 @@ function shift(s: RunState, act: (a: Action) => void) {
 }
 
 const games = new Map<string, SalGame>();
-const finish = (s: RunState, actions: Action[]): SalGame => ({
+const finish = (s: RunState, actions: Action[], after: number[]): SalGame => ({
   score: s.score,
   rounds: s.rounds.map((r) => r.earned),
+  after,
   stars: runStars(s),
   filled: s.filled,
   actions,
@@ -66,8 +68,12 @@ export function salGame(seed: string): SalGame {
     apply(s, a);
     actions.push(a);
   };
-  while (s.phase !== 'finished') shift(s, act);
-  const game = finish(s, actions);
+  const after: number[] = [];
+  while (s.phase !== 'finished') {
+    shift(s, act);
+    after.push(s.score);
+  }
+  const game = finish(s, actions, after);
   games.set(seed, game);
   return game;
 }
@@ -85,10 +91,12 @@ export function salLater(seed: string, ready: (g: SalGame) => void) {
     apply(s, a);
     actions.push(a);
   };
+  const after: number[] = [];
   const step = () => {
     shift(s, act);
+    after.push(s.score);
     if (s.phase !== 'finished') return void setTimeout(step, 0);
-    const game = finish(s, actions);
+    const game = finish(s, actions, after);
     games.set(seed, game);
     ready(game);
   };

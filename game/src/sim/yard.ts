@@ -262,6 +262,11 @@ export const starsFor = (job: Job, shipped: number): 0 | 1 | 2 | 3 => job.stars.
 
 /** What a material sells for on this layout: the list price, or the job's price for its product. */
 export const priceOf = (layout: Pick<Layout, 'premium' | 'premium2' | 'rate'>, mat: Material): number => {
-  const base = layout.premium === mat || layout.premium2 === mat ? RULES.job.price : RULES.value[mat];
+  const second = layout.premium2 === mat && layout.premium !== mat && (mat === 'ingot' || mat === 'plate');
+  const base = second
+    ? Math.round((RULES.job.price * RULES.job.buyerPct[mat]) / 100)
+    : layout.premium === mat || layout.premium2 === mat
+      ? RULES.job.price
+      : RULES.value[mat];
   return layout.rate ? Math.round((base * layout.rate) / 100) : base;
 };

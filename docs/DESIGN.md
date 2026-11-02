@@ -21,6 +21,14 @@ The owner asked for trial and error against a scorecard. Rules 5 scored 55 of 10
 
 **Paid for.** The rules are harder to state: "fill the order, your prices rise" is a second number beside the money, and the card and every screen had to learn it. `tests/guide.test.ts` and the job bar's order strip carry that. The old star marks in units are gone from job yards (`orders` absent keeps them for the lessons' own marks and the tests that name them).
 
+## Decision: what the sixth panel found (2026-11-02, no rules change)
+
+Four returning agents on rules 9 (`docs/baselines/fun/panel-r6/`) and a blind comparison of rules 9 against rules 8 (`docs/baselines/fun/blind-2/`). Fun 4, 4, 3, 3; all four finished a game; none started another; all four "maybe" for tomorrow. The blind pair split one each, and each chose the version it played second.
+
+- **Two games on one yard.** The two who kept the spots dark took three stars and beat Sal by more than double, rebuilding the line from the forecast; they stopped because nothing was left to chase. The two who followed the lights hit a wall at shifts 3 and 4, every card "No easy spot yet", and were told to move a machine without being told which. The day's yard under rules 9 is a cramped one where Sal's game stops growing at $1,791 from shift 4. About 4 % of yards go flat that way, the same in every variant; keeping junk off the cells beside the first Splitter's piece, and moving the Tuner off the branch's route, were both tried and changed nothing.
+- **Taking one machine off first** when nothing fits: on 60 yards it found a paying plan in 11 of the 24 picks where none fitted, worth a median 4 % of the line. Too little to build. The casual players' one change was the same in both: show what to move, and where.
+- **Fixed:** the rank counts each yard's best stars under any rules, because Home said 0 stars the morning after the change (the bests stay per rules, since money under new rules is not money under old). The race against Sal counts his money after what he paid for new offers, where it had been $80 adrift of the results. Level with Sal or behind him, the results say what his game cannot do: it takes the card that pays most this shift and never moves a machine.
+
 ## Decision: yards open three ways, with orders to match (rules v9, 2026-11-02)
 
 Two of the fifth panel's four agents stopped because a second yard opened exactly like the first: the same $888 first shift, the same advice. On 60 tune yards Sal's first card was the Furnace on 33 of 41 ingot yards, which then paid $840 on 27 of them, and the Hopper on 18 of 20 plate yards. Shape, rubble and deal varied; what the line was short of did not.
