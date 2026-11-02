@@ -14,8 +14,10 @@ import {
   GRID_W,
   BIN_Y,
   BIN_H,
-  setShelfCount,
+  setShelf,
   shelfSlots,
+  shelfSlotsOf,
+  slotXY,
 } from '../game/src/render/layout';
 import { CELL } from '../game/src/render/textures';
 
@@ -70,21 +72,26 @@ test('binSlotXY: seven shelf slots fit inside the shelf panel', () => {
   }
 });
 
-test('past seven parts the shelf packs them closer, and the last stays inside its frame; at seven or fewer nothing moves', () => {
-  const right = (i: number) => binSlotXY(i).px + CELL;
-  setShelfCount(4);
-  const seven = Array.from({ length: 7 }, (_, i) => binSlotXY(i).px);
-  setShelfCount(7);
+test('the shelf: belts share one slot, every other part has its own; past seven slots they sit closer and the last stays in its frame', () => {
+  const parts = (n: number) => Array.from({ length: n }, () => ({ kind: 'hopper' }));
+  setShelf(parts(4));
+  const seven = Array.from({ length: 7 }, (_, i) => slotXY(i).px);
+  setShelf(parts(7));
   assert.deepEqual(
     Array.from({ length: 7 }, (_, i) => binSlotXY(i).px),
     seven,
-    'seven is the shelf as it always was',
+    'seven parts sit as they always did',
   );
   for (const n of [8, 10, 13]) {
-    setShelfCount(n);
+    setShelf(parts(n));
     assert.equal(shelfSlots(), n);
-    assert.ok(right(n - 1) <= GRID_X + GRID_W, `${n} parts: the last inside the frame`);
-    assert.equal(binSlotXY(0).px, seven[0], 'the first stays put');
+    assert.ok(slotXY(n - 1).px + CELL <= GRID_X + GRID_W, `${n} parts: the last inside the frame`);
+    assert.equal(slotXY(0).px, seven[0], 'the first stays put');
   }
-  setShelfCount(7);
+  const bin = [{ kind: 'conveyor' }, { kind: 'conveyor' }, { kind: 'hopper' }, { kind: 'conveyor' }, { kind: 'crusher' }, { kind: 'dock' }];
+  assert.deepEqual(shelfSlotsOf(bin), [0, 0, 1, 0, 2, 3], 'the belts share the first belt slot');
+  setShelf(bin);
+  assert.equal(shelfSlots(), 7, 'four slots fit in the seven');
+  assert.deepEqual(binSlotXY(3), binSlotXY(0), 'every belt sits on the one stack');
+  setShelf(parts(7));
 });

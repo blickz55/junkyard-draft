@@ -13,6 +13,7 @@ older replays and saves on purpose.
 - **Short of the order?** The coach says by how much and lights the machine that is the slow one.
 - **Turn back:** a quarter turn the other way, one Undo.
 - Beating Sal or filling every order gets a burst of colour on the results.
+- **Belts stack on the shelf** with a count, so a shelf of cards with three parts each stays readable.
 
 ### Rules version 10: cards that bring their own Dock — 2026-11-02 (saves and scores from version 9 do not carry over)
 

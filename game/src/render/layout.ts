@@ -47,16 +47,32 @@ export function boardCameraCenter(fit: BoardFit, boardX: number, boardY: number,
     cy = boardY + fit.h / 2;
   return { x: bcx + (cssW / 2 - cx) / fit.s, y: bcy + (cssH / 2 - cy) / fit.s };
 }
-/** Seven parts sit side by side on the shelf; past seven they sit closer, so the last stays inside its frame (rules v10 cards bring three
- * parts, and the sixth panel saw one drawn outside it). The scene says how many it holds before anything is laid out. */
+/**
+ * The shelf. Belts are all alike, so they share one slot and show how many (played as rules 10 deals, the shelf held more than seven
+ * parts in every game, and the seventh panel grabbed the wrong one); every other part has a slot of its own, in shelf order. Seven slots
+ * sit side by side; past seven they sit closer, so the last stays inside its frame. The scene says what the shelf holds before anything
+ * is laid out.
+ */
 const SHELF_ROOM = 7;
 let shelfCount = SHELF_ROOM;
-export const setShelfCount = (n: number) => {
-  shelfCount = Math.max(SHELF_ROOM, n);
+let slotMap: number[] = [];
+/** Each shelf part's slot, by its index on the shelf. */
+export function shelfSlotsOf(bin: readonly { kind: string }[]): number[] {
+  let next = 0;
+  let belt = -1;
+  return bin.map((m) => (m.kind === 'conveyor' ? (belt < 0 ? (belt = next++) : belt) : next++));
+}
+export const setShelf = (bin: readonly { kind: string }[]) => {
+  slotMap = shelfSlotsOf(bin);
+  shelfCount = Math.max(SHELF_ROOM, slotMap.length ? Math.max(...slotMap) + 1 : 0);
 };
 export const shelfSlots = () => shelfCount;
-/** The shelf slot i's logical top-left (the scene and the tests' geometry share it). */
-export const binSlotXY = (i: number) => {
+/** The slot a shelf part sits in, by its index on the shelf. */
+export const slotOfBin = (i: number) => slotMap[i] ?? i;
+/** A shelf slot's logical top-left (the tests' geometry speaks in slots). */
+export const slotXY = (slot: number) => {
   const step = shelfCount > SHELF_ROOM ? ((CELL + 8) * (SHELF_ROOM - 1)) / (shelfCount - 1) : CELL + 8;
-  return { px: GRID_X + 12 + i * step, py: BIN_Y + 28 };
+  return { px: GRID_X + 12 + slot * step, py: BIN_Y + 28 };
 };
+/** Where the shelf part at this index of the shelf sits. */
+export const binSlotXY = (i: number) => slotXY(slotOfBin(i));

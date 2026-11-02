@@ -22,7 +22,7 @@ import { RULES } from '../sim/rules';
 import { priceOf, starsFor } from '../sim/yard';
 import { cellIndex, runLayout } from '../sim/sim';
 import { CELL, machineTexture } from '../render/textures';
-import { GRID_W, GRID_H, BOARD_W, BOARD_H, GRID_X, GRID_Y, binSlotXY } from '../render/layout';
+import { GRID_W, GRID_H, BOARD_W, BOARD_H, GRID_X, GRID_Y, binSlotXY, slotOfBin } from '../render/layout';
 import { prefs } from '../render/prefs';
 import { audio } from '../render/audio';
 import { cellLine, yardLines } from '../render/mirror';
@@ -487,7 +487,7 @@ export class GamePanel {
         ring(s.x * CELL, s.y * CELL, `cell:${s.x},${s.y}`, s.soft);
       } else {
         const { px, py } = binSlotXY(s.i);
-        ring(px - GRID_X, py - GRID_Y, `shelf:${s.i}`);
+        ring(px - GRID_X, py - GRID_Y, `shelf:${slotOfBin(s.i)}`);
       }
     }
     this.spotLayer.replaceChildren(...rings, ...(this.inspectRing ? [this.inspectRing] : []));

@@ -10,7 +10,8 @@ import { cellIndex, type SimState } from '../sim/sim';
 import { RULES } from '../sim/rules';
 import { BELT_FRAMES, CELL, itemTexture, machineTexture } from './textures';
 import { artStatus, baseScale, fit, setArt } from './atlas';
-import { P } from './palette';
+import { CSS, P } from './palette';
+import { label } from './ui';
 import { prefs } from './prefs';
 import type { MachineView } from './InputController';
 import { digestTick, rubbleFrame, itemPose, machineFrame, transformColour, type TickDigest } from './simframes';
@@ -37,6 +38,7 @@ export class SimView {
   private readonly jammedNow = new Set<number>();
   private readonly shipsThisTick = new Map<number, number>();
   private stallMark!: Phaser.GameObjects.Image;
+  private beltCount!: Phaser.GameObjects.Text;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -51,6 +53,11 @@ export class SimView {
       .setTint(P.red)
       .setVisible(false)
       .setName('stall-mark');
+    this.beltCount = label(this.scene, 0, 0, '', 15, CSS.text, { fontStyle: 'bold', backgroundColor: '#1e1a15', padding: { x: 4, y: 1 } })
+      .setOrigin(1, 1)
+      .setDepth(11)
+      .setVisible(false)
+      .setName('belt-count');
     return this;
   }
   /** Forget every object (they were destroyed with the scene). */
@@ -137,6 +144,16 @@ export class SimView {
       const { px, py } = this.binSlot(i);
       place(m, true, px, py);
     });
+    // the belts share a slot: how many is written on it
+    const belts = run.bin.filter((m) => m.kind === 'conveyor').length;
+    const first = run.bin.findIndex((m) => m.kind === 'conveyor');
+    if (belts > 1 && first >= 0) {
+      const { px, py } = this.binSlot(first);
+      this.beltCount
+        .setText(`×${belts}`)
+        .setPosition(px + CELL - 2, py + CELL - 2)
+        .setVisible(true);
+    } else this.beltCount.setVisible(false);
     for (const [id, v] of this.views)
       if (!alive.has(id)) {
         v.c.destroy();

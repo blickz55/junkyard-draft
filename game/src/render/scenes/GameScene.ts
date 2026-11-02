@@ -47,7 +47,7 @@ import { openHowTo } from '../../ui/HowTo';
 import { machineCard, rubbleCard } from '../../ui/Inspector';
 import { todaysYard } from '../daily';
 import { isTestEdition, verifierUrl } from '../config';
-import { BIN_H, BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y, binSlotXY, boardCameraCenter, fitBoard, setShelfCount, shelfSlots } from '../layout';
+import { BIN_H, BIN_Y, GRID_H, GRID_W, GRID_X, GRID_Y, binSlotXY, boardCameraCenter, fitBoard, setShelf, shelfSlots, slotXY } from '../layout';
 import { installDevApi } from '../devapi';
 import { prefs } from '../prefs';
 
@@ -521,7 +521,7 @@ export class GameScene extends Phaser.Scene {
       grid: { x: L, y: T, w: GRID_W * s, h: GRID_H * s },
       shelf: { x: L, y: T + (BIN_Y - GRID_Y) * s, w: GRID_W * s, h: BIN_H * s },
       slots: Array.from({ length: shelfSlots() }, (_, i) => {
-        const { px, py } = binSlotXY(i);
+        const { px, py } = slotXY(i);
         return { x: L + (px - GRID_X + CELL / 2) * s, y: T + (py - GRID_Y + CELL / 2) * s };
       }),
     };
@@ -529,7 +529,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Machines follow the run (render/SimView.ts); a held machine that vanished is let go; the cursor, the selection and the overlay follow. */
   syncMachines() {
-    setShelfCount(this.run.bin.length);
+    setShelf(this.run.bin);
     const alive = this.view.sync(this.run, this.inputCtl);
     if (this.inputCtl.heldId != null && !alive.has(this.inputCtl.heldId)) this.inputCtl.heldId = null;
     this.inputCtl.refresh();
