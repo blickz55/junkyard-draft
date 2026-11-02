@@ -36,6 +36,8 @@ export interface Bottleneck {
   fixes: MachineKind[];
   /** machines of the named kind on the yard (saturated): the second of something is not the fourth */
   twins?: number;
+  /** every side of every dock is taken (balanced): more scrap has nowhere to go until a second dock (the fourth panel) */
+  docksFull?: boolean;
 }
 
 /** A jammed-tick share of the round from which a machine counts as holding the line (10 of 80). */
@@ -180,7 +182,10 @@ export function analyseRound(layout: Layout, result: RunResult, nextRound: numbe
       utilisation: starved.u,
       fixes: (['hopper'] as MachineKind[]).filter((k) => inPool(k, nextRound)),
     };
-  // 6. balanced
+  // 6. balanced, and whether anything more could reach a dock at all
+  const open = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && !layout.rubble?.includes(y * W + x) && !grid[cellIndex(x, y, W)];
+  const docks = layout.machines.filter((m) => m.kind === 'dock');
+  const docksFull = docks.length > 0 && docks.every((d) => ![0, 1, 2, 3].some((t) => open(d.x + DIR_DX[t as Dir], d.y + DIR_DY[t as Dir])));
   return {
     ...base,
     kind: 'balanced',
@@ -188,6 +193,7 @@ export function analyseRound(layout: Layout, result: RunResult, nextRound: numbe
     heldTicks: 0,
     count: layout.machines.filter((m) => m.kind === 'hopper').length,
     fixes: (['hopper'] as MachineKind[]).filter((k) => inPool(k, nextRound)),
+    ...(docksFull ? { docksFull } : {}),
   };
 
   /** Does raw scrap reach this furnace: tracing its feeders back, is a hopper reached before any crusher? */

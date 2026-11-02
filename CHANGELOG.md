@@ -5,7 +5,17 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### The late game and help on request — 2026-11-02 (no rules change)
+
+- **Show me.** After your first game the lit spots wait until you ask: "Show me" lights where the card you picked pays. The job card turns them on or off for good.
+- **Room to grow.** When every side of your Dock is taken, a Dock card says it gives your line room to grow, and the shift's advice says why nothing more can sell.
+- **Plans that reach.** A card's plan can lay up to two belts to reach a free side, so cards fit later into a game.
+- **New offers when nothing fits.** If no card on offer fits your line, the coach says New offers deals three more; otherwise it never suggests paying. Sal does the same.
+- "Adds a little" for a card that adds next to nothing, the price list keeps up with your raises, and the running total shows the whole game's money.
+- A refusal at the edge of a phone's yard stays on the screen.
+
 ### Rules version 8: orders — 2026-11-02 (saves and scores from version 5 do not carry over)
+
 - **Beat Sal.** The foreman plays every yard too. The job card says what he made of it, each shift tells you how far ahead or behind you are, and the results let you watch his game.
 - **Lit spots.** After a pick the game shows where its parts earn their keep, one spot at a time, and the part already faces the right way. Put it somewhere else if you know better.
 - **A card says whether it fits, not how much.** It says "Fits this line now" or "No easy spot yet". What it really adds shows once it is built, and a pick can be taken back until the shift starts, so you can try one and see.
@@ -21,6 +31,7 @@ older replays and saves on purpose.
 - Money has its comma now that a game runs to five figures.
 
 ### A private test link — 2026-11-01 (no rules change)
+
 - **A tester build:** the lessons, today's yard and practice yards on a private link, with no server. It says it is a test, and never tells anyone they are offline. Leaderboards, sharing, crews and the talk stay out of sight until there is a server and an address to share.
 - **Where testers stop:** the link records how far each tester got, step by step, within seconds and as the page closes, so someone who quits still leaves a mark. It is anonymous, Home says so, and Settings turns it off.
 - **A minute of questions:** six questions from Home, the end of a lesson or the results, ending in a completion code to paste back where the tester signed up. One set of answers per device, and the code can always be seen again.
@@ -29,62 +40,74 @@ older replays and saves on purpose.
 - **The survey is on Home's first screen,** beside the test notice. On a phone it had been below the bottom of the screen.
 
 ### Rules version 5: belts and lessons — 2026-11-01 (the owner's second playtest; saves and scores from version 4 do not carry over)
+
 - **Three lessons, and every step is guided.** Each step says which part to take, lights the spot it goes on and says in plain words what it does. Every part in the game is placed by hand in one of them: lesson 1 the first line, lesson 2 plates and a second feed, lesson 3 finding the slowest machine. A lesson ends with its job done, with nothing left to finish alone. Home shows how many you have done, and any of them can be taken again.
 - **Buy a belt, $20, while you build.** It comes off your score, and Undo gives it back. Conveyors are no longer dealt, so every card is a machine.
 - Sal says so when a line is broken and the shelf has no belts.
 
 ### The owner's second playtest — 2026-11-01 (no rules change)
+
 - **Start over.** Every game can go back to its first shift from the Menu, and the lesson shows the way beside "Skip the lesson". It says what that costs first. It is never just one shift back.
 - **The stars stop stating the obvious.** The first two flash on the yard with no words; the third says "Job done." A star that lands in the last seconds of a shift, or in a skipped shift, now gets its moment and its sound; it used to pass in silence.
 - **The name on Home is a button.** "Choose a name" looked like one and was only text. The box now starts empty instead of holding the word "player".
 - "1 ingot" and "1 plate" read properly after a count, and a tall menu scrolls on a short screen.
 
 ### 0.12.5 a fair board, and what happens when one is not — 2026-11-01 (no rules change, protocol 3: additive)
+
 - **Two boards.** The main board is for people. A game played by a tool has a board of its own beside it, and earns no medal.
 - **When a day goes wrong**, it is voided and played again on a new yard. It is never re-scored, and the commitment from the day before still checks out.
 - For operators: `/metrics`, runbooks, `tools/review.ts`, `tools/void-day.ts`.
 
 ### 0.12.4 keys, a yard you can hear, and focus that behaves — 2026-11-01 (no rules change, protocol 3)
+
 - **Choose your keys.** Settings, Keys: click a key, press the new one. A key already in use says so. One button puts them all back.
 - **The yard reads aloud.** A screen reader now gets every machine, which way it faces and whether it leads anywhere, and the keyboard's cursor says where it is.
 - **Fixed: a quick double tap could count three times** on a slow screen, moving the cursor too far or turning a machine twice.
 - **F6 reaches the buttons from the yard**, which the keyboard could not do before, and comes back. Tab now stays inside every dialog.
 
 ### 0.11.7 hear when someone answers — 2026-11-01 (no rules change, protocol 3: additive)
+
 - With the daily reminder on, you can also ask to hear when someone answers you in the talk or beats your score. Off until you ask, at most three a day, none at night, and never who or what. The inbox has the rest.
 
 ### 0.11.12 the paint shop — 2026-11-01 (no rules change, protocol 3: additive)
+
 - **Something to show for turning up.** Days of dailies, medals and days in the top division earn yard colours, machine paint and a title beside your name. Open the paint shop from More to see what you have and what the rest takes.
 - **Others see it.** Your title shows on boards, on your posts and on your profile, and your recordings play in your paint.
 - **It never changes play.** Same offers, same rules, same score, and the results and the fairness page say so.
 - A recording now says whose it is, in Sal's line: the top bar had no room for the name.
 
 ### 0.11.13 profiles — 2026-11-01 (no rules change, protocol 3: additive)
+
 - **See who you are up against.** Profile on a row of the board, or the name on a post, shows when a player arrived, what they have won and their three best games, with Beat this on each.
 - **Yours to hide.** Show my profile in Privacy & data leaves only your name there, for everyone. Your scores stay on the boards.
 - A game from before you signed in on a device now counts as yours everywhere it should: on your profile, as your own game, and when someone adds you from it.
 
 ### 0.11.10 the community hub — 2026-11-01 (no rules change, protocol 3: additive)
+
 - **A place to talk beyond the day.** Community on Home opens four categories: Strategies, Show your yard, Help and bugs, Off-shift. They also read as plain web pages, with nothing to install. Past days with a talk are listed there too.
 - **Show a game.** Attach your latest game to a post. On the web page it shows who and how much, with a way into the game.
 - **Topics of your own open when there are enough people.** Once fifty players have posted in a week, New topic appears, so the hub never looks dead on the way there.
 - A moderator can pin a thread and close one.
 
 ### 0.11.9 direct messages — 2026-11-01 (no rules change, protocol 3: additive)
+
 - **Write to a friend.** Message sits beside each friend, and a new message lands in your inbox. Friends only, up to 500 characters, and messages go after 90 days.
 - **Private by default.** The filter still refuses links and contact details, but neither the classifier nor a person reads a message unless the player it was sent to reports it. Then a person sees that message and the ones around it.
 - A removed message shows as removed to both of you and can be appealed. A block ends the conversation for both.
 
 ### 0.11.8 friends and the feed — 2026-11-01 (no rules change, protocol 3: additive)
+
 - **Add a friend** from a recording you watched, a post in the talk or a challenge you played. They answer in their inbox. Nobody can be searched for or listed.
 - **See what they have been up to.** Friends on Home shows your friends and crew mates: their games, their posts and how their divisions went, with Beat this in one tap. Their scores show on the chart of a yard you both played.
 - **Block anyone.** You stop seeing each other in the talk and the feed, and they are not told. Boards stay as they are, because scores are public.
 - Home named a yard by its code. It now says today's yard, the same as everywhere else.
 
 ### 0.11.6 comments on games — 2026-11-01 (no rules change, protocol 3: additive)
+
 - **Talk about one game.** A recording has Talk about this game beside its reactions, behind the same gate as the recording itself. Its owner hears in the inbox even if they never wrote there, and the talk shows on the results of a game of yours.
 
 ### 0.11.5 the day's talk — 2026-11-01 (no rules change, protocol 3: additive)
+
 - **Each yard has a place to talk about it.** Once your game is checked, Talk about this yard opens the day's thread, and Home shows Today's talk with how much there is. Until the day closes only players with a game on it can read it, so nobody copies a line. After that anyone can, in the game and on a plain web page.
 - **Sal opens and closes each day.** His closing post is built from the final board: how many games, the middle of the pack, the top three and the game everyone reacted to.
 - **Write up to 280 characters.** Your words show to you at once and to everyone else a few seconds later. Change a post for five minutes, take one back whenever you like, and attach your game so others can watch it. New words go back through the same checks.
@@ -92,6 +115,7 @@ older replays and saves on purpose.
 - With writing off, none of this shows: Home is as it was.
 
 ### 0.11.2 the moderation pipeline — 2026-11-01 (no rules change, protocol 3: additive)
+
 - **Writing can open safely, and stays shut until it can.** With no `ANTHROPIC_API_KEY` and `MODERATION_TOKEN`, nothing can be written and the game is unchanged.
 - **Every post is read before most people see it.** A filter refuses blocked words, links, email addresses, phone numbers and home addresses at once. Then Claude Haiku 5.5 reads the words, with no name and no id on them, and answers a category and a score. Under 40 the post stays up. From 40 it stays up and a person looks. From 80 it comes down until a person looks. Its author can read it the whole time.
 - **A failure goes to a person, never past one.** If the classifier cannot answer, or its daily budget is spent, the post stays up and joins the queue.
@@ -105,6 +129,7 @@ older replays and saves on purpose.
 - Text used only by panels that load on demand now loads with them, which makes room on the first visit.
 
 ### 0.11.1 sign in with email — 2026-10-31 (no rules change, protocol 3: additive)
+
 - **Your name and progress can follow you.** Settings → Email sends a one-time link. Open it on a device and press Sign in: that device becomes you, with your name, your best scores, your stars and your record, and a better game on one device reaches the others. There is no password. Playing still needs no account.
 - **We keep a scrambled form of your address, never the address.** A link works once, for 15 minutes. Its secret part stays out of every server log, and nothing happens until a person presses Sign in, so a mail scanner that follows links signs nobody in. The device that opens the link is the one that signs in, so typing someone else's address gains nothing, and a known address gets the same answer as an unknown one, so nobody can test who plays here. At most three mails an hour go to an address.
 - **Every device keeps its own key.** The server records only that the hash of a key stands for a player, so it still never holds a key.
@@ -112,35 +137,43 @@ older replays and saves on purpose.
 - Resend carries the mail, off until `RESEND_API_KEY` is set. The privacy notice names it, and the summary and the fairness page no longer say there are no accounts.
 
 ### 0.11.7 the inbox, first part — 2026-10-31 (no rules change, protocol 3: additive)
+
 - **Find out what happened while you were away.** An Inbox link on Home, amber with a number when something is new: reactions on your games (one line per game however many arrive), someone beating your score from your challenge link, with a button to beat it back, your division's result with a button to its board, and your crew's day. Opening it reads it. Read lines go after 60 days. The first part of 0.11.7: replies, moderation outcomes and push per kind wait for what they depend on.
 - A line this version of the game does not know is left out, so a newer server cannot break an older game. Names are looked up when you read, so a rename or a moderation decision follows, and no player id or crew code reaches the client.
 
 ### 0.11.11 divisions at freeze and trophies — 2026-10-31 (no rules change, protocol 3: additive)
+
 - **A board at your level.** When a day closes, its checked players are split by score into divisions from the Foreman's Table down to the Heap: sixteen at the top when that leaves a real second one, the rest even and around thirty-two, one division under thirty-two players. Each has its own final board, and its top three take medals, so a player at $300 has something to win as well as a player at $3,000. Computed once at the close and stored.
 - **The morning after.** Home says where the day left you ("29 October: #3 of 24 in Foundry 2 🥉") for a week, one tap opens the board, and the result copies for sharing. Medals and days in the top division add up to trophies that never decay, on Your record.
 - An anonymous game has nobody to place. Deleting your data takes your name off a closed division and leaves the place.
 
 ### Sal's mark is back inside its budget — 2026-10-31 (no rules change)
+
 - Generated yards had taken the autoplayer behind "Sal's mark" to 15 s on a fast machine, past the verifier's 20 s cap on a small server: no daily would have had a mark. A shallower search and three runs instead of five give the same numbers on seven generated yards in about 3 s. A test holds it under the cap.
 
 ### 0.11.3 reactions and 0.11.4 watched counts — 2026-10-31 (no rules change, protocol 3: additive)
+
 - **React to a run.** Eight reactions under a recording, while you watch it and on its results: tap one to leave it, tap another to change it, tap it again to take it back. One per device per run, counts only, nothing to type and nothing to moderate. The device key is enough: no name and no account. A run on an open daily stays closed to reactions until you may watch it, and your own run offers no buttons, only the counts.
 - **See what people made of it.** Board rows show the most used reactions ("🔥 3 👏 1"), on the results and on Home. The results of your checked game say "12 reactions 🔥 8 👏 4 · watched 14 times by 9 players", and Your record keeps the games people watched most. The run's owner gets one unread line per run however many people react, ready for the inbox (0.11.7).
 - A watch counts when a device with a key fetches a recording, never the run's own player, and the same viewer twice is one viewer. The privacy notice names both, and `DELETE /me` and `/me/export` cover them.
 - A recording's results no longer show a greyed-out "Put my score on the board".
 
 ### 0.11.0 the community store — 2026-10-31 (no rules change, protocol 2)
+
 - **The social layer has somewhere to live.** `server/community.ts` keeps one SQLite file next to the board on Node's built-in `node:sqlite`: accounts, email links, threads, posts, reactions, views, friends, messages, notifications, push subscriptions, reports, moderation actions, divisions, trophies and cosmetics. Nothing a player can reach writes to it yet; the first routes come with their moderation (0.11.2).
 - **Migrations** are numbered SQL modules under `server/migrations/`, compiled in so the verifier stays one file and a build cannot ship without them. Each runs in one transaction at start and is recorded with a hash; a changed one or a gap in the numbers stops the start; a database newer than the code runs as it is, so a rollback to the previous image keeps working. `tools/community.ts` reads where a data directory stands and takes it down.
 - **The right to be forgotten is built in from the first table.** `DELETE /me` and `/me/export` run on one list of the columns that hold a player id, and a test walks the schema so that a new column has to be placed on it.
 - **Backups** take a `VACUUM INTO` snapshot of the database instead of copying a live file, and the restore drill checks its integrity and that the restored service reads the archive's posts. `/health` reports the size, the schema and the counts. A page of a 100k-post thread comes back under 20 ms.
 
 ### A first visit on a slow line — 2026-10-31 (no rules change)
+
 - **Home no longer waits for the art.** On the slow-4G profile the title was taking 4 seconds because the sprite sheet raced the script. Home is DOM and needs no sprites: it now comes up beside the Boot scene at about 2.6 s and the sheet arrives behind it. A tap that gets there first says "Opening the yard…" and goes on by itself; the machine demos wait the same way.
 - **The first visit's script is 291 KiB gzip against the 300 budget.** The bundle had reached 300.1 with the art and the strings. The fairness policy and the legal texts now load on first use as chunks of their own (`ui/panels.ts`), and the service worker caches them with the rest, so they still open offline. `tools/bundle-size.ts` counts the bundle and the chunks it imports statically; `tools/first-interactive.ts` now reads the clock in the page at the first frame the button is there, instead of after the load event.
 
 ### The owner's first playtest — 2026-10-31 (rules v4, protocol 2: additive)
+
 Twelve notes from the owner's first real play, all taken. Old recordings and saves stop working on purpose (rules v4); the v3 golden corpus is kept under `tests/golden/archive/v3/`.
+
 - **Every yard is a job.** "Ship 160 ingots" with three stars, stated on a job card at the start, on a bar in the HUD with star marks, with a moment when a mark is passed, and on the results with exactly what the next star would have taken ("14 ingots short of ★★★"). The job's goods pay $24 on that yard, so the job and the leaderboard pull the same way. Stars show on boards and in share text; each yard's best stars add up to a rank on this device, Scrap Picker to Scrap King.
 - **Yards are different now.** A yard's name generates its belt, junk piles and two spare conveyors; "Random Yard" used to open the same board every time. The `classic-*` names keep the old starter.
 - **Tap anything.** Any machine, shelf part or junk pile says what it does, what goes in, what comes out and what it did last shift, in every phase. A drag during the pick is told why not.
@@ -155,32 +188,38 @@ Twelve notes from the owner's first real play, all taken. Old recordings and sav
 - **Play data is on by default**, off with one switch in Settings; a browser sending Global Privacy Control or Do Not Track starts with it off. The privacy notice says so.
 
 ### 0.10.6 share surfaces for phones — 2026-10-30 (no rules change, protocol 2)
+
 - **"Share…" on the results, first in the Share row wherever the browser has a share sheet** (phones; desktop Chrome and Edge on Windows too): the sheet gets the spoiler-free grid with the "beat this" link as the text and, where the sheet takes a picture, the 1200×630 card as a PNG. A cancelled sheet says nothing; a failed one says why. Copy share text, the detailed variant and the card download stay for everyone else.
 - **The GIF is the final layout**, looping at 4× as before, and its strip now names the yard, the score and, for a checked run, the first eight characters of the recording's hash beside the wordmark; an unchecked run's strip carries no hash. Still under 2 MB (the roadmap allows 4).
 - Tests: the web-app e2e's sixth scenario hands a stubbed share sheet the text (link and grid) and the card file, and exports the final-layout GIF under budget; the gameplay e2e checks the GIF's round and strip and that the share-sheet button appears only where the browser has one.
 - The daily reminder's button sits in the "Today's board" strip beside Weekly, Crews, Fairness policy and Archive (it was beside "Your record", where the CI runner's wider font wrapped the row and shrank the title at 115 %).
 
 ### 0.10.4 push for the daily, opt-in — 2026-10-30 (no rules change, protocol 2: additive endpoints)
+
 - **A daily reminder, if you ask for it.** A "Reminder" button beside "Your record" opens a small dialog with an hour picker and one button: "Remind me at this hour" subscribes this browser (the browser asks for permission) and tells our server the subscription and the UTC hour; once a day at that hour the server sends one message, "The yard is open", the same for everyone, nothing else; "Stop reminders" unsubscribes here and there. Never inside the desktop edition or a browser without push. The privacy notice names the subscription, the hour and the browser maker's push service as the relay; "Delete my data" removes the subscription too.
 - **The verifier** gains `GET /push/vapid`, `POST /push/subscribe` and `POST /push/unsubscribe` (`server/push.ts`; rows in `push.json` next to the board; a 60 s timer; a subscription the push service answers 404 or 410 for, or that fails five days running, is dropped; `/health` reports the counts). **`web-push` is the first runtime dependency**, by the roadmap's rule 6 and recorded in `server/README.md`: it builds the VAPID-signed, aes128gcm-encrypted request the push services require; the verifier posts it itself. The keys come from `npx web-push generate-vapid-keys` and live with the other secrets (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`); ⚑ the owner generates them; without them the routes answer 503 and the title's button says so.
 - Tests: `tests/push.test.ts` (a subscription round-trips through the verifier to a mock push endpoint with a real web-push request: VAPID header, aes128gcm body, TTL; once a day per subscription under a fake clock; 410 drops the row; repeated failures drop it; unsubscribe and `DELETE /me` remove rows; validation; 503 without keys; the file reloads), the web-app e2e's reminder scenario (the picker and the button against a mock verifier through a stubbed `PushManager`: the UTC hour, the keys, the label, a reload, off again). Also from CI on the previous commit: the results and title screens wrap text anywhere, so the runner's wider font can no longer push a line past 1280 px, and the matrix test now names what sticks out.
 
 ### 0.10.3 installable web app — 2026-10-30 (no rules change, protocol 2)
+
 - **Junkyard Draft installs.** `manifest.webmanifest` (name, standalone display, the yard's colours, 192 and 512 px icons rendered from the desktop icon's SVG by `tools/make-icons.mjs`, a maskable one for Android launchers) and the phone metas on the page. A service worker (`game/sw.js`, written into `dist/` by the build with that build's shell list) caches the page, the bundle, the art, the sounds, the texts and the icons on install, so a practice game plays offline; the daily needs our server and the title says so. Navigations go to the network first, everything else from this origin to the cache first; nothing from our server is ever cached.
 - **Updates never land mid-run.** A new worker waits; the title shows "A new version is ready" with a restart button, the game scene shows nothing. **The install offer** appears on the title after the second finished run where the browser offers a prompt (Chrome, Edge), as a line of guidance on iPhone and iPad, never inside the installed app, and "Not now" keeps it quiet for two weeks.
 - Tests: `tests/pwa-e2e.test.mjs` builds the site, serves it from a loopback server, and checks the worker takes the page with the shell cached, the manifest and icons are served, the title and a six-round practice game play offline from the cache, a second deploy is noticed as a waiting worker that the game scene never shows and the title announces, restarting rolls the cache over, and the install offer's three states; `tests/pwa.test.ts` holds the manifest, the icons' real sizes, the worker template and the offer rule. Lighthouse dropped its PWA category in version 12, so these checks stand in for it; Chrome's installability needs are met (manifest with name, icons, start URL and display; a worker with a fetch handler).
 - Also: the preset D gate reads 34 ms, not 33: at 60 Hz a p95 of two frames is 33.4 ms, so 33 fails every run whose worst 5 % of frames are double frames (CI's first D measurement: 33.4 with 106 of 706 dropped); three frames still fail. ⚑ The owner's number in the roadmap is 33.
 
 ### 0.10.2 weight and speed on weak phones — 2026-10-30 (no rules change, protocol 2)
+
 - **The bundle is 290 KiB gzipped (234 brotli), from 424.** The game is built from Phaser's source with only the modules it uses (`game/phaser-entry.cjs`: both renderers, the 2D camera, images, graphics, text, containers, groups, two shapes, keyboard / mouse / touch, the SVG, binary and image loaders, tweens, the clock, textures, the scale manager; no physics, tilemaps, sound, particles, sprites or animations). `scripts/esbuild-config.mjs` aliases `phaser` to that entry for the dev server, the build and the hardening test, rewrites Phaser's `typeof FLAG` build switches the way its own webpack build does, and replaces the seventeen copies of Phaser's licence banner with one. TypeScript still reads the package's types; no game source changed.
 - **Three absolute budgets in CI** (`perf.yml`): device preset D (915×412, DPR 2.6, CPU ×4, the Canvas renderer) at 1× speed keeps its frame-time p95 at or under 33 ms (`tools/perf-gate.ts --p95`); the production bundle gzips under 300 KiB (`tools/bundle-size.ts`); the title is tappable within 4 s on Lighthouse's slow-4G profile on a mid-range phone (`tools/first-interactive.ts`, which serves `dist/` with gzip and measures to the Title scene running with its first button on the page). Locally: 290 KiB, 3.5 s (319 KiB over 67 requests). The DPR cap and the adaptive resolution fallback are unchanged.
 
 ### 0.10.1 touch and the action table — 2026-10-30 (no rules change, protocol 2)
+
 - **One action table** (`game/src/content/controls.ts`) names every yard action once with its keys, its mouse gesture and its touch gesture. The input controller binds the keys from it, the build panel's keyboard line is composed from it, and the Tips panel's new "Mouse, touch and keys" entry renders it as a table, so the three cannot drift apart.
 - **Touch plays the whole game.** A tap on a shelf part takes it in hand (the amber frame moves to its slot), a tap on an empty cell places the part in hand, a tap on a machine selects it, a tap on empty yard clears the selection; a finger resting on a machine for a quarter of a second starts a drag (a quick swipe is not one); two fingers on the yard rotate the selection, as does the Rotate button; a drag onto the shelf removes a machine. The same taps work with a mouse click. The first tap on the yard asks the audio context to start. Under a coarse pointer the build help and the shelf label say tap instead of drag.
 - Tests: `tests/touch-e2e.test.mjs` plays six rounds on a 390×844 phone with touch events only (Playwright's touchscreen and raw protocol touches for the long press and the second finger) and checks the Tips table row for row against the module; `tests/controls.test.ts` holds the table together (unique ids, every key named in its text, one control per key except Space, the keyboard line).
 
 ### 0.10.0 responsive layout — 2026-10-30 (no rules change, protocol 2)
+
 - **The fixed 1120×700 canvas is gone.** The canvas sizes to its container (`render/viewport.ts`: Phaser in Scale.NONE with zoom 1 / DPR, a ResizeObserver on the container) and the game's chrome is a CSS grid that lays out by media query (`ui/GamePanel.ts`): a laptop or desktop puts the board and the panel side by side (the shell stops growing at 1400 px: margins, not scaling); a portrait phone stacks the HUD, the board (46–50 px cells at 390–430 wide), the hint and the panel as a bottom sheet with the values legend collapsed to a strip and the Start button sticky at its bottom; a portrait tablet gives the board less height so three offers show; a short landscape screen keeps two columns with the hint under the panel. The camera fits the drawn board (grid plus shelf, `render/layout.ts`: `fitBoard`, `boardCameraCenter`) into the slot the shell gives it, and the fitted cell size comes back to the DOM so the badges, the banner and the toast sit on the drawn cells.
 - The base text size follows the device class (16 px desktop, 15 tablet, 14 phone) under the player's text-size preset; buttons, offers and links are at least 44 px where the pointer is coarse; the title's bottom strip wraps on narrow screens and the title scrolls on a phone instead of shrinking; the decorative belt spans the width and hides on a short screen.
 - A cell is never drawn larger than 72 px (`MAX_BOARD_SCALE` 1) and the camera scrolls by whole pixels: the first cut fitted the board at 1.135× on a 1366×768 laptop, and the scaled blits doubled the Canvas renderer's frame time on perf preset B (CI's gate caught it; local measurements in STATUS session 65).
@@ -189,16 +228,19 @@ Twelve notes from the owner's first real play, all taken. Old recordings and sav
 ## Unreleased (v0.9 Clear, production roadmap)
 
 ### 0.9.7 your record, local — 2026-10-30 (no rules change, protocol 2)
+
 - **Your record** opens from the title's bests panel: days played (with the first and last), the daily chain (checked dailies, the current run, the longest), medals this device's checked games earned on closed days, bests (the overall best, yards and games, the top yards), the standing of each checked game as bars in the order they were checked with the latest in amber and a sentence (rising, falling or steady after six), and the machines drafted per kind. Everything is read from this device; the page sends nothing and asks our server nothing (the sync is 0.11.1).
 - The game now remembers three more things locally, by rules version: the standing the results screen learns for a checked game (`jd.standings.v1`, one per yard, the last 100), the medal a closed day gives one of this device's games (`jd.medals.v1`, written by the results screen and by the archive), and the machines each finished own run drafted (`jd.kinds.v1`).
 - `tests/record.test.ts` (5) covers the records, the longest chain and the trend; the gameplay e2e opens the page after a checked session and counts the requests to our server while it is open: none.
 - Play statistics (opt-in) are counted once even when a batch reaches our server twice: every event carries a random id from the device and the server counts an id once per install. The full suite under load showed the gap (a batch the server took but the page never heard about was sent again on the next start). Also from that run: the two timing-sensitive unit tests (the bot par's 60 s budget, the storage measurement's commit latency against the 50 ms trigger) run uninstrumented in their own step, `npm run test:timing`, because coverage instrumentation blew both budgets on the 4-core CI runner; and the browser fixture ignores the host's own socket exhaustion.
 
 ### 0.9.6 dead rounds: a tuning pass, not a system — 2026-10-30 (the study; no rules change, protocol 2)
+
 - `tools/dead-rounds.ts` plays the autoplayer's seeds under rules v3 and under each candidate and applies the roadmap's gate. Nothing passes: the baseline has 29 flat rounds in 120; a late-round hopper-or-crusher guarantee reaches 25 (rounds 4–5) or 24 (4–6) and on 40 seeds leaves two seeds worse; slag and sell nudges change nothing the autoplayer does; a faster furnace raises scores by a quarter and adds dead rounds; a slower hopper hurts everything. Rules v3 stays. The decision and the numbers are in `docs/DESIGN.md`; the study JSON is under `docs/baselines/0.9/`; ⚑ the owner's written go/no-go (recommendation: no-go).
 - The guarantee exists as an inert rules knob (`RULES.lateOfferGuarantee`, no rounds listed) so the study can be rerun; offers are byte-identical while it is off (`tests/draft-guarantee.test.ts`); the policy page shows the field.
 
 ### 0.9.5 test suite, lint, coverage — 2026-10-30 (no rules change, protocol 2; three commits: the suite, the formatting-only pass over 182 files, the lint gate in CI)
+
 - `tests/e2e/fixture.mjs` starts the dev server (and, when asked, the verifier) on free ports once per file and shares one Chromium; its page helpers wait for a condition (a scene, a mode, a tick, a text, settled tweens, the overlay synced to the canvas) instead of sleeping. The two monolithic browser files are scenario suites now (19 gameplay scenarios, 16 renderer scenarios, one `test()` each, a shared fixture, the full-run smoke kept); the foreman, pseudo-locale, offline and legal files follow; no `await wait(` remains in the browser tests, only `settle(ms, why)` for the two checks whose point is that time passes (a toast outliving two seconds, a rate bucket).
 - `npm test` runs the unit tests with `--experimental-test-coverage` over `game/src/sim` and `server` and floors (lines 95 %, branches 85 %, functions 88 %), then the browser tests without instrumentation (instrumenting the sim-heavy unit files slowed the whole run three times over and starved the verifier's par worker); both lists are globs; the spec reporter names every scenario in CI.
 - Dead code removed: the canvas `Button` and the unused text and slider helpers in `render/ui.ts`. `vendor/phaser` (15 MB) left the repository; `CLAUDE.md` and `docs/CONTINUE.md` say how the offline sandbox restores it.
@@ -206,9 +248,11 @@ Twelve notes from the owner's first real play, all taken. Old recordings and sav
 - The privacy panel keeps focus on its Close button after a deletion, so Esc closes it (the disabled delete button could not hold focus).
 
 ### 0.9.4 GameScene split — 2026-10-30 (no rules change, protocol 2, no player-visible change)
+
 - `game/src/render/scenes/GameScene.ts` is 349 lines (was 787): it owns the controller, the panel and the hooks, and maps the run and the sim onto the modules. Extracted, each with unit tests: `render/InputController.ts` (pointer drag, the grid cursor and the machine in hand, selection, shortcuts, the ghost, the red flash and the toast at a cell), `render/guide.ts` (the hint strip as a pure function of the run: the lesson's steps, the first-draft pick, the bottleneck line, the idle tips, and which of the foreman's situations fits), `render/StallMonitor.ts` (the stall indicator's state machine), `render/PopPool.ts` (the pooled "+$" pops), `render/GameTelemetry.ts` (the funnel's observer on the controller hooks), `render/FlowOverlay.ts` (the build-phase overlay's geometry and drawing), `render/simframes.ts` (machine state frames, item poses, a tick's event digest) with `render/SimView.ts` applying them to sprites, and `render/replayActions.ts` (a watched recording's try payload and the report dialog). Every existing browser test passes unchanged.
 
 ### 0.9.3 onboarding delivery — 2026-10-30 (no rules change, protocol 2)
+
 - Refusals and warnings are toasts anchored to the cell they concern (above it, below it on the top row), and they stay until the next action instead of fading after two seconds; the hint strip keeps its own hint. A legal placement that will not work as drawn (nothing feeds it, its output goes nowhere) keeps its warning at the cell, as the ghost did while hovering.
 - A translucent flow overlay in the build phase: an amber chevron across every edge where a machine's output enters a neighbour that takes items from that side, a red chevron with a bar where an output goes nowhere; drawn from the same geometry the ghost uses, gone while the shift runs.
 - Machines that take items from behind only (crusher, furnace, press, splitter) show a larger output arrow and a blue input notch on their back, so the side that must face the line is visible at rest.
@@ -217,28 +261,35 @@ Twelve notes from the owner's first real play, all taken. Old recordings and sav
 - Tests: `tests/game-e2e.test.mjs` reads the refusal toast at its cell, sees it outlive two seconds and go with the next action, the warning toast on an unfed spot and after the placement, the overlay's links in the build phase and its absence while running, and the first-pick hint; `tests/render-e2e.test.mjs` walks the three round-3 steps and sees the Show me button. The funnel targets (median rejected placements before the first valid one ≤ 2, first_run_complete / app_start ≥ 80 %) are measured on the next playtest round (⚑ 0.9.8).
 
 ### 0.9.2 the results card — 2026-10-30 (no rules change, protocol 2)
+
 - The results screen leads with the standing sentence once our server has answered ("Better than 61 % of 412 checked games today", "Rank 1 of 1 checked game on this yard"; without a checked entry, how many checked games there are and that submitting shows where yours stands; offline, "Game complete · offline"), then the money, then a deltas row: the foreman's mark (+$40 over / −$12 under / exactly), this device's best on the yard (your first game / +$18 over / −$30 under ($258) / equals), and the medal pill on a closed daily. On today's daily, when yesterday's yard was played on this device, a "Since yesterday" line compares the two scores. Rank and the top five stay below the fold with the chart; the Play / Share / Watch rows follow.
 - The share text and the share card carry a link by default (opt-out): the "Beat this" link of this game once it is checked, the yard's link before that; untick **with link** to leave it out.
 - `tests/game-e2e.test.mjs` asserts the card's order (headline, money, deltas, round bars, board, Play, Share, Watch), the headline and both deltas after a checked submission, the default link and the opt-out, and saves a 390-wide and a 1920-wide screenshot for the owner's review; `tests/offline-e2e.test.mjs` sees the offline headline and the first-game delta.
 
 ### 0.9.1 the foreman, text only — 2026-10-30 (no rules change, protocol 2)
+
 - Sal, the yard's foreman, speaks in a small box on the title (a welcome, or today's board open or final, or a streak milestone at 3, 7 and 30 days), in the draft (the first pick, each lesson step, a refused placement, and after a round the bottleneck case), on the round-end banner (more than the round before, or not) and on the results (the first game on this device, the band among everyone today, or offline); once each after the first share and the first crew. Three to five lines per situation in the string table, chosen from the UTC date so everyone hears the same line on the same day. A **Foreman: chatty / lessons only** setting keeps only the lines that teach. `docs/FOREMAN.md` is the character sheet (name, voice, what he never says); `tests/foreman.test.ts` pins the chosen line per situation and day in a snapshot and holds every line to the sheet's rules; `tests/foreman-e2e.test.mjs` sees the box on title, draft, round end and results and the setting persisted and respected.
 
 ### 0.9.0 the string table and the glossary — 2026-10-30 (no rules change, protocol 2)
+
 - Every sentence a player reads now lives in `game/src/content/strings.ts` (about 330 entries, each with a note; `{name}` placeholders and ICU plurals), and the words follow the plain-language glossary (`game/src/content/glossary.ts`, Appendix B): yard instead of seed, seconds instead of ticks, the shift, checked and "our server" instead of verified and the verifier, the recording, the shelf, crews, the "beat this" link, a try, your key, the foreman's mark, new offers. `tests/strings.test.ts` fails on a banned word in the table (the policy page excepted) and on a prose literal in `game/src/ui` or `game/src/content` that is not from the table (`tools/strings-lint.ts`). Presentation text left the simulation: machine names and blurbs, the tips, the placement advice, the badge texts and the try label are content modules; the sim keeps the data. Numbers and dates go through `Intl` in `game/src/content/format.ts` (money without grouping, UTC dates). A pseudo-locale (`?locale=pseudo`: every letter accented, every string about 30 % longer) exists to prove the layout, and `tests/pseudo-e2e.test.mjs` runs title, pick, build, summary and results through it at 130 % text. The share text, the card, the clip and every test that pinned the old copy follow.
 
 ## Unreleased (v0.8, production roadmap)
 
 ### 0.8.12 single-step while paused — 2026-10-30 (no rules change, protocol 2)
+
 - While a round is paused, in play and in replay playback alike, the new **Step 1 tick** button beside Resume (or the `.` key) advances the simulation by exactly one tick and reports it like a live tick; the pause veil shows the tick (`tick 23 / 80`); the round ends normally when the last tick is stepped. Watching only: the simulation does what it would have done and a replay carries no timing, so the fairness policy now says pausing and stepping are allowed everywhere, the ranked daily included. (`RoundController.stepTick`, tested in `tests/controller.test.ts`; the gameplay e2e steps three ticks with the button and one with the key and reads the tick counter.)
 
 ### 0.8.11 determinism across engines — 2026-10-30 (no rules change, protocol 2)
+
 - Every golden replay now carries, in `tests/golden/INDEX.json`, a SHA-256 of its final run state and one of each round's event stream (`game/src/sim/digest.ts`: canonical JSON with sorted keys, SHA-256 in plain integer arithmetic so no engine's crypto is involved; `tools/make-golden.ts --digests` recorded them without regenerating a replay). `tests/golden.test.ts` holds Node to them; `tests/engines-e2e.test.mjs` bundles the sim with esbuild, loads it in Chromium, Firefox and WebKit and holds each engine to the same hashes (an engine not installed locally is skipped; CI's new `engines` job installs all three and requires them). `tools/determinism-lint.ts` (`tests/determinism-lint.test.ts`) fails on Math.random, the transcendental functions, Date, Intl, toLocale*, performance.now and a sort without a comparator under `game/src/sim/`, with the two calendar modules allowed Date and a replay's createdAt marked as metadata; it caught a bare `sort()` in the new digest module on its first run.
 
 ### 0.8.8 the bottleneck line — 2026-10-30 (no rules change, protocol 2)
+
 - After every round the summary panel says in one sentence what held the line and which fixes exist in the draft pool for the next round, and the next draft repeats it as the hint. `game/src/sim/bottleneck.ts` derives it from the round's cell statistics and jam events: every jammed cell is traced along its output to the processor that was holding (or to a dead end, or to a conveyor that several lines squeeze into), the machine with the most jammed ticks is the bottleneck when it held at least an eighth of the round, otherwise the least busy processor is starved or the round is balanced; a furnace fed raw scrap and a line that shipped nothing have their own sentences. Fixes name only pool kinds offered in the coming round (no tuner before round 3). `game/src/content/bottleneck.ts` holds the words ("The furnace at 5,3 held the line for 38 of 80 ticks. A tuner beside it, or a second furnace behind a splitter, would clear it."). Tests: `tests/bottleneck.test.ts` over the four canonical layouts the roadmap names plus dead-end belt, disconnected, balanced and merge; the gameplay e2e reads the line on every summary and the repeated hint in the next draft.
 
 ### 0.8.7 player-facing copy and the offline state — 2026-10-30 (no rules change, protocol 2)
+
 - No developer copy on the player's screens: "npm run verifier", "local verifier" and verifier URLs are gone from the title, the results, the archive and the groups panels (a test greps the DOM screens for them). The title says "Checking today's board…" and, with no connection, "Offline: today's board is unavailable, so this is the practice seed. Your runs stay on this device until you connect." The results status says "Online." or "Offline: your run is saved on this device. Connect to compare with other players' verified runs."
 - Offline, the results board panel shows this device's own history for the seed instead of an empty board: every own run is recorded per seed (`jd.history.v1`, ten per seed, by rules version), listed best first with this run marked and older ones dated, plus the device's earlier verified entry on the seed when there is one.
 - A submission made without a connection is kept (`jd.pending.v1`: one per seed, at most five, validated like a save) and the button reads "Saved · waiting for a connection". The title screen submits saved runs on every load (`game/src/render/pending.ts`) with the device key and the chosen name, records a verified one exactly like a live submission (the device's submission record, the streak), drops a refused one, keeps the rest when still offline, and says what happened in one line under the player button ("Your saved run on … is verified: $228 · #1 of 1 as …").
@@ -247,30 +298,39 @@ Twelve notes from the owner's first real play, all taken. Old recordings and sav
 - `perf.yml` applies a two-run rule: a first measurement that fails the gate is measured once more and only a second failure fails the job (the software renderer's Canvas drop count varied from 16 % to 65 % of frames between runs of identical code).
 
 ### 0.8.6 legal minimum — 2026-10-30 (no rules change, protocol 2)
+
 - A privacy notice, terms of play and community guidelines v0 are generated from `tools/legal-lib.ts` and the new operator module (`game/src/content/operator.ts`: product, domain, holder, contacts, processors, backup and log retention) by `npm run policy`, into `game/public/legal.json` (bundled) and three standalone pages under `legal/` next to the game. The in-game **Privacy & data** panel shows the three texts and carries two buttons: **Download my data** (the new `GET /me/export`: every hot and cold entry with its kept replay, group memberships, the moderation record of the name as counts, the reports you filed, never the key) and **Delete my data** (`DELETE /me` after a confirmation, then the device key is replaced and the local name, group code and statistics state are cleared). Links from the title (in the statistics switch's note), from the results screen and from the consent toggle. The appeal contact is now `moderation@junkyarddraft.com` (the policy page prints it); `contact@junkyarddraft.com` is the general address. `LICENSE` is a source-available licence (read, run, modify for yourself, contribute back; no public instances, redistribution or commercial use; the name, art and sounds reserved; contributions carry a relicensing grant so an MIT engine stays possible), `package.json` refers to it, and the root `README.md` addresses players and contributors. Caddy's access log now drops the client address and the forwarded-for headers, so no log stores an address (the verifier's keeps a daily-salted hash). `tools/hosted-check.ts` also checks the three pages. Tests: `tests/legal.test.ts` (texts and pages exactly what the code generates and carrying the required content, the licence and README, export and deletion over HTTP with hot and cold data) and `tests/legal-e2e.test.mjs` (pages served, the panel from title and results, a real download, a real deletion that the verifier and the device both honour). ⚑ The owner fills in the legal name and jurisdiction, sets up the two mailboxes and reads the texts before hosting.
 
 ### 0.8.5 deploy, the routine's part — 2026-10-30 (no rules change, protocol 2)
+
 - Everything needed to host the game and the verifier is in `deploy/`: a compose file (the GHCR verifier image on a named volume behind Caddy, the verifier's port on the loopback only, rotated logs, secrets from an ignored env file), the Caddyfile (TLS, HSTS, `X-Real-IP`), the Cloudflare Pages `_headers` template, the backup cron pointed at the volume, and `deploy/README.md`, the runbook from zero to the first hosted check. The production bundle is now `main-<hash>.js` and the build renders `dist/_headers` with the CSP as a header (plus `frame-ancestors 'none'`) and an immutable cache rule for that bundle. `.github/workflows/deploy.yml` publishes the web to Pages after a green `ci` run on `main` and rolls the verifier over SSH after a green tag run; both jobs stay skipped until the repository variables exist. `tools/hosted-check.ts` is the acceptance in one command (headers, build, verifier health and CORS, the page in Chromium, an optional real daily submission); `tests/deploy.test.mjs` rehearses it against a local build and verifier. 178 tests. The owner's half (domain, VPS, secrets, the hosted acceptance) is next.
 
 ### 0.8.4 release pipeline — 2026-10-30 (no rules change, protocol 2)
+
 - On a version tag CI now publishes: the smoke-tested verifier image to `ghcr.io/<owner>/junkyard-verifier:<tag>` (and `:latest`), and a GitHub Release with the Windows installer (built with `desktop:dist`, still unsigned), the web bundle, the single-file verifier and `SHA256SUMS.txt`. Workflows gain concurrency groups, a Playwright browser cache, an `npm audit` step and least-privilege permissions; Dependabot opens weekly grouped updates; `package.json` carries `license` (placeholder), `repository` and `engines`. The perf gate is armed with the CI baseline committed at `docs/baselines/ci/perf-ci.json`; its dropped-frame rule compares rates instead of counts so the all-dropped WebGL sample on the software-GL runner does not make it flaky. 175 tests.
 
 ### 0.8.3 backups and the restore drill — 2026-10-30 (no rules change, protocol 2)
+
 - `tools/backup.ts` archives a verifier data directory (board, cold months, audit, events) into one tar.gz with a SHA-256 manifest, never the daily secret, to a local directory (pruned by count) or an rclone remote; `tools/restore-drill.ts` unpacks an archive, verifies every hash, starts a verifier on the copy and proves it answers the archive's counts and serves sampled entries at their archived scores; `deploy/backup.cron` schedules the nightly archive, the off-box copy and a weekly drill. Three tests run the whole thing against a fixture. 174 tests.
 
 ### 0.8.2 re-simulation in a worker, single pass — 2026-10-30 (no rules change, protocol 2)
+
 - A submission is prepared without simulation (decode, rules version, identical duplicate, issued seed), re-simulated once (score, last-round machines and per-round earnings from one run instead of three) in a persistent worker thread with a 10 s cap and a bounded queue, then recorded on the event loop; 503 `busy` and 422 `resim-timeout` record nothing. Every refusal carries a reason `code` beside its `error`. Boards keep a per-seed sorted index so reads and retention stop sorting the whole board. `tools/load.ts` floods a verifier and samples `/health`; the 0.8.2 baseline (60/min from three addresses for two minutes) shows every submission answered 200 with `/health` p95 at 1.7 ms. 171 tests.
 
 ### 0.8.1 verifier hardening, first cut — 2026-10-30 (no rules change, protocol 2)
+
 - Behind `TRUST_PROXY` the client is `X-Real-IP` or the rightmost `X-Forwarded-For` hop; per-address limits on every write (30/min) and on reads (300/min, `/health` exempt); past dailies and weeklies are minted only 400 days back; claimed identities are capped at 20,000 with never-played, group-less identities evicted first; the request log is one JSON object per request with a request id and a daily-salted address hash, group codes redacted, every response carrying `X-Request-Id` and every 500 logging its exception; 15 s / 30 s / 5 s socket timeouts; a SIGTERM/SIGINT drain; `/health` reports the hot file's bytes and the last commit's duration (the SQLite trigger's inputs), identities, the par queue and limiter cardinalities. A report hides a name only when two established reporters (a verified run at least seven days old) agree or a moderator confirms; an unconfirmed hide lapses after 72 hours; `POST /moderation/confirm` and `tools/moderate.ts confirm`. Deletion drops a player's kept cold replays too. Opt-in events keep their address hash seven days. `tools/log-check.ts` proves the log clean in CI. Policy page regenerated. 165 tests.
 
 ### 0.8.0 client hardening — 2026-10-30 (no rules change, protocol 2)
+
 - The `?verifier=` query override counts only in dev builds and on pages served from a loopback host (`game/src/render/config.ts`); a hosted build keeps its baked verifier whatever a link says, and challenge links carry the parameter only where it counts. A Content-Security-Policy `<meta>` is baked into the page by the dev server and the build (scripts and connections only to the page and the baked verifier; images and media from blobs; inline styles allowed; the Electron shell inherits it and denies every permission request). Storage failures are announced once: a page banner says progress is not being saved, and a browser that cannot remember the onboarding flag sees the onboarding instead of skipping it. The last ten uncaught errors and unhandled rejections are kept on the device with the build id; the title's settings row gains **Copy diagnostics** (no identity, no key). `scripts/build-lib.mjs` makes the production build callable; `tests/hardening-e2e.test.mjs` builds a real bundle and proves all three against a non-loopback origin through Playwright routes. 154 tests.
 
 ### Plan of record — 2026-10-30
+
 - `docs/PRODUCTION-ROADMAP.md` replaces PLAN-v5 and PLAN-v1's v0.8–v1.0 after a five-part evaluation of the whole project (`docs/reviews/2026-10-30-eval/`) and a four-round owner interview: a free web game for the daily-puzzle crowd, understandable by anyone, with the depth in a moderated social layer (daily thread, comments and reactions, friends, inbox, direct messages, community hub), divisions at freeze, earned cosmetics and trophies, a foreman character, phones and a PWA inside 1.0, commissioned art and adaptive music, Steam and a supporter tier after 1.0. Five milestones (v0.8 Real, v0.9 Clear, v0.10 Phone, v0.11 Say something, v0.12 Finished) to 1.0 in July 2027. The evaluation found two P0 security holes (`?verifier=` token exfiltration, instant report-to-hide), no backups, no privacy notice and nothing published by CI; all are v0.8 items. No code change.
 
 ### CI on the Ubuntu runner — 2026-10-30
+
 - `ci.yml` had failed on every push until 9c8205b/8ce64ee (another session): the UI font stack falls back to DejaVu Sans on Ubuntu, which wrapped the title's how-to lines and pushed the daily strip off the canvas at 130 % (fixed by a `--fit` pass in `game/src/ui/dom.ts`, title only, 1 on Windows), and the render e2e compared the stall marker against a later tick (the scene now records the tick the stall began). Still flaky after that: the game e2e's 30 s wait for the results screen's bot par line, because the par worker competes for the runner's four cores with the autoplay, balance and par tests running in parallel, the test verifier capped the par job at 20 s (a slow job then failed into a 10-minute cooldown and the par never came), and the results screen stopped asking after ~24 s. Now the results screen keeps asking for the par for ~90 s, the test verifier allows the job 120 s, and the e2e waits for the verifier's par first with the elapsed time logged. No protocol or rules change.
 
 ## 0.7.0 — 2026-10-30 (protocol 2; rules version 3 unchanged)
@@ -280,34 +340,42 @@ Twelve notes from the owner's first real play, all taken. Old recordings and sav
 **For operators.** Protocol level 2 still, additive: `/entry`, `/groups` and the `?group=` scope, `/weekly`, `/report`, the `/moderation/*` endpoints behind `MODERATION_TOKEN`, and `kind`/`key` on the archive. Storage got the small change first: the live `board.json` keeps open seeds and the last 30 days, older closed days move to `cold/YYYY-MM.json` with the top 10 replays per day (100 players × 365 days: 30 MB → a 4 MB hot file), and SQLite (0.7.0b) stays scheduled for the moment a measured beta month crosses 5 MB or 50 ms. `DISCORD_WEBHOOK_URL` posts seed openings, new leaders and freezes; `DISCORD_DRY_RUN=1` prints them. `tools/moderate.ts` works the report queue over HTTP; `moderation.jsonl` is the audit log; `APPEAL_CONTACT` is a placeholder to replace before hosting. Release evidence under `docs/baselines/0.7/`: the 20-seed autoplay sweep is identical to 0.6.0's (rules unchanged), and the deploy/rollback rehearsal against the v0.4.0 bundle passes with the 0.7.0 bundle, secret rotation included. Hosting (0.7.8 ⚑) is the remaining human step; the Docker image and the Windows installer are built by CI on the tag.
 
 ### 0.7.7 Name moderation, first cut — 2026-10-30
+
 - **For players.** While watching a verified replay you can report its player's name (one reason from a fixed list, nothing typed). The reported name then shows as "player" on every board, challenge link and replay until a moderator clears it or renames the player; scores, entries and replays are never touched, and a report is never a ban. If it is your name, the title screen tells you. A name a moderator has cleared twice is no longer hidden by further reports. The fairness policy names the report path and an appeal address (a placeholder until hosting).
 - **For operators.** `POST /report { playerId | hash, reason }` (bearer, 5/min per player); `MODERATION_TOKEN` enables `GET /moderation/reports` and `POST /moderation/clear|rename|rename-group` (header `X-Moderation-Token`), wrapped by `node --import tsx tools/moderate.ts <url> list|clear|rename|rename-group … --token T`; every report and action appends one JSON line to `moderation.jsonl` next to the board. Every user-written field, now including the anonymous label on `/verify`, passes the one name filter, and a test enumerates them against the verifier's call sites. Also fixes the Docker smoke tool's weekly check (a regex lost its backslashes in 0.7.5). No protocol or rules change.
 
 ### 0.7.6 Discord webhook from the verifier — 2026-10-30
+
 - **For players.** If the operator connects a Discord channel, it gets one short post when the daily or the weekly opens (seed and close time), when an open event gets a new #1 (label and score), and when an event closes (final count, #1 and the medal thresholds). Nothing is posted that the public board does not already show; no mentions; a post never delays or fails your submission. The policy page says so.
 - **For operators.** `DISCORD_WEBHOOK_URL` (or `--discord-webhook`) turns it on; `DISCORD_DRY_RUN=1` (or `--discord-dry-run`) prints the messages to the log instead. One message per event type per seed (per leader for a new #1); a 429 is retried after `Retry-After` up to three times; any other failure is logged and dropped; posting is fire-and-forget behind a serial queue. `/health` reports `discord: { posted, dropped, deduped, retried }` when on. No protocol or rules change.
 
 ### 0.7.5 Weekly seed (no modifier) — 2026-10-30
+
 - **For players.** A second ranked seed with a longer window: the weekly opens every Friday at 18:00 UTC and closes seven days later, same rules, no modifiers. The title strip has a "Weekly W43 · closes in 5 d" button beside the archive; the HUD says "this week's seed"; after the close the board is final with medals and the week sits in the archive as "Week 2026-W43", playable as practice. Your daily streak is not affected by weeklies. Share text, card, groups, challenge links and forks work on the weekly seed unchanged.
 - **For operators.** `GET /weekly?limit=10[&week=YYYY-Www]` mirrors `/daily` (400 for a malformed week, 403 before Friday 18:00 UTC, `?group=` scope). The seed is `weekly-<week>-base32(HMAC-SHA256(DAILY_SECRET, "weekly:" + week))[0:8]`, minted on first request once the week has opened and stored under its week id in the same `dailies` map (`kind: 'weekly'`); it commits to the next week's seed, and a Friday's daily record carries `weeklyCommitment` for the weekly opening that evening. Freeze, medals, reveal gate, late submissions, cold storage (by week id, in the month file of the Friday it opened) and the archive (`kind`, `key`, sorted by open date) are the daily pipeline. `tools/mint-check.ts` verifies the weekly chain too; `tools/image-smoke.ts` asserts `/weekly` is minted. No protocol or rules change.
 
 ### 0.7.4 Share card — 2026-10-30
+
 - **For players.** "Share card" on the results saves a 1200×630 PNG of the run: seed, score, the six rounds as bars and glyphs, and only the standing the run actually has: the verified rank or percentile (and your name) once this run's replay was accepted, the medal when the day is frozen, the group rank when a group board is in use, the challenge outcome when one was played, a link only when the share-link option is on. A local run's card reads "local run · unverified score" and a fork's reads "practice fork · not a ranked score". Rendered on your device and downloaded like the GIF; nothing is uploaded.
 - **For operators.** Client only; the policy page says cards are rendered locally. No protocol or rules change.
 
 ### 0.7.3 Fork from round N into practice — 2026-10-30
+
 - **For players.** After watching a replay, the results offer "Continue as practice from after round 1…5", and the replay's round summaries offer "Continue from here". A fork takes over that layout and bin on the same seed from the next round. It is labelled everywhere ("forked from Jon#7Q2M after round 3 · practice"), has no submit, export or download controls, never becomes your save, never touches your bests or days played, and keeps its own "fork best" per seed. Its share text says it is a practice fork, not a ranked score.
 - **For operators.** Client only; a fork's replay file is refused at export, so nothing a fork does can reach the verifier. No protocol or rules change: the run state gained an optional marker with no effect on the simulation.
 
 ### 0.7.2 Groups: a code that scopes the board — 2026-10-30
+
 - **For players.** A "Groups" button on the title opens a panel: create a group by name and get an 8-character code, join with a code someone gave you, leave, and choose "Use for boards". With a group in use, the daily strip, the histogram and the boards show only its members' verified runs, with your rank and percentile recomputed over the group ("You: #2 of 5"); the strip says "· group Lunch Crew" and the results board head names it. Up to 5 groups per player and 50 members per group; no chat; the code is the whole invitation.
 - **For operators.** `POST /groups` and `/groups/join|leave|rename|disband`, `GET /groups`, and `?group=<code>` on `/board`, `/histogram`, `/daily` and `/archive` for a member's bearer. Memberships are keyed by player id; a deleted player leaves every group. Protocol stays 2 (additive). No rules change.
 
 ### 0.7.1 Challenge link: "beat this" — 2026-10-30
+
 - **For players.** Every verified entry has a "Challenge" button (your own run after a verified submission, and each board entry) that copies a link. Whoever opens it plays the same seed with your per-round earnings shown beside theirs as they go, and the results say "beat Jon#7Q2M's $1200 by $50", "short of … by $50" or "tied …"; the detailed share text carries the same line. A challenge played on today's daily inside its window counts on the daily board like any run; retrying the seed keeps the challenge, switching seeds drops it. The link carries earnings only, never a replay or layout.
 - **For operators.** `GET /entry?hash=` serves one entry's seed, score, label, per-round earnings, frozen flag and medals; earnings are derived at verification and backfilled from stored replays at startup. Protocol stays 2 (additive). No rules change.
 
 ### 0.7.0 Storage: hot/cold split and replay compaction — 2026-10-30
+
 - **For players.** Nothing changes on open days or on days closed within the last month. Older closed days keep their full final board, medals and bot par in the archive and can still be played as practice; only their replays below the top 10 are no longer watchable, and the fairness policy says so.
 - **For operators.** The live `board.json` now holds open seeds and the last 30 days of closed dailies; older days move at startup and hourly to `cold/YYYY-MM.json` with an index, loaded lazily. Measured: 100 players × 365 days goes from a 30 MB file rewritten in 118 ms to a 4 MB hot file rewritten in 10 ms; the hot file is bounded by players (~550 daily players reach 5 MB), so SQLite (0.7.0b) is scheduled by that measurement. `/replay?hash=&seed=` answers 404 `reason: compacted` for a dropped replay; `/health` counts cold days and replays. No protocol or rules change.
 
@@ -318,33 +386,41 @@ Twelve notes from the owner's first real play, all taken. Old recordings and sav
 **For operators.** Protocol level 2 is additive: `/identity`, `DELETE /me`, bearer on `/verify` and `/replay`, `/daily` with `date`, `/archive`, medals and the reveal gate; a 0.5.0 client keeps working. New operational inputs: `DAILY_SECRET` (generated and announced when absent: back it up), `PLAYER_RATE_LIMIT`. `tools/mint-check.ts` audits the commitment chain, `tools/storage-measure.ts` measured the JSON board against the SQLite trigger (crossed at ~1,000 daily players within a month, or 100 players within a year; JSON stays for the beta, SQLite or compaction is the first v0.7 storage item), and the deploy/rollback rehearsal now covers a secret rotation. Hosting (0.6.8) is the remaining human step before any of this is true for players. Increment notes follow, newest first.
 
 ### 0.6.7 Storage measurement and the SQLite trigger — 2026-10-30
+
 - **For operators.** `tools/storage-measure.ts` builds boards in the post-retention shape and times the real commit path against the policy trigger (5 MB on disk or 50 ms per commit). Measured on the dev PC: 100 players × 30 days 2.5 MB / 9 ms (within); 1,000 × 30 days 10.9 MB / 30 ms (size crossed); 100 × 365 days 30 MB / 128 ms (both crossed). Every daily is a new seed, so the file grows ~85 KB per day per 100 players. Decision: JSON stays for the beta; SQLite or archive compaction is the first v0.7 storage item (`server/README.md` has the table and the reasoning). No behaviour change; a test keeps the tool and the committed baseline honest.
 
 ### 0.6.6 Replays on an open daily are revealed after you submit — 2026-10-30
+
 - **For players.** On today's (or yesterday's still-open) daily, "Watch #1" and the board's replay buttons stay off until you have submitted a verified run for that day, and say so; once you have, or once the day closes, they open up. Archive days are always watchable. Unlimited attempts plus visible replays was the fairness leak; this closes it without touching your own replays.
 - **For operators.** `GET /replay` enforces the same rule: 403 with the reason and the close time on an open minted daily unless the bearer's player has a verified entry on that seed. The game sends its bearer on replay fetches. Policy text updated and regenerated. No protocol or rules change.
 
 ### 0.6.5 Fairness and verification policy page — 2026-10-30
+
 - **For players.** A "Fairness policy" button on the title (and "Policy" on the results) opens a panel that says how scores are verified, how ties break, how the daily seed is minted and when it closes, how medals are computed, what the game stores about you and how to delete it, and what the rate limits are. The text is generated from the code, so it cannot drift from what the verifier actually does. The same document ships as `policy.json` next to the game and as `docs/POLICY.md`.
 - **For operators.** `npm run policy` regenerates both files from `rules.ts`, the verifier's now-named `DEFAULT_*` constants, the identity and medal constants and the telemetry vocabulary; `tests/policy.test.ts` fails when they are stale. No protocol or rules change.
 
 ### 0.6.4 Medals after close — 2026-10-30
+
 - **For players.** When a daily closes and has at least five verified runs, its final board sets three medal thresholds: bronze at the 50th percentile, silver at the 80th, gold at the 95th. The Archive shows the thresholds for each closed day and names the medal your own verified run earned; the results histogram and the detailed share text do the same for a closed day. Bot par stays the day-of target; medals are the after-close one. Nothing is shown until the server has computed them.
 - **For operators.** `medals` on the day record, computed once at freeze (nearest-rank percentiles, documented in `game/src/daily/medals.ts`), returned by `/daily`, `/archive` and `/histogram` (frozen daily seeds only). The Dockerfile copies `game/src/daily`. Protocol stays 2 (additive). No rules change.
 
 ### 0.6.3 Days played and streak, with grace — 2026-10-30
+
 - **For players.** The title now says "17 days played · 5 in a row". The streak counts consecutive dailies you submitted and had verified, by the daily's date: yesterday's daily is open until midnight UTC tonight, so playing it today keeps the chain whole. When a chain ends the line simply shows the plain count again, with no loss message, colour or notification. The detailed share text says "17 days · 5 in a row" once you are at two or more. Everything is UTC, so travelling never changes the count.
 - **For operators.** Client-only: `jd.dailystreak.v1` holds the dates (distinct, validated, bounded), recorded when a run on a minted daily seed is verified (recorded or keep-best; late runs do not count). No protocol or rules change.
 
 ### 0.6.2 The 48-hour window, freeze and archive — 2026-10-30
+
 - **For players.** Every daily closes 48 hours after 00:00 UTC of its date, the same moment for everyone. Until then the title strip says "provisional · closes in 31 h"; after it the board is final and never changes. A run submitted after the close is still re-simulated and you are told its verified score, but it does not join the board. The new **Archive** button on the title lists closed days with their final top entry, bot par and number of verified runs; any day can be played as practice (the HUD says "archived daily (practice)") and its best replay watched.
 - **For operators.** `/daily` carries `closesAt`, `frozenAt`, `final` and the server clock `now`; freeze is derived from the clock, recorded once (`frozenAt = closesAt`), idempotent and persisted. `POST /verify` after the close answers `{ ok: true, score, late: true, recorded: false, closesAt }`. New `GET /archive?from=&to=&limit=` lists frozen days newest first with `nextTo` for paging. A day's bot par is never dropped by the par cache cap. Protocol stays 2 (additive). No rules change.
 
 ### 0.6.1 Server-minted daily seed with a published commitment — 2026-10-30
+
 - **For players.** "Today's challenge" now plays a seed the verifier mints for the day (`daily-YYYY-MM-DD-xxxxxxxx`), so nobody can know tomorrow's offers before 00:00 UTC, and the verifier publishes a hash of tomorrow's seed today so it cannot be swapped afterwards either. The title strip names the seed and says "minted by the verifier · ranked"; the HUD says "today's challenge". When no verifier answers you still get today's practice seed (`daily-YYYY-MM-DD`), labelled "practice (unranked)": it keeps your local bests and works offline, it just is not the ranked daily. The minted seed is remembered for the day once seen.
 - **For operators.** `DAILY_SECRET` (or `--daily-secret`); without it the verifier generates one into `<data dir>/daily-secret` (mode 0600) and tells you to back it up. `GET /daily[?date=]` returns `{ date, seed, commitment, issuedAt, closesAt, minted, entries, previous }`; a day that has not opened is 403. Submissions on a minted seed count only if this server issued it and the 48-hour window is open; forged minted-looking seeds are refused; the practice seed is an ordinary seed board that never reaches `/daily`. `tools/mint-check.ts <url>` verifies today's seed against yesterday's published commitment (CI runs it against the Docker image); `tools/rehearse-rollback.ts` now also rehearses a secret rotation (issued days keep their stored seeds). Protocol stays 2 (additive). No rules change.
 
 ### 0.6.0 Identity without passwords — 2026-10-30
+
 - **For players.** The title's player button now opens a player dialog. Your name is shown on verified boards as `Name#TAG`: the four-character tag comes from a random key this device created, so two players with the same name stay distinct and nobody can post as you without the key. The verified board keeps **one best entry per player per seed**: a better run replaces your earlier one, an equal or worse run is still verified but not recorded, and the results screen says which happened. "Show recovery code" prints the key as a 26-character code; "Restore from code" on another device takes over that player (name, tag, board entries). Keep the code private. A name you had set before 0.6.0 is claimed automatically on your next submission. Names are normalised and a short blocklist applies; a name can change once a day.
 - **For operators.** Protocol level 2 (additive, `/health` reports `protocol`): `POST /identity`, `GET /identity`, `DELETE /me`, bearer on `POST /verify`, per-player bucket (`PLAYER_RATE_LIMIT`, default 2/min) beside the IP limiter. The token is only ever hashed (`player_id = SHA-256(token)`), never stored or logged; the game sends it only to https or loopback verifiers. Legacy anonymous entries are untouched and never claimable. The Dockerfile copies the new shared `game/src/identity` module (the F06 layout test caught the omission). No rules change.
 
@@ -357,41 +433,52 @@ Twelve notes from the owner's first real play, all taken. Old recordings and sav
 ### Rules v3 (the rules-v3 branch, merged for 0.5.0)
 
 #### Rules identity (PLAN-v2 §1)
+
 - `RULES_VERSION` is 3 on this branch from its first commit. Version-2 replays and saves are refused with the version named; the v2 golden corpus is archived under `tests/golden/archive/v2/` and a test proves every archived replay is refused, while the v3 corpus is regenerated (same actions, same scores: no existing machine changed behaviour).
 - Local records written before 0.5.0 always migrate into the rules-2 slot, whatever version runs at migration time (the first cut filed them under the current version, which would have mislabelled every upgrading device).
 
 #### Tie-breaker derived from the replay (PLAN-v2 0.5.5, rules v3)
+
 - Equal scores on the verified board rank by fewer machines on the grid in round 6, then by the earlier verified submission (then by replay hash, so the order is total). The verifier derives the machine count while re-simulating the submission and stores it on the entry; nothing in a payload can set it. Boards, histogram ranks and neighbours, replay retention and the returned personal rank all use the one comparator. Entries recorded before the field existed are derived from their stored replay at startup (and written back) or rank last among equal scores. The rule is printed under the results board and on the title's daily strip, and the Minimalist badge text says that fewer final-round machines also break ties.
 
 #### Reroll the offers, paid from the score (PLAN-v2 0.5.4, rules v3)
+
 - Once per round during the draft, "Reroll offers (−$40)" redraws the three cards for `RULES.rerollCost` taken from the running score. It is a rule-checked action (`{ t: 'reroll' }`) in the replay, so the verifier re-simulates it like everything else; it is refused below the cost, outside the draft, twice in a round and on tutorial seeds. The new offers come from their own stream (`seed:draft:round:reroll:1`), so buying one can never change a later round's draft. Results and the detailed share line show the deduction (score = production + sales − rerolls); the autoplayer has a greedy reroll policy and `tools/balance.ts --reroll` measures it against never rerolling on the same seeds. Reroll study (`tools/balance.ts --reroll`, greedy search, 40 seeds × 120 tries, identical seeds and offers): never vs greedy-reroll mean $1767 vs $2013 (+$246, +14 %), 31 seeds better, 7 worse, 2 equal; 79 rerolls over 240 rounds = 32.9 %; every score replay-verified. Every losing seed lost at most what its rerolls cost (−12, five × −40, two × −80): a fruitless reroll is the price of information and the rule can never cost more than that, which is now the gate's hard criterion. **Gate note:** PLAN-v1's 10–30 % usage band (a skip-rate analogue) fails at 32.9 %; the bot rerolls almost exactly when no offer improves its line (a flat round for the greedy bot happens about a third of the time), and making its threshold stricter barely moved the rate (33.8 → 32.9 %), so the band is widened to 10–35 % and the deviation is recorded here and in DESIGN rather than tuned away. Report: `docs/baselines/0.5/reroll-study-greedy.json` (+ `.log`).
 
 #### Tuner in the pool, round-tiered offers (PLAN-v2 0.5.3, rules v3)
+
 - New machine: the **Tuner** has no input and no output; every crusher, furnace or press touching one of its four sides holds items one tick less (never under one tick), two Tuners do not stack, and each item it speeds up is credited on its round-end badge ("N sped up" / "nothing to tune"). Draft weight 10, offered from round 3 through a tier table in `rules.ts` (`offerFromRound`); rounds 1–2 keep the seven 0.2.0 machines and round 1 still guarantees a crusher. Card art (procedural + SVG in the atlas), placement advice ("nothing here to tune yet"), a tip with a live demo, the autoplayer and the balance gate all know it. Greedy control on 40 seeds × 120 tries, identical offers: allowed vs banned mean $1768 vs $1581 (+$187, +12 %), 22 seeds better, 0 worse, 18 equal, +$340 on the 23 rounds it was picked; picked in 59 % of the 39 rounds offered (the bot chose a hopper 7 times and a furnace 5 times instead). Offering it from round 4 or 5 instead was worse on every count. A furnace-only variant (`tunerMinHold: 3`) was indistinguishable: the bot only ever tunes furnaces anyway. **Gate note:** the 25–50 % pick band inherited from PLAN-v1's Sieve criterion fails at 59 %; the hard criteria (no seed worse, positive paired lift, every score replay-verified, nothing above the sanity bound) pass, so the band for a throughput booster judged by an exact-score bot is widened to 25–65 % and the deviation is recorded here and in DESIGN rather than tuned away.
 
 #### Sieve measured and deferred (PLAN-v2 0.5.2)
+
 - The Sieve exists in the simulation as an experimental kind (input from behind, raw scrap forward, processed materials right, a blocked exit waits and counts as a jam) with draft weight 0 and no card. On the same-inventory fixture the separated routes beat the Sieve line by 17 % ($338 vs $289), and still beat it if a dock paid double for ingots ($638 vs $577): the merge it sorts costs more throughput than the sorting saves, and eleven machines on 48 cells never force a merge. Decision and numbers in `docs/DESIGN.md`; the v0.5 decision machine becomes the Tuner (PLAN-v2 0.5.3 re-cut).
 
 ### Foundations on main before the rules change
 
 #### Measurement tools generalised (PLAN-v2 0.5.1)
+
 - `tools/balance.ts` measures any machine (`--machine`), with tuning variants given as dotted RULES paths in a JSON file, two search policies side by side (greedy as the control, neutral accepting plateau moves), paired per-seed deltas against the banned condition, metadata (rules version, build, budget, rng streams, derived sanity bound), every reported score re-simulated from its recorded actions before it counts, and `--gate` exiting 1 on a failed threshold. `tools/autoplay.ts` gains `--policy`, the plan's dead-end definition (no improving draft in any round) beside the earlier ≥ 4-flat-rounds heuristic, and a sanity bound derived from the rules instead of a guess. The library (`tools/balance-lib.ts`, `tools/autoplay-lib.ts`) is unit-tested, including byte-identical output across two runs.
 
 #### Local records partitioned by rules version (PLAN-v2 0.5.0)
+
 - Bests and verified submissions are stored per rules version (`jd.bests.v2` / `jd.submissions.v2`: `{ byVersion: { "2": … } }`). The pre-0.5.0 keys migrate once into the rules-2 slot and are removed; settings, player name, onboarding, read tips and days played are untouched. Readers take the current version; bests kept under another version appear on the title as a collapsed "Under rules vN" block (kept, not comparable). This is the prerequisite for the rules-v3 work: after the bump an old best can no longer pose as the current target, and an old submission can no longer block a new result. No rules change.
 
 ## Unreleased — 2026-10-29 (pre-v0.5 stabilization from the independent review, docs/reviews/PRE-V05-REVIEW-2026-10-29.md)
 
 ### Verifier and collector integrity (F01–F03, F08, F12)
+
 - A telemetry event without a `name` could throw inside the asynchronous request handler and terminate the verifier; validation is total and both body handlers are guarded (any surprise answers 500, never exits). The hook collector's redaction kept the token and appended `[redacted]`; patterns are split into whole-match and prefixed forms (`.claude/hooks/redact.mjs`, tested with synthetic tokens). Replay identity hashed the client's JSON key order, so a permuted copy of the same replay was a second board entry; actions are now rebuilt in canonical field order at every entry point (`canonicalAction`, `canonicalReplayJson`). An accepted submission rebuilt the board without its `pars`, deleting every cached bot par. A telemetry send that failed after opt-out restored its events and a later opt-in resent them; sends belong to a consent generation now.
 
 ### Desktop, input and provenance (F04, F05, F09–F11, F14–F16)
+
 - `window.prompt`/`alert` do not exist in Electron, so player name, custom seed, replay import, the first submission's name and the clipboard fallback failed in the packaged app; they are DOM dialogs (`dialog`, `promptText`, `alertText`, `showText` in `ui/dom.ts`), and a cancelled, busy, unreachable or rejected submission leaves Submit usable. Gameplay keys were captured globally: Enter on a focused offer did nothing, Tab on a focused button took a bin part, Space with Tips open started the run; shortcuts now stand down for focused DOM controls, Tips and dialogs, nothing is captured, and Tips manages focus (Close focused on open, Tab trapped, focus restored). While watching a replay, Space on a summary advanced the phase on top of the queue's own `next`; playback owns advancement and stale scheduled callbacks are dropped. Clip and GIF footers said "verified replay" for local runs; they say so only for this run's accepted replay. Results showed this device's stored best-submission standing beside a different run; standing is bound to this exact run's canonical hash, an earlier attempt is labelled as such, and late histogram responses are ignored. Seeds named `__proto__`/`constructor`/`toString` collided with inherited properties; seed dictionaries are null-prototype with own-property checks. The dock's ship pulse ignored the HiDPI base scale. **Full Grid is renamed All Hands** (every owned machine on the grid at the end, nothing sold): no legal run could fill 48 cells with at most 11 machines.
 
 ### Deployment readiness (F06, F07, CI)
+
 - The Docker image lacked `game/src/telemetry` and `tools/autoplay-lib.ts`, so it could not build the verifier; the Dockerfile copies them and a test rebuilds the bundle from exactly the Dockerfile's layout. Bot-par work admitted by public reads is bounded (queue cap, today's seed first, expiring capped failure memory, cached pars capped). New `ci.yml`: typecheck, full suite, both bundles, a real image build with health, submission and restart persistence (`tools/image-smoke.ts`), and a Windows packaging job on tags. The perf gate has `--strict` (empty or unmatched evidence fails) and an explicit CI baseline path. The Control Room bounds tool-call history, answers malformed escapes with 400 and contains file serving by path boundary. The Electron clip sink validates sender, type and size; in-window navigation is blocked.
 
 ### Compatibility statement corrected (F13)
+
 - 0.4.0's "every v0.2 replay still verifies" was too broad: `tutorial-*` seeds became scripted scenarios in 0.3 under rules version 2, so a v0.2 replay on a tutorial-prefixed seed no longer replays. Ordinary seeds are unaffected. From now on scenario semantics are versioned with `RULES_VERSION`, and a golden replay corpus (`tests/golden/`, 8 replays: autoplayer lines, a sold part, a press line, undo-style churn, the tutorial, a tutorial-looking ordinary name, a daily label) pins existing behaviour in `npm test`.
 
 ## 0.4.0 — 2026-10-29
@@ -403,48 +490,62 @@ Twelve notes from the owner's first real play, all taken. Old recordings and sav
 ### 2026-10-29 (v0.4: histogram-first results, PLAN-v1 0.4.1)
 
 #### Impact samples under the synth (DOSSIER-v1 0.4.13)
+
 - Two tiny authored samples beneath the factory tones: a metallic clink when the dock ships and a dull thud when a press makes a plate (`game/public/sfx/ship.wav`, `press.wav`: mono 22 kHz 16-bit, 6 and 8 KB, rendered deterministically by `tools/make-sfx.ts`). They load with the boot loader like the art, decode once the audio context exists, play through the factory bus inside the tone's voice (so the polyphony caps and the bus slider cover both), and fall back silently to synth-only when a file is missing or undecodable. Reduced audio never uses them. The dev API reports `samples: { loaded, played, missing, failed }`.
 
 #### Tips panel in the DOM (PLAN-v1 0.4.12)
+
 - The tips & demos panel is a DOM dialog layered over the current screen (`game/src/ui/TipsPanel.ts`): tip list with unread dots and an active state, title and text in real type, Close (Esc), click outside to close. The live demo is a small 2D canvas stepped by the real simulation and drawn from the real textures (item slides between cells, reduced motion snaps). The last Phaser text/rectangle panel is gone, so the overlay no longer hides itself while tips are open and the text-size setting applies to tips too.
 
 #### GIF clip format (PLAN-v1 0.4.11)
+
 - "Save GIF" on the results screen beside "Export clip": the same best round, drawn offline by the clip painter at 1× and 10 fps as one pass plus a hold, encoded in the browser by a dependency-free GIF89a writer (`game/src/render/gif.ts`: one global 256-colour palette quantised from every frame, LZW, NETSCAPE2.0 loop). It needs no MediaRecorder, so it also works where video capture is unavailable, and posts where a video will not autoplay. Electron saves it to Downloads through the same bridge as the WebM. Measured on seed gif-seed (a 5-machine line, 80 ticks at 4×): 624×536, 38 frames, 3.8 s loop, 256 colours, 580 KB, drawn and encoded in 0.3–0.6 s; looked at in Chromium: belts, items, dock pops and the strip animate as in the video.
 
 #### HiDPI art atlas (DOSSIER-v1 0.4.8b)
+
 - The SVG atlas is rasterised and packed at `min(DPR, 2)` times the logical size, so on HiDPI screens the WebGL batch samples sharp pixels instead of upscaling 1× frames. Scenes keep their logical geometry through a per-key base scale (`baseScale`, `fit`, `setArt` in `atlas.ts`) applied at every image site in the game, title and tips panel; scale tweens multiply by it. A procedural fallback texture stays at 1× and is drawn at scale 1. The clip exporter, the DOM item images and the audit sheet already draw frames into logical-size rectangles, so their output is unchanged at 1× and sharper at 2×.
 
 #### Throughput hum (DOSSIER-v1 0.4.10)
+
 - A drone on the music bus from run start to the settle: two detuned triangle oscillators through a low-pass filter. The cutoff follows items in flight (0 → 300 Hz, 12+ → 2 kHz), a jam detunes it a quarter tone while it lasts, the last ten ticks rise an octave, and the settle glides it to the fanfare's root (C4). The round number picks the root up a major pentatonic scale from C3 (round 6 is the octave). Absent under reduced audio; nothing plays during build or on the title; leaving the scene stops it. The model is pure (`humRoot`, `humCutoff`, `humTarget` in `mixer.ts`) and the dev API reports `hum: { on, cutoff, detuned, freq, root, starts }`.
 
 #### Audio buses, voice caps and reduced audio (DOSSIER-v1 0.4.9)
+
 - Three buses (ui, factory, music) with per-bus levels in settings (title: "Audio buses" fold-out), master volume and mute as before. The factory bus plays one call per simulation tick: same-tick ships coalesce into one chord (distinct values, highest first, up to 8 voices with value priority), transforms keep the highest 4 tiers, jams are throttled; the fanfare ducks the factory bus −6 dB for 600 ms; a stall has its own low tone. Reduced audio plays at most one sound per tick (ship > transform > jam) and never a chord. The allocator is pure (`game/src/render/mixer.ts`) and unit-tested; the dev API exposes the synth's counters.
 
 #### Juice pass bound to sim events (PLAN-v1 0.4.4)
+
 - One sound and at most one visual per event, scaled by value, nothing shakes. New: a draft lock-in sound, a round-end settle (every machine eases 1 → 0.97 → 1 staggered by column, one soft tone), a 90 ms place settle and a 60 ms rotate snap. Machines show their state with frames instead of wobbles: crusher jaws alternate while holding (`m-crusher-1`), the press ram descends over its hold (`m-press-1`, `m-press-2`), the furnace keeps its warm tint; belts cycle 8 chevron frames (was 3) at the same speed. The clip exporter draws the same frames. Reduced motion keeps sounds and drops every tween and frame swap. The full event → sound → visual table is in `docs/DESIGN.md`.
 
 #### Authored art pipeline and runtime atlas (DOSSIER-v1 0.4.8)
+
 - The art now lives as 22 SVG files under `game/public/art/`, exported losslessly from the procedural generator by `tools/export-svg.ts` (a Phaser-Graphics-shaped recorder that emits SVG) and editable in any vector tool. At boot the SVGs load, pack into one 456×304 canvas texture, and every scene-facing key (`m-crusher`, `i-plate`, `belt-0`, `tile`…) becomes an alias whose single frame points into that shared texture: no scene code changed, and the factory draws with **1 draw call and ~3 texture binds per frame (was ~59 binds)**. A file that fails to load falls back to the procedural drawing for that key. The clip exporter and the colour-vision contact sheet read frames by their atlas cut. Frames stay at logical size; a HiDPI atlas needs a base-scale factor in the scenes and is a follow-up.
 
 #### Non-ranked run badges (PLAN-v1 0.4.6)
+
 - Clean (no item waited and no hopper was blocked for a tick in any round), Minimalist (at most 8 machines in the final round while still at or above the bot par) and Full Grid (every cell used in a round), computed from the finished run's own records in `game/src/sim/badges.ts`. Shown as pills on the results screen marked "not ranked", refreshed when the bot par arrives, and listed only in the detailed share text of a verified run. Never a board, never a ladder.
 
 #### Spoiler-free share grid (PLAN-v1 0.4.3)
+
 - The default share text is now `Junkyard Draft · Daily 2026-10-29 · $1234`, a line of six glyphs (one per round: ░ ≤ $100, ▒ ≤ $250, ▓ ≤ $400, █ above), your verified standing ("better than 61 % of 38 verified runs" once five runs exist, else the rank, else "local score, not yet verified") and "N days played". No URL unless "add link" is ticked, no per-round dollars, no layout. "Copy detailed" adds the per-round earnings and the rules version. Days played are counted per UTC date with a finished run (`jd.days.v1`).
 
 #### Loop clip export (PLAN-v1 0.4.2)
+
 - "Export clip" on the results screen re-simulates the best round with the real simulation and draws it with the real generated textures onto an offscreen canvas at 4× (grid plus a 24 px margin, a 56 px strip with seed or date, round earnings, running total, player and wordmark on every frame, capped at 720 p), two passes with a 300 ms hold so it loops, recorded live at 30 fps through `canvas.captureStream` + `MediaRecorder` (VP9 → VP8 → MP4 by support). Always full motion. Saved as `junkyard-<seed>-$<score>-r<round>.webm`: a browser download on the web, and straight into Downloads through the Electron bridge (`jdDesktop.saveClip`, no dialog; `JD_CLIP_DIR` overrides). Measured in headless Chromium on this PC: 690 KB VP9 WebM, 7.45 s, 446 frames at 624×536, exported in 7.5 s.
 
 #### Bot par (PLAN-v1 0.4.5)
+
 - The first time a seed is asked about, the verifier runs the shipped autoplayer in a worker thread (five searches × 40 tries on fixed rng streams, so the same number on every machine), wall-clock capped and never on the request path, and stores the median as `botPar`; `/board`, `/histogram` and `/daily` return it (null while computing; a failed job backs off ten minutes; `BOT_PAR=0` disables). The results histogram shows "Bot par $N · the shipped autoplayer's median on this seed (a target, never ranked)" and whether you beat it; the title's daily strip shows "bot par $N". It is never an entry on any board.
 
 #### Histogram-first results and daily strip
+
 - Verifier `GET /histogram?seed=&hash=`: the verified score distribution in nice-width bins (1 / 2 / 2.5 / 5 × 10^k), N, and, when the caller's replay hash is on the board, its rank, bin, percentile (share of other verified runs with a strictly lower score; ties are not beaten) and up to five neighbours above and below. Empty when nobody has played: nothing is ever invented.
 - Results screen: the distribution with the player's bin highlighted, "Better than X % of N verified runs · #R" once five or more runs exist, otherwise "N verified runs so far · you are #R", and an "around you" slice. The title's daily strip shows a miniature of today's distribution once a verified run exists.
 
 ### 2026-10-29 (v0.4 begins: DOM UI shell, DOSSIER-v1 0.4.0, slice 1)
 
 #### DOM UI shell (title and results)
+
 - The title and results screens are now real HTML laid over the canvas (`game/src/ui/dom.ts`, `TitleScreen.ts`, `ResultsScreen.ts`): text reflows at every text size (the title fits at 130 % with a saved run, which the hand-positioned version could not), buttons are focusable and screen-reader readable, layout is CSS. The overlay tracks the FIT-scaled canvas (`--k`) so sizes in em follow the canvas scale; `--text-scale` carries the text-size setting; reduced motion disables the score pop. The Phaser scenes keep the decorative belt, the tips panel (the DOM hides while it is open) and the bookkeeping. Material icons in the results come from the generated textures (`getBase64`), so DOM and canvas can never disagree.
 - Every control carries `data-testid`; the e2e uses Playwright's DOM locators instead of Phaser object names. New checks: the overlay covers exactly the canvas at 1280×800 and 1920×1080 with no control outside it and no scrolling; the stylesheet's colour literals are all audited palette colours.
 - **Slice 2 — the game scene's chrome**: HUD bar (seed with CSS ellipsis and the full seed as a tooltip, round, live total with a CSS pulse, local best, stall line), the side panel in all four states (draft cards, build with selection / undo / redo / run, running with progress and speed, round summary), the hint strip, the round-result banner and the per-machine badges over the grid, and the pause veil are DOM (`game/src/ui/GamePanel.ts`). The canvas keeps the grid, bin, machines, items, ghost, cursor, jam and stall marks and the pooled +$ pops. The panel rebuilds only when its inputs change; per-frame values update elements in place. Text objects created per busy round: 68 → 12; script ms/frame at 4× CPU throttle 2.43 ms (from 2.63). Pointer events pass through to the canvas everywhere except the controls.
@@ -452,29 +553,37 @@ Twelve notes from the owner's first real play, all taken. Old recordings and sav
 ### 2026-10-29 (worst-machine foundation, DOSSIER-v1 0.3.8–0.3.10; PLAN-v1 0.3.2 merged)
 
 #### Onboarding (PLAN-v1 0.3.2, routine PR #1)
+
 - Ghost arrows on the machine in hand (blue inputs, amber output) for mouse and keyboard; a refused drop explains itself in the hint strip for 2 s; a legal but unfed spot warns ("Heads up: …"). `game/src/sim/advice.ts` + `tests/advice.test.ts`.
 
 #### Build phase (PLAN-v1 0.3.3)
+
 - **Undo / redo**: Ctrl+Z removes the last layout edit of the current build phase (place, unplace, rotate, sell), Ctrl+Y or Ctrl+Shift+Z re-applies it; panel buttons "Undo (Ctrl+Z)" and "Redo" track availability. Undo re-derives the state from seed + remaining actions, so the replay stays a flat list of final actions and an undone rotation restores the exact previous facing; nothing is undone across a run or a draft pick. `game/src/sim/undo.ts`.
 
 #### During the run (PLAN-v1 0.3.5)
+
 - **Money heartbeat**: the HUD total counts up as items ship (re-rasterised at most every 100 ms, with a small pulse unless reduced motion).
 - **Stall marker**: when nothing has shipped for 8 ticks while an item is jammed or a hopper is blocked, the HUD names the first blocking cell ("Stalled: Conveyor at 3,3 is waiting — nothing shipped for 8 ticks") and a red frame marks it (static under reduced motion). Clears when items flow again or the round ends. Dev API `stall()`.
 
 #### Tutorial seed (PLAN-v1 0.3.4)
+
 - **`tutorial-1`**: rounds 1–3 offer exactly one machine each (crusher, furnace, splitter) and three spare conveyors start in the bin; rounds 4–6 are an ordinary draft from the seed's own stream. The hint strip is the only guidance: each hint is checked against the real layout (fed-ness via the placement advisor, flow via a 40-tick real simulation) and says what to do next; finishing round 3 marks the profile onboarded. Title: "Learn to play (3 min)" (highlighted for a new profile, Enter starts it) becomes "Learn (3 min)" afterwards; a new profile on another seed gets one hint pointing at it. Every other seed's offers are byte-identical (snapshot test), so no rules bump.
 
 #### Opt-in funnel events (PLAN-v1 0.3.7)
+
 - **Off by default.** A title-screen toggle "Share stats: Off/On" with a one-line explanation. When on: a random 128-bit install id is created; events from a fixed vocabulary (`game/src/telemetry/events.ts`: app_start, consent_set, tutorial steps, first_draft_pick, first_place_attempt/rejected, first_rotate, undo_used, first_run_start/complete, round_complete, game_complete, second_game_start, daily_start, daily_submit_result, share_copied, tip_opened, settings_changed, session_end…) are batched to the verifier's `POST /events`; once-per-install events are deduplicated locally; the unsent queue is persisted so a page navigation never loses a batch; a `seed` property is refused unless it is a `daily-*`/`tutorial-*` label. Turning it off deletes the install id and the queue.
 - **Verifier**: `POST /events` (consent required, vocabulary enforced, 30/min/IP, 64 KB) appends to `events.jsonl` with a daily-salted IP hash; `GET /funnel` returns unique installs per step; rows older than 30 days are pruned at start and hourly. `npm run funnel` prints the step-conversion table and breakdowns.
 
 #### Tips (PLAN-v1 0.3.6)
+
 - **Tips panel with live mini-simulations**: six tips (crusher orientation, side-loading merge, splitter alternation, raw scrap in a furnace makes slag, a press needs two shards, sell unused parts), each demo a tiny real layout stepped by the real simulation and drawn with the real textures, looping every 24–30 ticks. Reachable from the title ("Tips & demos") and from the draft/build panel ("Tips"). Drafting a machine for the first time badges the button ("Tips ●"); opening the tip marks it read (`jd.tips.v1`) and it is never suggested again. Tips never write to the hint strip. `game/src/sim/tips.ts`, `game/src/render/TipsPanel.ts`.
 
 #### Architecture
+
 - **RoundController** extracted from GameScene (review follow-up): the mode machine, authoritative run state, tick pacing, frozen-layout rule, undo/redo and replay playback live in `game/src/render/RoundController.ts` (no Phaser or storage imports) behind hooks; the scene renders and routes input. Unit-tested in Node.
 
 #### Rendering and performance
+
 - **HiDPI**: the canvas is now device-pixel-ratio sized (capped at 2×) and each scene's camera zooms the fixed 1120×700 layout onto it; Text objects rasterise at the same resolution. Pointer handlers read world coordinates. `?dpr=` overrides.
 - **Adaptive resolution**: the first run at high resolution samples 120 frames; a p95 over 20 ms stores `renderQuality: 'low'` so later starts render at 1×, with a hint and a title-screen "Resolution" button to switch back (applies on reload).
 - **Canvas renderer switch**: `?renderer=canvas` forces Phaser's Canvas renderer (weak GPUs, perf presets).
@@ -482,6 +591,7 @@ Twelve notes from the owner's first real play, all taken. Old recordings and sav
 - **Measurement**: `tools/perf.ts` reports draw calls, texture binds, display-list peak, Text objects created and heap, has `--device A|B|C|D` presets and `--renderer webgl|canvas|both`; `tools/perf-gate.ts` compares a report with a baseline; `.github/workflows/perf.yml` measures preset B on every push and PR (arms once `docs/baselines/<v>/perf-ci.json` is committed). Baselines under `docs/baselines/0.3.0/`.
 
 #### Tests (44 → 63)
+
 advice (3); perf-gate; quality (adaptive decision); undo (2: place→rotate→undo→undo restores the pre-place state and the exported replay verifies; sell refund, run boundary, stale redo); render-e2e: hidpi_canvas_keeps_logical_coordinates, canvas_renderer_completes_a_round, webgl_context_loss_keeps_the_run, stall_marker_names_the_blocking_cell; game-e2e: pooled_pops_never_exceed_the_pool, undo_restores_facing (Ctrl+Z / Ctrl+Y with the panel buttons' enabled state); controller (4: full round through advance() with the layout frozen, pause/speed/undo/redo/reject, a watched replay driving itself to finished without persisting, damaged and mid-result saves); tips (2: every demo layout proves its claim, suggestion-once); render-e2e step first_draft_suggests_its_tip_once; telemetry (2: client consent/dedup/no-seed/persisted queue, vocabulary + batch validation); verifier events test (consent, vocabulary, seed refusal, hashed IP, /funnel, retention); game-e2e opt_in_funnel_events (toggle on the title, every funnel step reaches the test verifier once, no seed or address in the file); sim tutorial-seed test with the OFFERS_SNAPSHOT hash; tutorial autoplayer test (ingots by round 3 in 8/8 tries); render-e2e step tutorial_seed_teaches_one_rule_per_round (fresh profile → Learn highlighted; scripted lesson to round 4 in 21 actions; misoriented crusher, furnace and splitter-merge hints asserted; onboarded afterwards).
 
 ### 2026-10-26 (external code review response)
@@ -489,6 +599,7 @@ advice (3); perf-gate; quality (adaptive decision); undo (2: place→rotate→un
 Fixes for every finding of an independent review of `f3de10b` / v0.2.0 (findings quoted in docs/STATUS.md).
 
 #### Verifier
+
 - A malformed URL no longer crashes the process (400; handler errors 500; socket-level garbage 400).
 - Writes are atomic (temp file + rename) and memory changes only after the write succeeds; a failed write answers 503 + Retry-After and the retry is not a duplicate.
 - Boards are partitioned by rules version: rows from another `RULES_VERSION` never rank, count or replay.
@@ -497,6 +608,7 @@ Fixes for every finding of an independent review of `f3de10b` / v0.2.0 (findings
 - Default data directory is `<cwd>/server/data` for source and bundled runs; Dockerfile excludes host-built `server/dist` and copies the bundle world-readable.
 
 #### Game
+
 - Starting a round cancels an in-progress drag and freezes the layout: no drop, key or dev-API call can edit it once the simulation starts (this could show $38 visually and award $0).
 - Finishing or stopping a watched replay no longer clears the player's own unfinished save.
 - Every replay entry point (pasted file, verifier submission, fetched replay) goes through one structural validator; a missing rules version is rejected everywhere.
@@ -508,6 +620,7 @@ Fixes for every finding of an independent review of `f3de10b` / v0.2.0 (findings
 - Per-frame Set allocations removed from the render loop; `RULES.process` typed by processor kind; dev API no longer reaches into private fields.
 
 #### Tests (32 → 44)
+
 malformed_url_does_not_kill_verifier, failed_persistence_preserves_previous_board, old_rules_board_is_not_current_verified_board, bounds/limiter/loadBoard, SHA-256 identity + legacy ids, bundle test via the esbuild API; all_replay_entry_points_require_explicit_version, every_live_save_remains_resumable; malformed_storage_shapes_fall_back (new storage suite); hover_colors_meet_AA; e2e: starting_round_cancels_active_drag, watched_replay_preserves_existing_save, malformed storage at boot, personal_best_equals_completed_score, large_text_layout_fits (title at 130 % with a save, HUD with a 64-character seed).
 
 ## 0.2.0 — 2026-10-25 (release candidate)
@@ -515,6 +628,7 @@ malformed_url_does_not_kill_verifier, failed_persistence_preserves_previous_boar
 Built on the user's Windows PC after restoring the 0.1.0 bundle. Rules v2.
 
 ### Gameplay
+
 - **Plate Press** (rules v2): two shards → one $8 plate, 2-tick hold, input from behind; the first shard is absorbed
   (new `absorb` event, `RunResult.absorbed`); a shard left in a press at round end shows as "1 shard held" on its
   badge. Draft weight 10, conveyor 34 → 30. Balance pass kept it unchanged (34 % pick rate when offered, never a loss).
@@ -523,6 +637,7 @@ Built on the user's Windows PC after restoring the 0.1.0 bundle. Rules v2.
   Esc drops → deselects → hides.
 
 ### Verification and boards
+
 - Verifier gained `GET /daily` (today's UTC seed + verified board), `GET /replay?hash=` (stored actions of verified
   entries), `/health` with entry count, uptime and version; host / port / data-dir settings, request log, per-IP
   rate limit on submissions (429 + Retry-After), CORS origin, `X-Forwarded-For` behind a trusted proxy; single-file
@@ -536,16 +651,19 @@ Built on the user's Windows PC after restoring the 0.1.0 bundle. Rules v2.
 - Game build bakes `VERIFIER_URL` (default `http://127.0.0.1:4400`); `?verifier=` still overrides.
 
 ### Accessibility
+
 - Reduced motion (belts static, no flashes / pops / travel, items snap; defaults to the OS preference) and text size
   100 / 115 / 130 % on the title screen, persisted; layouts that used fixed offsets now measure their text.
 - Colour audit: WCAG AA on every text pair, colour-vision-deficiency simulation of materials and semantic colours,
   enforced by `tests/a11y.test.ts`. Palette nudges: red, plate, build label, dedicated cursor tint.
 
 ### Desktop
+
 - `npm run desktop:pack` (unpacked app) and `npm run desktop:dist` (NSIS installer, per-user, unsigned); app icon
   rendered from SVG; packaged-app smoke test in `npm test`; `JD_DEV_API=1` exposes the test hooks in the packaged app.
 
 ### Tooling and quality
+
 - `tools/balance.ts` (a machine's marginal value on identical offers), `tools/perf.ts` (frame-time budget in Chromium,
   throttled Chromium and the packaged app), `tools/a11y-audit.ts`, `tools/make-icon.mjs`.
 - Fresh-clone fixes: build no longer depends on git-ignored folders; browser tests no longer hang when the browser

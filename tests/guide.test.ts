@@ -43,6 +43,47 @@ test("outside the lesson the coach says one thing per moment and names the shift
   assert.deepEqual(spotKinds(after), ['next']);
 });
 
+test('with the spots dark the coach leaves the spot to the player and offers "Show me"; where no spot pays it says how to make room', () => {
+  const s = newRun('coach-yard');
+  apply(s, { t: 'pick', i: s.offers.indexOf('furnace') });
+  const dark = hintFor(s, { ...ctx(), lights: false });
+  assert.equal(dark.showMe, true, 'a spot is known: one tap lights it');
+  assert.ok(!dark.spots.some((p) => p.kind === 'cell'), 'and none is lit until asked');
+  assert.match(dark.text, /where you think/);
+  assert.equal(hintFor(s, ctx()).showMe, undefined, 'lit, there is nothing to ask for');
+  // a card no spot pays for: the coach does not promise one, it says what could make one
+  let found = false;
+  for (let n = 0; n < 40 && !found; n++) {
+    const fresh = newRun(`no-spot-${n}`);
+    for (let i = 0; i < fresh.offers.length && !found; i++) {
+      const r = newRun(`no-spot-${n}`);
+      apply(r, { t: 'pick', i });
+      if (cardPlan(r).length) continue;
+      found = true;
+      const g = hintFor(r, ctx());
+      assert.match(g.text, /^No easy spot for the .+ yet\. To make room, pick a machine on the yard and press Move\.$/);
+      assert.equal(g.showMe, undefined, 'nothing to show');
+    }
+  }
+  assert.ok(found, 'some card on these yards has no easy spot');
+});
+
+test('when no card on offer fits, the coach says New offers deals three more and lights it, and only then', () => {
+  const s = newRun('coach-yard');
+  const W = s.layout.width;
+  const taken = new Set(s.layout.machines.map((m) => m.y * W + m.x));
+  s.layout.rubble = [...Array(W * s.layout.height).keys()].filter((c) => !taken.has(c)); // nowhere left to build
+  s.score = 500;
+  const g = hintFor(s, ctx());
+  assert.equal(g.text, 'No card here fits your line yet. New offers deals three more for $40.');
+  assert.deepEqual(spotKinds(g), ['offers']);
+  apply(s, { t: 'reroll' });
+  assert.match(hintFor(s, ctx()).text, /^Pick ONE card/, 'once a shift: after that the coach says to pick');
+  const fresh = newRun('coach-yard');
+  fresh.score = 500;
+  assert.match(hintFor(fresh, ctx()).text, /^Pick ONE card/, 'a card fits: nothing to buy');
+});
+
 test('a resume notice comes first, once; a watched recording gets no advice', () => {
   const s = newRun('classic-guide-seed');
   assert.equal(hintFor(s, { ...ctx(), resumeNotice: 'Saved game is gone' }).text, 'Saved game is gone');

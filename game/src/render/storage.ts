@@ -2,6 +2,7 @@ import type { MachineKind } from '../sim/types';
 import type { MedalName } from '../daily/medals';
 import { MACHINE_KINDS } from '../sim/rules';
 import { isValidSeed, validateAction, type Action } from '../sim/run';
+import { isTutorialSeed } from '../sim/yard';
 import type { ReplayFile } from '../sim/replay';
 import { RULES_VERSION } from '../sim/types';
 import { dailySeed } from '../sim/daily';
@@ -72,7 +73,7 @@ export interface Settings {
   reducedAudio: boolean;
   /** the foreman (0.9.1): every line, or the teaching lines only */ chatter: 'full' | 'less';
   /** how fast shifts run: a player who likes 4× should not have to ask again every game */ speed: number;
-  /** the coach lights where a card's parts go; a player who would rather work it out turns it off on the job card */ lights: boolean;
+  /** the coach lights where a card's parts go: on, off, or null for the first game only (`lightsOn`); the job card sets it */ lights: boolean | null;
 }
 /** Default for reduced motion follows the OS preference until the player chooses. */
 const systemReducedMotion = () => {
@@ -125,7 +126,7 @@ export function validateSettings(raw: unknown, fallback: Settings): Settings {
     reducedAudio: typeof raw.reducedAudio === 'boolean' ? raw.reducedAudio : fallback.reducedAudio,
     chatter: raw.chatter === 'less' ? 'less' : fallback.chatter,
     speed: raw.speed === 2 || raw.speed === 4 ? raw.speed : fallback.speed,
-    lights: raw.lights !== false,
+    lights: typeof raw.lights === 'boolean' ? raw.lights : null,
   };
 }
 export function validateSave(raw: unknown): SaveGame | null {
@@ -251,7 +252,7 @@ export const loadSettings = (): Settings =>
     reducedAudio: false,
     chatter: 'full',
     speed: 1,
-    lights: true,
+    lights: null,
   });
 export const saveSettings = (s: Settings) => write(K.settings, s);
 /** Read-modify-write so audio and accessibility settings never clobber each other. */
@@ -832,6 +833,12 @@ export function recordSalBeaten(seed: string, version: number = RULES_VERSION) {
   const all = (readRaw(K.salBeaten) as Record<string, string[]> | null) ?? {};
   write(K.salBeaten, { ...all, [String(version)]: [...mine, seed].slice(-500) });
 }
+
+/** Whether the coach lights where parts go: as the player set it, else until this device has finished a game outside the lessons, under
+ * any rules (the fourth panel: the lit shifts read as "filling in a form", and the fun started where they stopped; after the first game
+ * "Show me" lights one card on request). */
+export const lightsOn = (): boolean =>
+  loadSettings().lights ?? !Object.values(loadBestsAll().byVersion).some((b) => Object.keys(b.bySeed).some((seed) => !isTutorialSeed(seed)));
 
 export type KindCounts = Partial<Record<MachineKind, number>>;
 export const loadKinds = (version: number = RULES_VERSION): KindCounts => {

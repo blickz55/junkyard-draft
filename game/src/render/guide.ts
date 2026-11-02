@@ -4,7 +4,8 @@
  * the spots. A lesson is a script (content/lessons.ts): the first move not done yet is the instruction, and `lessonAllows`
  * says whether an edit is that move, so a lesson has one way through.
  */
-import { apply, canBuyBelt, cardParts, newRun, orderFor, RunError, type Action, type RunState } from '../sim/run';
+import { apply, canBuyBelt, canReroll, cardParts, newRun, orderFor, RunError, type Action, type RunState } from '../sim/run';
+import { runLayout } from '../sim/sim';
 import { isTutorialSeed } from '../sim/yard';
 import type { Dir, Machine, MachineKind } from '../sim/types';
 import { RULES } from '../sim/rules';
@@ -24,7 +25,8 @@ export type Spot =
   | { kind: 'run' }
   | { kind: 'next' }
   | { kind: 'buy' }
-  | { kind: 'sell' };
+  | { kind: 'sell' }
+  | { kind: 'offers' };
 
 /** One step of the lesson: the instruction, the funnel step, what to touch and what the parts in it do. */
 export interface LessonStep {
@@ -48,6 +50,7 @@ export interface Guidance {
   spots: Spot[];
   /** lesson step on screen, 0 outside the lesson */ step: number;
   /** what the parts in this step do, in the lesson */ about?: { kind: MachineKind; text: string }[];
+  /** a spot is known but not lit: the panel offers "Show me" */ showMe?: boolean;
 }
 
 /** The numbers a lesson's words use. */
@@ -165,6 +168,30 @@ export function cardPlan(r: RunState): Placed[] {
   }
   return planned.plan;
 }
+/** What a card on offer does for the line as it stands, on its own, in its best spot (render/estimate.ts). */
+export interface Worth {
+  gain: number;
+  /** a Dock that gives a full line somewhere to go */ room: boolean;
+  /** it adds, but under a twentieth of what the line makes: a third Hopper that adds $42 does not "fit" a $3,000 line */ little: boolean;
+}
+let worths: { key: string; list: Worth[] } | null = null;
+/** The cards on offer, worked out once per deal and yard: the cards' tags and the coach read the same answer. */
+export function offerWorths(r: RunState): Worth[] {
+  const belts = r.bin.filter((m) => m.kind === 'conveyor').length;
+  const key = `${r.seed}:${r.round}:${r.offers.join()}:${belts}:${r.layout.rubble?.join() ?? ''}:${JSON.stringify(r.layout.machines)}`;
+  if (worths?.key !== key) {
+    const line = runLayout(r.layout).earned;
+    worths = {
+      key,
+      list: r.offers.map((k) => {
+        const g = cardGain(r.layout, cardParts(k, r.job, r.seed), belts);
+        return { gain: g.gain, room: !!g.room, little: g.gain > 0 && g.gain < Math.max(30, line * 0.05) };
+      }),
+    };
+  }
+  return worths.list;
+}
+
 /** The way the plan wants a part to face, when this is one of its spots. */
 export function plannedFacing(r: RunState, kind: MachineKind, x: number, y: number): Dir | undefined {
   if (isTutorialSeed(r.seed)) {
@@ -187,11 +214,15 @@ export const planUnderway = (r: RunState): boolean => {
 };
 
 /** The coach outside the lesson: the pick, the build, the shift, the summary, each one instruction. */
-function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[] } {
+function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; showMe?: boolean } {
   if (ctx.mode === 'running' || ctx.mode === 'paused')
     return { text: ctx.watching ? t('hint.watching', { label: ctx.watching }) : t('coach.running'), spots: [] };
   if (r.phase === 'result') return { text: t(r.round >= RULES.rounds ? 'hint.summaryFinal' : 'hint.summary'), spots: [{ kind: 'next' }] };
   if (r.phase === 'draft') {
+    // nothing on offer adds to the line or gives it room: New offers deals three more, and on 60 yards, played Sal's way, that found a
+    // better card 24 times in 37 (docs/DESIGN.md); with a card that fits, the coach never suggests paying for more
+    if (canReroll(r) === null && offerWorths(r).every((w) => w.gain <= 0 && !w.room))
+      return { text: t('coach.pickNone', { cost: money(RULES.rerollCost) }), spots: [{ kind: 'offers' }] };
     const wanted = nextNeeded(r);
     const order = orderFor(r);
     const text =
@@ -205,8 +236,9 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[] } 
   const moving = ctx.held != null ? r.layout.machines.find((m) => m.id === ctx.held) : undefined;
   if (moving) return { text: t('coach.moveHere', { name: machineName(moving.kind) }), spots: [] };
   // the card's plan, one lit spot at a time; a part put somewhere else ends it, and the plain words take over
-  const next = ctx.lights === false ? null : nextPlanned(r);
-  if (next?.part) {
+  const next = nextPlanned(r);
+  const lit = ctx.lights !== false;
+  if (lit && next?.part) {
     const said = t(ctx.touch ? 'coach.planTouch' : 'coach.plan', { name: next.step.kind === 'conveyor' ? t('coach.planBelt') : machineName(next.step.kind) });
     return {
       text: next.of > 1 ? `${said} ${t('coach.planOf', { n: next.at + 1, total: next.of })}` : said,
@@ -216,20 +248,25 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[] } 
       ],
     };
   }
-  if (next?.step.kind === 'conveyor' && canBuyBelt(r) === null)
-    return { text: t('coach.planBuy'), spots: [{ kind: 'buy' }, { kind: 'cell', x: next.step.x, y: next.step.y }] };
+  const buy = next?.step.kind === 'conveyor' && canBuyBelt(r) === null;
+  if (lit && next && buy) return { text: t('coach.planBuy'), spots: [{ kind: 'buy' }, { kind: 'cell', x: next.step.x, y: next.step.y }] };
+  // with the spots dark the player works it out, and "Show me" stays one tap away while a spot is known (the fourth panel)
+  const showMe = !lit && (!!next?.part || buy);
+  const say = (g: { text: string; spots: Spot[] }) => (showMe ? { ...g, showMe } : g);
   // a card's parts have the newest ids in the game: spare parts never hold the coach up, and where no spot is known the coach says so
   const newest = Math.max(0, ...r.layout.machines.map((m) => m.id), ...r.bin.map((m) => m.id));
   const card = r.picks.length ? cardParts(r.picks[r.picks.length - 1], r.job, r.seed).length : 0;
   const i = card ? r.bin.findIndex((m) => m.id > newest - card) : -1;
-  if (i >= 0) return { text: t('coach.placeFree', { name: machineName(r.bin[i].kind) }), spots: [{ kind: 'shelf', i }] };
+  // where no spot pays, the coach says what could change that instead of promising one (the fourth panel)
+  if (i >= 0)
+    return say({ text: t(cardPlan(r).length ? 'coach.placeFree' : 'coach.noSpot', { name: machineName(r.bin[i].kind) }), spots: [{ kind: 'shelf', i }] });
   const loose = flowLinks(r.layout).find((l) => !l.ok);
   if (loose) {
     const outOfBelts = !r.bin.some((m) => m.kind === 'conveyor') && canBuyBelt(r) === null;
     const spot: Spot = { kind: 'cell', x: loose.x, y: loose.y };
-    return outOfBelts ? { text: t('coach.brokenBuy'), spots: [spot, { kind: 'buy' }] } : { text: t('coach.broken'), spots: [spot] };
+    return say(outOfBelts ? { text: t('coach.brokenBuy'), spots: [spot, { kind: 'buy' }] } : { text: t('coach.broken'), spots: [spot] });
   }
-  return { text: t('coach.ready'), spots: [{ kind: 'run' }] };
+  return say({ text: t('coach.ready'), spots: [{ kind: 'run' }] });
 }
 
 /** What the coach says now. A resume notice comes first, once; the lesson runs its own script. */

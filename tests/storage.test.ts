@@ -20,6 +20,21 @@ const store = new Map<string, string>();
 } as Storage;
 
 const storage = await import('../game/src/render/storage');
+
+test('the lit spots: on for a first game, off once a game outside the lessons is finished under any rules, and a choice on the job card stands', () => {
+  store.clear();
+  assert.equal(storage.loadSettings().lights, null, 'nobody chose');
+  assert.equal(storage.lightsOn(), true, 'a first game is lit');
+  storage.recordBest('tutorial-2', 300);
+  assert.equal(storage.lightsOn(), true, 'a lesson is not a game');
+  storage.recordBest('daily-2026-11-01', 900, 7);
+  assert.equal(storage.lightsOn(), false, 'a finished game under older rules counts');
+  storage.updateSettings({ lights: true });
+  assert.equal(storage.lightsOn(), true, 'the player turned them on');
+  store.set('jd.settings.v1', JSON.stringify({ lights: 'yes' }));
+  assert.equal(storage.loadSettings().lights, null, 'a stored value of the wrong type is no choice');
+  store.clear();
+});
 /** seed dictionaries have no prototype (review F14); deep-equal against plain literals through a copy */
 // legacy-key writers: records live under jd.*.v2 since 0.5.0; writing the v1 key must drop the v2 key so the one-time migration runs again
 const setLegacyBests = (v: string) => {

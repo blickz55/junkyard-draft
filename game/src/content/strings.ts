@@ -237,6 +237,7 @@ export const STRINGS = {
   'game.bestForYard': s('Your best here: {score}', 'HUD'),
   'game.noBestForYard': s('First try on this yard', 'HUD'),
   'game.earned': s('This shift: {amount}', 'running panel'),
+  'game.earnedOf': s('This shift: {amount} · {total} in all', 'running panel, from shift 2'),
   'game.challengeDone': s('Challenge: {player} finished on {score}, you on {yours}', 'challenge line'),
   'game.challengeLive': s('Beat {player}: they made {theirs} in shift {round}, {total} so far. You have {yours}.', 'challenge line'),
   'game.challengeTitle': s("beat {player}'s {score} on this yard", 'tooltip'),
@@ -260,11 +261,11 @@ export const STRINGS = {
   'game.sellFor': s('Sell for {amount}', 'build'),
   'game.spent': s('Spent on new offers and belts: {amount}', 'the shift card: so the money adds up'),
   'game.buildHelp': s(
-    'Drag parts onto the belt. Drag across empty yard to lay belt. Click a machine twice to turn it. Drag one to the shelf to take it off.',
+    'Drag parts onto the belt. Drag across empty yard to lay belt. Click a machine to turn or move it. Drag one to the shelf to take it off.',
     'build',
   ),
   'game.buildHelpTouch': s(
-    'Tap a part, then tap where it goes. Swipe across the yard to lay belt, or from a machine to aim it. Hold and drag to move it.',
+    'Tap a part, then tap where it goes. Tap a machine to turn or move it. Swipe across the yard to lay belt.',
     'build, under a coarse pointer (0.10.1)',
   ),
   'game.undoPick': s('Undo pick', 'the Undo button right after a pick: the card goes back and the three come back'),
@@ -279,6 +280,8 @@ export const STRINGS = {
   'game.shiftSame': s('The same as last shift', 'the shift card'),
   'game.cheer': s('+{amount}', 'on the yard when a shift beats the last'),
   'game.cardHelps': s('Fits this line now', 'a card: a spot is known where it pays more right now'),
+  'game.cardLittle': s('Adds a little', 'a card: a spot is known, but it adds under a twentieth of what the line makes'),
+  'game.cardRoom': s('Gives your line room to grow', 'a card: a Dock when every side of the dock is taken'),
   'game.cardNoGain': s('No easy spot yet', 'a card: no simple spot pays more; rearranging may'),
   'game.kitHopper': s('Hopper + Crusher', 'a card: a Hopper comes with its Crusher'),
   'game.kitHopperBlurb': s('A whole new feed. Scrap in, shards out.', 'a card'),
@@ -408,6 +411,10 @@ export const STRINGS = {
   'bottleneck.starvedFix': s('A second hopper would keep it busy.', 'fix'),
   'bottleneck.starvedNoFix': s('More scrap coming in would keep it busy.', 'fix'),
   'bottleneck.balanced': s('Nothing held you back: every machine kept up with the {hoppers}. {fix}', 'summary'),
+  'bottleneck.docksFull': s(
+    'Every machine kept up with the {hoppers}, and every side of your dock is taken: a second Dock gives more somewhere to go.',
+    'summary: the line is balanced and nothing more can reach a dock',
+  ),
   'bottleneck.balancedFix': s('More scrap is the next step: add a hopper.', 'fix'),
   'bottleneck.balancedNoFix': s('More scrap is the next step.', 'fix'),
 
@@ -839,6 +846,15 @@ export const STRINGS = {
   'coach.pick': s('Pick ONE card. The other two go back on the truck.', 'the pick'),
   'coach.pickOrder': s('Pick ONE card. This shift the order is {amount}.', 'the pick, on a yard with orders'),
   'coach.pickNeed': s('Pick ONE card. This job needs the {name}.', 'the pick when the job machine is on offer'),
+  'coach.pickNone': s(
+    'No card here fits your line yet. New offers deals three more for {cost}.',
+    'the pick: no card on offer adds to the line; New offers is lit',
+  ),
+  'coach.noSpot': s(
+    'No easy spot for the {name} yet. To make room, pick a machine on the yard and press Move.',
+    'the build: no simple spot pays more; moving a machine may make one',
+  ),
+  'coach.showMe': s('Show me', 'the build: light where the card pays, when the spots are not lit'),
   'coach.placeFree': s(
     'Put the {name} where you think. The pay shows if it helps.',
     'the build: no spot found for this part, or the player went their own way',

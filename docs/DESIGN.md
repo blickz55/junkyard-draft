@@ -21,6 +21,16 @@ The owner asked for trial and error against a scorecard. Rules 5 scored 55 of 10
 
 **Paid for.** The rules are harder to state: "fill the order, your prices rise" is a second number beside the money, and the card and every screen had to learn it. `tests/guide.test.ts` and the job bar's order strip carry that. The old star marks in units are gone from job yards (`orders` absent keeps them for the lessons' own marks and the tests that name them).
 
+## Decision: the late game, help on request, and New offers stays (2026-11-02, no rules change)
+
+The fourth panel (four agents on rules 8) and a blind comparison (four more, rules 8 against rules 5) chose the new build, and named two things: the guided shifts read as filling in a form, and from shift 5 every card said "No easy spot yet". On the yard they played, every side of the Dock was taken, so nothing new could reach it.
+
+- **A plan can lay belts.** `cardGain` routes a new machine to a free side up to two belts away (`routeMap` in `render/estimate.ts`), and a Dock card with every dock side taken is offered a free spot as room to grow (`game.cardRoom`), which the shift's advice explains (`bottleneck.docksFull`). On 60 yards played the coach's way, some card fits in 97, 92, 88, 88, 93 and 83 % of shifts 1 to 6. A card that adds under a twentieth of the line says "Adds a little".
+- **The card on the same 40 held-out yards** (`docs/baselines/fun/card-rules8b.json`): **72, lowest 31**, against 72 and 29 before. Alive 97, Pick 31, Skill 33, Moving 66, Ways 90, Ladder 100, One more try 100, Climax 80, Yards 64, Forgiving 95; ruins −39, −21, −37, −16, −32, −0. "Every yard alike" still costs nothing on the card: it straightens the yards and clears the rubble, and each yard is still measured on its own.
+- **Help on request.** The lit spots are on for a device's first game and then wait for "Show me", which lights the card just picked; the job card still turns them on or off for good. Where no spot pays, the coach says that moving a machine can make one instead of "put it where you think".
+- **New offers stays.** It was to go, because two agents paid $40 for three more cards that did not fit either. Measured first (`node --import tsx tools/reroll-study.ts 60`, Sal's way on 60 tune yards): dealing again when no card fits happens 0.62 times a game, finds a better card 24 times in 37, and adds $275 a game on average (20 yards better, 4 worse, the worst −$140). Dealing again whenever the best card adds little adds $747 but loses on 20 yards, the worst by $2,404. So the coach suggests New offers only when no card fits, and Sal does the same; it is a real choice, and now the game says when it is worth making.
+- **Sal sells what he could not place,** as a player who wanted to beat him would. It is worth $0 to $50 a game.
+
 ## Decision: what the third panel changed (rules v8, 2026-11-02)
 
 Eight agents played rules 7 cold. Median fun 3, clear 4, six finished a game, two played another by choice, tomorrow: one yes, seven maybe, no one no. All eight were stuck at least once, and they were stuck at the same places (`docs/baselines/fun/panel-r3/`).
@@ -104,16 +114,16 @@ A seed's own yard: hopper, a generated belt with a Crusher and the job's machine
 
 ## Machines
 
-| Machine       | Input                 | Output                  | Behaviour                                                                                                                                                             |
-| ------------- | --------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Scrap Hopper  | none                  | forward                 | Emits one scrap every 2 ticks into the cell ahead if it accepts. Blocked ticks are reported.                                                                          |
-| Conveyor      | behind or either side | forward                 | Moves an item one cell per tick. Never accepts head-on.                                                                                                               |
-| Splitter      | behind only           | ahead, left, right      | Sends each item the next way round that is free; ways that lead nowhere are skipped.                                                                                  |
-| Crusher       | behind or either side | forward                 | Scrap → Shards. Holds 2 ticks. Other materials pass through unchanged.                                                                                                |
-| Furnace       | behind or either side | forward                 | Shards → Ingot. Raw scrap → Slag. Holds 3 ticks. Ingots pass through.                                                                                                 |
-| Plate Press   | behind or either side | forward                 | Stores shards; the 2nd shard becomes one Plate ($8) and holds 2 ticks. The stored shard is absorbed (no refund at round end). Other materials pass through (2 ticks). |
-| Tuner         | behind or either side | forward                 | Carries what a belt carries. Every Hopper, Crusher, Furnace or Press touching it works a second faster; two do not stack.                                             |
-| Shipping Dock | any side              | —                       | Consumes items instantly and pays their value.                                                                                                                        |
+| Machine       | Input                 | Output             | Behaviour                                                                                                                                                             |
+| ------------- | --------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scrap Hopper  | none                  | forward            | Emits one scrap every 2 ticks into the cell ahead if it accepts. Blocked ticks are reported.                                                                          |
+| Conveyor      | behind or either side | forward            | Moves an item one cell per tick. Never accepts head-on.                                                                                                               |
+| Splitter      | behind only           | ahead, left, right | Sends each item the next way round that is free; ways that lead nowhere are skipped.                                                                                  |
+| Crusher       | behind or either side | forward            | Scrap → Shards. Holds 2 ticks. Other materials pass through unchanged.                                                                                                |
+| Furnace       | behind or either side | forward            | Shards → Ingot. Raw scrap → Slag. Holds 3 ticks. Ingots pass through.                                                                                                 |
+| Plate Press   | behind or either side | forward            | Stores shards; the 2nd shard becomes one Plate ($8) and holds 2 ticks. The stored shard is absorbed (no refund at round end). Other materials pass through (2 ticks). |
+| Tuner         | behind or either side | forward            | Carries what a belt carries. Every Hopper, Crusher, Furnace or Press touching it works a second faster; two do not stack.                                             |
+| Shipping Dock | any side              | —                  | Consumes items instantly and pays their value.                                                                                                                        |
 
 Orientation is still the puzzle, with fewer ways to be wrong: nothing goes into a machine head-on, a Splitter only takes from behind, and everything else side-loads so lines can merge.
 

@@ -58,6 +58,7 @@ export function bottleneckLine(b: Bottleneck): string {
         fix: b.fixes.includes('hopper') ? t('bottleneck.starvedFix') : t('bottleneck.starvedNoFix'),
       });
     default:
+      if (b.docksFull) return t('bottleneck.docksFull', { hoppers: b.count === 1 ? t('common.hopperOne') : t('common.hopperMany') });
       return t('bottleneck.balanced', {
         hoppers: b.count === 1 ? t('common.hopperOne') : t('common.hopperMany'),
         fix: b.fixes.includes('hopper') ? t('bottleneck.balancedFix') : t('bottleneck.balancedNoFix'),

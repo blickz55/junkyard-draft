@@ -91,6 +91,39 @@ test('the lit spots can be turned off on the job card, and stay off: the coach s
   assert.equal(await page.locator('[data-spot^=cell]').count(), 0, 'no spot is lit');
   assert.match(await api('hint'), /where you think\. The pay shows if it helps\.$/);
   assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.settings.v1'))).lights, false);
+  // the spot is still one tap away
+  await page.getByTestId('show-spot').click();
+  await page.jd.when(() => !!document.querySelector('[data-spot^=cell]'));
+  assert.equal(await page.getByTestId('show-spot').isVisible(), false, 'lit, there is nothing more to ask for');
+  await page.ctx.close();
+});
+
+test('after a first game the spots wait to be asked for: "Show me" lights the card, and its lit spot takes a tap', { timeout: 60000 }, async () => {
+  const at0 = '2026-11-01T12:00:00.000Z';
+  const bests = {
+    byVersion: { 8: { overall: { score: 900, seed: 'daily-2026-11-01', at: at0 }, bySeed: { 'daily-2026-11-01': { score: 900, at: at0 } }, runs: 1 } },
+  };
+  const page = await f.page(undefined, { init: { fn: (b) => localStorage.setItem('jd.bests.v2', b), arg: JSON.stringify(bests) } });
+  const { api, draft, mode, settled, at, when } = page.jd;
+  await page.goto(f.gameUrl('scene=game&seed=sal-lit'));
+  await draft();
+  assert.equal(await page.getByTestId('job-lights').textContent(), 'Lit spots: off', 'the job card says how it stands');
+  await page.getByTestId('job-start').click();
+  await page.jd.noDialog('job-card');
+  const worth = await page.evaluate(() => [0, 1, 2].map((i) => document.querySelector(`[data-testid=offer-worth-${i}]`)?.textContent));
+  await page.getByTestId(`offer-${worth.indexOf('Fits this line now')}`).click();
+  await mode('build');
+  await settled();
+  assert.equal(await page.locator('[data-spot^=cell]').count(), 0, 'no spot is lit');
+  await page.getByTestId('show-spot').click();
+  await when(() => !!document.querySelector('[data-spot^=cell]'));
+  const spot = await page.evaluate(() => document.querySelector('[data-spot^=cell]')?.dataset.spot);
+  const [x, y] = spot.replace('cell:', '').split(',').map(Number);
+  const p = await at(cellCenter(x, y));
+  await page.mouse.click(p.x, p.y);
+  await when(([cx, cy]) => window.__jd.state().layout.machines.some((m) => m.x === cx && m.y === cy), [x, y]);
+  assert.ok((await api('state')).layout.machines.some((m) => m.x === x && m.y === y));
+  assert.deepEqual(page.errors, []);
   await page.ctx.close();
 });
 
@@ -179,6 +212,30 @@ test('a try picks up at the first order missed, and goes on no board', { timeout
   await page.getByTestId('try-from').click();
   await when((r) => window.__jd.scene() === 'Game' && window.__jd.state().round === r, n);
   assert.match(await page.getByTestId('hud-seed').textContent(), /a try from your game/);
+  assert.deepEqual(page.errors, []);
+  await page.ctx.close();
+});
+
+test('a refusal at either edge of a phone-size yard stays on the screen, its arrow over the cell', { timeout: 60000 }, async () => {
+  const page = await f.page({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const { api, draft, mode, settled } = page.jd;
+  await page.goto(f.gameUrl('scene=game&seed=sal-edge'));
+  await draft();
+  await page.getByTestId('job-start').click();
+  await page.jd.noDialog('job-card');
+  await api('pick', 0);
+  await mode('build');
+  await settled();
+  const s = await api('state');
+  const W = s.layout.width;
+  for (const x of [0, W - 1]) {
+    const y = [...Array(s.layout.height).keys()].find((r) => !s.layout.machines.some((m) => m.x === x && m.y === r) && !s.layout.rubble?.includes(r * W + x));
+    const belts = (await api('state')).bin.filter((m) => m.kind === 'conveyor');
+    assert.ok(await api('act', { t: 'place', id: belts[0].id, x, y, dir: 0 }), 'a belt goes in');
+    assert.equal(await api('act', { t: 'place', id: belts[1].id, x, y, dir: 0 }), false, 'a second on the same spot is refused');
+    const box = await page.getByTestId('toast').boundingBox();
+    assert.ok(box && box.x >= 0 && box.x + box.width <= 390, `the note at column ${x} is on the screen: ${JSON.stringify(box)}`);
+  }
   assert.deepEqual(page.errors, []);
   await page.ctx.close();
 });

@@ -8,6 +8,7 @@
 import { DIR_DX, DIR_DY } from '../sim/rules';
 import { runLayout } from '../sim/sim';
 import type { Dir, Layout, Machine, MachineKind } from '../sim/types';
+import { inputTravelDirs } from '../sim/advice';
 
 const ALL: readonly Dir[] = [0, 1, 2, 3];
 
@@ -23,6 +24,8 @@ export interface Gain {
   gain: number;
   /** the placements that earn it, in the order to make them; empty when nothing tried helps */
   plan: Placed[];
+  /** a Dock that adds nothing now but gives a line with no free side at its dock somewhere to go */
+  room?: boolean;
 }
 
 interface Try {
@@ -51,6 +54,56 @@ function worth(l: Layout, machines: Machine[]): number {
   return runLayout({ ...l, machines }).earned + room / 1000;
 }
 
+/**
+ * The way belts would run from each free cell into something that takes what they carry, shortest first: a reverse search from every
+ * machine's open input. A new feed somewhere free can then reach the line by belt instead of only by touching it (the fourth panel: by shift 5
+ * a line had used the room beside its dock and every card said there was no spot).
+ */
+function routeMap(l: Layout): { len: Int16Array; dir: Int8Array } {
+  const n = l.width * l.height;
+  const len = new Int16Array(n);
+  const dir = new Int8Array(n);
+  const free = (x: number, y: number) => !blocked(l, x, y) && !at(l, x, y);
+  const queue: number[] = [];
+  for (const m of l.machines) {
+    if (m.kind === 'hopper') continue;
+    for (const t of inputTravelDirs(m.kind, m.dir)) {
+      const x = m.x - DIR_DX[t],
+        y = m.y - DIR_DY[t];
+      if (!free(x, y) || len[y * l.width + x]) continue;
+      len[y * l.width + x] = 1;
+      dir[y * l.width + x] = t;
+      queue.push(y * l.width + x);
+    }
+  }
+  for (let q = 0; q < queue.length; q++) {
+    const c = queue[q];
+    const cx = c % l.width,
+      cy = Math.floor(c / l.width);
+    const d = dir[c] as Dir;
+    for (const t of [d, ((d + 1) % 4) as Dir, ((d + 3) % 4) as Dir]) {
+      const x = cx - DIR_DX[t],
+        y = cy - DIR_DY[t];
+      if (!free(x, y) || len[y * l.width + x]) continue;
+      len[y * l.width + x] = len[c] + 1;
+      dir[y * l.width + x] = t;
+      queue.push(y * l.width + x);
+    }
+  }
+  return { len, dir };
+}
+/** The belt pieces of the way from a free cell, as a route map has it. */
+function routeFrom(l: Layout, map: ReturnType<typeof routeMap>, x: number, y: number): Machine[] {
+  const out: Machine[] = [];
+  while (map.len[y * l.width + x]) {
+    const d = map.dir[y * l.width + x] as Dir;
+    out.push(part('conveyor', x, y, d, -10 - out.length));
+    x += DIR_DX[d];
+    y += DIR_DY[d];
+  }
+  return out;
+}
+
 /** The best a single part can do, on a free cell or in place of a belt piece. */
 function single(l: Layout, kind: MachineKind): Try {
   const faces = kind === 'dock' || kind === 'tuner' ? ALL.slice(0, 1) : ALL;
@@ -69,9 +122,10 @@ function single(l: Layout, kind: MachineKind): Try {
   return best;
 }
 
-/** A Hopper feeding a Crusher, the pair anywhere it fits, the Crusher's load going into whatever is ahead of it. */
-function feed(l: Layout): Try {
+/** A Hopper feeding a Crusher, the pair anywhere it fits, the Crusher's load going into whatever is ahead of it, or along belts to it. */
+function feed(l: Layout, belts: number): Try {
   let best = NOTHING;
+  const map = routeMap(l);
   for (let y = 0; y < l.height; y++)
     for (let x = 0; x < l.width; x++) {
       if (blocked(l, x, y) || at(l, x, y)) continue;
@@ -83,8 +137,12 @@ function feed(l: Layout): Try {
           if (blocked(l, hx, hy) || at(l, hx, hy)) continue;
           const hopper = part('hopper', hx, hy, ((side + 2) % 4) as Dir, -2);
           const crusher = part('crusher', x, y, dir);
-          const earned = worth(l, [...l.machines, crusher, hopper]);
-          if (earned > best.earned) best = { earned, plan: [hopper, crusher].map(({ kind, x, y, dir }) => ({ kind, x, y, dir })) };
+          const ax = x + DIR_DX[dir],
+            ay = y + DIR_DY[dir];
+          const route = !blocked(l, ax, ay) && !at(l, ax, ay) ? routeFrom(l, map, ax, ay) : [];
+          if (route.length > belts || route.some((r) => (r.x === hx && r.y === hy) || (r.x === x && r.y === y))) continue; // the way may not run through the pair
+          const earned = worth(l, [...l.machines, crusher, hopper, ...route]);
+          if (earned > best.earned) best = { earned, plan: [hopper, crusher, ...route].map(({ kind, x, y, dir }) => ({ kind, x, y, dir })) };
         }
     }
   return best;
@@ -148,6 +206,27 @@ function branch(l: Layout, kind: MachineKind, belts: number): Try {
   return best;
 }
 
+/**
+ * A second Dock where the yard has room, when every dock already has each side taken: it adds nothing this shift, and without it nothing
+ * more can reach a dock. The spot is free on three sides or more, and as near the line as it can be.
+ */
+function room(l: Layout): Placed | null {
+  const free = (x: number, y: number) => !blocked(l, x, y) && !at(l, x, y);
+  const docks = l.machines.filter((m) => m.kind === 'dock');
+  if (!docks.length || docks.some((d) => ALL.some((t) => free(d.x + DIR_DX[t], d.y + DIR_DY[t])))) return null;
+  let best: { p: Placed; score: number } | null = null;
+  for (let y = 0; y < l.height; y++)
+    for (let x = 0; x < l.width; x++) {
+      if (!free(x, y)) continue;
+      const open = ALL.filter((t) => free(x + DIR_DX[t], y + DIR_DY[t])).length;
+      if (open < 3) continue;
+      const near = Math.min(...l.machines.map((m) => Math.abs(m.x - x) + Math.abs(m.y - y)));
+      const score = open * 10 - near;
+      if (!best || score > best.score) best = { p: { kind: 'dock', x, y, dir: 0 }, score };
+    }
+  return best?.p ?? null;
+}
+
 /** What a card's parts add to this line, with `belts` on the shelf for what it needs. */
 export function cardGain(layout: Layout, parts: readonly MachineKind[], belts = 0): Gain {
   const base = runLayout(layout).earned;
@@ -157,7 +236,9 @@ export function cardGain(layout: Layout, parts: readonly MachineKind[], belts = 
     const s = single(layout, kind);
     return b.earned > s.earned ? b : s;
   };
-  const best = !kit ? single(layout, parts[0]) : parts[0] === 'hopper' ? feed(layout) : twin(parts[0]);
+  const best = !kit ? single(layout, parts[0]) : parts[0] === 'hopper' ? feed(layout, belts) : twin(parts[0]);
   const gain = Math.floor(best.earned) - base;
-  return gain > 0 ? { gain, plan: best.plan } : { gain: 0, plan: [] };
+  if (gain > 0) return { gain, plan: best.plan };
+  const spot = parts.length === 1 && parts[0] === 'dock' ? room(layout) : null;
+  return spot ? { gain: 0, plan: [spot], room: true } : { gain: 0, plan: [] };
 }

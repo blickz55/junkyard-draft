@@ -15,7 +15,7 @@ import { int, money } from '../content/format';
 import { jobFlavour, jobLine, jobRecipe, materialMany, starMarks } from '../content/job';
 import { machineShort } from '../content/machines';
 import { salLater } from '../render/sal';
-import { loadSettings, updateSettings } from '../render/storage';
+import { lightsOn, updateSettings } from '../render/storage';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** Stars as marks: the three targets side by side. */
@@ -49,7 +49,7 @@ export const recipeRow = (job: Job, built?: (kind: string) => boolean) =>
     }),
   );
 
-const lightsLabel = () => t(loadSettings().lights ? 'job.lightsOn' : 'job.lightsOff');
+const lightsLabel = () => t(lightsOn() ? 'job.lightsOn' : 'job.lightsOff');
 
 export function openJobCard(scene: Phaser.Scene, seed: string, job: Job, onStart: () => void) {
   const salMark = h('div', { class: 'jd-amber', tid: 'sal-mark' });
@@ -90,7 +90,7 @@ export function openJobCard(scene: Phaser.Scene, seed: string, job: Job, onStart
               tid: 'job-lights',
               keepOpen: true,
               run: (b?: HTMLButtonElement) => {
-                updateSettings({ lights: !loadSettings().lights });
+                updateSettings({ lights: !lightsOn() });
                 if (b) b.textContent = lightsLabel();
               },
             },

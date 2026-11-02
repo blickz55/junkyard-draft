@@ -318,13 +318,13 @@ export function litGame(seed: string, choose: 'any' | 'helps' | 'most', sample =
     if (s.phase === 'draft') {
       const belts = s.bin.filter((m) => m.kind === 'conveyor').length;
       const cards = s.offers.map((k, i) => ({ i, ...cardGain(s.layout, cardParts(k, s.job, seed), belts) }));
-      const helpers = cards.filter((c) => c.gain > 0);
+      const helpers = cards.filter((c) => c.gain > 0 || ('room' in c && c.room));
       const card =
         choose === 'any'
           ? cards[rng.int(cards.length)]
           : choose === 'helps'
             ? (helpers.length ? helpers : cards)[rng.int((helpers.length ? helpers : cards).length)]
-            : cards.slice().sort((a, b) => b.gain - a.gain)[0];
+            : cards.slice().sort((a, b) => (b.gain || ('room' in b && b.room ? 0.5 : 0)) - (a.gain || ('room' in a && a.room ? 0.5 : 0)))[0];
       act({ t: 'pick', i: card.i });
       for (const p of card.plan) {
         const part = s.bin.find((m) => m.kind === p.kind);

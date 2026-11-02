@@ -34,7 +34,7 @@ import { label } from '../ui';
 import { CSS, FONT } from '../palette';
 import { audio } from '../audio';
 import { LESSONS, lessonOf, shiftsOf } from '../../content/lessons';
-import { clearSave, loadLook, loadReadTips, loadSettings, recordLesson, recordStars, setOnboarded, updateSettings, writeSave } from '../storage';
+import { clearSave, lightsOn, loadLook, loadReadTips, loadSettings, recordLesson, recordStars, setOnboarded, updateSettings, writeSave } from '../storage';
 import { PLAIN, type Look } from '../../content/cosmetics';
 import { applyPaint } from '../paint';
 import { liftActions } from '../placement';
@@ -129,6 +129,8 @@ export class GameScene extends Phaser.Scene {
   /** A challenge being played (PLAN-v4 0.7.1); only when it names this very seed, so an overlay never appears on another seed. */
   private challenge: Challenge | null = null;
   private comeBack: { run: RunState; shown: ResultsShown } | null = null;
+  /** "Show me" was tapped: this card's spots are lit */
+  private reveal = false;
   /** the watched replay's identity, so a fork can name its origin (PLAN-v4 0.7.3) */
   private replayOrigin: ReplayOrigin | null = null;
   init(data: {
@@ -248,6 +250,10 @@ export class GameScene extends Phaser.Scene {
         redo: () => this.redo(),
         openTips: (id) => this.openTips(id ?? this.suggestedTip ?? undefined),
         rotateSelected: () => this.rotateSelected(),
+        showSpot: () => {
+          this.reveal = true; // until the next pick
+          this.updateHint();
+        },
         moveSelected: () => {
           this.inputCtl.holdSelected();
           this.updateHint();
@@ -540,6 +546,7 @@ export class GameScene extends Phaser.Scene {
       get lesson() {
         return scene.tutorial;
       },
+      lit: () => scene.reveal || lightsOn(),
       get run() {
         return scene.run;
       },
@@ -644,6 +651,7 @@ export class GameScene extends Phaser.Scene {
     if (this.run.phase !== 'draft' || (this.tutorial && i !== lessonPick(this.run))) return;
     if (this.act({ t: 'pick', i })) {
       audio.pick();
+      this.reveal = false;
       // the part the coach lights first, so the frame on the shelf and the words agree (the fourth panel: a kit's Crusher was in hand while the Hopper was lit)
       this.inputCtl.selectedId = (this.tutorial ? null : nextPlanned(this.run)?.part?.id) ?? this.run.bin[this.run.bin.length - 1]?.id ?? null;
       this.syncMachines();
@@ -734,7 +742,7 @@ export class GameScene extends Phaser.Scene {
       touch: coarsePointer(),
       selected: this.inputCtl?.selectedId,
       held: this.inputCtl?.heldId,
-      lights: loadSettings().lights,
+      lights: this.reveal || lightsOn(),
       watching: this.replayLabel,
       mode: this.mode,
       resumeNotice: this.ctl.resumeNotice,
@@ -744,7 +752,7 @@ export class GameScene extends Phaser.Scene {
       this.tele.tutorialStep(this.tutorialStep, g.step);
       this.tutorialStep = g.step;
     } // funnel: which lesson step is on screen
-    this.panel?.setHint(g.text, g.spots, g.about);
+    this.panel?.setHint(g.text, g.spots, g.about, g.showMe);
   }
   /** Current hint text (typed accessor for the dev API and tests instead of private-field access). */
   hintText(): string {

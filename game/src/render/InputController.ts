@@ -12,7 +12,7 @@
 import Phaser from 'phaser';
 import type { Action, RunState } from '../sim/run';
 import type { Machine, MachineKind } from '../sim/types';
-import { loadKeyMap, loadSettings } from './storage';
+import { loadKeyMap } from './storage';
 import { DIR_DX, DIR_DY, RULES } from '../sim/rules';
 import { dropActions, smartFacing, strokeActions } from './placement';
 import { nextPlanned, plannedFacing } from './guide';
@@ -53,6 +53,7 @@ export interface InputHost {
   /** a recording is being applied (no edits) */ readonly playback: boolean;
   /** a recording is being watched */ readonly watching: boolean;
   /** a lesson is on: it has one way through, so no stroke */ readonly lesson: boolean;
+  /** the coach's spots are lit: a tap on one puts the lit part in */ lit(): boolean;
   /** the cursor moved: say where, for a screen reader (0.12.4) */ announce(x: number, y: number, held: MachineKind | null): void;
   /** a keyboard asks for the buttons (0.12.4) */ focusControls(): void;
   readonly tipsOpen: boolean;
@@ -442,7 +443,7 @@ export class InputController {
     const selected = this.machineById(this.selectedId);
     const held = this.machineById(this.heldId) ?? (selected && selected.x < 0 ? selected : undefined); // a part selected on the shelf is in hand
     // the lit spot takes the lit part, whatever shelf part is in hand: the words name it, so that is what lands
-    const lit = (held && held.x >= 0) || hit?.inBin || this.host.lesson || !loadSettings().lights ? null : nextPlanned(this.run);
+    const lit = (held && held.x >= 0) || hit?.inBin || this.host.lesson || !this.host.lit() ? null : nextPlanned(this.run);
     if (lit?.part && cell && lit.step.x === cell.x && lit.step.y === cell.y) {
       this.heldId = null;
       if (this.dropAt(lit.part, cell.x, cell.y)) this.selectedId = lit.part.id;

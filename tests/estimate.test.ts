@@ -47,12 +47,18 @@ test("a card's plan, made with the game's own moves, earns exactly what the card
       const run = newRun(seed);
       const before = runLayout(run.layout).earned;
       const parts = cardParts(kind, run.job, seed);
-      const { gain, plan } = cardGain(run.layout, parts, run.bin.filter((m) => m.kind === 'conveyor').length);
+      const { gain, plan, room } = cardGain(run.layout, parts, run.bin.filter((m) => m.kind === 'conveyor').length);
       apply(run, { t: 'pick', i: at });
       const row = (kinds[parts.join('+')] ??= { lit: 0, all: 0 });
       row.all++;
       if (!gain) {
-        assert.deepEqual(plan, [], 'nothing to light when the card adds nothing');
+        if (room)
+          assert.deepEqual(
+            plan.map((q) => q.kind),
+            ['dock'],
+            'a Dock for room: one spot',
+          );
+        else assert.deepEqual(plan, [], 'nothing to light when the card adds nothing');
         continue;
       }
       row.lit++;
@@ -67,6 +73,23 @@ test("a card's plan, made with the game's own moves, earns exactly what the card
   console.log(JSON.stringify(kinds));
   for (const k of ['hopper+crusher', 'furnace+splitter'])
     assert.ok(kinds[k].lit >= kinds[k].all * 0.8, `${k}: says what it adds on ${kinds[k].lit} of ${kinds[k].all}`);
+});
+
+test('a Dock gives a full line room: with every side of the dock taken it is offered a free spot, and the advice says why', () => {
+  const s = line();
+  const dock = s.layout.machines.find((m) => m.kind === 'dock')!;
+  for (const [dx, dy] of [
+    [0, -1],
+    [0, 1],
+    [1, 0],
+  ] as const)
+    s.layout.machines.push({ id: 200 + dx * 3 + dy, kind: 'conveyor', x: dock.x + dx, y: dock.y + dy, dir: 0 });
+  const g = cardGain(s.layout, ['dock'], 4);
+  assert.equal(g.gain, 0);
+  assert.equal(g.room, true);
+  assert.equal(g.plan.length, 1);
+  const s2 = line();
+  assert.equal(cardGain(s2.layout, ['dock'], 4).room, undefined, 'a dock with a free side needs no other');
 });
 
 test('a branch needs its belts: with none on the shelf the card offers only what a single part can do', () => {

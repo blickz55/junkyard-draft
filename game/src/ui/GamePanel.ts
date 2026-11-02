@@ -49,9 +49,8 @@ import {
   starWords,
 } from '../content/job';
 import { yardLabel } from '../content/yard';
-import { cardGain } from '../render/estimate';
 import { salKnown, salLater } from '../render/sal';
-import { planUnderway } from '../render/guide';
+import { offerWorths, planUnderway } from '../render/guide';
 import { recipeRow } from './JobCard';
 import { reactionBar } from './ReactionBar';
 import { verifierUrl as resolveVerifierUrl } from '../render/config';
@@ -121,6 +120,8 @@ export interface PanelActions {
   /** a star mark was passed during a shift */ starReached(n: number): void;
   /** the selected machine goes in hand: the next tap on the yard is where it goes */
   moveSelected(): void;
+  /** light where this card pays: the coach's spots on request */
+  showSpot(): void;
   /** buy new offers (rules v3): the scene applies { t: 'reroll' } through the controller */
   reroll(): void;
   /** continue the watched recording from the shift just finished as a practice try (PLAN-v4 0.7.3) */
@@ -153,6 +154,7 @@ export class GamePanel {
   /** Sal's card: the one instruction, re-appended at the top of the panel on every render */
   private coachEl: HTMLElement;
   private hintEl: HTMLElement;
+  private showMeEl: HTMLButtonElement;
   private aboutEl: HTMLElement;
   private spots: Spot[] = [];
   /** the rings on the board for the lit spots */
@@ -190,6 +192,7 @@ export class GamePanel {
   private lastEarned = -1;
   private lastTick = -1;
   private legendEl: HTMLElement | null = null;
+  private legendKey = '';
   hintText = '';
   stallText = '';
   /** Sal's line for the shift banner (0.9.1) */
@@ -249,7 +252,10 @@ export class GamePanel {
     );
     this.side = h('div', { class: 'jd-side', tid: 'side' });
     this.hintEl = h('div', { class: 'jd-coach-text', tid: 'hint', role: 'status' }, '');
-    this.coachEl = h('div', { class: 'jd-coach', tid: 'coach' }, h('span', { class: 'jd-coach-face' }, t('foreman.name')), this.hintEl);
+    // outside the status line, so a screen reader hears the words once and finds the button as a button
+    this.showMeEl = btn(t('coach.showMe'), 'show-spot', () => this.actions.showSpot(), { small: true });
+    this.showMeEl.hidden = true;
+    this.coachEl = h('div', { class: 'jd-coach', tid: 'coach' }, h('span', { class: 'jd-coach-face' }, t('foreman.name')), this.hintEl, this.showMeEl);
     this.aboutEl = h('div', { class: 'jd-about', tid: 'lesson-about' });
     this.gridLayer = h('div', { class: 'jd-gridlayer' });
     this.spotLayer = h('div', { class: 'jd-spotlayer' });
@@ -433,9 +439,10 @@ export class GamePanel {
 
   // ---------- the coach ----------
   /** One instruction and what to touch; the spots light up where they are. */
-  setHint(text: string, spots: Spot[] = [], about: { kind: MachineKind; text: string }[] = []) {
+  setHint(text: string, spots: Spot[] = [], about: { kind: MachineKind; text: string }[] = [], showMe = false) {
     this.hintText = text;
     this.hintEl.textContent = text;
+    this.showMeEl.hidden = !showMe;
     this.spots = spots;
     this.applySpots();
     const key = JSON.stringify(about);
@@ -468,6 +475,7 @@ export class GamePanel {
       else if (s.kind === 'next') this.mark('next');
       else if (s.kind === 'buy') this.mark('buy-belt');
       else if (s.kind === 'sell') this.mark('sell');
+      else if (s.kind === 'offers') this.mark('reroll');
       else if (s.kind === 'cell') {
         ring(s.x * CELL, s.y * CELL, `cell:${s.x},${s.y}`, s.soft);
       } else {
@@ -496,6 +504,15 @@ export class GamePanel {
     el.dataset.kind = toast.kind;
     el.style.cssText = `display:block; left:calc(var(--bx, 0px) + ${em(cx)}); top:calc(var(--by, 0px) + ${em(cy)}); transform:translate(-50%, ${below ? '0' : '-100%'})`;
     el.textContent = toast.text;
+    // on the screen whatever the cell: on a phone a note centred near the yard's edge ran off it (the fourth panel), so it slides in
+    // and its arrow stays over the cell
+    const r = el.getBoundingClientRect();
+    const right = document.documentElement.clientWidth - 6;
+    const shift = Math.round(Math.max(6 - r.left, Math.min(0, right - r.right)));
+    if (shift) {
+      el.style.marginLeft = `${shift}px`;
+      el.style.setProperty('--arrow', `${-shift}px`);
+    }
   }
   /** The inspector's card, anchored at a spot (board-logical px of its top-left); null closes it. */
   showInspector(card: HTMLElement | null, at?: { x: number; y: number }) {
@@ -524,7 +541,9 @@ export class GamePanel {
     }
     if (this.earned && earned !== this.lastEarned) {
       this.lastEarned = earned;
-      this.earned.textContent = t('game.earned', { amount: money(earned) });
+      const before = this.lastState?.run.score ?? 0; // with nothing yet this shift, the game's money is still there: say so
+      this.earned.textContent =
+        before > 0 ? t('game.earnedOf', { amount: money(earned), total: money(before + earned) }) : t('game.earned', { amount: money(earned) });
     }
   }
 
@@ -779,7 +798,7 @@ export class GamePanel {
           h('div', { class: 'jd-offer-name' }, cardName(kind, r)),
           need === kind ? h('div', { class: 'jd-offer-badge', tid: `offer-need-${i}` }, t('job.needed')) : null,
           h('div', { class: 'jd-dim jd-offer-blurb' }, cardBlurb(kind, r)),
-          s.lesson ? null : this.cardWorth(kind, r, i),
+          s.lesson ? null : this.cardWorth(r, i),
         ),
       );
       this.side.append(card);
@@ -828,12 +847,12 @@ export class GamePanel {
   }
   /** Whether the card adds to this line right now, on its own, in its best spot. How much stays the player's to judge: the exact figure made
    * the pick a matter of reading the biggest number, and a player who only did that came within 4 % of the search's best game. */
-  private cardWorth(kind: MachineKind, r: RunState, i: number): HTMLElement {
-    const { gain } = cardGain(r.layout, cardParts(kind, r.job, r.seed), r.bin.filter((m) => m.kind === 'conveyor').length);
+  private cardWorth(r: RunState, i: number): HTMLElement {
+    const { gain, room, little } = offerWorths(r)[i];
     return h(
       'div',
-      { class: gain > 0 ? 'jd-green jd-offer-worth' : 'jd-dim jd-offer-worth', tid: `offer-worth-${i}` },
-      t(gain > 0 ? 'game.cardHelps' : 'game.cardNoGain'),
+      { class: (gain > 0 && !little) || room ? 'jd-green jd-offer-worth' : 'jd-dim jd-offer-worth', tid: `offer-worth-${i}` },
+      t(little ? 'game.cardLittle' : gain > 0 ? 'game.cardHelps' : room ? 'game.cardRoom' : 'game.cardNoGain'),
     );
   }
   /** Keep a card: the other two slide away, so "the other two go back on the truck" is something you see. The pick itself is immediate. */
@@ -1003,7 +1022,11 @@ export class GamePanel {
 
   /** What things sell for: built once and re-appended (it never changes on one yard); closed until asked. */
   private legend(): HTMLElement {
-    if (this.legendEl) return this.legendEl;
+    // the prices as they stand now: each order filled raises them, and a list stuck at the first shift's did not add up (the fourth panel)
+    const now = this.lastState?.run.layout;
+    const key = `${now?.rate ?? 100}:${now?.premium ?? ''}:${now?.premium2 ?? ''}`;
+    if (this.legendEl && this.legendKey === key) return this.legendEl;
+    this.legendKey = key;
     const mats: Material[] = ['scrap', 'shards', 'plate', 'ingot', 'slag'];
     const notes: Record<Material, string> = {
       scrap: t('game.valueScrap'),
@@ -1012,7 +1035,7 @@ export class GamePanel {
       ingot: t('game.valueIngot'),
       slag: t('game.valueSlag'),
     };
-    const premium = this.lastState?.run.layout ?? { premium: undefined };
+    const premium = now ?? { premium: undefined };
     const details = h(
       'details',
       { class: 'jd-legend' },
@@ -1335,7 +1358,7 @@ export const GAME_STYLE = `
 #ui .jd-advice .jd-btn { flex: 0 0 auto; }
 #ui .jd-toast { position: absolute; max-width: min(92%, 22em); background: rgba(30, 26, 21, 0.98); border: 1px solid #3f382d; border-left: 3px solid #eb6757; padding: 0.45em 0.7em; font-size: 0.8125em; line-height: 1.3; border-radius: 0.4em; box-shadow: 0 2px 10px rgba(0,0,0,0.5); pointer-events: none; z-index: 3; }
 #ui .jd-toast-warning { border-left-color: #f0a830; }
-#ui .jd-toast::after { content: ''; position: absolute; left: 50%; bottom: -${em(7)}; margin-left: -${em(6)}; border: ${em(6)} solid transparent; border-top-color: #3f382d; border-bottom: 0; }
+#ui .jd-toast::after { content: ''; position: absolute; left: calc(50% + var(--arrow, 0px)); bottom: -${em(7)}; margin-left: -${em(6)}; border: ${em(6)} solid transparent; border-top-color: #3f382d; border-bottom: 0; }
 #ui .jd-toast-below::after { bottom: auto; top: -${em(7)}; border-top: 0; border-bottom: ${em(6)} solid #3f382d; }
 #ui .jd-board > .jd-inspect { position: absolute; width: 20em; max-width: 100%; z-index: 4; pointer-events: auto; background: rgba(30, 26, 21, 0.98); border: 1px solid #5f574a; border-radius: 0.6em; box-shadow: 0 6px 18px rgba(0,0,0,0.55); padding: 0.6em 0.7em; font-size: 0.8125em; }
 #ui .jd-inspect-body { display: flex; flex-direction: column; gap: 0.3em; }
