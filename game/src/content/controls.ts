@@ -7,7 +7,7 @@
 import { t, type StringKey } from './strings';
 
 export type ControlId =
-  'pick' | 'hold' | 'place' | 'move' | 'select' | 'rotate' | 'toShelf' | 'undo' | 'redo' | 'start' | 'pause' | 'step' | 'next' | 'mute' | 'panel';
+  'pick' | 'hold' | 'place' | 'stroke' | 'move' | 'select' | 'rotate' | 'toShelf' | 'undo' | 'redo' | 'start' | 'pause' | 'step' | 'next' | 'mute' | 'panel';
 
 /** a Phaser key name (`keydown-<key>`) with the modifiers it needs; a binding without modifiers ignores a chord */
 export interface KeyBinding {
@@ -26,6 +26,7 @@ export const CONTROLS: readonly Control[] = [
   { id: 'pick', keys: [{ key: 'ONE' }, { key: 'TWO' }, { key: 'THREE' }], placement: false },
   { id: 'hold', keys: [{ key: 'TAB' }], placement: true },
   { id: 'place', keys: [{ key: 'UP' }, { key: 'DOWN' }, { key: 'LEFT' }, { key: 'RIGHT' }, { key: 'ENTER' }], placement: true },
+  { id: 'stroke', keys: [], placement: true },
   { id: 'move', keys: [], placement: true },
   { id: 'select', keys: [], placement: false },
   { id: 'rotate', keys: [{ key: 'R' }], placement: true },

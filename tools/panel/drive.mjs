@@ -2,7 +2,7 @@
  * Hands for an agent playing the game as a stranger: one real browser per session, kept open between commands. The agent looks at
  * screenshots and taps what it sees; nothing here reads the game's state, so it knows only what a person holding the phone knows.
  *   node tools/panel/drive.mjs <session> start --url http://127.0.0.1:4700/ [--device phone|desk]
- *   node tools/panel/drive.mjs <session> look | tap X Y | hold X Y | drag X1 Y1 X2 Y2 | type "words" | key Enter | scroll DY | wait SECONDS | stop
+ *   node tools/panel/drive.mjs <session> look | tap X Y | hold X Y | drag X1 Y1 X2 Y2 | swipe X1 Y1 X2 Y2 | type "words" | key Enter | scroll DY | wait SECONDS | stop
  * `look` prints the screenshot's path and the buttons on screen. Coordinates are the ones on the screenshot's rulers.
  */
 import { spawn } from 'node:child_process';
@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const [name, cmd, ...rest] = process.argv.slice(2);
 if (!name || !cmd) {
-  console.error('usage: node tools/panel/drive.mjs <session> start|look|tap|hold|drag|type|key|scroll|wait|stop ...');
+  console.error('usage: node tools/panel/drive.mjs <session> start|look|tap|hold|drag|swipe|type|key|scroll|wait|stop ...');
   process.exit(2);
 }
 const dir = path.join(ROOT, 'tools', 'scratch', 'panel', name);
@@ -123,6 +123,17 @@ async function daemon(url, device) {
       for (let i = 1; i <= 8; i++) await touch('touchMove', [{ x: a + ((c - a) * i) / 8, y: b + ((d - b) * i) / 8 }]);
       await touch('touchEnd', []);
       return 'dragged';
+    },
+    swipe: async (x1, y1, x2, y2) => {
+      const [a, b, c, d] = [x1, y1, x2, y2].map(Number);
+      if (device === 'desk') return run.drag(x1, y1, x2, y2);
+      await touch('touchStart', [{ x: a, y: b }]);
+      for (let i = 1; i <= 10; i++) {
+        await touch('touchMove', [{ x: a + ((c - a) * i) / 10, y: b + ((d - b) * i) / 10 }]);
+        await pause(12);
+      }
+      await touch('touchEnd', []);
+      return 'swiped';
     },
     type: async (...words) => {
       await page.keyboard.type(words.join(' '));

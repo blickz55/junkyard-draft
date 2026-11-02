@@ -14,7 +14,8 @@ import type { Action, RunState } from '../sim/run';
 import type { Machine, MachineKind } from '../sim/types';
 import { loadKeyMap } from './storage';
 import { DIR_DX, DIR_DY, RULES } from '../sim/rules';
-import { dropActions, smartFacing } from './placement';
+import { dropActions, smartFacing, strokeActions } from './placement';
+import { money } from '../content/format';
 import { inputTravelDirs, outputDirs } from '../sim/advice';
 import { explainRunError, placementWarning } from '../content/advice';
 import type { Mode } from './RoundController';
@@ -50,6 +51,7 @@ export interface InputHost {
   readonly run: RunState;
   /** a recording is being applied (no edits) */ readonly playback: boolean;
   /** a recording is being watched */ readonly watching: boolean;
+  /** a lesson is on: it has one way through, so no stroke */ readonly lesson: boolean;
   /** the cursor moved: say where, for a screen reader (0.12.4) */ announce(x: number, y: number, held: MachineKind | null): void;
   /** a keyboard asks for the buttons (0.12.4) */ focusControls(): void;
   readonly tipsOpen: boolean;
@@ -87,6 +89,9 @@ export class InputController {
   toast: Toast | null = null;
   /** pointers that took part in a two-finger rotate: their release is not a tap (0.10.1) */
   private readonly multi = new Set<number>();
+  /** the cells a finger or the mouse has crossed: laying a belt */
+  private stroke: { x: number; y: number }[] | null = null;
+  private strokeGfx!: Phaser.GameObjects.Graphics;
   private hover!: Phaser.GameObjects.Image;
   private ghostGfx!: Phaser.GameObjects.Graphics;
   private selection!: Phaser.GameObjects.Image;
@@ -105,6 +110,7 @@ export class InputController {
       .setVisible(false)
       .setDepth(5);
     this.ghostGfx = s.add.graphics().setDepth(6);
+    this.strokeGfx = s.add.graphics().setDepth(7);
     this.selection = fit(s.add.image(0, 0, 'tile-sel'))
       .setOrigin(0)
       .setVisible(false)
@@ -139,7 +145,16 @@ export class InputController {
     const toCell = (p: Phaser.Input.Pointer) => this.toCell(p);
     const input = this.scene.input;
     input.addPointer(1); // a second finger (the two-finger rotate, 0.10.1)
+    // A finger drags after a long press, a mouse at once. Set from the DOM event, ahead of Phaser: it decides on a drag as the finger lands,
+    // and from its own pointerdown the first tap of every game would count as a drag, select what is under it and then turn it.
+    const canvas = this.scene.game.canvas;
+    const pace = (e: PointerEvent) => {
+      input.dragTimeThreshold = e.pointerType === 'mouse' ? 0 : LONG_PRESS_MS;
+    };
+    canvas.addEventListener('pointerdown', pace, true);
+    this.scene.events.once('shutdown', () => canvas.removeEventListener('pointerdown', pace, true));
     input.on('dragstart', (p: Phaser.Input.Pointer, obj: Phaser.GameObjects.Image) => {
+      this.endStroke();
       if (this.mode !== 'build' || this.host.playback) return;
       const v = obj.getData('view') as MachineView;
       if (!v) return;
@@ -217,17 +232,20 @@ export class InputController {
     // taps and fingers (0.10.1)
     input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       audio.unlock(); // the first tap on the yard unlocks sound (DOM buttons do the same in ui/dom.ts)
-      input.dragTimeThreshold = p.wasTouch ? LONG_PRESS_MS : 0; // a finger drags after a long press; a mouse at once
+      this.beginStroke(p);
       if (!p.wasTouch) return;
       const fingers = input.manager.pointers.filter((q) => q.isDown && q.wasTouch);
       if (fingers.length >= 2) {
+        this.endStroke();
         for (const q of fingers) this.multi.add(q.id);
         if (this.dragging) this.cancelDrag();
         this.rotateSelected();
       }
     });
+    input.on('pointermove', (p: Phaser.Input.Pointer) => this.extendStroke(p));
     input.on('pointerup', (p: Phaser.Input.Pointer) => {
       if (this.multi.delete(p.id)) return;
+      if (this.commitStroke()) return;
       if (!p.wasTouch && p.button !== 0) return; // right and middle buttons have their own meaning
       if (p.getDistance() > TAP_SLOP_PX * DPR) return; // it moved: a drag, handled above
       this.tap(p);
@@ -258,6 +276,7 @@ export class InputController {
         if (key === 'ENTER') this.keyEnter();
         else this.moveCursor(key === 'LEFT' ? -1 : key === 'RIGHT' ? 1 : 0, key === 'UP' ? -1 : key === 'DOWN' ? 1 : 0);
       },
+      stroke: () => {}, // pointer gestures only
       move: () => {}, // pointer gestures only; the keyboard moves through place
       select: () => {},
       rotate: (_key, e) => {
@@ -457,6 +476,80 @@ export class InputController {
     this.toast = null;
     this.host.setToast(null);
   }
+  // ---------- laying a belt with one stroke ----------
+  /** A stroke starts on the yard while building. With a mouse, not on a machine: dragging one moves it. With a part other than a belt in hand, the tap places it. */
+  private beginStroke(p: Phaser.Input.Pointer) {
+    this.endStroke();
+    const cell = this.toCell(p);
+    if (!cell || this.host.lesson || this.mode !== 'build' || this.run.phase !== 'build' || this.host.playback) return;
+    const selected = this.machineById(this.selectedId);
+    const held = this.machineById(this.heldId) ?? (selected && selected.x < 0 ? selected : undefined);
+    if (held && held.kind !== 'conveyor') return;
+    if (!p.wasTouch && this.occupantAt(cell.x, cell.y)) return;
+    this.stroke = [cell];
+  }
+  private extendStroke(p: Phaser.Input.Pointer) {
+    const path = this.stroke;
+    if (!path || !p.isDown) return;
+    const to = this.toCell(p);
+    if (!to) return;
+    let last = path[path.length - 1];
+    while (last.x !== to.x || last.y !== to.y) {
+      const dx = to.x - last.x,
+        dy = to.y - last.y;
+      const next = Math.abs(dx) >= Math.abs(dy) ? { x: last.x + Math.sign(dx), y: last.y } : { x: last.x, y: last.y + Math.sign(dy) };
+      const back = path[path.length - 2];
+      if (back && back.x === next.x && back.y === next.y)
+        path.pop(); // going back along the stroke takes it back
+      else if (!path.some((c) => c.x === next.x && c.y === next.y)) path.push(next);
+      else break;
+      last = path[path.length - 1];
+    }
+    this.drawStroke();
+  }
+  private drawStroke() {
+    const g = this.strokeGfx;
+    g.clear();
+    const path = this.stroke;
+    if (!path || path.length < 2) return;
+    const centre = (c: { x: number; y: number }) => {
+      const { px, py } = this.host.cellXY(c.x, c.y);
+      return { x: px + CELL / 2, y: py + CELL / 2 };
+    };
+    g.lineStyle(10, 0xf5c542, 0.75);
+    g.beginPath();
+    const first = centre(path[0]);
+    g.moveTo(first.x, first.y);
+    for (const c of path.slice(1)) {
+      const q = centre(c);
+      g.lineTo(q.x, q.y);
+    }
+    g.strokePath();
+  }
+  private endStroke() {
+    this.stroke = null;
+    this.strokeGfx?.clear();
+  }
+  /** The finger came up: lay what the stroke drew. True when there was a stroke, so that this was no tap. */
+  private commitStroke(): boolean {
+    const path = this.stroke;
+    this.endStroke();
+    if (!path || path.length < 2 || this.mode !== 'build' || this.run.phase !== 'build') return false;
+    const s = strokeActions(this.run, path);
+    if (s.actions.length && this.host.actAll(s.actions)) {
+      audio.place();
+      this.selectedId = null;
+      this.heldId = null;
+      const at = path[path.length - 1];
+      if (s.short) this.showReject(t('game.strokeShort', { cost: money(RULES.beltCost) }), at);
+      else if (s.bought)
+        this.showToast({ text: t('game.strokeBought', { n: s.bought, amount: money(s.bought * RULES.beltCost) }), kind: 'warning', x: at.x, y: at.y });
+      this.host.renderSide();
+    } else if (s.short) this.showReject(t('game.strokeShort', { cost: money(RULES.beltCost) }), path[0]);
+    this.host.syncMachines();
+    return true;
+  }
+
   /** Ghost of the machine in hand at a cell: input (blue) and output (amber) arrows on the cell edges, plus a warning toast if it would not work as drawn. */
   showGhost(m: Machine, cx: number, cy: number, quiet = false) {
     const g = this.ghostGfx;

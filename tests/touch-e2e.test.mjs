@@ -115,6 +115,20 @@ test(
   },
 );
 
+test('the first tap of a game puts the part in hand on the belt: it does not count as a drag and turn the belt', { timeout: 30000 }, async () => {
+  const fresh = await f.page({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  await fresh.goto(f.gameUrl('scene=game&seed=classic-first-tap'));
+  await fresh.jd.draft();
+  await fresh.getByTestId('offer-0').tap();
+  await fresh.jd.mode('build');
+  await fresh.jd.settled();
+  const kind = (await fresh.jd.api('state')).bin.at(-1).kind;
+  const q = await fresh.jd.at(cellCenter(3, 2));
+  await fresh.touchscreen.tap(q.x, q.y);
+  await fresh.jd.when((k) => window.__jd.state().layout.machines.some((m) => m.kind === k && m.x === 3 && m.y === 2), kind, 5000);
+  await fresh.ctx.close();
+});
+
 test('rounds two to six by touch, then the results', { timeout: 120000 }, async () => {
   for (let r = 2; r <= 6; r++) {
     await draft();

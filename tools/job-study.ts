@@ -27,7 +27,7 @@ const TRIES = Number(opt('tries', '120'));
 const JSON_OUT = opt('json', '');
 
 /** The plain recipe: each shift take the recipe's next part, drop it on the first straight conveyors of the belt, in order; `delay` shifts wasted first. */
-export function plainLine(seed: string, delay = 0): { shipped: number; score: number } {
+export function plainLine(seed: string, delay = 0): { shipped: number; score: number; rounds: number[] } {
   const s: RunState = newRun(seed);
   const job = s.job!;
   const recipe = ['crusher', JOB_MACHINE[job.material]];
@@ -57,7 +57,7 @@ export function plainLine(seed: string, delay = 0): { shipped: number; score: nu
     apply(s, { t: 'run' });
     apply(s, { t: 'next' });
   }
-  return { shipped: s.rounds.reduce((n, r) => n + r.result.shipped[job.material], 0), score: s.score };
+  return { shipped: s.rounds.reduce((n, r) => n + r.result.shipped[job.material], 0), score: s.score, rounds: s.rounds.map((r) => r.earned) };
 }
 
 const isMain = process.argv[1] && /job-study\.(ts|mjs|js)$/.test(process.argv[1]);

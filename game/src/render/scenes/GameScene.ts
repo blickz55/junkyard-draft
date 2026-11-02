@@ -36,6 +36,7 @@ import { LESSONS, lessonOf, shiftsOf } from '../../content/lessons';
 import { clearSave, loadLook, loadReadTips, loadSettings, recordLesson, recordStars, setOnboarded, updateSettings, writeSave } from '../storage';
 import { PLAIN, type Look } from '../../content/cosmetics';
 import { applyPaint } from '../paint';
+import { liftActions } from '../placement';
 import { h, ui } from '../../ui/dom';
 import { choiceDialog } from '../../ui/choice';
 import { openFeedback } from '../../ui/panels';
@@ -242,7 +243,8 @@ export class GameScene extends Phaser.Scene {
         openTips: (id) => this.openTips(id ?? this.suggestedTip ?? undefined),
         rotateSelected: () => this.rotateSelected(),
         toBin: (id) => {
-          if (this.act({ t: 'unplace', id })) this.inputCtl.selectedId = null;
+          const m = this.run.layout.machines.find((q) => q.id === id);
+          if (m && this.actAll(liftActions(this.run, m))) this.inputCtl.selectedId = null;
           this.syncMachines();
           this.renderSide();
         },
@@ -524,6 +526,9 @@ export class GameScene extends Phaser.Scene {
       get mode() {
         return scene.mode;
       },
+      get lesson() {
+        return scene.tutorial;
+      },
       get run() {
         return scene.run;
       },
@@ -795,6 +800,7 @@ export class GameScene extends Phaser.Scene {
     {
       const prev = this.run.rounds.length >= 2 ? this.run.rounds[this.run.rounds.length - 2].earned : -1;
       this.panel.bannerForeman = this.replayLabel ? '' : foremanSays(rec.earned > prev ? 'roundGood' : 'roundFlat');
+      if (prev >= 0 && rec.earned > prev && !this.replayLabel) this.panel.cheer(rec.earned - prev);
     } // 0.9.1
     if (import.meta.env.DEV && rec.earned !== visual) console.error(`DETERMINISM MISMATCH: visual ${visual} vs authoritative ${rec.earned}`);
     this.view.teardownRound();

@@ -21,7 +21,8 @@ Then, as many times as you like:
 | `look` | Takes a picture of the screen and lists the buttons on it, with their coordinates. Open the picture with the Read tool. |
 | `tap X Y` | Taps there. On a computer, clicks. |
 | `hold X Y` | Long press. On a computer, right click. |
-| `drag X1 Y1 X2 Y2` | Presses, slides, lets go. |
+| `drag X1 Y1 X2 Y2` | Rests a finger, then slides and lets go. |
+| `swipe X1 Y1 X2 Y2` | A quick slide of the finger. |
 | `type some words` | Types into the box in focus. |
 | `key Enter` | Presses a key. |
 | `scroll 300` | Scrolls down that many pixels (negative for up). |

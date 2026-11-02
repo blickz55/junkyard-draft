@@ -6,7 +6,7 @@
  * second try at a day's yard. Nothing here is player-facing and nothing under game/src may import it.
  */
 import { DIR_DX, DIR_DY, RULES } from '../game/src/sim/rules';
-import { draftOffers, newRun } from '../game/src/sim/run';
+import { draftOffers, newRun, shiftTerms } from '../game/src/sim/run';
 import { analyseRound } from '../game/src/sim/bottleneck';
 import { createSim, step } from '../game/src/sim/sim';
 import { Rng } from '../game/src/sim/rng';
@@ -32,6 +32,9 @@ export function evaluate(l: Layout): Earned {
 const blockedCell = (l: Layout, x: number, y: number) => !!l.rubble?.includes(y * l.width + x);
 const takenCell = (l: Layout, x: number, y: number) => l.machines.some((m) => m.x === x && m.y === y);
 const copy = (l: Layout): Layout => ({ ...l, machines: l.machines.map((m) => ({ ...m })) });
+
+/** A feed in the order its goods pass through it. */
+const FEED_ORDER: readonly MachineKind[] = ['hopper', 'crusher', 'furnace', 'press'];
 
 /** A layout's worth to the search: what it earns, less the belts it needs beyond those the player holds, spread over the shifts they serve. */
 export interface Plan {
@@ -158,7 +161,27 @@ export function solve(
       c.machines.splice(c.machines.indexOf(under), 1);
       c.machines.push({ id: nextPart++, kind: pool[i], x: under.x, y: under.y, dir: under.dir });
       nextPool = pool.filter((_, k) => k !== i);
-    } else if (roll < 0.66) {
+    } else if (roll < 0.63) {
+      // a whole new feed from what is on the shelf, walked backwards from something that takes its goods
+      const chain = pool.filter((k) => FEED_ORDER.includes(k)).sort((a, b) => FEED_ORDER.indexOf(b) - FEED_ORDER.indexOf(a));
+      if (chain.length < 2) continue;
+      const ends = c.machines.filter((m) => m.kind === 'dock' || m.kind === 'conveyor');
+      let at = ends[rng.int(ends.length)];
+      let laid = 0;
+      for (const kind of chain) {
+        const d = rng.int(4) as Dir;
+        const x = at.x + DIR_DX[d],
+          y = at.y + DIR_DY[d];
+        if (!open(c, x, y)) break;
+        const m: Machine = { id: nextPart++, kind, x, y, dir: ((d + 2) % 4) as Dir };
+        c.machines.push(m);
+        at = m;
+        laid++;
+      }
+      if (!laid) continue;
+      nextPool = pool.slice();
+      for (const kind of chain.slice(0, laid)) nextPool.splice(nextPool.indexOf(kind), 1);
+    } else if (roll < 0.67) {
       // a machine one step back along its belt, which frees the cell ahead of it
       const bx = pick.x - DIR_DX[pick.dir],
         by = pick.y - DIR_DY[pick.dir];
@@ -228,12 +251,16 @@ export interface YardTree {
   /** the worst single pick's cost: the best game after taking the worst card at each shift, as a share of the best */
   forgiving: number;
   nodes: number;
+  /** every path, best first, when asked for */
+  paths?: PathResult[];
 }
 
 const setKey = (parts: readonly MachineKind[]) => parts.slice().sort().join('+');
+const POLISH_PATHS = 12;
+const POLISH_FACTOR = 6;
 
 /** Search every set of parts on a yard and add up every path through its offers. `budget` is the annealing steps per set. */
-export function yardTree(seed: string, budget: number): YardTree {
+export function yardTree(seed: string, budget: number, keepPaths = false): YardTree {
   const run = newRun(seed);
   const rounds = RULES.rounds;
   const offers: MachineKind[][] = [];
@@ -249,7 +276,7 @@ export function yardTree(seed: string, budget: number): YardTree {
     if (known) return known;
     const price = RULES.beltCost / Math.max(1, rounds - held.length + 1);
     const p = solve(
-      parent ? parent.layout : run.layout,
+      { ...(parent ? parent.layout : run.layout), ...shiftTerms(seed, Math.max(1, held.length), run.job) },
       [...(parent?.spare ?? []), ...(added ? [added] : [])],
       free,
       price,
@@ -283,7 +310,32 @@ export function yardTree(seed: string, budget: number): YardTree {
 
   const beltsUsed = (w: Walk) => Math.max(0, ...w.plans.map((p) => p.belts - free));
   const scoreOf = (w: Walk) => w.plans.reduce((n, p) => n + p.earned, 0) - beltsUsed(w) * RULES.beltCost;
-  const scored = paths.map((w) => ({ w, score: scoreOf(w) })).sort((a, b) => b.score - a.score);
+  const rank = () => paths.map((w) => ({ w, score: scoreOf(w) })).sort((a, b) => b.score - a.score);
+  // the sets the best paths run through get a much longer search: wide lines are found there or not at all
+  const polished = new Set<Plan>();
+  for (const pass of [0, 1]) {
+    for (const { w } of rank().slice(0, POLISH_PATHS)) {
+      for (let level = 2; level < rounds; level++) {
+        const p = w.plans[level];
+        if (polished.has(p)) continue;
+        polished.add(p);
+        const price = RULES.beltCost / Math.max(1, rounds - level);
+        const better = solve(
+          p.layout,
+          p.spare,
+          free,
+          price,
+          budget * POLISH_FACTOR,
+          new Rng(`${seed}:fun:polish:${pass}:${level}:${setKey(w.picks.slice(0, level + 1))}`),
+          anchors,
+          run.job,
+        );
+        if (better.value > p.value) Object.assign(p, better);
+      }
+    }
+    polished.clear();
+  }
+  const scored = rank();
   const top = scored[0];
   const result = (w: Walk, score: number): PathResult => {
     const units = w.plans.map(unitsOf);
@@ -314,7 +366,8 @@ export function yardTree(seed: string, budget: number): YardTree {
 
   const cut = top.score * 0.95;
   const nearBestSets = [...new Set(scored.filter((s) => s.score >= cut).map((s) => setKey(s.w.picks)))];
-  return { seed, job: run.job, offers, best, scores: scored.map((s) => s.score), nearBestSets, choices, limits, forgiving, nodes: memo.size };
+  const all = keepPaths ? scored.map((s) => result(s.w, s.score)) : undefined;
+  return { seed, job: run.job, offers, best, scores: scored.map((s) => s.score), nearBestSets, choices, limits, forgiving, nodes: memo.size, paths: all };
 }
 
 /** One shift with the event log, for what reads it. */

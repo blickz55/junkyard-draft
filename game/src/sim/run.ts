@@ -1,5 +1,5 @@
 import { Rng } from './rng';
-import { RULES } from './rules';
+import { RULES, TRIAL } from './rules';
 import { runLayout, validateLayout } from './sim';
 import type { Dir, Layout, Machine, MachineKind, Material, RunResult } from './types';
 import { RULES_VERSION } from './types';
@@ -61,6 +61,7 @@ export interface RunState {
 
 /** The parts a draft must include (rules v4): the crusher in the first draft, the job's own machine in the second, so the job can always be started. */
 function guaranteed(seed: string, round: number): MachineKind[] {
+  if (TRIAL.headStart) return [];
   if (round === 1) return ['crusher'];
   const job = yardFor(seed).job;
   return round === 2 && job ? [JOB_MACHINE[job.material]] : [];
@@ -119,6 +120,14 @@ export function starterLayout(seed = 'classic-yard'): { layout: Layout; nextId: 
   if (yard.job) layout.premium = yard.job.material;
   return { layout, nextId: id };
 }
+/** What a shift changes about the yard, for the rules on trial. */
+export function shiftTerms(seed: string, round: number, job: Job | null): Pick<Layout, 'feed' | 'premium2'> {
+  if (!job || isTutorialSeed(seed)) return {};
+  const terms: Pick<Layout, 'feed' | 'premium2'> = {}; // no key at all when nothing applies: a layout is hashed as it stands
+  if (TRIAL.rampFrom && round >= TRIAL.rampFrom) terms.feed = TRIAL.rampPeriod;
+  if (TRIAL.buyerFrom && round >= TRIAL.buyerFrom) terms.premium2 = job.material === 'ingot' ? 'plate' : 'ingot';
+  return terms;
+}
 /** A copy of a layout that shares no machine with it: what a shift runs on and what a round records. */
 export const copyLayout = (l: Layout): Layout => ({ ...l, machines: l.machines.map((m) => ({ ...m })) });
 /** Units of a material this run has shipped so far. */
@@ -161,6 +170,7 @@ export function newRun(seed: string): RunState {
     actions: [],
   };
   for (const kind of yard.shelf) s.bin.push({ id: s.nextId++, kind, x: -1, y: -1, dir: 0 });
+  Object.assign(s.layout, shiftTerms(seed, 1, yard.job));
   return s;
 }
 
@@ -304,6 +314,7 @@ export function apply(s: RunState, a: Action): RunState {
         break;
       }
       s.round++;
+      Object.assign(s.layout, shiftTerms(s.seed, s.round, s.job));
       s.offers = draftOffers(s.seed, s.round);
       s.phase = 'draft';
       break;

@@ -13,7 +13,7 @@
  */
 import type Phaser from 'phaser';
 import { h, btn, ui, textureImg } from './dom';
-import { canBuyBelt, canReroll, shippedTotal, type RunState } from '../sim/run';
+import { canBuyBelt, canReroll, draftOffers, shippedTotal, type RunState } from '../sim/run';
 import type { Job } from '../sim/yard';
 import { analyseRound } from '../sim/bottleneck';
 import { bottleneckLine } from '../content/bottleneck';
@@ -37,6 +37,7 @@ import { money, int } from '../content/format';
 import { machineName, machineBlurb, materialName } from '../content/machines';
 import { jobLine, jobRecipe, jobTarget, materialMany, materialOf, missingForJob, nextNeeded, paceOf, starMarks, starWords } from '../content/job';
 import { yardLabel } from '../content/yard';
+import { cardGain } from '../render/estimate';
 import { recipeRow } from './JobCard';
 import { reactionBar } from './ReactionBar';
 import { verifierUrl as resolveVerifierUrl } from '../render/config';
@@ -671,10 +672,24 @@ export class GamePanel {
           h('div', { class: 'jd-offer-name' }, machineName(kind)),
           need === kind ? h('div', { class: 'jd-offer-badge', tid: `offer-need-${i}` }, t('job.needed')) : null,
           h('div', { class: 'jd-dim jd-offer-blurb' }, machineBlurb(kind, r.layout)),
+          s.lesson ? null : this.cardWorth(kind, r, i),
         ),
       );
       this.side.append(card);
     });
+    // a yard's offers are fixed, so a second try knows them anyway: everyone gets to plan on them
+    if (!s.lesson && r.round < RULES.rounds)
+      this.side.append(
+        h(
+          'div',
+          { class: 'jd-dim', tid: 'next-cards', style: 'font-size:0.8125em; margin-top:0.4em' },
+          t('game.nextCards', {
+            cards: draftOffers(r.seed, r.round + 1)
+              .map(machineName)
+              .join(' · '),
+          }),
+        ),
+      );
     const why = canReroll(r);
     if (!s.replayLabel && !s.lesson && !why) {
       const rerollBtn = btn(
@@ -695,6 +710,15 @@ export class GamePanel {
       );
     }
     this.side.append(this.legend());
+  }
+  /** What the card adds to this line right now, on its own, in its best spot. */
+  private cardWorth(kind: MachineKind, r: RunState, i: number): HTMLElement {
+    const { gain } = cardGain(r.layout, kind);
+    return h(
+      'div',
+      { class: gain > 0 ? 'jd-green jd-offer-worth' : 'jd-dim jd-offer-worth', tid: `offer-worth-${i}` },
+      gain > 0 ? t('game.cardGain', { amount: money(gain) }) : t('game.cardNoGain'),
+    );
   }
   /** Keep a card: the other two slide away, so "the other two go back on the truck" is something you see. The pick itself is immediate. */
   private pickOffer(i: number) {
@@ -942,6 +966,27 @@ export class GamePanel {
       ? done
       : `${done} · ${t('job.more', { n: int(p.perShift), mat: materialOf(r.job.material, p.perShift), stars: starMarks(p.nextStar) })}`;
   }
+  /** Against the shift before: a pick that worked has to show. */
+  private shiftChange(r: RunState): HTMLElement | null {
+    const n = r.rounds.length;
+    if (n < 2) return null;
+    const change = r.rounds[n - 1].earned - r.rounds[n - 2].earned;
+    return h(
+      'div',
+      { class: change > 0 ? 'jd-green' : 'jd-dim', tid: 'shift-change', style: 'font-size:0.875em; font-weight:600' },
+      change > 0 ? t('game.shiftUp', { amount: money(change) }) : change < 0 ? t('game.shiftDown', { amount: money(-change) }) : t('game.shiftSame'),
+    );
+  }
+  /** A shift that beat the last one: the gain lands on the yard, big, where the eyes are. */
+  cheer(gain: number) {
+    const el = h(
+      'div',
+      { class: 'jd-star-pop jd-star-pop-quiet jd-cheer', tid: 'cheer' },
+      h('span', { class: 'jd-gold' }, t('game.cheer', { amount: money(gain) })),
+    );
+    this.boardEl.append(el);
+    setTimeout(() => el.remove(), prefs.reducedMotion ? 2600 : 1900);
+  }
   /** The shift's result: what it made, where the job stands, and the way on. */
   private shiftCard(r: RunState): HTMLElement {
     const rec = r.rounds[r.rounds.length - 1];
@@ -964,6 +1009,7 @@ export class GamePanel {
             r.rounds.length > 1 ? t('game.thisRoundTotal', { total: money(r.score) }) : t('game.thisRound'),
           ),
         ),
+        this.shiftChange(r),
         note ? h('div', { class: 'jd-banner-job', tid: 'job-pace' }, note) : null,
         this.bannerForeman
           ? h(
@@ -1138,6 +1184,7 @@ export const GAME_STYLE = `
 @keyframes jd-spot { 50% { outline-color: rgba(111,224,255,0.35); box-shadow: 0 0 0.4em rgba(111,224,255,0.3); } }
 #ui.jd-reduced-motion .jd-ring, #ui.jd-reduced-motion .jd-spot, #ui.jd-reduced-motion .jd-offer-gone, #ui.jd-reduced-motion .jd-star-pop { animation: none; }
 #ui .jd-star-pop { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 0.1em; padding: 0.5em 1.4em; border-radius: 0.8em; background: rgba(20, 17, 13, 0.92); border: 2px solid #f5c542; font-family: var(--jd-display); font-weight: 700; font-size: 1.5em; white-space: nowrap; box-shadow: 0 0 2em rgba(245,197,66,0.5); animation: jd-star-pop 1.9s ease-out forwards; }
+#ui .jd-cheer { top: 58%; font-size: 1.75em; white-space: nowrap; }
 #ui .jd-star-pop-quiet { padding: 0; border: 0; background: none; box-shadow: none; font-size: 2.25em; text-shadow: 0 0 0.5em rgba(245,197,66,0.8), 0 2px 4px #1a1612; }
 @keyframes jd-star-pop { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; } 12% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; } 20% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { transform: translate(-50%, -80%) scale(1); opacity: 0; } }
 #ui .jd-grid-dim { position: absolute; inset: 0; background: rgba(0,0,0,0.3); }
@@ -1164,6 +1211,7 @@ export const GAME_STYLE = `
 #ui .jd-offer-text { flex: 1; min-width: 0; }
 #ui .jd-offer-name { font-family: var(--jd-display); font-weight: 700; font-size: 1.25em; line-height: 1.1; }
 #ui .jd-offer-blurb { font-size: 0.8125em; line-height: 1.25; margin-top: 0.1em; }
+#ui .jd-offer-worth { font-size: 0.8125em; font-weight: 600; margin-top: 0.1em; }
 #ui .jd-offer-badge { display: inline-block; font-size: 0.6875em; font-weight: 700; color: #1a1612; background: #f5c542; border-radius: 0.3em; padding: 0.02em 0.45em; margin-top: 0.15em; }
 #ui .jd-offer-gone { position: absolute; margin: 0; pointer-events: none; animation: jd-truck 0.4s cubic-bezier(0.55, 0, 0.85, 0.35) forwards; z-index: 2; }
 @keyframes jd-truck { to { transform: translateX(120%) rotate(4deg); opacity: 0; } }

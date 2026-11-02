@@ -6,7 +6,7 @@
  */
 import type { Action, RunState } from '../sim/run';
 import { inputTravelDirs, outputDirs } from '../sim/advice';
-import { DIR_DX, DIR_DY, leftOf, opposite, rightOf } from '../sim/rules';
+import { DIR_DX, DIR_DY, leftOf, opposite, rightOf, RULES } from '../sim/rules';
 import type { Dir, Layout, Machine, MachineKind } from '../sim/types';
 
 const at = (l: Layout, x: number, y: number, ignore?: number) => l.machines.find((m) => m.x === x && m.y === y && m.id !== ignore);
@@ -53,6 +53,68 @@ export function dropActions(run: RunState, m: Machine, x: number, y: number): Ac
     { t: 'place', id: m.id, x, y, dir },
   ];
   if (fromYard) out.push({ t: 'place', id: occupant.id, x: fx, y: fy, dir: occupant.dir });
+  return out;
+}
+
+/** A machine back to the shelf. If it stood in the line and the shelf holds a belt piece, the piece takes its place, facing the way it faced. */
+export function liftActions(run: RunState, m: Machine): Action[] {
+  const lift: Action[] = [{ t: 'unplace', id: m.id }];
+  const belt = run.bin.find((b) => b.kind === 'conveyor');
+  if (m.kind === 'conveyor' || m.kind === 'dock' || m.kind === 'tuner' || m.kind === 'hopper' || !belt || !feedsInto(run.layout, m.x, m.y, m.id).length)
+    return lift;
+  return [...lift, { t: 'place', id: belt.id, x: m.x, y: m.y, dir: m.dir }];
+}
+
+/** The way from one cell to the one beside it. */
+const stepDir = (a: Cell, b: Cell): Dir => ALL.find((d) => a.x + DIR_DX[d] === b.x && a.y + DIR_DY[d] === b.y) ?? 0;
+export interface Cell {
+  x: number;
+  y: number;
+}
+export interface Stroke {
+  actions: Action[];
+  /** belt pieces it lays */ laid: number;
+  /** of those, how many it buys */ bought: number;
+  /** it ran out of belts or money before the end of the stroke */ short: boolean;
+}
+/**
+ * A finger across the yard lays a belt (the owner's agents, 2026-11-01: twenty taps to wire one branch). A stroke from a machine aims it
+ * along the stroke. Empty cells take belt pieces, each facing the next cell, from the shelf and then bought, and the stroke ends at the
+ * first thing in the way, with the last piece facing it, so a belt joins a line by being drawn into it. One Undo takes it all back.
+ */
+export function strokeActions(run: RunState, cells: readonly Cell[]): Stroke {
+  const out: Stroke = { actions: [], laid: 0, bought: 0, short: false };
+  if (cells.length < 2) return out;
+  const l = run.layout;
+  const free = run.bin.filter((m) => m.kind === 'conveyor').map((m) => m.id);
+  let nextId = run.nextId;
+  let money = run.score;
+  const start = at(l, cells[0].x, cells[0].y);
+  if (start && start.kind !== 'dock' && start.kind !== 'tuner') {
+    const dir = stepDir(cells[0], cells[1]);
+    if (dir !== start.dir) out.actions.push({ t: 'place', id: start.id, x: start.x, y: start.y, dir });
+  }
+  for (let i = start ? 1 : 0; i < cells.length; i++) {
+    const c = cells[i];
+    if (at(l, c.x, c.y) || l.rubble?.includes(c.y * l.width + c.x)) break;
+    const next = cells[i + 1];
+    const ahead = next ? stepDir(c, next) : i > 0 ? stepDir(cells[i - 1], c) : 0;
+    // the last piece bends toward whatever will take its load
+    const dir = next ? ahead : ([ahead, rightOf(ahead), leftOf(ahead)].find((d) => takes(l, c.x, c.y, d)) ?? ahead);
+    let id = free.shift();
+    if (id === undefined) {
+      if (money < RULES.beltCost || run.bin.length >= RULES.shelfSlots) {
+        out.short = true;
+        break;
+      }
+      out.actions.push({ t: 'buy' });
+      money -= RULES.beltCost;
+      id = nextId++;
+      out.bought++;
+    }
+    out.actions.push({ t: 'place', id, x: c.x, y: c.y, dir });
+    out.laid++;
+  }
   return out;
 }
 

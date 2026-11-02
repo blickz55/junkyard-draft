@@ -8,6 +8,9 @@ export interface SimState {
   height: number;
   /** the layout's prices (the job's product pays its premium, rules v4) */
   premium?: Material;
+  premium2?: Material;
+  /** seconds between scrap from a hopper */
+  feed: number;
   grid: (Machine | undefined)[];
   items: Item[];
   itemAt: (Item | undefined)[];
@@ -50,6 +53,8 @@ export function createSim(layout: Layout): SimState {
     width: layout.width,
     height: layout.height,
     premium: layout.premium,
+    premium2: layout.premium2,
+    feed: layout.feed ?? RULES.hopperPeriod,
     grid,
     items: [],
     itemAt: new Array(n).fill(undefined),
@@ -125,6 +130,12 @@ function adjacentTuner(s: SimState, cell: number): number {
   return -1;
 }
 
+const adjacentTuners = (s: SimState, cell: number): number =>
+  ([0, 1, 2, 3] as Dir[]).filter((d) => {
+    const n = neighbor(s, cell, d);
+    return n >= 0 && s.grid[n]?.kind === 'tuner';
+  }).length;
+
 /** An item has just entered processing machine `m` at `cell`: transform it and start its hold timer (shortened by an adjacent Tuner, rules v3).
  *  A press stores shards until it has RULES.pressShards; each stored shard is absorbed (the item ends).
  *  Returns false when the item was absorbed. */
@@ -145,7 +156,7 @@ function enterProcessor(s: SimState, kind: ProcessorKind, cell: number, item: It
   let hold: number = RULES.process[kind];
   const tuner = adjacentTuner(s, cell);
   if (tuner >= 0 && hold > 1 && hold >= RULES.tunerMinHold) {
-    hold = Math.max(1, hold - RULES.tunerBonus);
+    hold = Math.max(1, hold - RULES.tunerBonus * (TRIAL.tunerStack ? adjacentTuners(s, cell) : 1));
     stats(s, tuner).tuned++;
   }
   item.hold = hold;
@@ -228,10 +239,12 @@ export function step(s: SimState): SimEvent[] {
       s.tickEvents.push({ tick: s.tick, kind: 'jam', cell: it.cell, itemId: it.id });
     }
   // 4. hoppers spawn into the cell ahead
-  if (s.tick % RULES.hopperPeriod === 0) {
+  {
     for (let c = 0; c < s.grid.length; c++) {
       const m = s.grid[c];
       if (!m || m.kind !== 'hopper') continue;
+      const every = TRIAL.tunerHopper ? Math.max(1, s.feed - (TRIAL.tunerStack ? adjacentTuners(s, c) : adjacentTuner(s, c) >= 0 ? 1 : 0)) : s.feed;
+      if (s.tick % every !== 0) continue;
       const target = neighbor(s, c, m.dir);
       if (target >= 0 && accepts(s, target, m.dir) && !s.itemAt[target] && s.grid[target]!.kind !== 'dock') {
         const tm = s.grid[target]!;

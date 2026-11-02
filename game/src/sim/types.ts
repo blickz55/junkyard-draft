@@ -39,6 +39,10 @@ export interface Layout {
   rubble?: readonly number[];
   /** the job's product: it sells for RULES.job.price on this layout (rules v4; absent means none) */
   premium?: Material;
+  /** on trial: a second product at the job's price, this shift */
+  premium2?: Material;
+  /** on trial: seconds between scrap from a hopper, this shift */
+  feed?: number;
 }
 
 /** `absorb`: a press took a shard into its store (the item ceases to exist; the next shard becomes a plate). */

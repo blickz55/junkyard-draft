@@ -70,7 +70,7 @@ export const RULES = {
 } as const;
 
 /** Rules on trial (the fun card, docs/GOALS.md): 0 is the rule as it stands, and only the tools switch one on. A winner moves into RULES with a version bump; a loser goes. */
-export const TRIAL = { splitterAhead: 0, sideEntry: 0 };
+export const TRIAL = { splitterAhead: 0, sideEntry: 0, rampFrom: 0, rampPeriod: 1, buyerFrom: 0, tunerHopper: 0, tunerStack: 0, headStart: 0 };
 
 /** Every machine kind the simulation knows (the names and blurbs a player reads live in game/src/content/machines.ts, 0.9.0). */
 export const MACHINE_KINDS: readonly MachineKind[] = ['hopper', 'conveyor', 'splitter', 'crusher', 'furnace', 'press', 'dock', 'tuner', 'sieve'];
