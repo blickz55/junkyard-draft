@@ -8,7 +8,8 @@
 /** v8 (the third panel, 2026-11-02): a Tuner can stand in the line, carrying what a belt carries, and speeds a Hopper too; a yard's first line leaves a belt between the Crusher and the job's machine. */
 /** v9 (the fifth panel, 2026-11-02): a third of yards open with a second job machine and its own Dock behind a Splitter, a third with a Tuner at the job's machine, so the first good card moves from yard to yard. */
 /** v10 (the sixth panel, 2026-11-02): a Hopper card and the job machine's card each bring their own Dock, and a Dock is no longer dealt alone, so a new feed or machine can sell where it stands. */
-export const RULES_VERSION = 10; // bumped on every semantic change; older replays and saves are refused from here on
+/** v11 (blind comparisons 4 and 5, the card +3 held out, 2026-11-02): the scrap truck brings a Hopper and a Crusher at shift 4 to cells kept free for it, and the orders of shifts 4 to 6 are 15 % higher. */
+export const RULES_VERSION = 11; // bumped on every semantic change; older replays and saves are refused from here on
 
 export type MachineKind = 'hopper' | 'conveyor' | 'splitter' | 'crusher' | 'furnace' | 'press' | 'dock' | 'sieve' | 'tuner';
 export type Material = 'scrap' | 'shards' | 'plate' | 'ingot' | 'slag';
@@ -48,6 +49,8 @@ export interface Layout {
   premium2?: Material;
   /** what every price is at this shift, in percent (rules v6: orders filled raise it; absent means 100) */
   rate?: number;
+  /** cells kept free for the scrap truck until it comes (rules v11); nothing is built there (absent means none) */
+  reserved?: readonly number[];
 }
 
 /** `absorb`: a press took a shard into its store (the item ceases to exist; the next shard becomes a plate). */

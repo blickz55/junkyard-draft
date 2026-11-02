@@ -5,7 +5,7 @@
  * there. It looks at this card alone: gains a good player plans for two shifts out stay theirs to find. The best try is also the plan the
  * coach lights, one spot at a time, so what the card says is what those spots earn. Pure and browser-free.
  */
-import { DIR_DX, DIR_DY, TRIAL } from '../sim/rules';
+import { DIR_DX, DIR_DY } from '../sim/rules';
 import { runLayout } from '../sim/sim';
 import type { Dir, Layout, Machine, MachineKind } from '../sim/types';
 import { inputTravelDirs } from '../sim/advice';
@@ -34,7 +34,8 @@ interface Try {
 }
 const NOTHING: Try = { earned: 0, plan: [] };
 
-const blocked = (l: Layout, x: number, y: number) => x < 0 || y < 0 || x >= l.width || y >= l.height || !!l.rubble?.includes(y * l.width + x);
+const blocked = (l: Layout, x: number, y: number) =>
+  x < 0 || y < 0 || x >= l.width || y >= l.height || !!l.rubble?.includes(y * l.width + x) || !!l.reserved?.includes(y * l.width + x);
 const at = (l: Layout, x: number, y: number) => l.machines.find((m) => m.x === x && m.y === y);
 const part = (kind: MachineKind, x: number, y: number, dir: Dir, id = -1): Machine => ({ id, kind, x, y, dir });
 /**
@@ -125,7 +126,7 @@ function single(l: Layout, kind: MachineKind): Try {
 /** A Hopper feeding a Crusher, the pair anywhere it fits, the Crusher's load going into whatever is ahead of it, or along belts to it, or
  * with a Dock of its own (rules on trial: a card that brings one) into that, straight or one belt on, where a machine can drop in later. */
 function feed(l: Layout, belts: number, dock = false): Try {
-  let best = TRIAL.delivery ? idleFeed(l, belts, dock) : NOTHING;
+  let best = NOTHING;
   const map = routeMap(l);
   for (let y = 0; y < l.height; y++)
     for (let x = 0; x < l.width; x++) {
@@ -159,40 +160,7 @@ function feed(l: Layout, belts: number, dock = false): Try {
   return best;
 }
 
-/** On trial (TRIAL.delivery): the card's Crusher in front of a Hopper already on the yard that feeds nothing, its load routed as `feed` routes it. */
-function idleFeed(l: Layout, belts: number, dock: boolean): Try {
-  let best = NOTHING;
-  const map = routeMap(l);
-  const open = (px: number, py: number) => !blocked(l, px, py) && !at(l, px, py);
-  for (const h of l.machines) {
-    if (h.kind !== 'hopper') continue;
-    const x = h.x + DIR_DX[h.dir],
-      y = h.y + DIR_DY[h.dir];
-    if (!open(x, y)) continue; // it feeds something already, or faces the edge
-    for (const dir of ALL) {
-      if (dir === (h.dir + 2) % 4) continue; // never back into the Hopper
-      const crusher = part('crusher', x, y, dir);
-      const ax = x + DIR_DX[dir],
-        ay = y + DIR_DY[dir];
-      const tries: Machine[][] = [];
-      const route = open(ax, ay) ? routeFrom(l, map, ax, ay) : [];
-      if (route.length <= belts && !route.some((r) => r.x === x && r.y === y)) tries.push(route);
-      if (dock && open(ax, ay)) {
-        tries.push([part('dock', ax, ay, 0, -7)]);
-        const bx = ax + DIR_DX[dir],
-          by = ay + DIR_DY[dir];
-        if (belts > 0 && open(bx, by)) tries.push([part('conveyor', ax, ay, dir, -8), part('dock', bx, by, 0, -7)]);
-      }
-      for (const t of tries) {
-        const earned = worth(l, [...l.machines, crusher, ...t]);
-        if (earned > best.earned) best = { earned, plan: [crusher, ...t].map(({ kind, x, y, dir }) => ({ kind, x, y, dir })) };
-      }
-    }
-  }
-  return best;
-}
-
-/** On trial (TRIAL.deliveryKit): the card's machine in front of a Crusher that sends its shards nowhere, its load sold or carried on. */
+/** The card's machine in front of a Crusher that sends its shards nowhere (the scrap truck's, rules v11), its load sold or carried on. */
 function idleMaker(l: Layout, kind: MachineKind, belts: number, dock: boolean): Try {
   let best = NOTHING;
   const map = routeMap(l);
@@ -314,7 +282,7 @@ export function cardGain(layout: Layout, parts: readonly MachineKind[], belts = 
     const b = branch(layout, kind, belts, dock);
     const s = single(layout, kind);
     const one = b.earned > s.earned ? b : s;
-    const o = TRIAL.deliveryKit ? idleMaker(layout, kind, belts, dock) : NOTHING;
+    const o = idleMaker(layout, kind, belts, dock);
     return o.earned > one.earned ? o : one;
   };
   const best = !kit ? single(layout, parts[0]) : parts[0] === 'hopper' ? feed(layout, belts, dock) : twin(parts[0]);

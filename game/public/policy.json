@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "rulesVersion": 10,
+  "rulesVersion": 11,
   "protocol": 3,
   "tieBreak": "Equal scores: fewer machines in round 6 first, then the earlier verified submission.",
   "rules": {
@@ -74,6 +74,9 @@
         "twoMakers": 1,
         "tuned": 1
       },
+      "truck": {
+        "shift": 4
+      },
       "orderScale": {
         "standard": {
           "ingot": 110,
@@ -100,17 +103,17 @@
           450,
           800,
           1400,
-          2150,
-          3200,
-          4600
+          2470,
+          3680,
+          5290
         ],
         "plate": [
           380,
           500,
           1300,
-          1900,
-          3000,
-          4300
+          2190,
+          3450,
+          4950
         ]
       },
       "raise": 25,
@@ -169,7 +172,7 @@
     {
       "title": "Rules",
       "lines": [
-        "Rules version 10. Any change to a rule or tuning value bumps the version; replays and saves from an older version no longer verify or resume, and old verified entries stay in their own archive.",
+        "Rules version 11. Any change to a rule or tuning value bumps the version; replays and saves from an older version no longer verify or resume, and old verified entries stay in their own archive.",
         "6 rounds on an 8×6 grid, 80 ticks per round. Score = total money shipped.",
         "Belts: bought one at a time while building, $20 each from the running score, refused below it or when the shelf's 7 slots are full. Conveyors are never offered in the draft. A spare part sells for $10, so buying and selling never pays.",
         "Reroll: once per round in the draft for $40 from the running score; the new offers come from their own stream, so a reroll never changes a later round.",

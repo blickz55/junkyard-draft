@@ -399,10 +399,11 @@ export class InputController {
   }
   /** Put a machine at a cell the way a person means it: a part on the belt goes in the belt, whatever stood there steps aside, the part faces the way the line runs. */
   dropAt(m: Machine, x: number, y: number): boolean {
-    if (this.run.layout.rubble?.includes(y * RULES.gridWidth + x)) {
+    const kept = this.run.layout.reserved?.includes(y * RULES.gridWidth + x); // the scrap truck's spot (rules v11)
+    if (kept || this.run.layout.rubble?.includes(y * RULES.gridWidth + x)) {
       audio.invalid();
       this.flashBad(x, y);
-      this.showReject(explainRunError('cell blocked by rubble'), { x, y });
+      this.showReject(explainRunError(kept ? 'cell kept for the scrap truck' : 'cell blocked by rubble'), { x, y });
       return false;
     }
     const acts = dropActions(this.run, m, x, y, m.x < 0 ? plannedFacing(this.run, m.kind, x, y) : undefined);

@@ -1,0 +1,19 @@
+{
+  "persona": "Ingrid",
+  "device": "desk",
+  "funA": 3,
+  "funB": 4,
+  "choice": "B",
+  "wouldOpenEither": "maybe",
+  "why": "B gives shift 4 a shape: the truck is announced on the first screen, marked on the yard from the start, and drops a free hopper and crusher that I have to plan a furnace for, which is exactly the kind of site constraint I like. Apart from that it is the same game as A, and in both I beat Sal by a mile on my first go and spent most of every shift watching numbers climb, so I would open B tomorrow only to see what a new yard asks of me.",
+  "bestOfA": "The forecast line ('This shift will pay $X') that moves as I drag a part: I can test a guess in one drag, like moving the dock over and putting the furnace into the shard line (888 became 1,860) or finding that the tuner has to share an edge, not a corner. Also the practice yard in A where prices were swapped (plate $24, ingot $12) and Sal was ahead of me after shift 1: the first time the recipe I had worked out stopped working.",
+  "worstOfA": "I was far ahead of Sal with nothing at risk (three stars, $19,577 against $12,804), shift 4 was a dead shift where I held a card and just watched the clock, and on the practice yard the lit 'Show me where' spot put the new press in series so the tuned press sat idle 100 percent of the shift and I fell $606 behind Sal, with the splitter left on the shelf and no word on how to use it.",
+  "bestOfB": "The truck. It is on the job card four shifts early, boxed on the yard, repeated on the card screen the shift before, and when it arrives it says what to do ('Give the Crusher's shards somewhere to go: a Furnace in front, or belts to your line'). Shift 4 jumped to $4,200 and it felt like the game handed me a puzzle piece, not just a bigger number.",
+  "worstOfB": "It is free stuff, so after the truck there was little left to decide on shifts 5 and 6, and I still beat Sal by $9,633 on my first try, so the higher late orders did not bite at all. Same dead time while each shift runs, and the first extra yard I opened was the same recipe again with the same truck (the next one was a plate yard, so that was the draw, but it was still dull to meet).",
+  "stuckIn": [
+    "A: shift 2 on the practice yard, the press idle 100 percent after the lit spot put the new press in front of the tuned one, and I could not tell what the splitter was for",
+    "A: shift 1 on the practice yard, the green 'Fits this line now' card was the weak choice and Sal beat me by $216 before I understood that a second press mattered more",
+    "A: the Furnace card said 'No spot pays more yet' on shifts 2 and 4, so I had to find by trial that moving the dock and putting the furnace in the shard line was the whole point",
+    "B: nowhere really; the truck's instruction was clear"
+  ]
+}

@@ -48,7 +48,11 @@ test('badges: Minimalist needs the final round at or under the machine cap and a
               ...r.layout,
               machines: [
                 ...r.layout.machines,
-                ...Array.from({ length: MINIMALIST_MACHINES }, (_, k): Machine => ({ id: 900 + k, kind: 'conveyor', x: k, y: 5, dir: 0 })),
+                // belts on free cells only: since rules v11 the scrap truck may stand anywhere the yard kept for it
+                ...Array.from({ length: 48 }, (_, c) => ({ x: c % 8, y: Math.floor(c / 8) }))
+                  .filter(({ x, y }) => !r.layout.machines.some((m) => m.x === x && m.y === y) && !r.layout.rubble?.includes(y * 8 + x))
+                  .slice(0, MINIMALIST_MACHINES)
+                  .map(({ x, y }, k): Machine => ({ id: 900 + k, kind: 'conveyor', x, y, dir: 0 })),
               ],
             },
             r.round,

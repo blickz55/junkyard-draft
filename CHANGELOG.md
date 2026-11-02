@@ -5,6 +5,11 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### Rules version 11: the scrap truck — 2026-11-02 (saves and scores from version 10 do not carry over)
+
+- **At shift 4 a scrap truck drops a free Hopper and Crusher** on two cells marked from the first shift, kept free until it comes. Its shards need somewhere to go: a machine in front of the Crusher, or belts to your line. The job card, the pick and the coach say so.
+- **The orders of shifts 4 to 6 are 15 % higher**, because the truck helps everyone.
+
 ### Your game to work out — 2026-11-02 (no rules change)
 
 - **A game's spots are dark until you ask:** the lessons still light every move, and in a game "Show me where" lights one card. The job card's switch says "Show where parts go: on" or "off".

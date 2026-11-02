@@ -3,7 +3,7 @@ import { RULES } from './rules';
 import { runLayout, validateLayout } from './sim';
 import type { Dir, Layout, Machine, MachineKind, Material, RunResult } from './types';
 import { RULES_VERSION } from './types';
-import { isTutorialSeed, JOB_MACHINE, lessonYard, starsFor, truckLoad, TUTORIAL_SEED, yardFor, type Job } from './yard';
+import { isTutorialSeed, JOB_MACHINE, lessonYard, starsFor, truckCells, truckLoad, TUTORIAL_SEED, yardFor, type Job } from './yard';
 
 export { isTutorialSeed, TUTORIAL_SEED };
 
@@ -129,6 +129,8 @@ export function starterLayout(seed = 'classic-yard'): { layout: Layout; nextId: 
   const layout: Layout = { width: RULES.gridWidth, height: RULES.gridHeight, machines };
   if (yard.rubble.length) layout.rubble = yard.rubble;
   if (yard.job) layout.premium = yard.job.material;
+  const truck = truckCells(seed); // kept free until the scrap truck comes (rules v11)
+  if (truck.length) layout.reserved = truck;
   return { layout, nextId: id };
 }
 /** What a card puts on the shelf (rules v6): on a job's yard a Hopper comes with its Crusher and the job's machine with a Splitter, so that one card can always widen the line. */
@@ -265,6 +267,7 @@ export function apply(s: RunState, a: Action): RunState {
       const occupant = s.layout.machines.find((o) => o.x === a.x && o.y === a.y && o.id !== a.id);
       if (occupant) throw new RunError('cell occupied');
       if (s.layout.rubble?.includes(a.y * s.layout.width + a.x)) throw new RunError('cell blocked by rubble');
+      if (s.layout.reserved?.includes(a.y * s.layout.width + a.x)) throw new RunError('cell kept for the scrap truck');
       if (where === 'bin') {
         s.bin.splice(s.bin.indexOf(m), 1);
         s.layout.machines.push(m);
@@ -338,7 +341,9 @@ export function apply(s: RunState, a: Action): RunState {
       }
       s.round++;
       Object.assign(s.layout, shiftTerms(s.round, s.job, s.filled));
-      for (const m of truckLoad(s.seed, s.round, s.layout)) s.layout.machines.push({ id: s.nextId++, ...m }); // on trial: the scrap truck
+      const load = truckLoad(s.seed, s.round, s.layout); // the scrap truck (rules v11)
+      if (load.length) delete s.layout.reserved; // the spot was kept for it: from here it is the yard's
+      for (const m of load) s.layout.machines.push({ id: s.nextId++, ...m });
       s.offers = draftOffers(s.seed, s.round);
       s.phase = 'draft';
       break;

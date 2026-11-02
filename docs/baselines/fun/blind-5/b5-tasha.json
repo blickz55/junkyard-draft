@@ -1,0 +1,20 @@
+{
+  "persona": "Tasha",
+  "device": "phone",
+  "funA": 2,
+  "funB": 3,
+  "choice": "B",
+  "wouldOpenEither": "maybe",
+  "why": "B gave me real moments: on the last shift it said I was $4 short of the order, one tap later it filled, then the big gold ORDER FILLED banner, three stars and a rank-up. A promised a scrap truck at shift 4 and nothing I could see ever arrived, and its orders ran ahead of me so I mostly watched red dots. Both open with the same five taps three shifts running, and I only got B's three stars because A had already shown me the Press trick.",
+  "bestOfA": "Stumbling onto the Plate Press on the very last shift myself and watching the forecast jump $603, then the confetti screen: 'You beat Sal by $408', 'One more order for two stars' and a 'Try again from shift 4' button. The scrap truck line on the job card also gave me something to look forward to through shifts 1 to 3.",
+  "worstOfA": "The scrap truck at shift 4 never visibly turned up: the game's own lit square put my Hopper inside the truck's dotted box, then a line said the truck had left a Hopper and a Crusher and I saw nothing new on the yard. After that the orders ($2,470, $3,680, $5,290) ran away from me, the game told me before each of the last three shifts that I'd be short, and I got three red dots in a row and the same 'level with Sal' line twice.",
+  "bestOfB": "The last three shifts: the forecast sat at '$44 short' and then '$4 short of the $4,600 order' and flipped to 'fills the order' with one more tap, then the big gold ORDER FILLED banner, '+$801', the 'Job done' stars card and 'New rank: Yard Hand!'. The note that my press sat idle 53 % and a second hopper would fix it also felt like the game was watching my yard for once.",
+  "worstOfB": "Shifts 1 to 3 are the same five taps (pick the green card, Show me where, three taps, start) with nothing coming up and no promise of anything. The Plate Press card at shift 4 has no 'Show me where' and I only knew where to put it because A had shown me. And there is no leaderboard, so after the confetti nothing pulls me to go again.",
+  "stuckIn": [
+    "A, shift 4: the Plate Press card had no 'Show me where'. I tapped next to a crusher, the press swapped in for a dock, the forecast fell, and I could not work out where a press belongs, so I undid it and took the Hopper card.",
+    "A, shifts 4 to 6: the forecast said I would be short ($136, then $1,151, then $2,158) even though I did what Sal said (add a hopper), and I could not see what else would help until I poked at the Press on shift 6.",
+    "A, shift 4: the line said the scrap truck had left a Hopper and a Crusher, but I could not find them anywhere on the yard.",
+    "A, shift 6: after dropping the Plate Press in, Sal said 'This piece leads nowhere. Turn it or move it'; I turned it up and put the spare dock above it, which worked.",
+    "B, shift 4: the Press card again had no lit squares and my first tap made the forecast drop; I got out of it quickly only because A had taught me to turn it up and put the spare dock above it."
+  ]
+}

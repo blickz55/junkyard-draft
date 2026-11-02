@@ -7,7 +7,7 @@
 import { apply, canBuyBelt, canReroll, cardParts, newRun, orderFor, RunError, type Action, type RunState } from '../sim/run';
 import { runLayout } from '../sim/sim';
 import { analyseRound } from '../sim/bottleneck';
-import { isTutorialSeed, priceOf } from '../sim/yard';
+import { isTutorialSeed, priceOf, yardFor } from '../sim/yard';
 import type { Dir, Machine, MachineKind } from '../sim/types';
 import { RULES } from '../sim/rules';
 import { hasText, t, type StringKey } from '../content/strings';
@@ -310,6 +310,10 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
     return !!st && (st.jammedTicks > 0 || st.blockedTicks > 0);
   };
   const loose = flowLinks(r.layout).find((l) => !l.ok && stuck(l.x, l.y));
+  // the scrap truck's Crusher is not a mistake to turn, it is a feed waiting for somewhere to send its shards (rules v11)
+  const truck = yardFor(r.seed).delivery?.crusher;
+  if (loose && truck && loose.x === truck.x && loose.y === truck.y)
+    return say({ text: t('coach.truckCrusher'), spots: [{ kind: 'cell', x: truck.x, y: truck.y }] });
   if (loose) {
     const outOfBelts = !r.bin.some((m) => m.kind === 'conveyor') && canBuyBelt(r) === null;
     const spot: Spot = { kind: 'cell', x: loose.x, y: loose.y };

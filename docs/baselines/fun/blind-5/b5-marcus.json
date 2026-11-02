@@ -1,0 +1,21 @@
+{
+  "persona": "Marcus",
+  "device": "phone",
+  "funA": 3,
+  "funB": 4,
+  "choice": "B",
+  "wouldOpenEither": "maybe",
+  "why": "B gave me something to look forward to in the middle: a free truck at shift 4 and a hint that plates start paying like ingots, so I got a real decision, a big gold ORDER FILLED, a rank-up to Yard Hand and a personal best on the second go. A was the same green card for four shifts, I only found the good idea at shift 6, and my 3-star run was a practice try that gave me no rank. I'd open B again for the rank and the Sal score, but with no board of real people it is me against a foreman I have already beaten by six grand.",
+  "bestOfA": "Shift 6: I worked out for myself that a Plate Press pays four times what shards do, built it in a few taps, and the number on the forecast jumped from $2,946 to $3,624 and turned Sal's score from 'level' into 'you're $444 ahead'. Also the shift-by-shift bar chart that climbs every time, and the 'Try again from shift 5' button.",
+  "worstOfA": "Four shifts in a row of picking the green card and tapping lit squares with no decision to make, then shift 5 where I wasted about 15 taps trying to send a new hopper's shards to the ingot line, never learned why it did nothing and missed the order by $254. 'Level with Sal' was shown four times with no gap in dollars, and the Plate Press card says 'Pays less per shard' when it pays four times more.",
+  "bestOfB": "Shift 6 of the first game: I opened the price list, did the sum myself, put a press where the coach never pointed, and the forecast said $6,102 and filled the last order for three stars and 'New rank: Yard Hand!'. On the replay the truck's free hopper and crusher turned into plus $800 in one shift, and I finished on $18,561, a new personal best.",
+  "worstOfB": "The truck was promised on the job card, and I lost it without warning because the coach's lit spot for my shift-3 hopper sat on the truck's marked cells; at shift 4 the line said the truck had left a hopper and crusher and I could not find them. Same gripes as A: no leaderboard, a second 3-star run did not move my star count and nothing said why, and replaying the same yard turns into a solved routine.",
+  "stuckIn": [
+    "A, shift 5: I wanted the new hopper to feed the big ingot line, tried moving it, turning the crusher and laying belts around the junk pile for about 15 taps, got nothing and undid it all; the game never said why it did not work.",
+    "A, shifts 1 to 4: I never opened the Plate Press because its card said 'Pays less per shard'; I only learned plates pay four times at shift 6.",
+    "A, shift 6: tapping the dock with a press in hand swapped them and put the dock on the shelf, which I did not expect.",
+    "B, game 1 shift 4: the text said the scrap truck left a Hopper and a Crusher but I could not see them anywhere and the 'Truck at shift 4' box was gone; I guessed I had built on its spot as the lit spot told me to.",
+    "B, game 2 shift 3: after leaving the plan the coach stopped lighting spots, and tapping an empty cell with a part in hand just deselected it instead of placing it; I had to pick the part from the shelf again.",
+    "B, game 2 shift 4: tapping the truck's crusher while holding the Plate Press swapped them by accident; Undo fixed it."
+  ]
+}

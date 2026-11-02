@@ -1,0 +1,10 @@
+Blind comparison 5, 2026-11-02: returning players (drive.mjs --returning), the game as it stands (r12a) against the truck that brings a Hopper and a Crusher at shift 4, with the orders of shifts 4 to 6 raised 15 % (r12b), both built from c253d88 plus the trial screens.
+Ingrid: A 4715 as it stands, B 4716 the truck
+Dana: A 4716 the truck, B 4715 as it stands
+Marcus: A 4715 as it stands, B 4716 the truck
+Tasha: A 4716 the truck, B 4715 as it stands
+
+ingrid: chose B = the truck; fun A 3 (as it stands), B 4 (the truck); open tomorrow maybe
+marcus: chose B = the truck; fun A 3 (as it stands), B 4 (the truck); open tomorrow maybe
+dana: chose A = the truck; fun A 4 (the truck), B 4 (as it stands); open tomorrow maybe
+tasha: chose B = as it stands; fun A 2 (the truck), B 3 (as it stands); open tomorrow maybe

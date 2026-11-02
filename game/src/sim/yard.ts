@@ -9,7 +9,7 @@
  *   classic-*   the original yard: the straight belt, no rubble, no job, an empty shelf
  */
 import { Rng } from './rng';
-import { DIR_DX, DIR_DY, RULES, TRIAL, type YardVariant } from './rules';
+import { DIR_DX, DIR_DY, RULES, type YardVariant } from './rules';
 import type { Dir, Layout, Machine, MachineKind, Material } from './types';
 
 export type JobMaterial = Extract<Material, 'ingot' | 'plate'>;
@@ -31,8 +31,8 @@ export interface Yard {
   firstPhase: 'draft' | 'build';
   /** how the line starts, when not as it stands (RULES.yard.variants) */
   variant?: Exclude<YardVariant, 'standard'>;
-  /** on trial (TRIAL.delivery): where a free Hopper lands as its shift starts, and the way it faces; with TRIAL.deliveryKit, its Crusher */
-  delivery?: { x: number; y: number; dir: Dir; crusher?: { x: number; y: number; dir: Dir } };
+  /** the scrap truck (rules v11): where its Hopper lands as RULES.yard.truck.shift starts, the way it faces, and its Crusher in front */
+  delivery?: { x: number; y: number; dir: Dir; crusher: { x: number; y: number; dir: Dir } };
 }
 
 export const TUTORIAL_SEED = 'tutorial-1';
@@ -219,13 +219,10 @@ export function yardFor(seed: string): Yard {
   const maker = belt[straight[Math.min(2, straight.length - 1)]];
   const gap = belt[straight[0] + 1];
   const yard = withVariant(seed, { machines, rubble, job, shelf: [...RULES.yard.shelf], firstPhase: 'draft' }, gap, maker);
-  return TRIAL.delivery ? withDelivery(seed, yard) : yard;
+  return RULES.yard.truck.shift ? withDelivery(seed, yard) : yard;
 }
 
-/**
- * On trial: a spot two cells or more from every machine, off the junk, facing a free cell where a Crusher could stand; with
- * TRIAL.deliveryKit the Crusher stands there, as far from the line, facing a free cell of its own.
- */
+/** The scrap truck's spot: a Hopper two cells or more from every machine, off the junk, its Crusher in front as far from the line, facing a free cell. */
 function withDelivery(seed: string, yard: Yard): Yard {
   const rng = new Rng(`${seed}:delivery`);
   const taken = new Set([...yard.machines.map((m) => cell(m.x, m.y)), ...yard.rubble]);
@@ -238,12 +235,7 @@ function withDelivery(seed: string, yard: Yard): Yard {
       for (const d of [0, 1, 2, 3] as Dir[]) {
         const cx = x + DIR_DX[d],
           cy = y + DIR_DY[d];
-        if (!open(cx, cy)) continue;
-        if (!TRIAL.deliveryKit) {
-          spots.push({ x, y, dir: d });
-          continue;
-        }
-        if (!apart(cx, cy)) continue;
+        if (!open(cx, cy) || !apart(cx, cy)) continue;
         for (const c of [0, 1, 2, 3] as Dir[]) {
           if (c === (d + 2) % 4) continue; // never back into its Hopper
           if (open(cx + DIR_DX[c], cy + DIR_DY[c])) spots.push({ x, y, dir: d, crusher: { x: cx, y: cy, dir: c } });
@@ -253,12 +245,20 @@ function withDelivery(seed: string, yard: Yard): Yard {
   return spots.length ? { ...yard, delivery: spots[rng.int(spots.length)] } : yard;
 }
 
-/** On trial: what the scrap truck lands as shift `round` starts on this yard, or nothing; all of it, or nothing when a spot is taken. */
+/** The cells the scrap truck lands on, kept free until it comes (blind comparison 5: a lit spot put a part there and no truck came). */
+export function truckCells(seed: string): number[] {
+  const d = yardFor(seed).delivery;
+  return d ? [d.y * W + d.x, d.crusher.y * W + d.crusher.x] : [];
+}
+
+/** What the scrap truck lands as shift `round` starts on this yard, or nothing; all of it, or nothing when a spot is taken. */
 export function truckLoad(seed: string, round: number, layout: Pick<Layout, 'machines' | 'rubble' | 'width'>): Omit<Machine, 'id'>[] {
-  const d = TRIAL.delivery && round === TRIAL.delivery ? yardFor(seed).delivery : undefined;
+  const d = round === RULES.yard.truck.shift ? yardFor(seed).delivery : undefined;
   if (!d) return [];
-  const load: Omit<Machine, 'id'>[] = [{ kind: 'hopper', x: d.x, y: d.y, dir: d.dir }];
-  if (d.crusher) load.push({ kind: 'crusher', ...d.crusher });
+  const load: Omit<Machine, 'id'>[] = [
+    { kind: 'hopper', x: d.x, y: d.y, dir: d.dir },
+    { kind: 'crusher', ...d.crusher },
+  ];
   const free = (m: Omit<Machine, 'id'>) => !layout.machines.some((q) => q.x === m.x && q.y === m.y) && !layout.rubble?.includes(m.y * layout.width + m.x);
   return load.every(free) ? load : [];
 }

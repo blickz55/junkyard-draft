@@ -1,0 +1,147 @@
+{
+  "yards": 40,
+  "budget": 1200,
+  "ms": 1008577,
+  "card": {
+    "total": 79,
+    "lowest": 38,
+    "dimensions": [
+      {
+        "name": "Alive to the last shift",
+        "weight": 15,
+        "score": 100,
+        "read": {
+          "flatSteps": 0.015,
+          "lastShiftBest": 0.925
+        }
+      },
+      {
+        "name": "Every pick a real choice",
+        "weight": 15,
+        "score": 54,
+        "read": {
+          "realPicks": 0.238,
+          "healthyCards": 1,
+          "allClose": 0.138,
+          "oneClearWinner": 0.492
+        }
+      },
+      {
+        "name": "Skill shows",
+        "weight": 15,
+        "score": 38,
+        "read": {
+          "tiersInOrder": 0.475,
+          "expertOverNovice": 1.925,
+          "deeperGain": 0.128
+        }
+      },
+      {
+        "name": "The problem keeps moving",
+        "weight": 10,
+        "score": 78,
+        "read": {
+          "limitsPerGame": 3.35
+        }
+      },
+      {
+        "name": "More than one way to win",
+        "weight": 5,
+        "score": 83,
+        "read": {
+          "threeWaysYards": 0.625,
+          "modalBestSet": 0.15
+        }
+      },
+      {
+        "name": "The stars are a ladder",
+        "weight": 15,
+        "score": 100,
+        "read": {
+          "novice1": 0.9,
+          "competent2": 0.875,
+          "expert3": 0.6
+        }
+      },
+      {
+        "name": "One more try",
+        "weight": 10,
+        "score": 100,
+        "read": {
+          "nearMisses": 0.517
+        }
+      },
+      {
+        "name": "A climax",
+        "weight": 5,
+        "score": 90,
+        "read": {
+          "lastStarLate": 0.6,
+          "growthShift2ToLast": 4.294
+        }
+      },
+      {
+        "name": "Yards differ",
+        "weight": 5,
+        "score": 80,
+        "read": {
+          "scoreSpread": 0.109,
+          "distinctBestSets": 0.5,
+          "openingVariety": 1
+        }
+      },
+      {
+        "name": "One bad pick is not fatal",
+        "weight": 5,
+        "score": 100,
+        "read": {
+          "worstPickKeeps": 0.716
+        }
+      }
+    ],
+    "medians": {
+      "novice": 9336,
+      "casual": 13137,
+      "competent": 16353,
+      "expert": 17968
+    },
+    "takeRates": {
+      "press": 0.106,
+      "hopper": 0.469,
+      "furnace": 0.317,
+      "tuner": 0.419
+    }
+  },
+  "ruined": [
+    {
+      "label": "one card only",
+      "total": 45,
+      "drop": 34
+    },
+    {
+      "label": "raw scrap pays like the job",
+      "total": 54,
+      "drop": 25
+    },
+    {
+      "label": "machines crawl",
+      "total": 43,
+      "drop": 36
+    },
+    {
+      "label": "stars for nothing",
+      "total": 62,
+      "drop": 17
+    },
+    {
+      "label": "two-second shifts",
+      "total": 43,
+      "drop": 36
+    },
+    {
+      "label": "every yard alike",
+      "total": 72,
+      "drop": 7
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "persona": "Dana",
+  "device": "phone",
+  "funA": 4,
+  "funB": 4,
+  "choice": "A",
+  "wouldOpenEither": "maybe",
+  "why": "Honestly they are the same game, but A had a bit more going on: a truck turns up halfway with a free machine, and the last order was tight enough that I had to think, where in B my lines were already enough and the last two shifts were a victory lap. What I like in both is the number at the bottom that tells me what the shift will pay while I am still moving bits around, and working out that ingots are worth eight shards. I would open A tomorrow if the yard looks different, but it needs something that can actually beat me and a way to show a friend my score, or it stays a nice ten-minute toy.",
+  "bestOfA": "Overruling the card that said 'No spot pays more yet': I swapped a dock for a furnace on a shard row and the number at the bottom jumped by about $900, so I felt clever instead of told. Also the live 'this shift will pay' number so I could try things for free, the truck dropping a free hopper and crusher at shift 4 that I could plan around, and a close race with Sal on the first two shifts.",
+  "worstOfA": "Nothing ever threatened me: I never missed an order, the three stars felt handed over, Sal was beaten by shift 4 and the last shift was a victory lap. The lines on the cards and from Sal ('No spot pays more yet') were wrong about what rearranging could do, so I stopped trusting the game's own advice. I never worked out what a Splitter is for (three left over on the shelf), the crowded shelf made me tap the wrong slot once, and the shift run itself is passive, so I ran it at 4x.",
+  "bestOfB": "The splitter on the last shift: it took five tries, every one answered by a number ('down $750, $550 short of the order', then up $1,248) until both furnaces behind it lit up with their own takings. Also being able to use what I learned in A to get ahead of Sal from shift 2.",
+  "worstOfB": "The same wrong 'No spot pays more yet' lines, which on the last shift flatly contradicted the helper box above them. Nothing ever happens to the yard, no event, so it was add a row, add a furnace, add a tuner, and the gentler late orders meant my plain line already covered the last order with $800 to spare. The shift run only repeats what the forecast already said, and the results end with no share button or any reason to come back tomorrow.",
+  "stuckIn": [
+    "A, shift 3: the Furnace card said 'No spot pays more yet' and Sal said it could wait on the shelf; I could not tell whether to believe it until I tried a swap with Undo in reach (the line was wrong, about +$900).",
+    "A, shift 4: the shelf was crowded with leftover parts, I tapped the wrong slot and a Splitter landed on the yard; the Undo button fixed it.",
+    "A, shift 6: 'Back to the shelf' was hidden under the bottom bar, so I used Move to push the Dock to a spare square instead (the same cut-off showed in B on shifts 2 and 6 but did not block me).",
+    "A, whole game: never worked out what the Splitter was for, because the game kept saying nothing pays more with it; B: only worked it out on shift 6 by trying it against the card's own line.",
+    "B, shift 6: the helper box said a second furnace behind a Splitter would clear the hold-up while the card under it said no spot pays more; I trusted the box and it paid."
+  ]
+}

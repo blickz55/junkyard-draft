@@ -31,7 +31,7 @@ export function evaluate(l: Layout): Earned {
   return { earned: s.earned, shipped: s.shipped };
 }
 
-const blockedCell = (l: Layout, x: number, y: number) => !!l.rubble?.includes(y * l.width + x);
+const blockedCell = (l: Layout, x: number, y: number) => !!l.rubble?.includes(y * l.width + x) || !!l.reserved?.includes(y * l.width + x);
 const takenCell = (l: Layout, x: number, y: number) => l.machines.some((m) => m.x === x && m.y === y);
 const copy = (l: Layout): Layout => ({ ...l, machines: l.machines.map((m) => ({ ...m })) });
 
@@ -416,7 +416,10 @@ export function yardTree(seed: string, budget: number, keepPaths = false): YardT
     const base = { ...(parent ? parent.layout : run.layout), ...shiftTerms(Math.max(1, held.length), run.job, 0) };
     // on trial: the scrap truck's load, as `next` lands it in a game (game/src/sim/run.ts)
     const load = truckLoad(seed, held.length, base);
-    if (load.length) base.machines = [...base.machines, ...load.map((m, i) => ({ id: 9990 + i, ...m }))];
+    if (load.length) {
+      base.machines = [...base.machines, ...load.map((m, i) => ({ id: 9990 + i, ...m }))];
+      delete base.reserved;
+    }
     const shelf = [...(parent?.spare ?? []), ...(added ? cardParts(added, run.job, seed) : [])];
     let p = solve(base, shelf, free, price, parent ? budget : 0, rng, anchors, run.job);
     if (parent && added) {

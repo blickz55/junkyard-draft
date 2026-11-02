@@ -5,6 +5,7 @@ import path from 'node:path';
 import { forkFrom } from '../game/src/sim/fork';
 import { forkLabel } from '../game/src/content/fork';
 import { apply, replay as replayRun, type Action } from '../game/src/sim/run';
+import { truckLoad } from '../game/src/sim/yard';
 import { exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
 
@@ -38,7 +39,15 @@ test('fork (PLAN-v4 0.7.3): for every golden replay and every round, the fork eq
         fork.rounds.map((r) => r.earned),
         full.rounds.slice(0, n).map((r) => r.earned),
       );
-      assert.deepEqual(fork.layout.machines, full.rounds[n - 1].layout.machines, 'the layout is the one that ran round n');
+      // the layout that ran round n, and the scrap truck's load when it comes as round n + 1 starts (rules v11)
+      const truck = truckLoad(g.seed, n + 1, full.rounds[n - 1].layout);
+      const kept = fork.layout.machines.slice(0, fork.layout.machines.length - truck.length);
+      assert.deepEqual(kept, full.rounds[n - 1].layout.machines, 'the layout is the one that ran round n');
+      assert.deepEqual(
+        fork.layout.machines.slice(kept.length).map(({ kind, x, y, dir }) => ({ kind, x, y, dir })),
+        truck,
+        'and the truck, landed',
+      );
       assert.deepEqual(fork.forkedFrom, { ...origin, round: n });
       // the remaining actions of the original replay continue the fork to the same end
       const rest = g.actions.slice(fork.actions.length);

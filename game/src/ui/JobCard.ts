@@ -12,7 +12,7 @@ import { isMintedDailySeed } from '../sim/daily';
 import { RULES } from '../sim/rules';
 import { t } from '../content/strings';
 import { int, money } from '../content/format';
-import { deliveryNote, jobFlavour, jobLine, jobRecipe, materialMany, starMarks, yardNote } from '../content/job';
+import { jobFlavour, jobLine, jobRecipe, materialMany, starMarks, truckNote, yardNote } from '../content/job';
 import { machineShort } from '../content/machines';
 import { salLater } from '../render/sal';
 import { lightsOn, updateSettings } from '../render/storage';
@@ -53,10 +53,10 @@ const lightsLabel = () => t(lightsOn() ? 'job.lightsOn' : 'job.lightsOff');
 /** What this yard's line starts with that another's does not (rules v9): the first good card moves with it. */
 const variantLine = (seed: string, job: Job) => {
   const note = yardNote(seed, job);
-  const truck = deliveryNote(seed);
+  const truck = truckNote(seed);
   return [
     ...(note ? [h('div', { class: 'jd-amber', tid: 'job-variant' }, note)] : []),
-    ...(truck ? [h('div', { class: 'jd-amber', tid: 'job-delivery' }, truck)] : []),
+    ...(truck ? [h('div', { class: 'jd-amber', tid: 'job-truck' }, truck)] : []),
   ];
 };
 

@@ -60,6 +60,12 @@ export const RULES = {
      */
     variants: { standard: 1, twoMakers: 1, tuned: 1 } as Record<YardVariant, number>,
     /**
+     * The scrap truck (rules v11, every returning panel: the second half asked nothing new): as this shift starts a Hopper with a Crusher in
+     * front of it lands on cells the yard chose two or more from the line, kept free until then, so the question is where its shards go.
+     * The orders of the shifts after it are a seventh higher (docs/DESIGN.md). 0: no truck.
+     */
+    truck: { shift: 4 },
+    /**
      * Each variant's orders, in percent of the job's table, rounded to $10: a yard that opens with two Furnaces makes much more than one
      * that opens short of a machine. Chosen so that Sal's game takes two stars on about three yards in four in every variant
      * (docs/DESIGN.md).
@@ -79,7 +85,7 @@ export const RULES = {
   job: {
     price: 24,
     weights: { ingot: 2, plate: 1 } as Record<'ingot' | 'plate', number>,
-    orders: { ingot: [450, 800, 1400, 2150, 3200, 4600], plate: [380, 500, 1300, 1900, 3000, 4300] } as Record<'ingot' | 'plate', readonly number[]>,
+    orders: { ingot: [450, 800, 1400, 2470, 3680, 5290], plate: [380, 500, 1300, 2190, 3450, 4950] } as Record<'ingot' | 'plate', readonly number[]>,
     raise: 25,
     stars: [2, 4, 6] as readonly [number, number, number],
     /** the shift the other product starts selling at the job's price: a finished line has a new customer */
@@ -111,12 +117,7 @@ export const RULES = {
  * Rules on trial (docs/GOALS.md): outside RULES, so nothing in play or in the policy reads them, all zero in play, and only the tools switch
  * one on (`TRIAL.<name>` in tools/fun-card.ts). One that wins on the card moves into RULES with a version bump; one that loses goes.
  */
-export const TRIAL: Record<string, number> = {
-  /** n: a free Hopper is dropped on the yard as shift n starts, at a spot the yard chose apart from the line (yard.ts `delivery`); 0 never */
-  delivery: 0,
-  /** 1: the truck's Hopper comes with a Crusher in front of it, a whole feed whose shards need somewhere to go */
-  deliveryKit: 0,
-};
+export const TRIAL: Record<string, number> = {};
 
 export type YardVariant = 'standard' | 'twoMakers' | 'tuned';
 

@@ -17,8 +17,8 @@ export type SearchPolicy = 'greedy' | 'neutral';
 export type RerollPolicy = 'never' | 'greedy';
 
 export const clone = (l: Layout): Layout => ({ ...l, machines: l.machines.map((m) => ({ ...m })) });
-/** True when a cell takes no machine (rubble, rules v4). */
-const blocked = (l: Layout, x: number, y: number) => !!l.rubble?.includes(y * l.width + x);
+/** True when a cell takes no machine (rubble, rules v4; kept for the scrap truck, rules v11). */
+const blocked = (l: Layout, x: number, y: number) => !!l.rubble?.includes(y * l.width + x) || !!l.reserved?.includes(y * l.width + x);
 export const score = (l: Layout) => runLayout(l).earned;
 
 const NONE: ReadonlySet<number> = new Set();
