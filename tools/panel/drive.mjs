@@ -52,9 +52,36 @@ function yesterday() {
   };
 }
 
+/**
+ * On Windows a console program started by a process with no console of its own gets a window, and the headless browser is one: the daemon
+ * is detached, so every session opened a blank terminal window on the owner's screen, and closing one killed that session's browser
+ * ("Target crashed", four times in blind comparison 4). The browser is started instead from a helper with a hidden console, which it
+ * shares. The helper goes when the daemon does, and the browser with it.
+ */
+async function launchBrowser(chromium) {
+  if (process.platform !== 'win32') return chromium.launch();
+  const src = [
+    "const { chromium } = require('playwright');",
+    'chromium.launchServer().then((s) => console.log(s.wsEndpoint()));',
+    `setInterval(() => { try { process.kill(${process.pid}, 0); } catch { process.exit(0); } }, 2000);`,
+  ].join('\n');
+  const helper = spawn(process.execPath, ['-e', src], { cwd: ROOT, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+  process.on('exit', () => helper.kill());
+  const ws = await new Promise((resolve, reject) => {
+    let out = '';
+    helper.stdout.on('data', (d) => {
+      out += d;
+      const m = out.match(/wss?:\/\/\S+/);
+      if (m) resolve(m[0]);
+    });
+    helper.on('exit', () => reject(new Error('the browser helper stopped')));
+  });
+  return chromium.connect(ws);
+}
+
 async function daemon(url, device, returning) {
   const { chromium, devices } = await import('playwright');
-  const browser = await chromium.launch();
+  const browser = await launchBrowser(chromium);
   const ctx = await browser.newContext(device === 'desk' ? { viewport: { width: 1366, height: 768 } } : { ...devices['Pixel 7'], deviceScaleFactor: 2 });
   if (returning)
     await ctx.addInitScript((items) => {
