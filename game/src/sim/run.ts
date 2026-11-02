@@ -98,7 +98,7 @@ function dealFor(job: Job | null, round: number): Partial<Record<MachineKind, nu
   }
   const d = RULES.job.deal;
   const own = JOB_MACHINE[job.material];
-  const weights: Partial<Record<MachineKind, number>> = { [own]: d.job, hopper: d.hopper, [own === 'furnace' ? 'press' : 'furnace']: d.other, dock: d.dock };
+  const weights: Partial<Record<MachineKind, number>> = { [own]: d.job, hopper: d.hopper, [own === 'furnace' ? 'press' : 'furnace']: d.other };
   if (round >= RULES.job.tunerFrom) weights.tuner = d.tuner;
   return weights;
 }
@@ -134,8 +134,8 @@ export function starterLayout(seed = 'classic-yard'): { layout: Layout; nextId: 
 /** What a card puts on the shelf (rules v6): on a job's yard a Hopper comes with its Crusher and the job's machine with a Splitter, so that one card can always widen the line. */
 export function cardParts(kind: MachineKind, job: Job | null, seed = ''): MachineKind[] {
   if (!job?.orders || isTutorialSeed(seed)) return [kind];
-  if (kind === 'hopper') return ['hopper', 'crusher'];
-  return kind === JOB_MACHINE[job.material] ? [kind, 'splitter'] : [kind];
+  if (kind === 'hopper') return ['hopper', 'crusher', 'dock'];
+  return kind === JOB_MACHINE[job.material] ? [kind, 'splitter', 'dock'] : [kind];
 }
 /** What a shift changes about the yard: the second buyer from their shift, and the prices orders have raised. */
 export function shiftTerms(round: number, job: Job | null, filled: number): Pick<Layout, 'premium2' | 'rate'> {

@@ -2,7 +2,21 @@
 // centred, the scale is capped, and the camera centre maps the board's centre onto its CSS position.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fitBoard, boardCameraCenter, BOARD_W, BOARD_H, GRID_X, GRID_Y, MAX_BOARD_SCALE, binSlotXY, GRID_W, BIN_Y, BIN_H } from '../game/src/render/layout';
+import {
+  fitBoard,
+  boardCameraCenter,
+  BOARD_W,
+  BOARD_H,
+  GRID_X,
+  GRID_Y,
+  MAX_BOARD_SCALE,
+  binSlotXY,
+  GRID_W,
+  BIN_Y,
+  BIN_H,
+  setShelfCount,
+  shelfSlots,
+} from '../game/src/render/layout';
 import { CELL } from '../game/src/render/textures';
 
 test('fitBoard: a 390-wide phone slot gives 46–50 px cells; 412 too; the fit is centred and never above the cap', () => {
@@ -54,4 +68,23 @@ test('binSlotXY: seven shelf slots fit inside the shelf panel', () => {
     assert.ok(px >= GRID_X && px + CELL <= GRID_X + GRID_W, `slot ${i} inside the shelf width`);
     assert.ok(py >= BIN_Y && py + CELL <= BIN_Y + BIN_H, `slot ${i} inside the shelf height`);
   }
+});
+
+test('past seven parts the shelf packs them closer, and the last stays inside its frame; at seven or fewer nothing moves', () => {
+  const right = (i: number) => binSlotXY(i).px + CELL;
+  setShelfCount(4);
+  const seven = Array.from({ length: 7 }, (_, i) => binSlotXY(i).px);
+  setShelfCount(7);
+  assert.deepEqual(
+    Array.from({ length: 7 }, (_, i) => binSlotXY(i).px),
+    seven,
+    'seven is the shelf as it always was',
+  );
+  for (const n of [8, 10, 13]) {
+    setShelfCount(n);
+    assert.equal(shelfSlots(), n);
+    assert.ok(right(n - 1) <= GRID_X + GRID_W, `${n} parts: the last inside the frame`);
+    assert.equal(binSlotXY(0).px, seven[0], 'the first stays put');
+  }
+  setShelfCount(7);
 });

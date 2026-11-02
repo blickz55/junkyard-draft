@@ -65,9 +65,9 @@ export const RULES = {
      * (docs/DESIGN.md).
      */
     orderScale: {
-      standard: { ingot: 100, plate: 100 },
-      twoMakers: { ingot: 125, plate: 115 },
-      tuned: { ingot: 95, plate: 105 },
+      standard: { ingot: 110, plate: 105 },
+      twoMakers: { ingot: 112, plate: 112 },
+      tuned: { ingot: 100, plate: 108 },
     } as Record<YardVariant, Record<'ingot' | 'plate', number>>,
   },
   /**
@@ -89,8 +89,12 @@ export const RULES = {
      * one, so at 100 a Press earns half what a Furnace does per shard and is taken under a tenth of the times it is offered. 100 in play.
      */
     buyerPct: { ingot: 100, plate: 100 } as Record<'ingot' | 'plate', number>,
-    /** the deal on a job's yard: the job's own machine in place of `job`, the other product's in place of `other`. A Hopper comes with its Crusher and the job's machine with a Splitter, so one card can always widen the line. */
-    deal: { job: 20, hopper: 20, tuner: 14, other: 10, dock: 8 },
+    /**
+     * The deal on a job's yard: the job's own machine in place of `job`, the other product's in place of `other`. A Hopper comes with its
+     * Crusher and the job's machine with a Splitter, and since rules v10 each brings its own Dock, so a new feed or a second machine can sell
+     * where it stands: from shift 3 the sixth panel met cards with no easy spot on yards with rows to spare. A Dock is no card of its own.
+     */
+    deal: { job: 20, hopper: 20, tuner: 14, other: 10 },
     tunerFrom: 2,
   },
   /** Starter layout machine kinds (the classic yard, rules v1 to v3). */

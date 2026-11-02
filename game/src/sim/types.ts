@@ -7,7 +7,8 @@
 /** v7 (2026-11-02): the orders priced against players who follow the lit spots: a novice's first star, Sal's two, and a third that takes more than following them. */
 /** v8 (the third panel, 2026-11-02): a Tuner can stand in the line, carrying what a belt carries, and speeds a Hopper too; a yard's first line leaves a belt between the Crusher and the job's machine. */
 /** v9 (the fifth panel, 2026-11-02): a third of yards open with a second job machine and its own Dock behind a Splitter, a third with a Tuner at the job's machine, so the first good card moves from yard to yard. */
-export const RULES_VERSION = 9; // bumped on every semantic change; older replays and saves are refused from here on
+/** v10 (the sixth panel, 2026-11-02): a Hopper card and the job machine's card each bring their own Dock, and a Dock is no longer dealt alone, so a new feed or machine can sell where it stands. */
+export const RULES_VERSION = 10; // bumped on every semantic change; older replays and saves are refused from here on
 
 export type MachineKind = 'hopper' | 'conveyor' | 'splitter' | 'crusher' | 'furnace' | 'press' | 'dock' | 'sieve' | 'tuner';
 export type Material = 'scrap' | 'shards' | 'plate' | 'ingot' | 'slag';

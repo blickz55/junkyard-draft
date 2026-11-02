@@ -13,7 +13,7 @@ test("outside the lesson the coach says one thing per moment and names the shift
   const s = newRun('coach-yard');
   assert.ok(s.job);
   const pick = hintFor(s, ctx());
-  assert.match(pick.text, /^Pick ONE card\. This shift the order is \$450\.$/);
+  assert.equal(pick.text, `Pick ONE card. This shift the order is $${s.job!.orders![0].toLocaleString('en-US')}.`, "the yard's own first order");
   assert.equal(pick.step, 0);
   assert.deepEqual(pick.spots, [], 'a real choice lights nothing');
   apply(s, { t: 'pick', i: s.offers.indexOf('furnace') });

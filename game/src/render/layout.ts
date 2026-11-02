@@ -47,5 +47,16 @@ export function boardCameraCenter(fit: BoardFit, boardX: number, boardY: number,
     cy = boardY + fit.h / 2;
   return { x: bcx + (cssW / 2 - cx) / fit.s, y: bcy + (cssH / 2 - cy) / fit.s };
 }
+/** Seven parts sit side by side on the shelf; past seven they sit closer, so the last stays inside its frame (rules v10 cards bring three
+ * parts, and the sixth panel saw one drawn outside it). The scene says how many it holds before anything is laid out. */
+const SHELF_ROOM = 7;
+let shelfCount = SHELF_ROOM;
+export const setShelfCount = (n: number) => {
+  shelfCount = Math.max(SHELF_ROOM, n);
+};
+export const shelfSlots = () => shelfCount;
 /** The shelf slot i's logical top-left (the scene and the tests' geometry share it). */
-export const binSlotXY = (i: number) => ({ px: GRID_X + 12 + i * (CELL + 8), py: BIN_Y + 28 });
+export const binSlotXY = (i: number) => {
+  const step = shelfCount > SHELF_ROOM ? ((CELL + 8) * (SHELF_ROOM - 1)) / (shelfCount - 1) : CELL + 8;
+  return { px: GRID_X + 12 + i * step, py: BIN_Y + 28 };
+};

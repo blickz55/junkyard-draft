@@ -5,6 +5,13 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### Rules version 10: cards that bring their own Dock — 2026-11-02 (saves and scores from version 9 do not carry over)
+
+- **A Hopper card brings a Crusher and a Dock, and your job's machine a Splitter and a Dock.** A new feed or a second machine can sell right where it stands, so later shifts nearly always have a card with an easy spot.
+- **No Dock card on its own** any more.
+- **Orders a little bigger** to match what lines now make.
+- The shelf fits more than seven parts.
+
 ### Your rank keeps — 2026-11-02 (no rules change)
 
 - **Your rank counts every star you have earned,** under any rules. Bests still start again with new rules, because money under new rules is not money under old.

@@ -61,11 +61,11 @@ test("every generated yard opens with the job's line running: it ships the job's
   assert.ok(jobs.filter((j) => j === 'ingot').length > jobs.filter((j) => j === 'plate').length, 'ingot jobs are the common ones');
 });
 
-test("a card can always widen the line: a Hopper brings its Crusher and the job's machine a Splitter; lessons and classic yards deal single parts", () => {
+test("a card can always widen the line: a Hopper brings its Crusher and the job's machine a Splitter, each with a Dock of its own (rules v10); lessons and classic yards deal single parts", () => {
   for (const seed of seeds) {
     const job = yardFor(seed).job!;
-    assert.deepEqual(cardParts('hopper', job, seed), ['hopper', 'crusher']);
-    assert.deepEqual(cardParts(JOB_MACHINE[job.material], job, seed), [JOB_MACHINE[job.material], 'splitter']);
+    assert.deepEqual(cardParts('hopper', job, seed), ['hopper', 'crusher', 'dock']);
+    assert.deepEqual(cardParts(JOB_MACHINE[job.material], job, seed), [JOB_MACHINE[job.material], 'splitter', 'dock']);
     assert.deepEqual(cardParts('tuner', job, seed), ['tuner']);
   }
   assert.deepEqual(cardParts('hopper', null), ['hopper']);
@@ -194,7 +194,7 @@ test('rules v9: yards open three ways, and a variant changes only its own pieces
     const pct = RULES.yard.orderScale[y.variant ?? 'standard'][y.job!.material];
     assert.deepEqual(
       y.job!.orders,
-      plain.job!.orders!.map((o) => Math.round((o * pct) / 1000) * 10),
+      RULES.job.orders[y.job!.material].map((o) => Math.round((o * pct) / 1000) * 10),
       `${seed}: orders scaled to the variant, to the $10`,
     );
     const res = runLayout(newRun(seed).layout);

@@ -226,9 +226,15 @@ export function yardFor(seed: string): Yard {
 function withVariant(seed: string, yard: Yard, gap: { x: number; y: number; dir: Dir }, maker: { x: number; y: number }): Yard {
   const rng = new Rng(`${seed}:variant`);
   const v = rng.weighted(RULES.yard.variants) as YardVariant;
-  if (v === 'standard' || !yard.job) return yard;
-  const pct = RULES.yard.orderScale[v][yard.job.material];
-  const job: Job = { ...yard.job, orders: yard.job.orders?.map((o) => Math.round((o * pct) / 1000) * 10) };
+  if (!yard.job) return yard;
+  // every yard's orders take its variant's scale, a yard that opens as most do included; a variant that does not fit is that yard
+  const scaled = (k: YardVariant): Job => {
+    const pct = RULES.yard.orderScale[k][yard.job!.material];
+    return { ...yard.job!, orders: yard.job!.orders?.map((o) => Math.round((o * pct) / 1000) * 10) };
+  };
+  const standard: Yard = { ...yard, job: scaled('standard') };
+  if (v === 'standard') return standard;
+  const job = scaled(v);
   const taken = new Set([...yard.machines.map((m) => cell(m.x, m.y)), ...yard.rubble]);
   const free = (x: number, y: number) => inside(x, y) && !taken.has(cell(x, y));
   const sides = ([1, 3] as const).map((t) => ((gap.dir + t) % 4) as Dir);
@@ -237,7 +243,7 @@ function withVariant(seed: string, yard: Yard, gap: { x: number; y: number; dir:
     // the belt piece between the Crusher and the job's machine becomes a Splitter, with a second machine and its own Dock to one side;
     // a Splitter takes from behind only, so the piece must run straight on from the Crusher
     const crusher = yard.machines.find((m) => m.kind === 'crusher');
-    if (!crusher || crusher.dir !== gap.dir || crusher.x + DIR_DX[gap.dir] !== gap.x || crusher.y + DIR_DY[gap.dir] !== gap.y) return yard;
+    if (!crusher || crusher.dir !== gap.dir || crusher.x + DIR_DX[gap.dir] !== gap.x || crusher.y + DIR_DY[gap.dir] !== gap.y) return standard;
     for (const s of sides) {
       const m = { x: gap.x + DIR_DX[s], y: gap.y + DIR_DY[s] };
       const d = { x: m.x + DIR_DX[s], y: m.y + DIR_DY[s] };
@@ -246,7 +252,7 @@ function withVariant(seed: string, yard: Yard, gap: { x: number; y: number; dir:
       machines.push({ kind: JOB_MACHINE[yard.job.material], x: m.x, y: m.y, dir: s }, { kind: 'dock', x: d.x, y: d.y, dir: 0 });
       return { ...yard, machines, job, variant: v };
     }
-    return yard;
+    return standard;
   }
   // a Tuner already beside the job's machine
   for (const t of [0, 1, 2, 3] as Dir[]) {
@@ -254,7 +260,7 @@ function withVariant(seed: string, yard: Yard, gap: { x: number; y: number; dir:
     const y = maker.y + DIR_DY[t];
     if (free(x, y)) return { ...yard, machines: [...yard.machines, { kind: 'tuner', x, y, dir: t }], job, variant: v }; // it points away: it carries nothing in
   }
-  return yard;
+  return standard;
 }
 
 /** How many stars a count has earned on a job: orders filled, or in a lesson, units shipped. */

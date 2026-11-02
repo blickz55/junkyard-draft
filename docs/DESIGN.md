@@ -1,4 +1,4 @@
-# Junkyard Draft — design (rules v9)
+# Junkyard Draft — design (rules v10)
 
 ## Pitch
 
@@ -20,6 +20,18 @@ The owner asked for trial and error against a scorecard. Rules 5 scored 55 of 10
 **Evidence.** Trials on 24 tune yards from a base of about 50: the second buyer +13, kits +10, a head start 0 to +5 by itself, Tuner changes +2. Orders were priced on paper first (`tools/fun-orders.ts`, replaying the tree of each yard with raises applied), which lifted the paper score from about 30 to about 71; held out from the tuning, the chosen table gave flat shifts 6.7 %, last shift best 95.8 %, real picks 24.3 %, median orders filled novice 2, casual 4, competent 6, expert 6, and all six orders for 62.5 % of competent games and 66.7 % of expert games. A third of expert games miss one, which is where a second try comes from. The whole card on the built game, on the same 40 held-out yards as rules 5: **77 of 100, lowest dimension 50** (rules 5: 55 and 23), flat shifts 4 %, last shift best 87.5 %, real picks 20 %, the ruins −22, −30, −47, −11, −38, −3 (`docs/baselines/fun/card-rules6.json`).
 
 **Paid for.** The rules are harder to state: "fill the order, your prices rise" is a second number beside the money, and the card and every screen had to learn it. `tests/guide.test.ts` and the job bar's order strip carry that. The old star marks in units are gone from job yards (`orders` absent keeps them for the lessons' own marks and the tests that name them).
+
+## Decision: the cards that grow a line bring their own Dock (rules v10, 2026-11-02)
+
+The sixth panel's casual players stopped at a wall: from shift 3 or 4 every card said "No easy spot yet", on yards with rows to spare, because a new machine had to find its way back to the first Dock within two belts. Played Sal's way on 60 tune yards, no card fitted on 7, 10 and 15 % of picks in shifts 4 to 6, and 3 games went flat.
+
+- **A Hopper card brings a Crusher and a Dock, and the job machine's card a Splitter and a Dock** (`cardParts`); a Dock is no longer dealt alone. A new feed sells where it stands and a second machine sells beside itself: no card fits on 2 % of picks or fewer in every shift, the dead first deal included, and no game goes flat.
+- **Tried first, on the same measures:** Tuners that stack (the wall 3, 7, 12 %; card +0), the second buyer paying twice for plates (5, 10, 8 %; card +3), a Dock with the job machine only (7, 13, 13 %), turning one machine first (a paying plan in 3 of 24 stuck picks), taking one machine off first (11 of 24, median +4 %), keeping junk off the first branch (no change). Kits with a Dock while the lone Dock card was still dealt scored 72 against 74 on the card: the lone Dock went unused.
+- **Orders:** Sal earns about 10 % more, so each variant's scale moved (standard ×1.10 ingot and ×1.05 plate, two machines ×1.12, a Tuner ×1.00 and ×1.08), and a variant that does not fit its yard now takes the standard scale, where it had kept the table unscaled. Sal takes two stars on 71 to 100 % of yards per variant and three on 0 to 11 %.
+- **Held-out card, 40 yards** (`docs/baselines/fun/card-rules10.json`): 76, lowest 32, against 75 and 34 for rules 9 (Alive 100, Pick 49 with real picks at 28.8 %, the most yet, Skill 32, Moving 65, Ways 83, Ladder 100, One more try 100, Climax 87, Yards 77, Forgiving 100; medians $8,460, $12,432, $13,083, $15,909). Ruined versions: −28, −23, −38, −15, −38 and +1: the card still cannot tell every yard alike from the game.
+- The shelf packs past seven parts, so the last one stays inside its frame (`setShelfCount` in `render/layout.ts`).
+
+**Paid for.** The Dock as a choice of its own is gone, and with it "Gives your line room to grow"; three parts to a card fill the shelf sooner.
 
 ## Decision: what the sixth panel found (2026-11-02, no rules change)
 

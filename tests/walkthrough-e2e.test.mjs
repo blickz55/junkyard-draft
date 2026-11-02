@@ -338,7 +338,7 @@ test(
 );
 
 test('a star says nothing the job bar does not: the first two are only stars, the third says the job is done', { timeout: 120000 }, async () => {
-  const seed = 'star-6'; // Sal fills all six orders on this yard
+  const seed = 'star-9'; // Sal fills all six orders on this yard (rules 10)
   const { actions } = salGame(seed);
   const page = await f.page();
   const { api, mode, when, draft, noDialog } = page.jd;

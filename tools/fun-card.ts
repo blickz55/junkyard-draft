@@ -18,7 +18,7 @@ interface Variant {
 }
 /** Versions of the game made worse on purpose, each breaking one thing the card claims to see. */
 export const RUINED: Variant[] = [
-  { label: 'one card only', rules: { 'job.deal.job': 0, 'job.deal.other': 0, 'job.deal.dock': 0, 'job.deal.tuner': 0 } },
+  { label: 'one card only', rules: { 'job.deal.job': 0, 'job.deal.other': 0, 'job.deal.tuner': 0 } },
   { label: 'raw scrap pays like the job', rules: { 'value.scrap': 24, 'value.shards': 24, 'value.slag': 24 } },
   { label: 'machines crawl', rules: { 'process.crusher': 12, 'process.furnace': 16, 'process.press': 12 } },
   {

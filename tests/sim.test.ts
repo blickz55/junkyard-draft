@@ -108,10 +108,10 @@ test('draft offers are seeded, distinct, and on a classic yard round 1 always in
   assert.notDeepEqual(draftOffers('classic-alpha', 2), draftOffers('classic-beta', 2));
 });
 
-test('a job deals its own machine, the Hopper, a Tuner from shift 2, the rival machine and a Dock: never a lone Crusher or Splitter', () => {
+test('a job deals its own machine, the Hopper, a Tuner from shift 2 and the rival machine: never a lone Crusher, Splitter or Dock (rules v10)', () => {
   const seen = new Set<string>();
   for (let i = 0; i < 200; i++) for (let r = 1; r <= RULES.rounds; r++) for (const k of draftOffers(`deal-${i}`, r)) seen.add(k);
-  assert.deepEqual([...seen].sort(), ['dock', 'furnace', 'hopper', 'press', 'tuner']);
+  assert.deepEqual([...seen].sort(), ['furnace', 'hopper', 'press', 'tuner']);
   for (let i = 0; i < 200; i++) assert.ok(!draftOffers(`deal-${i}`, 1).includes('tuner'), 'no tuner in shift 1');
 });
 

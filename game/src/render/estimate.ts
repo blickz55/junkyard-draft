@@ -122,8 +122,9 @@ function single(l: Layout, kind: MachineKind): Try {
   return best;
 }
 
-/** A Hopper feeding a Crusher, the pair anywhere it fits, the Crusher's load going into whatever is ahead of it, or along belts to it. */
-function feed(l: Layout, belts: number): Try {
+/** A Hopper feeding a Crusher, the pair anywhere it fits, the Crusher's load going into whatever is ahead of it, or along belts to it, or
+ * with a Dock of its own (rules on trial: a card that brings one) into that, straight or one belt on, where a machine can drop in later. */
+function feed(l: Layout, belts: number, dock = false): Try {
   let best = NOTHING;
   const map = routeMap(l);
   for (let y = 0; y < l.height; y++)
@@ -139,10 +140,20 @@ function feed(l: Layout, belts: number): Try {
           const crusher = part('crusher', x, y, dir);
           const ax = x + DIR_DX[dir],
             ay = y + DIR_DY[dir];
-          const route = !blocked(l, ax, ay) && !at(l, ax, ay) ? routeFrom(l, map, ax, ay) : [];
-          if (route.length > belts || route.some((r) => (r.x === hx && r.y === hy) || (r.x === x && r.y === y))) continue; // the way may not run through the pair
-          const earned = worth(l, [...l.machines, crusher, hopper, ...route]);
-          if (earned > best.earned) best = { earned, plan: [hopper, crusher, ...route].map(({ kind, x, y, dir }) => ({ kind, x, y, dir })) };
+          const open = (px: number, py: number) => !blocked(l, px, py) && !at(l, px, py) && !(px === hx && py === hy);
+          const tries: Machine[][] = [];
+          const route = open(ax, ay) ? routeFrom(l, map, ax, ay) : [];
+          if (route.length <= belts && !route.some((r) => (r.x === hx && r.y === hy) || (r.x === x && r.y === y))) tries.push(route); // the way may not run through the pair
+          if (dock && open(ax, ay)) {
+            tries.push([part('dock', ax, ay, 0, -7)]);
+            const bx = ax + DIR_DX[dir],
+              by = ay + DIR_DY[dir];
+            if (belts > 0 && open(bx, by)) tries.push([part('conveyor', ax, ay, dir, -8), part('dock', bx, by, 0, -7)]);
+          }
+          for (const t of tries) {
+            const earned = worth(l, [...l.machines, crusher, hopper, ...t]);
+            if (earned > best.earned) best = { earned, plan: [hopper, crusher, ...t].map(({ kind, x, y, dir }) => ({ kind, x, y, dir })) };
+          }
         }
     }
   return best;
@@ -153,7 +164,7 @@ function feed(l: Layout, belts: number): Try {
  * belts. A yard's first line has no belt behind its machine, so the machine can step along the belt to make the room: the card's own machine
  * takes the belt piece ahead, the Splitter lands on the old machine and sends it to the shelf, and that one becomes the twin.
  */
-function branch(l: Layout, kind: MachineKind, belts: number): Try {
+function branch(l: Layout, kind: MachineKind, belts: number, dock = false): Try {
   let best = NOTHING;
   const plain = ({ kind, x, y, dir }: Machine): Placed => ({ kind, x, y, dir });
   for (const m of l.machines) {
@@ -186,6 +197,7 @@ function branch(l: Layout, kind: MachineKind, belts: number): Try {
           const tries: Machine[][] = [[]];
           const ox = tx + DIR_DX[dir],
             oy = ty + DIR_DY[dir];
+          if (dock && free(ox, oy)) tries.push([part('dock', ox, oy, 0, -7)]); // a card that brings its own Dock sells where the twin stands
           if (free(ox, oy) && spare > 0)
             for (const d1 of ALL) {
               const b1 = part('conveyor', ox, oy, d1, -2);
@@ -231,12 +243,13 @@ function room(l: Layout): Placed | null {
 export function cardGain(layout: Layout, parts: readonly MachineKind[], belts = 0): Gain {
   const base = runLayout(layout).earned;
   const kit = parts.length > 1;
+  const dock = kit && parts.includes('dock');
   const twin = (kind: MachineKind) => {
-    const b = branch(layout, kind, belts);
+    const b = branch(layout, kind, belts, dock);
     const s = single(layout, kind);
     return b.earned > s.earned ? b : s;
   };
-  const best = !kit ? single(layout, parts[0]) : parts[0] === 'hopper' ? feed(layout, belts) : twin(parts[0]);
+  const best = !kit ? single(layout, parts[0]) : parts[0] === 'hopper' ? feed(layout, belts, dock) : twin(parts[0]);
   const gain = Math.floor(best.earned) - base;
   if (gain > 0) return { gain, plan: best.plan };
   const spot = parts.length === 1 && parts[0] === 'dock' ? room(layout) : null;

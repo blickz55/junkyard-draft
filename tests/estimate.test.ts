@@ -73,7 +73,7 @@ test("a card's plan, made with the game's own moves, earns exactly what the card
     }
   }
   console.log(JSON.stringify(kinds));
-  for (const k of ['hopper+crusher', 'furnace+splitter'])
+  for (const k of ['hopper+crusher+dock', 'furnace+splitter+dock'])
     assert.ok(kinds[k].lit >= kinds[k].all * 0.8, `${k}: says what it adds on ${kinds[k].lit} of ${kinds[k].all}`);
 });
 
