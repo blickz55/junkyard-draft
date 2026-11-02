@@ -6,6 +6,7 @@
  */
 import { apply, canBuyBelt, canReroll, cardParts, newRun, orderFor, RunError, type Action, type RunState } from '../sim/run';
 import { runLayout } from '../sim/sim';
+import { analyseRound } from '../sim/bottleneck';
 import { isTutorialSeed } from '../sim/yard';
 import type { Dir, Machine, MachineKind } from '../sim/types';
 import { RULES } from '../sim/rules';
@@ -272,6 +273,20 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
     const outOfBelts = !r.bin.some((m) => m.kind === 'conveyor') && canBuyBelt(r) === null;
     const spot: Spot = { kind: 'cell', x: loose.x, y: loose.y };
     return say(outOfBelts ? { text: t('coach.brokenBuy'), spots: [spot, { kind: 'buy' }] } : { text: t('coach.broken'), spots: [spot] });
+  }
+  // ready, but short of the order: by how much, and which machine is the slow one, lit, so there is one concrete thing to look at (the
+  // seventh panel: "when I am short, tell me one concrete thing to try"; the Start button glowed over a shift that would miss)
+  const order = orderFor(r);
+  const res = order !== null ? runLayout(r.layout) : null;
+  if (order !== null && res && res.earned < order) {
+    const b = analyseRound(r.layout, res, r.round + 1);
+    const amount = money(order - res.earned);
+    const m = b.machine;
+    if (m && b.kind === 'saturated' && m.kind !== 'conveyor')
+      return say({ text: t('coach.shortSlow', { amount, name: machineName(m.kind) }), spots: [{ kind: 'cell', x: m.x, y: m.y }, { kind: 'run' }] });
+    if (m && b.kind === 'starved')
+      return say({ text: t('coach.shortStarved', { amount, name: machineName(m.kind) }), spots: [{ kind: 'cell', x: m.x, y: m.y }, { kind: 'run' }] });
+    return say({ text: t('coach.short', { amount }), spots: [{ kind: 'run' }] });
   }
   return say({ text: t('coach.ready'), spots: [{ kind: 'run' }] });
 }

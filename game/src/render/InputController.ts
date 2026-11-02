@@ -615,6 +615,15 @@ export class InputController {
       this.host.syncMachines();
     }
   }
+  /** A quarter turn the other way: three turns, one edit, one Undo (the seventh panel turned parts by counting presses one way round). */
+  rotateSelectedBack() {
+    if (this.mode !== 'build' || this.selectedId == null || this.host.playback) return;
+    const id = this.selectedId;
+    if (this.host.actAll([0, 1, 2].map(() => ({ t: 'rotate', id }) as const))) {
+      audio.rotate();
+      this.host.syncMachines();
+    }
+  }
 
   // ---------- selection, cursor, keyboard placement ----------
   private updateSelection() {

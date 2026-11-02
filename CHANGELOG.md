@@ -10,6 +10,9 @@ older replays and saves on purpose.
 - **Home counts every game you have finished,** under any rules, and shows your earlier best until you set one under the rules as they stand.
 - **Sal sells nothing,** so following the lit spots ties him to the dollar.
 - On a touch screen the coach says to tap a spare part on the shelf first.
+- **Short of the order?** The coach says by how much and lights the machine that is the slow one.
+- **Turn back:** a quarter turn the other way, one Undo.
+- Beating Sal or filling every order gets a burst of colour on the results.
 
 ### Rules version 10: cards that bring their own Dock — 2026-11-02 (saves and scores from version 9 do not carry over)
 

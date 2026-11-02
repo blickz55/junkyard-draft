@@ -120,3 +120,15 @@ test('a broken line with no belt on the shelf: the coach says a belt can be boug
   assert.equal(g.text, 'This piece leads nowhere. Out of belts? Buy one.');
   assert.deepEqual(g.spots, [{ kind: 'cell', x: before.x, y: before.y }, { kind: 'buy' }]);
 });
+
+test('ready but short of the order: the coach says by how much, and lights the slow machine when there is one', () => {
+  const s = newRun('coach-yard');
+  apply(s, { t: 'pick', i: 0 });
+  while (s.bin.length) apply(s, { t: 'sell', id: s.bin[0].id });
+  assert.match(hintFor(s, ctx()).text, /Start the shift/, 'an order the line fills: ready');
+  s.job = { ...s.job!, orders: s.job!.orders!.map(() => 99_999) }; // an order no line of this size fills
+  const g = hintFor(s, ctx());
+  assert.match(g.text, /^\$[\d,]+ short of the order: the .+ (is the slow one|waits for scrap)\.$/, g.text);
+  assert.deepEqual(spotKinds(g), ['cell', 'run'], 'the machine to look at, and the shift can still start');
+  assert.ok(g.text.split(/\s+/).length <= 14, 'one short instruction');
+});

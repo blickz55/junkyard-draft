@@ -4,7 +4,9 @@
 
 - **Panel round 7**, four returning players on rules 10 (`docs/baselines/fun/panel-r7/`): fun 4, 4, 3, 3; clear 4, 4, 3, 3; two played another game by choice; back tomorrow two yes and two maybe (round 6 on the same day's yard under rules 9: four maybe). **Blind comparison 3** (`docs/baselines/fun/blind-3/`): both chose rules 10, fun 3 against 2 and 4 against 3, in opposite play orders.
 - **What changed:** games and an earlier best on Home count under any rules (`gamesEver`); Sal sells nothing (the $10 a spare kit Dock fetched left lights-followers exactly $10 behind); `coach.placeFreeTouch` on a touch screen. A tap on the yard placing the spare part was tried and reverted: it broke the touch test's rule that a stray tap only lets go.
-- **Still open:** the third star on some yards needs more than the lights and the coach offers no concrete next step; a try's better score goes on no board (the owner's decision, minded by two agents); the one-way turn; a crowded shelf at eight parts.
+- **Then, from the same round:** ready but short of the order, the coach says by how much and lights the slow machine (`coach.shortSlow`, `coach.shortStarved`); Turn back, a quarter turn the other way as one edit; a burst of colour on the results for beating Sal or filling every order (`cheer`, none with reduced motion).
+- **A slip of mine:** 4a70c56 went out after four browser files instead of all of them, and the records test, which still expected "No finished games yet" for a profile with only older records, failed in CI. The next commit updates it; the full suite passes.
+- **Still open:** a try's better score goes on no board (the owner's decision, minded by two agents); a crowded shelf at eight parts; experts find Sal too easy once the wall is gone.
 
 ## Session 2026-11-02 (104) — rules 10: cards that bring their own Dock (main; saves and scores from v9 do not carry over)
 

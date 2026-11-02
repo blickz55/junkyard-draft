@@ -32,6 +32,7 @@ import { shareText, type Rank } from '../render/share';
 import { badgesFor } from '../content/badges';
 import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { audio } from '../render/audio';
+import { prefs } from '../render/prefs';
 import { authHeaders, bearerAllowed, claimName, loadIdentity } from '../render/identity';
 import { labelFor } from '../identity/identity';
 import { todaySeed, revealGate, todayUTC } from '../render/daily';
@@ -1192,5 +1193,21 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
   ui.mount(scene, screen, (e) => {
     if (e.key === 'Enter' && !(e.target instanceof HTMLButtonElement)) go(run.seed);
   });
+  // beating Sal or filling every order is a win, and it should look like one (the seventh panel: "make winning feel like winning")
+  if (!o.replayed && !fork && ((sal && run.score > sal.score) || (job?.orders && run.filled >= job.orders.length))) cheer(screen);
   void loadBoard();
+}
+
+/** Bits of gold and colour falling over the results for two seconds; nothing with reduced motion. */
+function cheer(over: HTMLElement) {
+  if (prefs.reducedMotion) return;
+  const colours = ['#f5c542', '#f0a830', '#6fcf6f', '#5aa9e6', '#e8e2d4'];
+  const box = h('div', { class: 'jd-cheer-rain', tid: 'cheer-rain' });
+  for (let i = 0; i < 36; i++) {
+    const bit = h('span', {});
+    bit.style.cssText = `left:${(i * 37) % 100}%; background:${colours[i % colours.length]}; animation-delay:${(i % 9) * 0.07}s; animation-duration:${1.4 + (i % 5) * 0.15}s`;
+    box.append(bit);
+  }
+  over.append(box);
+  setTimeout(() => box.remove(), 2600);
 }

@@ -251,6 +251,10 @@ export class GameScene extends Phaser.Scene {
         redo: () => this.redo(),
         openTips: (id) => this.openTips(id ?? this.suggestedTip ?? undefined),
         rotateSelected: () => this.rotateSelected(),
+        rotateBack: () => {
+          this.inputCtl.rotateSelectedBack();
+          this.renderSide();
+        },
         showSpot: () => {
           this.reveal = true; // until the next pick
           this.updateHint();

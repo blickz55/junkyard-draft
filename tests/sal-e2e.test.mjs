@@ -165,10 +165,13 @@ test('Move puts a machine in hand: the next tap is where it goes, and a stray ta
   assert.match(before, /^Sends (to the right|down|to the left|up)$/);
   await page.getByTestId('rotate').click();
   await when((was) => document.querySelector('[data-testid=sends]')?.textContent !== was, before);
-  await page.getByTestId('rotate').click();
-  await page.getByTestId('rotate').click();
-  await page.getByTestId('rotate').click();
+  await page.getByTestId('rotate-back').click();
   await when((was) => document.querySelector('[data-testid=sends]')?.textContent === was, before);
+  // Turn back is one edit: one Undo takes it back
+  const after = (await api('state')).layout.machines.find((m) => m.id === belt.id).dir;
+  await page.getByTestId('rotate-back').click();
+  await api('undo');
+  await when(([id, d]) => window.__jd.state().layout.machines.find((m) => m.id === id)?.dir === d, [belt.id, after]);
   const empty = await at(cellCenter(6, 0));
   await page.mouse.click(empty.x, empty.y);
   await frames(2);

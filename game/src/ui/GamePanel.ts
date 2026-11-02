@@ -108,6 +108,8 @@ export interface PanelActions {
   redo(): void;
   /** the machine demos, at one tip when asked (0.9.3) */ openTips(id?: string): void;
   rotateSelected(): void;
+  /** a quarter turn the other way, one Undo */
+  rotateBack(): void;
   toBin(id: number): void;
   sell(id: number): void;
   /** a belt for the shelf, paid from the score (rules v5) */ buyBelt(): void;
@@ -918,6 +920,7 @@ export class GamePanel {
               'div',
               { class: 'jd-row', style: 'margin-top:0.4em; gap:0.4em' },
               btn(t('game.rotate'), 'rotate', () => this.actions.rotateSelected(), { small: true }),
+              s.lesson ? null : btn(t('game.rotateBack'), 'rotate-back', () => this.actions.rotateBack(), { small: true }),
               sel.x >= 0 && !s.lesson ? btn(t('game.move'), 'move', () => this.actions.moveSelected(), { small: true }) : null,
               sel.x >= 0
                 ? btn(t('game.toShelf'), 'tobin', () => this.actions.toBin(sel.id), { small: true })

@@ -424,9 +424,10 @@ test(
       assert.match(migrated.text, /Best: \$912/);
       assert.equal(await page.locator('[data-testid^=archived-bests-]').count(), 0, 'nothing archived while rules 2 are current');
     } else {
-      assert.match(migrated.text, /No finished games yet/);
+      // no game yet under these rules: the earlier best shows, said to be under earlier rules (the seventh panel read "No finished games yet")
+      assert.match(migrated.text, /Best: \$912 on .+, under earlier rules/);
       assert.match(migrated.text, /From earlier versions \(v2\)/);
-      assert.match(migrated.text, /\$912/, 'the migrated v2 best is archived, not the headline, under newer rules');
+      assert.match(migrated.text, /3 games played on this device/, 'games are counted under any rules');
     }
     await page.ctx.close();
     const p2 = await openTitle(

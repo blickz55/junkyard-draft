@@ -220,6 +220,9 @@ const STYLE = `
 #ui .jd-home-more { display: flex; flex-wrap: wrap; gap: 0.5em; justify-content: center; }
 #ui .jd-home-more .jd-btn { flex: 1 1 11em; max-width: 20em; min-width: 0; white-space: normal; }
 #ui .jd-home-foot { display: flex; flex-wrap: wrap; gap: 0.2em 1.1em; justify-content: center; font-size: 0.8125em; color: ${CSS.dim}; margin-top: auto; }
+#ui .jd-cheer-rain { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 20; }
+#ui .jd-cheer-rain span { position: absolute; top: -1em; width: 0.5em; height: 0.8em; border-radius: 0.1em; animation: jd-rain linear forwards; }
+@keyframes jd-rain { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 85% { opacity: 1; } 100% { transform: translateY(105vh) rotate(540deg); opacity: 0; } }
 #ui .jd-home-note { font-size: 0.8125em; text-align: center; }
 #ui .jd-inbox-rows { max-height: 60vh; overflow: auto; margin-top: 0.4em; font-size: 0.875em; min-width: min(30em, 80vw); }
 #ui .jd-inbox-row { display: flex; align-items: center; gap: 0.6em; padding: 0.35em 0; border-top: 1px solid rgba(255, 255, 255, 0.08); }

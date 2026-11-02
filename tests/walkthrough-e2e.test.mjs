@@ -374,6 +374,8 @@ test('a star says nothing the job bar does not: the first two are only stars, th
     { text: '★★', quiet: true },
     { text: '★★★Job done.', quiet: false },
   ]);
+  // every order filled: the results celebrate it (the seventh panel: "make winning feel like winning")
+  await page.waitForSelector('[data-testid=cheer-rain]', { timeout: 10000 });
   await page.ctx.close();
 });
 
