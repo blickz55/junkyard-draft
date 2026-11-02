@@ -297,6 +297,8 @@ export interface YardTree {
   limits: string[];
   /** the worst single pick's cost: the best game after taking the worst card at each shift, as a share of the best */
   forgiving: number;
+  /** how the yard opens, moved to its corner: the job, the line and the junk, so two yards that look the same read the same */
+  opening: string;
   nodes: number;
   /** every path, best first, when asked for */
   paths?: PathResult[];
@@ -373,6 +375,29 @@ function withPlan(l: Layout, plan: readonly Placed[], shelf: readonly MachineKin
 }
 
 /** Search every set of parts on a yard and add up every path through its offers. `budget` is the annealing steps per set. */
+/** A yard's opening with its position taken out: what a player sees on the first morning, as a string two alike yards share. */
+export function openingOf(layout: Layout, job: Job | null): string {
+  const w = layout.width;
+  const cells = [...layout.machines.map((m) => [m.x, m.y]), ...(layout.rubble ?? []).map((c) => [c % w, Math.floor(c / w)])];
+  const x0 = Math.min(...cells.map((c) => c[0])),
+    y0 = Math.min(...cells.map((c) => c[1]));
+  const parts = layout.machines.map((m) => `${m.kind}${m.dir}@${m.x - x0},${m.y - y0}`).sort();
+  const junk = (layout.rubble ?? []).map((c) => `${(c % w) - x0},${Math.floor(c / w) - y0}`).sort();
+  return `${job?.material ?? '-'}|${parts.join(';')}|${junk.join(';')}`;
+}
+/** How varied the openings are, 0 when every yard opens the same and 1 when no two do: the entropy of the openings over its most. */
+export function openingVariety(openings: readonly string[]): number {
+  if (openings.length < 2) return 0;
+  const counts = new Map<string, number>();
+  for (const o of openings) counts.set(o, (counts.get(o) ?? 0) + 1);
+  let h = 0;
+  for (const n of counts.values()) {
+    const q = n / openings.length;
+    h -= q * Math.log(q);
+  }
+  return h / Math.log(openings.length);
+}
+
 export function yardTree(seed: string, budget: number, keepPaths = false): YardTree {
   const run = newRun(seed);
   const rounds = RULES.rounds;
@@ -495,7 +520,20 @@ export function yardTree(seed: string, budget: number, keepPaths = false): YardT
   const cut = top.score * 0.95;
   const nearBestSets = [...new Set(scored.filter((s) => s.score >= cut).map((s) => setKey(s.w.picks)))];
   const all = keepPaths ? scored.map((s) => result(s.w, s.score)) : undefined;
-  return { seed, job: run.job, offers, best, scores: scored.map((s) => s.score), nearBestSets, choices, limits, forgiving, nodes: memo.size, paths: all };
+  return {
+    seed,
+    job: run.job,
+    offers,
+    best,
+    scores: scored.map((s) => s.score),
+    nearBestSets,
+    choices,
+    limits,
+    forgiving,
+    opening: openingOf(run.layout, run.job),
+    nodes: memo.size,
+    paths: all,
+  };
 }
 
 /** One shift with the event log, for what reads it. */
@@ -650,7 +688,10 @@ export function cardOf(yards: readonly YardResult[]): Card {
   const avg = mean(scores);
   const spread = avg ? Math.sqrt(mean(scores.map((s) => (s - avg) ** 2))) / avg : 0;
   const distinctBest = Object.keys(bestSets).length / Math.max(1, bests.length);
-  const differ = 0.5 * scale(spread, 0.02, 0.12) + 0.5 * scale(distinctBest, 0.2, 0.8);
+  // the openings too: a daily game where every morning looks the same is a ruined one (2026-11-02; at weight 5 the card still cannot
+  // catch that ruin, and at 15 it stopped catching stars for nothing: docs/GOALS.md)
+  const openings = openingVariety(trees.map((t) => t.opening));
+  const differ = (scale(spread, 0.02, 0.12) + scale(distinctBest, 0.2, 0.8) + scale(openings, 0.6, 0.95)) / 3;
 
   const forgive = median(trees.map((t) => t.forgiving));
   const forgiving = scale(forgive, 0.2, 0.7);
@@ -664,7 +705,7 @@ export function cardOf(yards: readonly YardResult[]): Card {
     dim('The stars are a ladder', 15, ladder, { novice1: novice1, competent2: competent2, expert3: expert3 }),
     dim('One more try', 10, oneMore, { nearMisses: near }),
     dim('A climax', 5, climax, { lastStarLate: lateStar, growthShift2ToLast: growth }),
-    dim('Yards differ', 5, differ, { scoreSpread: spread, distinctBestSets: distinctBest }),
+    dim('Yards differ', 5, differ, { scoreSpread: spread, distinctBestSets: distinctBest, openingVariety: openings }),
     dim('One bad pick is not fatal', 5, forgiving, { worstPickKeeps: forgive }),
   ];
   const weight = dimensions.reduce((n, d) => n + d.weight, 0);

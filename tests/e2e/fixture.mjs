@@ -123,7 +123,16 @@ export async function fixture({ verifier = false, verifierEnv = {}, browser: eng
       page.on('console', (m) => {
         // a play-data batch that fails goes back in its queue and a player sees nothing: one lost preflight on a busy runner is not a page error
         const playData = m.text().includes('/events') || m.location().url.endsWith('/events');
-        if (m.type() === 'error' && !playData && !/ERR_CONNECTION_REFUSED|ERR_UNSAFE_PORT|ERR_NO_BUFFER_SPACE|ERR_INSUFFICIENT_RESOURCES/.test(m.text()))
+        // a preflight that got no usable answer on a busy runner (twice on c662f7d, once on a9c0ac5): the verifier answers every preflight
+        // with its CORS headers (tests/verifier.test.ts holds that), and the game treats a failed read as no data. A reply without the headers
+        // ("No 'Access-Control-Allow-Origin' header is present on the requested resource") still counts.
+        const lostPreflight = /Response to preflight request doesn't pass access control check/.test(m.text());
+        if (
+          m.type() === 'error' &&
+          !playData &&
+          !lostPreflight &&
+          !/ERR_CONNECTION_REFUSED|ERR_UNSAFE_PORT|ERR_NO_BUFFER_SPACE|ERR_INSUFFICIENT_RESOURCES/.test(m.text())
+        )
           errors.push(m.text());
       });
       pages.push(context);

@@ -5,7 +5,20 @@ import assert from 'node:assert/strict';
 import { newRun } from '../game/src/sim/run';
 import { runLayout } from '../game/src/sim/sim';
 import { Rng } from '../game/src/sim/rng';
-import { cardOf, evaluate, lastStarShift, median, paidGame, scale, solve, type PathResult, type YardResult, type YardTree } from '../tools/fun-lib';
+import {
+  cardOf,
+  evaluate,
+  lastStarShift,
+  median,
+  openingOf,
+  openingVariety,
+  paidGame,
+  scale,
+  solve,
+  type PathResult,
+  type YardResult,
+  type YardTree,
+} from '../tools/fun-lib';
 import { read, underOrders, type Orders } from '../tools/fun-orders';
 
 const ORDERS_TABLE = [100, 400, 600, 800, 1000, 1200];
@@ -66,6 +79,7 @@ function yard(seed: string, novice: number, casual: number, competent: number, b
     choices: Array.from({ length: 6 }, () => ({ offered: ['crusher', 'furnace', 'hopper'], values: [100, 98, 80], taken: 0 })),
     limits: ['saturated:furnace', 'saturated:crusher', 'starved:furnace', 'dead-end:hopper', 'balanced:-', 'balanced:-'],
     forgiving: 0.7,
+    opening: `ingot|${seed}`, // every yard opens its own way
     nodes: 1,
   };
   const tier = (score: number, units: number, stars: number) => ({ score, units, stars, close: 1 });
@@ -125,4 +139,14 @@ test('a reading adds up the best path and what each kind of player fills', () =>
   });
   assert.equal(r.medians.expert, 2600);
   assert.equal(r.filled.casual, 2);
+});
+
+test('the card sees a game whose every morning looks the same: opening variety is 1 when no two yards open alike and 0 when all do', () => {
+  assert.equal(openingVariety(['a', 'b', 'c', 'd']), 1);
+  assert.equal(openingVariety(['a', 'a', 'a', 'a']), 0);
+  assert.ok(openingVariety(['a', 'a', 'b', 'b']) > 0.4 && openingVariety(['a', 'a', 'b', 'b']) < 0.6);
+  const r = newRun('fun-0');
+  const w = r.layout.width;
+  const moved = { ...r.layout, machines: r.layout.machines.map((m) => ({ ...m, y: m.y + 1 })), rubble: (r.layout.rubble ?? []).map((c) => c + w) };
+  assert.equal(openingOf(moved, r.job), openingOf(r.layout, r.job), 'the same opening a row lower reads the same');
 });

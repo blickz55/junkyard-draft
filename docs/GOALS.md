@@ -35,6 +35,8 @@ A goal's bar never moves to make a number pass. A measure can change when it was
 
 - 2026-11-02: the card's tiers play as a person does, by following the lit spots: any card, a card that helps, the card that helps most (Sal's game). The old novice took a random card and had a search place it. The same yards scored 77 before and 72 after, and Skill fell from 76 to 36, which is the honest reading: following the lights earns 57 % of the search's money.
 
+- 2026-11-02: Yards differ also reads how varied the openings are (each yard's opening with its position taken out; the entropy over the most it could be: 1.000 on the 40 held-out yards). Goal 2's sixth ruin, every yard alike (straight lines, no junk, one job, one opening: variety 0.552), was +1 and is now −0.4: still not caught. Weighing Yards 15 instead of 5 caught it at −6 but let stars for nothing through at −8, so the weights stay. The card scores one game at a time, and a ruin that makes each game cleaner and every day the same is the one it cannot see; that needs a measure across days, not a heavier weight.
+
 ## What stays with the owner
 
 Spending money, anything public or sent to real people, legal choices and anything destructive. Real testers are the owner's call: the link and the instructions are ready. Goals 9 and 10 stand in until then, and they do not replace it.
