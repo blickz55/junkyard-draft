@@ -107,6 +107,12 @@ export const RULES = {
   ] as { kind: MachineKind; x: number; y: number; dir: Dir }[],
 } as const;
 
+/**
+ * Rules on trial (docs/GOALS.md): outside RULES, so nothing in play or in the policy reads them, all zero in play, and only the tools switch
+ * one on (`TRIAL.<name>` in tools/fun-card.ts). One that wins on the card moves into RULES with a version bump; one that loses goes.
+ */
+export const TRIAL: Record<string, number> = {};
+
 export type YardVariant = 'standard' | 'twoMakers' | 'tuned';
 
 /** Every machine kind the simulation knows (the names and blurbs a player reads live in game/src/content/machines.ts, 0.9.0). */

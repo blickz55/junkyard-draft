@@ -26,18 +26,34 @@ function takes(l: Layout, x: number, y: number, d: Dir, ignore?: number): boolea
 }
 
 /**
- * Which way a part should face at (x, y): a machine that only takes items from behind faces the way its feeder pushes; a
- * conveyor runs on toward whatever will take its load, turning a corner if that is where the line goes; a part with nothing
- * around it keeps its current facing.
+ * Which way a part should face at (x, y): a Splitter or a Sieve, which take only from behind, faces the way its feeder pushes; a
+ * machine fed from one side faces on toward whatever takes its load, straight on when that is where it goes (the seventh panel turned
+ * a Crusher three times to point it at the line); a conveyor runs on toward whatever will take its load, turning a corner if that is
+ * where the line goes; a part with nothing around it keeps its current facing.
  */
 export function smartFacing(l: Layout, kind: MachineKind, x: number, y: number, current: Dir, ignore?: number): Dir {
   if (kind === 'dock') return current;
   const feeds = feedsInto(l, x, y, ignore);
-  if (feeds.length && kind !== 'conveyor' && kind !== 'tuner') return feeds[0];
+  const out = (ways: Dir[]) => ways.find((d) => !feeds.includes(opposite(d)) && takes(l, x, y, d, ignore));
+  if (feeds.length && kind !== 'conveyor' && kind !== 'tuner') {
+    const ahead = feeds[0];
+    return kind === 'splitter' || kind === 'sieve' ? ahead : (out([ahead, leftOf(ahead), rightOf(ahead)]) ?? ahead);
+  }
   const ahead = feeds[0] ?? current;
-  const order: Dir[] = [ahead, leftOf(ahead), rightOf(ahead), opposite(ahead)];
-  const out = order.find((d) => !feeds.includes(opposite(d)) && takes(l, x, y, d, ignore));
-  return out ?? ahead;
+  return out([ahead, leftOf(ahead), rightOf(ahead), opposite(ahead)]) ?? ahead;
+}
+
+/** Hoppers beside (x, y) that feed nothing and could feed a Crusher put there, with the way each should turn. */
+function idleHoppers(l: Layout, x: number, y: number, crusherDir: Dir, ignore?: number): { h: Machine; dir: Dir }[] {
+  const found: { h: Machine; dir: Dir }[] = [];
+  for (const d of ALL) {
+    const h = at(l, x + DIR_DX[d], y + DIR_DY[d], ignore);
+    if (h?.kind !== 'hopper' || d === crusherDir) continue; // a Hopper in front of the Crusher would push head-on into its output
+    const toward = opposite(d);
+    if (h.dir === toward || takes(l, h.x, h.y, h.dir, ignore)) continue; // it already faces here, or it feeds something
+    found.push({ h, dir: toward });
+  }
+  return found;
 }
 
 /** The rule-checked actions that put machine `m` at (x, y). A machine already there goes to the shelf, or swaps places when `m` came from the yard. */
@@ -46,14 +62,17 @@ export function dropActions(run: RunState, m: Machine, x: number, y: number, fac
   if (fromYard && m.x === x && m.y === y) return [];
   const occupant = at(run.layout, x, y, m.id);
   const dir = facing ?? (fromYard ? m.dir : smartFacing(run.layout, m.kind, x, y, m.dir, occupant?.id));
-  if (!occupant) return [{ t: 'place', id: m.id, x, y, dir }];
+  // a Crusher dropped beside a Hopper that feeds nothing turns that Hopper to feed it, in the same edit (the seventh panel's ten clicks)
+  const aim: Action[] =
+    m.kind === 'crusher' ? idleHoppers(run.layout, x, y, dir, m.id).map(({ h, dir: d }) => ({ t: 'place', id: h.id, x: h.x, y: h.y, dir: d })) : [];
+  if (!occupant) return [{ t: 'place', id: m.id, x, y, dir }, ...aim];
   const { x: fx, y: fy } = m;
   const out: Action[] = [
     { t: 'unplace', id: occupant.id },
     { t: 'place', id: m.id, x, y, dir },
   ];
   if (fromYard) out.push({ t: 'place', id: occupant.id, x: fx, y: fy, dir: occupant.dir });
-  return out;
+  return [...out, ...aim];
 }
 
 /** A machine back to the shelf. If it stood in the line and the shelf holds a belt piece, the piece takes its place, facing the way it faced. */

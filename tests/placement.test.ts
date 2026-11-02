@@ -73,3 +73,48 @@ test('a conveyor fed only from its side draws as a corner; fed from behind or fr
   const l = { ...s.layout, machines: s.layout.machines.map((m) => (m.id === corner.id ? flipped : m)) };
   assert.equal(beltShape(l, flipped), 'left', 'travelling east then north is a left turn');
 });
+
+test('a Crusher dropped beside a Hopper that feeds nothing turns that Hopper to feed it, in the same edit; a Hopper already facing it is left alone', () => {
+  const s = newRun('classic-aim');
+  apply(s, { t: 'pick', i: s.offers.indexOf('crusher') });
+  const crusher = s.bin.find((m) => m.kind === 'crusher')!;
+  const hopper = s.layout.machines.find((m) => m.kind === 'hopper')!;
+  assert.deepEqual([hopper.x, hopper.y], [1, 2], 'the classic yard: a Hopper at 1,2');
+  apply(s, { t: 'place', id: hopper.id, x: 1, y: 2, dir: 3 }); // turned north, into nothing
+  const acts = dropActions(s, crusher, 1, 3);
+  assert.deepEqual(acts, [
+    { t: 'place', id: crusher.id, x: 1, y: 3, dir: 0 },
+    { t: 'place', id: hopper.id, x: 1, y: 2, dir: 1 },
+  ]);
+  acts.forEach((a) => apply(s, a));
+  assert.equal(s.layout.machines.find((m) => m.id === hopper.id)!.dir, 1, 'the Hopper now faces the Crusher');
+
+  const t = newRun('classic-aim');
+  apply(t, { t: 'pick', i: t.offers.indexOf('crusher') });
+  const h2 = t.layout.machines.find((m) => m.kind === 'hopper')!;
+  apply(t, { t: 'place', id: h2.id, x: 1, y: 2, dir: 1 }); // already facing the spot
+  assert.deepEqual(
+    dropActions(
+      t,
+      t.bin.find((m) => m.kind === 'crusher')!,
+      1,
+      3,
+    ).map((a) => a.t),
+    ['place'],
+    'nothing to turn',
+  );
+});
+
+test('a machine fed from one side faces whatever takes its load, straight on only when nothing beside it does', () => {
+  const s = newRun('classic-aim-2');
+  apply(s, { t: 'pick', i: s.offers.indexOf('crusher') });
+  const hopper = s.layout.machines.find((m) => m.kind === 'hopper')!;
+  apply(s, { t: 'place', id: hopper.id, x: 1, y: 2, dir: 1 }); // pushing south into 1,3
+  const belt = s.layout.machines.find((m) => m.kind === 'conveyor' && m.x === 4 && m.y === 2)!;
+  apply(s, { t: 'place', id: belt.id, x: 2, y: 3, dir: 0 }); // a belt east of 1,3, running east
+  const crusher = s.bin.find((m) => m.kind === 'crusher')!;
+  const facing = () => (dropActions(s, crusher, 1, 3)[0] as { dir: number }).dir;
+  assert.equal(facing(), 0, 'turned toward the belt, not straight on into nothing');
+  apply(s, { t: 'unplace', id: belt.id });
+  assert.equal(facing(), 1, 'with nothing beside it: straight on, the way the Hopper pushes');
+});

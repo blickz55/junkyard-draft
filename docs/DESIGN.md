@@ -21,6 +21,13 @@ The owner asked for trial and error against a scorecard. Rules 5 scored 55 of 10
 
 **Paid for.** The rules are harder to state: "fill the order, your prices rise" is a second number beside the money, and the card and every screen had to learn it. `tests/guide.test.ts` and the job bar's order strip carry that. The old star marks in units are gone from job yards (`orders` absent keeps them for the lessons' own marks and the tests that name them).
 
+## Tried and set aside: a second product worth building late (2026-11-02, no rules change)
+
+Two of the seventh panel's four said the second half asked nothing new: "add a hopper, add a furnace" again. The card's tree on 24 tune yards agrees on where the choices thin out: real picks by shift 42, 38, 29, 21, 21, 17 %, and on an ingot yard, two in three, nothing new pays after the second buyer comes, because a Plate Press earns half of what a Furnace does per shard.
+
+- **Tried** (`TRIAL` in `sim/rules.ts`, the card on 24 tune yards, the game at 73): the second buyer paying twice for plates, 72; the other product's machine dealt as a kit with its own Splitter and Dock, and lit off the job's machine or a Splitter's free side, 73; that kit with plates at 150, 73; at 200, 73. The kit alone was taken less often than the lone Press (6 % against 11 %). At 200 the Press was taken 18 % of the times it was offered and the climax rose to 100, but real picks fell to 24 % and three ways to win to 42 % of yards: a better price makes one more clear winner, not a choice.
+- **So it went.** `TRIAL` stays, empty, for the next one; the card's `--trials` and `override` read `TRIAL.<name>`. A question that is new in the second half needs something the line has not met, not a better price for something it has.
+
 ## Decision: what the seventh panel found (2026-11-02, no rules change)
 
 Four returning agents on rules 10 (`docs/baselines/fun/panel-r7/`) and a blind comparison of rules 10 against rules 9 (`docs/baselines/fun/blind-3/`). Fun 4, 4, 3, 3; clear 4, 4, 3, 3; two played another game by choice; back tomorrow: two yes, two maybe, where the same day on rules 9 had four maybe. Both blind agents chose rules 10, one playing it first and one second.

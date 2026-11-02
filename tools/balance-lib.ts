@@ -11,7 +11,7 @@
  * reachable); the review's warning stands — a bounded bot getting worse under a wider choice set is not proof about the
  * rules, so read the paired deltas and both policies, not the raw scores.
  */
-import { RULES } from '../game/src/sim/rules';
+import { RULES, TRIAL } from '../game/src/sim/rules';
 import { RULES_VERSION } from '../game/src/sim/types';
 import type { MachineKind } from '../game/src/sim/types';
 import { Rng } from '../game/src/sim/rng';
@@ -96,12 +96,13 @@ export interface BalanceResult {
 const q = (sorted: number[], p: number) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
 const mean = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 0);
 
-/** Set a dotted path on RULES, returning a restore function. */
+/** Set a dotted path on RULES, or on TRIAL when it starts `TRIAL.`, returning a restore function. */
 export function override(rules: Record<string, number>): () => void {
   const undo: (() => void)[] = [];
   for (const [path, value] of Object.entries(rules)) {
-    const parts = path.split('.');
-    let o = RULES as unknown as Record<string, unknown>;
+    const trial = path.startsWith('TRIAL.');
+    const parts = (trial ? path.slice(6) : path).split('.');
+    let o = (trial ? TRIAL : RULES) as unknown as Record<string, unknown>;
     for (const p of parts.slice(0, -1)) {
       if (!o[p] || typeof o[p] !== 'object') throw new Error(`balance: unknown RULES path ${path}`);
       o = o[p] as Record<string, unknown>;
