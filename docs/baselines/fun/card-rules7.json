@@ -1,0 +1,147 @@
+{
+ "yards": 40,
+ "budget": 1200,
+ "ms": 1121400,
+ "card": {
+  "total": 72,
+  "lowest": 35,
+  "dimensions": [
+   {
+    "name": "Alive to the last shift",
+    "weight": 15,
+    "score": 99,
+    "read": {
+     "flatSteps": 0.025,
+     "lastShiftBest": 0.925
+    }
+   },
+   {
+    "name": "Every pick a real choice",
+    "weight": 15,
+    "score": 35,
+    "read": {
+     "realPicks": 0.163,
+     "healthyCards": 0.8,
+     "allClose": 0.092,
+     "oneClearWinner": 0.596
+    }
+   },
+   {
+    "name": "Skill shows",
+    "weight": 15,
+    "score": 36,
+    "read": {
+     "tiersInOrder": 0.475,
+     "expertOverNovice": 1.751,
+     "deeperGain": 0.208
+    }
+   },
+   {
+    "name": "The problem keeps moving",
+    "weight": 10,
+    "score": 60,
+    "read": {
+     "limitsPerGame": 2.8
+    }
+   },
+   {
+    "name": "More than one way to win",
+    "weight": 5,
+    "score": 80,
+    "read": {
+     "threeWaysYards": 0.6,
+     "modalBestSet": 0.125
+    }
+   },
+   {
+    "name": "The stars are a ladder",
+    "weight": 15,
+    "score": 93,
+    "read": {
+     "novice1": 1,
+     "competent2": 0.85,
+     "expert3": 0.75
+    }
+   },
+   {
+    "name": "One more try",
+    "weight": 10,
+    "score": 100,
+    "read": {
+     "nearMisses": 0.4
+    }
+   },
+   {
+    "name": "A climax",
+    "weight": 5,
+    "score": 100,
+    "read": {
+     "lastStarLate": 0.775,
+     "growthShift2ToLast": 3.341
+    }
+   },
+   {
+    "name": "Yards differ",
+    "weight": 5,
+    "score": 60,
+    "read": {
+     "scoreSpread": 0.09,
+     "distinctBestSets": 0.5
+    }
+   },
+   {
+    "name": "One bad pick is not fatal",
+    "weight": 5,
+    "score": 100,
+    "read": {
+     "worstPickKeeps": 0.74
+    }
+   }
+  ],
+  "medians": {
+   "novice": 7776,
+   "casual": 10452,
+   "competent": 11823,
+   "expert": 13614
+  },
+  "takeRates": {
+   "furnace": 0.311,
+   "press": 0.168,
+   "hopper": 0.629,
+   "tuner": 0.262,
+   "dock": 0.146
+  }
+ },
+ "ruined": [
+  {
+   "label": "one card only",
+   "total": 34,
+   "drop": 38
+  },
+  {
+   "label": "raw scrap pays like the job",
+   "total": 50,
+   "drop": 22
+  },
+  {
+   "label": "machines crawl",
+   "total": 30,
+   "drop": 42
+  },
+  {
+   "label": "stars for nothing",
+   "total": 58,
+   "drop": 14
+  },
+  {
+   "label": "two-second shifts",
+   "total": 35,
+   "drop": 37
+  },
+  {
+   "label": "every yard alike",
+   "total": 66,
+   "drop": 6
+  }
+ ]
+}

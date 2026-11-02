@@ -21,9 +21,9 @@ test('share grid (PLAN-v1 0.4.3): glyph thresholds at their boundaries, six glyp
 
 test('share text: spoiler-free by default — label, score, glyph line, standing, no URL, no per-round dollars, no layout data', () => {
   const local = shareText(base);
-  assert.equal(local, 'Junkyard Draft · Daily 2026-10-25 · $1234\n░▒▓▓▒▒\nscore on this device, not yet checked');
+  assert.equal(local, 'Junkyard Draft · Daily 2026-10-25 · $1,234\n░▒▓▓▒▒\nscore on this device, not yet checked');
   assert.doesNotMatch(local, /https?:|shifts \$|verified board/);
-  assert.doesNotMatch(local, /hopper|conveyor|crusher|furnace|splitter|press|dock|\bdir\b|\d,\d/i, 'no layout data of any kind');
+  assert.doesNotMatch(local.replace(/\$[\d,]+/g, ''), /hopper|conveyor|crusher|furnace|splitter|press|dock|\bdir\b|\d,\d/i, 'no layout data of any kind');
   const verifiedRank = shareText({ ...base, player: 'jon', rank: { n: 3, of: 17 } });
   assert.match(verifiedRank, /\n#3 of 17 on the board as jon$/, 'under five games the rank is the standing');
   const verifiedPct = shareText({ ...base, player: 'jon', rank: { n: 3, of: 17 }, percentile: 61, n: 38 });
@@ -42,13 +42,13 @@ test('share text: days played and the opt-in permalink append lines; the detaile
   // challenge (PLAN-v4 0.7.1): detailed variant says how it went
   assert.match(
     shareText({ ...base, score: 1300, challenge: { player: 'Jon#7Q2M', score: 1200 }, variant: 'detailed' }),
-    /\nbeat Jon#7Q2M's \$1200 by \$100(\n|$)/,
+    /\nbeat Jon#7Q2M's \$1,200 by \$100(\n|$)/,
   );
   assert.match(
     shareText({ ...base, score: 1100, challenge: { player: 'Jon#7Q2M', score: 1200 }, variant: 'detailed' }),
-    /\nshort of Jon#7Q2M's \$1200 by \$100(\n|$)/,
+    /\nshort of Jon#7Q2M's \$1,200 by \$100(\n|$)/,
   );
-  assert.match(shareText({ ...base, score: 1200, challenge: { player: 'Jon#7Q2M', score: 1200 }, variant: 'detailed' }), /\ntied Jon#7Q2M's \$1200(\n|$)/);
+  assert.match(shareText({ ...base, score: 1200, challenge: { player: 'Jon#7Q2M', score: 1200 }, variant: 'detailed' }), /\ntied Jon#7Q2M's \$1,200(\n|$)/);
   assert.doesNotMatch(shareText({ ...base, score: 1300, challenge: { player: 'Jon#7Q2M', score: 1200 } }), /Jon/, 'the grid never carries it');
   // medal (PLAN-v3 0.6.4): detailed variant, verified entry only
   assert.match(shareText({ ...base, rank: { n: 3, of: 40 }, medal: 'silver', variant: 'detailed' }), /\nmedal: silver \(final board\)(\n|$)/);

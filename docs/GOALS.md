@@ -29,6 +29,12 @@ Written 2026-11-01, when the owner handed the work over: keep improving the game
 4. `main` stays green and the owner's game keeps working. The private test link is redeployed only from a green commit.
 5. Results go in `docs/STATUS.md` as they land, so nobody has to watch.
 
+## When a measure changes
+
+A goal's bar never moves to make a number pass. A measure can change when it was measuring the wrong thing, and then it is written here, with the old number kept in `docs/STATUS.md`.
+
+- 2026-11-02: the card's tiers play as a person does, by following the lit spots: any card, a card that helps, the card that helps most (Sal's game). The old novice took a random card and had a search place it. The same yards scored 77 before and 72 after, and Skill fell from 76 to 36, which is the honest reading: following the lights earns 57 % of the search's money.
+
 ## What stays with the owner
 
 Spending money, anything public or sent to real people, legal choices and anything destructive. Real testers are the owner's call: the link and the instructions are ready. Goals 9 and 10 stand in until then, and they do not replace it.

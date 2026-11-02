@@ -5,12 +5,16 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
-### Rules version 6: orders — 2026-11-01 (saves and scores from version 5 do not carry over)
+### Rules version 7: orders — 2026-11-02 (saves and scores from version 5 do not carry over)
+- **Beat Sal.** The foreman plays every yard too. The job card says what he made of it, each shift tells you how far ahead or behind you are, and the results let you watch his game.
+- **Lit spots.** After a pick the game shows where its parts earn their keep, one spot at a time, and the part already faces the right way. Put it somewhere else if you know better.
+- **A card says whether it helps, not how much.** It says "Adds to this line now" or "On its own: nothing yet". What it really adds shows once it is built.
 - **Six orders.** Each shift has an order in money, and each one is bigger than the last. Fill it and every price rises 25 % for the rest of the game. Miss it and you lose only that raise. Stars are for orders filled: two, four and six.
 - **The line already runs.** Every yard opens with the Crusher and the job's machine on the belt, so the first shift pays and the first choice is how to make it pay more.
 - **A card can pay by itself.** A Hopper brings a Crusher with it, and the job's machine brings a Splitter.
 - **A second buyer** pays the job's price for the other product from shift 4.
 - **Fewer ways to be wrong.** Machines take from behind or either side, only never head-on, and a Splitter sends ahead as well as left and right. Four spare belts on the shelf.
+- Money has its comma now that a game runs to five figures.
 
 ### A private test link — 2026-11-01 (no rules change)
 - **A tester build:** the lessons, today's yard and practice yards on a private link, with no server. It says it is a test, and never tells anyone they are offline. Leaderboards, sharing, crews and the talk stay out of sight until there is a server and an address to share.

@@ -5,8 +5,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { fixture, SHOTS, settle, cellCenter, binSlotCenter } from './e2e/fixture.mjs';
-import { playSeed } from '../tools/autoplay-lib.ts';
-import { Rng } from '../game/src/sim/rng.ts';
+import { salGame } from '../game/src/render/sal.ts';
 import { LESSONS } from '../game/src/content/lessons.ts';
 
 const f = await fixture();
@@ -334,8 +333,8 @@ test(
 );
 
 test('a star says nothing the job bar does not: the first two are only stars, the third says the job is done', { timeout: 120000 }, async () => {
-  const seed = 'star-f'; // our player fills all six orders on this yard
-  const { actions } = playSeed(seed, new Rng(`${seed}:x`), 12);
+  const seed = 'star-10'; // Sal fills all six orders on this yard
+  const { actions } = salGame(seed);
   const page = await f.page();
   const { api, mode, when, draft, noDialog } = page.jd;
   await page.goto(f.gameUrl(`scene=game&seed=${seed}`));

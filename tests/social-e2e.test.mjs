@@ -87,7 +87,7 @@ test('the board shows the counts; the owner sees them on the results, and no but
   // the inbox: the reaction is there, one line, read by opening it
   await owner.jd.textMatches('inbox', /^Inbox \(1\)$/, 10000);
   await owner.getByTestId('inbox').click();
-  await owner.jd.textMatches('inbox-reactions', /^1 reaction 👏 1 on your \$\d+ on yard classic-social-yard/, 10000);
+  await owner.jd.textMatches('inbox-reactions', /^1 reaction 👏 1 on your \$[\d,]+ on yard classic-social-yard/, 10000);
   await owner.jd.textMatches('inbox', /^Inbox$/, 5000);
   await owner.getByTestId('inbox-close').click();
   await owner.jd.noDialog('inbox-dialog');

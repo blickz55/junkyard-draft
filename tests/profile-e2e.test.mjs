@@ -118,7 +118,7 @@ test('a board row, a comment and a post in the hub all open the same profile', {
   assert.match(dialog, /Ann#\w+/);
   assert.match(await sam.getByTestId('profile-joined').textContent(), /^Here since \w+ \d{4}$/);
   assert.equal(await sam.getByTestId('profile-best').count(), 1);
-  assert.match(await sam.getByTestId('profile-best').textContent(), /^\$\d+ · /);
+  assert.match(await sam.getByTestId('profile-best').textContent(), /^\$[\d,]+ · /);
   await sam.getByTestId('profile-friend').waitFor();
   await sam.screenshot({ path: path.join(SHOTS, `profile-${Date.now()}.png`) });
   await closeProfile();

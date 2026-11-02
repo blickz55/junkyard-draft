@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "updated": "2026-11-01",
-  "rulesVersion": 6,
+  "rulesVersion": 7,
   "protocol": 3,
   "operator": {
     "product": "Junkyard Draft",

@@ -1,10 +1,10 @@
 /**
  * Number and date formatting for everything a player reads (production roadmap 0.9.0): one place that uses Intl, so
- * no screen hand-rolls a date and every money amount is written the same way. English (en-US) numbers without a
- * grouping separator: "$1758" stays a single token the share text, the cards and the tests can pin, and the
- * simulation's integers never carry fractions. Dates are UTC on purpose: the daily's clock is UTC everywhere.
+ * no screen hand-rolls a date and every money amount is written the same way. English (en-US) numbers: money carries a
+ * grouping separator now that a game runs to five figures, "$11,460", and counts do not, and the simulation's integers
+ * never carry fractions. Dates are UTC on purpose: the daily's clock is UTC everywhere.
  */
-const MONEY = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0, useGrouping: false });
+const MONEY = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 const INT = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0, useGrouping: false });
 const DEC1 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: false });
 const UTC_DATE_TIME = new Intl.DateTimeFormat('en-GB', {
@@ -28,7 +28,7 @@ export function utcMonth(month: string): string {
 const LOCAL_HOUR = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
 /** "9:00 AM": a local hour of the day (the daily reminder's picker, 0.10.4). */
 export const localHour = (hour: number): string => LOCAL_HOUR.format(new Date(2026, 0, 1, hour, 0, 0));
-/** "$1758"; negative amounts use the typographic minus the share text always used: "−$40". */
+/** "$1,758"; negative amounts use the typographic minus the share text always used: "−$40". */
 export const money = (n: number): string => (n < 0 ? `−${MONEY.format(-n)}` : MONEY.format(n));
 export const int = (n: number): string => INT.format(n);
 export const dec1 = (n: number): string => DEC1.format(n);

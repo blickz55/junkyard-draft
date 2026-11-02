@@ -2184,7 +2184,7 @@ test('discord webhook: seed openings, a new #1 and freezes post once each with a
   assert.ok(changes.length >= 1);
   leadMsgs.forEach((m, k) => {
     assert.ok(m.startsWith(changes[k]), `${m} starts with ${changes[k]}`);
-    if (k > 0) assert.match(m, / \(was p\d, \$\d+\)$/);
+    if (k > 0) assert.match(m, / \(was p\d, \$[\d,]+\)$/);
     else assert.ok(!m.includes('(was'));
   });
   // a claimed player improving their own leading run is not news
@@ -2222,7 +2222,7 @@ test('discord webhook: seed openings, a new #1 and freezes post once each with a
   assert.deepEqual(delays, [2000]);
   assert.equal(calls.length, n2 + 2);
   assert.equal(calls[n2].body.content, calls[n2 + 1].body.content);
-  assert.match(calls[n2].body.content, /^Weekly 2030-W19 is final: 1 verified run · #1 Hook Player#[A-Z2-9]{4} \$\d+ · fewer than five runs: no medals$/);
+  assert.match(calls[n2].body.content, /^Weekly 2030-W19 is final: 1 verified run · #1 Hook Player#[A-Z2-9]{4} \$[\d,]+ · fewer than five runs: no medals$/);
   assert.equal(a.stats.retried, 1);
   assert.match(logs.at(-1)!, /rate limited, retrying in 2000 ms \(1\/3\)/);
   // a 500 is dropped and logged; the queue goes on with the next message

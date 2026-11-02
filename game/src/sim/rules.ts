@@ -3,7 +3,7 @@ import type { Dir, MachineKind, Material } from './types';
 /** Machines that hold an item for a fixed number of ticks (the only keys RULES.process may have). */
 export type ProcessorKind = 'crusher' | 'furnace' | 'press';
 
-/** Tuning constants for rules version 6. Changing any value requires bumping RULES_VERSION. */
+/** Tuning constants for rules version 7. Changing any value requires bumping RULES_VERSION. */
 export const RULES = {
   gridWidth: 8,
   gridHeight: 6,
@@ -62,7 +62,7 @@ export const RULES = {
   job: {
     price: 24,
     weights: { ingot: 2, plate: 1 } as Record<'ingot' | 'plate', number>,
-    orders: { ingot: [450, 700, 1010, 1470, 2010, 2600], plate: [380, 600, 860, 1250, 1710, 2210] } as Record<'ingot' | 'plate', readonly number[]>,
+    orders: { ingot: [450, 640, 1250, 1900, 2500, 3900], plate: [380, 450, 1200, 1800, 2500, 3300] } as Record<'ingot' | 'plate', readonly number[]>,
     raise: 25,
     stars: [2, 4, 6] as readonly [number, number, number],
     /** the shift the other product starts selling at the job's price: a finished line has a new customer */

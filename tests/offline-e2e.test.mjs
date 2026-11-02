@@ -55,9 +55,9 @@ test(
     assert.equal(await page.getByTestId('board-head').textContent(), 'Your games on this yard');
     assert.equal(await page.getByTestId('headline').textContent(), "That's the game. You're offline.", "the card's headline says offline (0.9.2)");
     assert.equal(await page.getByTestId('delta-best').textContent(), 'your first game on this yard');
-    assert.match(await page.getByTestId('history-0').textContent(), /^1\. \$\d+ {2}this game$/);
+    assert.match(await page.getByTestId('history-0').textContent(), /^1\. \$[\d,]+ {2}this game$/);
     assert.match(await page.getByTestId('history-note').textContent(), /^1 game of yours on this yard\./);
-    score1 = Number((await page.getByTestId('score').textContent()).replace('$', ''));
+    score1 = Number((await page.getByTestId('score').textContent()).replace(/\D/g, ''));
     // the grouped actions: what to do next at the top, sharing below the board, exactly one primary button
     const groups = await page.evaluate(() =>
       ['actions-play', 'actions-share', 'actions-watch'].map((id) => {
@@ -105,10 +105,10 @@ test('the verifier comes up: a reload of the title submits the saved run and say
   verifier = await startVerifier({ port: VPORT, env: { DAILY_SECRET: 'offline-e2e-secret', VERIFIER_LOG: '0', BOT_PAR: '0' } });
   await page.goto(`${f.url}/?dev=1&verifier=${VURL}`);
   await title();
-  await textMatches('pending-note', /^Your saved game on classic-offline-e2e-seed is checked: \$\d+ · #1 of 1 as Offline Pat\.$/, 20000);
+  await textMatches('pending-note', /^Your saved game on classic-offline-e2e-seed is checked: \$[\d,]+ · #1 of 1 as Offline Pat\.$/, 20000);
   assert.match(
     await page.getByTestId('pending-note').textContent(),
-    new RegExp(`\\$${score1} · #1 of 1`),
+    new RegExp(`\\$${score1.toLocaleString('en-US')} · #1 of 1`),
     'the saved first run (the one submitted) is the verified one',
   );
   assert.equal(await page.evaluate(() => localStorage.getItem('jd.pending.v1')), null, 'nothing waits any more');
@@ -126,7 +126,7 @@ test('the verifier comes up: a reload of the title submits the saved run and say
   // online results: the board is back with the verified entry, the status says so in plain words
   await playToResults('classic-offline-e2e-seed');
   await textMatches('board-head', /^The board · this yard$/);
-  assert.match(await page.getByTestId('board-entry-0').textContent(), /^1\. \$\d+ {2}Offline Pat/);
+  assert.match(await page.getByTestId('board-entry-0').textContent(), /^1\. \$[\d,]+ {2}Offline Pat/);
   assert.equal(await page.getByTestId('submit').textContent(), 'Put my score on the board');
   await noDevCopy('results online');
   assert.deepEqual(page.errors, [], 'no page errors');

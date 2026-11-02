@@ -1,37 +1,37 @@
 {
- "rulesVersion": 6,
+ "rulesVersion": 7,
  "generatedBy": "tools/make-golden.ts",
  "entries": [
   {
    "file": "golden-ordinary-1.json",
    "seed": "golden-ordinary-1",
-   "score": 10109,
+   "score": 9191,
    "actions": 169,
    "note": "autoplayer line (bounded search, fixed rng stream)",
-   "stateHash": "a4562414ec0e79a70be220752b60d8160745cfe086474904b0149616d97e85f0",
+   "stateHash": "7fd21ca02f42f300ec551233fb2c50bee77f8226106fac7c7627a857e85e7cb4",
    "roundHashes": [
     "774ae46283878021ebe816b2d746998405c45e7022c690d0d80b25ef0937110a",
     "7c65d1a846942c0871ac331a56c81808a505266fbb13167ad39d3d88ddd37fc4",
     "3180f81846403f37d43143cfc24d053dcf887641efd32582962da53bcb7b8d72",
     "d66171d7cc7d6cb5829402ba466c7d3f19320f0e8f361f4d56221be9ee6048a7",
-    "aee2e89476a0058e8fd1978add16d171f1c575ba69bab5e66f580c1772d59802",
-    "037b80a2732a11bdd18c92433900ddc05e7e5cbead39e411fc2deefe0bfb0e0b"
+    "69ad28307d9f970141c74154e66a0a611f9a2dabad2e4e35d5a2083add351d38",
+    "69ad28307d9f970141c74154e66a0a611f9a2dabad2e4e35d5a2083add351d38"
    ]
   },
   {
    "file": "golden-ordinary-2.json",
    "seed": "golden-ordinary-2",
-   "score": 10501,
+   "score": 9583,
    "actions": 152,
    "note": "autoplayer line (bounded search, fixed rng stream)",
-   "stateHash": "64cf3cfb96ca8d3e50c45fb58adc24e0e2da297a760100da8102b8448c538a20",
+   "stateHash": "7cb8ccb746c3edc070cdea636c63cb82fa0a0c174cdef7760fc320f9c7dffb3b",
    "roundHashes": [
     "d1c5dff4fdb00bdf41a04e689b0dcd258ebc8b1761dbc12acca17626a317be73",
     "b8aa09cf451e4ddf6ca541e9e2a6ea2fafc89db5252a9e336c6102e7d4f2c0f4",
     "ccc68e611085dfe3465b8ecea35a88d522bc963dadcd902e39a0356fa0423186",
     "18adbfa35a9a7292e7d5dbf06b8ee131ea997b3dc3759e30f1c30a100f59379b",
-    "3b810ecfeb90de1adcf8503d602ced0c0e8820bc76ccfc303fb6e9a63fec69f7",
-    "f4d49930d06c90f4d3c5261b8b64609dd6fe6d1dd39889ce21c1aee52efa949c"
+    "d710ec47f488cd39b987f6398bdeae5a476814f54b3a346b0c3cbdce186771f7",
+    "9786358b6a4cbe513e8048b62eb86e01f5482f1b1f4bf2bb8650c144641ae61d"
    ]
   },
   {
@@ -40,7 +40,7 @@
    "score": 734,
    "actions": 25,
    "note": "crusher placed in round 1, every later pick sold ($10 each)",
-   "stateHash": "58046b5db69ff81ce610103df00438a3672ea7cf97b080abd194cc4d3201a2d8",
+   "stateHash": "608b3fec8cabf14c7429dece0dcc74d0e849b35f15c7173031cf23e703d9a9d9",
    "roundHashes": [
     "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
     "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
@@ -56,7 +56,7 @@
    "score": 834,
    "actions": 22,
    "note": "crusher at (2,2) then a press at (3,2): shards become plates from round 2",
-   "stateHash": "9e1922916b77d696a96c732ab7a606fafd033803c6a0385965d12478aa65a07a",
+   "stateHash": "7f9eced83f682f259632b00d9f808beca7a28fcb6a29e7d43ad99e6e1fc816b9",
    "roundHashes": [
     "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
     "8afbf84fc3653e827928f635b453333bf3d2030629f61062144b02fef76e57e7",
@@ -72,7 +72,7 @@
    "score": 684,
    "actions": 30,
    "note": "rotate/unplace/re-place churn in round 1 (what undo/redo records)",
-   "stateHash": "d8109c76967833b0285671bf4742b58106e310d50e1dd4ef5744165bc5d1e564",
+   "stateHash": "bcb3947989321890a26c0cc08baac6fdd08a59fc53c89f742e14ac9c8913d4a8",
    "roundHashes": [
     "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
     "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
@@ -88,7 +88,7 @@
    "score": 644,
    "actions": 21,
    "note": "crusher at (2,2) in round 1, a reroll (−$40) before the round-2 pick",
-   "stateHash": "ec510d2f14739d128dda536ba8b5fea72e820f0f83bfb39f21d679662f464f3d",
+   "stateHash": "3bd278f767848411326035bb65b0e46c5eaea8ad76acf7f848a02ba322ef8ebd",
    "roundHashes": [
     "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
     "97f71cba12dedd441244dc761264b589b8a55d7e3477b7b12ff2ecb0b41cb069",
@@ -104,7 +104,7 @@
    "score": 2452,
    "actions": 22,
    "note": "a lesson followed move by move, then its shifts played out; scenario semantics are versioned with RULES_VERSION from 0.4.1 on",
-   "stateHash": "8de084da492ed5d0e085570bba85c753480eae5c21054548e6c4c197ff3f59f7",
+   "stateHash": "50d62852e23fa64c56716d2f6e4c71b07fcc74e1fb9f0308910a17311ab3e06b",
    "roundHashes": [
     "dd78f91ff2a78074a67e7ac2e5f782352bbfde379beef2e62c706baaac9c2e81",
     "6c60532e7ea6fdfe22b8d71cf146a1dbee25ce93c7ab3c75cd758d8103521a31",
@@ -120,7 +120,7 @@
    "score": 3312,
    "actions": 25,
    "note": "a lesson followed move by move, then its shifts played out; scenario semantics are versioned with RULES_VERSION from 0.4.1 on",
-   "stateHash": "0a0be960ff20bb7571c3cc429247f1b9c5d00949c41cd6114cfc4d068d136a70",
+   "stateHash": "3997a0237c16148a3cd92d12cb2f97b401bc58bdd7438736bbc78e49251aee33",
    "roundHashes": [
     "59fcc3857f770194b48de5151b30ae9639150623c0852d2007580156ba68bd3a",
     "81aeafc1c63c5a6dfcd3e77a8d49c8b84a43971dc5c93f57f0905fbdb7c07306",
@@ -136,7 +136,7 @@
    "score": 6470,
    "actions": 27,
    "note": "a lesson followed move by move, then its shifts played out; scenario semantics are versioned with RULES_VERSION from 0.4.1 on",
-   "stateHash": "a61379cf1e5cbd0f027667257ba4a43058cc6f54328e2794af591468d16f9be2",
+   "stateHash": "79c7d9f5a71b06dc2b2b7d38cd5cafa609c0ef923c3bd41bfc0266b7cc398a0a",
    "roundHashes": [
     "bf47aa004a2018eafd18ec3270be204d91fb9af6833a1f0e7bf654b5a450e5cf",
     "53e02e4509a5d0ab1b9b2df1fb56a0e04bec2b577b1414edb4bef414b5eaa252",
@@ -149,17 +149,17 @@
   {
    "file": "golden-belts.json",
    "seed": "golden-belts",
-   "score": 3142,
+   "score": 3574,
    "actions": 25,
    "note": "two belts bought in round 3 and one sold back: the price comes off the score, the sale pays less",
-   "stateHash": "fa11a411e96822e7c0476d9b2c8a88ac70751918af10668d5761abc22c657313",
+   "stateHash": "04c7cf523bdc68611fe57eb8dfda23e35604b738b3b9414eb64c750ea96f39ba",
    "roundHashes": [
     "15f6a25c0b5c19efd09cfb6065607116649674e869965922bafd951ed774e081",
     "16c72b5033dc058828e04a29543ea5b7a379bee1a8221463bef5d70dc436fa4c",
-    "16c72b5033dc058828e04a29543ea5b7a379bee1a8221463bef5d70dc436fa4c",
-    "16c72b5033dc058828e04a29543ea5b7a379bee1a8221463bef5d70dc436fa4c",
-    "16c72b5033dc058828e04a29543ea5b7a379bee1a8221463bef5d70dc436fa4c",
-    "16c72b5033dc058828e04a29543ea5b7a379bee1a8221463bef5d70dc436fa4c"
+    "633ca18a8555fee85dd9fc11c37ec0056d0549ba96a5ac0952d0c8769ec8d689",
+    "633ca18a8555fee85dd9fc11c37ec0056d0549ba96a5ac0952d0c8769ec8d689",
+    "633ca18a8555fee85dd9fc11c37ec0056d0549ba96a5ac0952d0c8769ec8d689",
+    "633ca18a8555fee85dd9fc11c37ec0056d0549ba96a5ac0952d0c8769ec8d689"
    ]
   },
   {
@@ -168,7 +168,7 @@
    "score": 4752,
    "actions": 18,
    "note": "a tutorial-looking name without the dash: an ordinary seed, never a scenario",
-   "stateHash": "20d2ed420cbb47414f06d07702b2a1cf58eb85aa3349c03791b2be3b2d8479bd",
+   "stateHash": "5a05d7b9285451c70f6fa90eeb1e2b5e2dd0ba7538f7f7ac89308e4039777b29",
    "roundHashes": [
     "bab2fbab3e3465885b61c32bde885a3c2316185573ce4e5d3ee110b10ba2ada4",
     "be7862e9922fe64b6878ab3fc0d8b0f2680f86d16e572a4a60b8bc899fdcd2d9",
@@ -184,7 +184,7 @@
    "score": 4752,
    "actions": 20,
    "note": "a daily seed label on a generated yard",
-   "stateHash": "bd54bad53ad2b0649aaefdaad9ab00bbe9e3466316bf78a20ad66f3592c7a831",
+   "stateHash": "45c96ebba9cded126f47355ba4fbda04c7bf0e526420378475c84e986e7e9c4b",
    "roundHashes": [
     "df90cc96bc92575ed9584d59f666bd95c429618c69f3dcd99890022951d89c03",
     "f9ee8153147822aaab9f8e6479a9db377f26d3e7fa1a968744f4859c0688a1c7",
@@ -197,17 +197,17 @@
   {
    "file": "golden-yard-1.json",
    "seed": "golden-yard-1",
-   "score": 4002,
+   "score": 4554,
    "actions": 20,
    "note": "a generated yard on a ingot job: rubble, the job's price and the shelf's spare conveyors are all in the score",
-   "stateHash": "c4fc2124b7ad7b071694d5133fb67869fa4ac610ee9a948768be1aa92776cd7e",
+   "stateHash": "40b59807d2cba425cb8cd13ceb42b49ef5909325c2c2c34fdae9b6e6bf7870e9",
    "roundHashes": [
     "8448bd7aac4172ced6a6249c5e2001b6abb6fb78bcc4f27853de197f03f848bb",
     "2196c3f23e91b3943f5e97fb204dd9c09aa56e345cacc3d819632a82c399452d",
-    "2196c3f23e91b3943f5e97fb204dd9c09aa56e345cacc3d819632a82c399452d",
-    "2196c3f23e91b3943f5e97fb204dd9c09aa56e345cacc3d819632a82c399452d",
-    "2196c3f23e91b3943f5e97fb204dd9c09aa56e345cacc3d819632a82c399452d",
-    "2196c3f23e91b3943f5e97fb204dd9c09aa56e345cacc3d819632a82c399452d"
+    "5b39387faa124e7a030b3a20ba5d64ee786bb695457a7223cdc40fdd755517e5",
+    "5b39387faa124e7a030b3a20ba5d64ee786bb695457a7223cdc40fdd755517e5",
+    "5b39387faa124e7a030b3a20ba5d64ee786bb695457a7223cdc40fdd755517e5",
+    "5b39387faa124e7a030b3a20ba5d64ee786bb695457a7223cdc40fdd755517e5"
    ]
   },
   {
@@ -216,7 +216,7 @@
    "score": 4752,
    "actions": 20,
    "note": "a generated yard on a ingot job: rubble, the job's price and the shelf's spare conveyors are all in the score",
-   "stateHash": "3cca24a46129bfaf7ab7c28e4e302c59f8d08e543a6f6280fdede68cee89ee56",
+   "stateHash": "bd1bfc666307962e3178803eb8c3bed6ec53accad04f8c3e47990cf48811471d",
    "roundHashes": [
     "e1a931bf8b17526087cf85023d6f313d7172ea676200a81a6d9ff032a26f6dcb",
     "624bd76ec08b51afd84cce816279a27a18c4a1ea83f50299b8644ebc42b1cdfa",
@@ -232,7 +232,7 @@
    "score": 4752,
    "actions": 20,
    "note": "a generated yard on a ingot job: rubble, the job's price and the shelf's spare conveyors are all in the score",
-   "stateHash": "5e09ad1dfbcbd8f9917d218a164339182df4ede1ce16aea55149fda5a6d2fd47",
+   "stateHash": "e329659351eea2a012419d8e11cd576190f59676f46405c3fae4e6de036c3808",
    "roundHashes": [
     "c047e8e99e6471e5c626abe74d6b6f34822286e647ee89deedde1cf036994f67",
     "b559e2c48059680a453b8df3e6d2fbb75517fc30093465fc7d5aa1d1632e2b23",

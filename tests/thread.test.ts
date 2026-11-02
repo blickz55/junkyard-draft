@@ -44,12 +44,12 @@ test('Sal closes a day from the board: a fixed board always reads the same, and 
   assert.equal(line, closingPost(key, structuredClone(facts)));
   assert.match(
     line,
-    /41 games on it, the middle of the pack at \$1200\. Ann#AB12 took it with \$3100, ahead of Bob#CD34 and Cal#EF56\. The one you all reacted to: Bob#CD34 on \$2900\.$/,
+    /41 games on it, the middle of the pack at \$1,200\. Ann#AB12 took it with \$3,100, ahead of Bob#CD34 and Cal#EF56\. The one you all reacted to: Bob#CD34 on \$2,900\.$/,
   );
   const one = closingPost(key, { runs: 1, median: 900, top: [{ player: 'Ann#AB12', score: 900 }], reacted: null });
   assert.match(one, /1 game on it, the middle of the pack at \$900\. Ann#AB12 took it with \$900\.$/);
   const two = closingPost(key, { runs: 2, median: 800, top: facts.top.slice(0, 2), reacted: null });
-  assert.match(two, /Ann#AB12 took it with \$3100, ahead of Bob#CD34\.$/);
+  assert.match(two, /Ann#AB12 took it with \$3,100, ahead of Bob#CD34\.$/);
   assert.equal(closingPost(key, { runs: 0, median: null, top: [], reacted: null }), 'Nobody put a game on this one. Quiet yard.');
   const leads = new Set(Array.from({ length: 30 }, (_, i) => closingPost(`2030-04-${String(i + 1).padStart(2, '0')}`, facts).split(' 41 games')[0]));
   assert.equal(leads.size, 3);

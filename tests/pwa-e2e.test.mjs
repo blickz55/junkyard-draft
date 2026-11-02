@@ -294,7 +294,7 @@ test(
     assert.match(shared.text, /https?:\/\/\S+/, 'the text carries the link');
     assert.match(shared.text, /[░▒▓█]{6}/, 'the spoiler-free grid');
     assert.equal(shared.files.length, 1, 'the card travels as a picture');
-    assert.match(shared.files[0].name, /^junkyard-classic-pwa-share-\$\d+-card\.png$/);
+    assert.match(shared.files[0].name, /^junkyard-classic-pwa-share-\$[\d,]+-card\.png$/);
     assert.equal(shared.files[0].type, 'image/png');
     assert.ok(shared.files[0].size > 10_000, `the card has bytes (${shared.files[0].size})`);
     const gif = await page.evaluate(() =>
@@ -305,7 +305,7 @@ test(
     );
     assert.equal(gif.round, 6, 'the final layout');
     assert.ok(gif.size <= 4 * 1024 * 1024, `the GIF is under 4 MB (${gif.size})`);
-    assert.match(gif.strip, /classic-pwa-share · \$\d+$/, 'an unchecked run: yard and score, no hash');
+    assert.match(gif.strip, /classic-pwa-share · \$[\d,]+$/, 'an unchecked run: yard and score, no hash');
     assert.deepEqual(errors, []);
   },
 );

@@ -189,7 +189,7 @@ test('a comment on a recording lands in the inbox of its owner, and the talk on 
   // Ann is watching Sam's game from the last test
   await ann.getByTestId('game-talk').click();
   await ann.getByTestId('thread-dialog').waitFor();
-  await ann.jd.textMatches('thread-head', /^The talk on Sam#\w+'s \$\d+$/, 5000);
+  await ann.jd.textMatches('thread-head', /^The talk on Sam#\w+'s \$[\d,]+$/, 5000);
   assert.equal(await ann.getByTestId('thread-attach').count(), 0, 'nothing to attach to a game');
   await write(ann, 'That press is clever');
   await row(ann, 'That press is clever').waitFor();
@@ -201,7 +201,7 @@ test('a comment on a recording lands in the inbox of its owner, and the talk on 
   await sam.getByTestId('inbox').click();
   const line = sam.getByTestId('inbox-thread-reply').filter({ hasText: 'New words on your' });
   await line.waitFor();
-  assert.match(await line.textContent(), /New words on your \$\d+ on today's yard/);
+  assert.match(await line.textContent(), /New words on your \$[\d,]+ on today's yard/);
   await line.getByText('Read').click();
   await row(sam, 'That press is clever').waitFor();
   await sam.getByTestId('thread-close').click();

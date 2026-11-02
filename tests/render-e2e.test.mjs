@@ -463,7 +463,7 @@ test(
         text: d?.textContent,
         scrollH: sc?.scrollHeight,
         clientH: sc?.clientHeight,
-        headline: document.querySelector('#ui')?.textContent?.includes('Best: $1500'),
+        headline: document.querySelector('#ui')?.textContent?.includes('Best: $1,500'),
       };
     });
     assert.equal(arch.present, true);
@@ -658,7 +658,7 @@ test(
     assert.notDeepEqual(after.offers, before.offers, 'new offers on the cards');
     assert.equal(
       await page.evaluate(() => document.querySelector('[data-testid=hud-score]')?.textContent),
-      `$${after.score}`,
+      `$${after.score.toLocaleString('en-US')}`,
       'the HUD shows the deducted score',
     );
     assert.equal(await page.locator('[data-testid=reroll]').count(), 0, 'once a shift: gone once used');

@@ -4,7 +4,8 @@
 /** v3 (rules-v3 branch): Tuner machine (adjacent processors hold one tick less) offered from round 3 through the tier table; Sieve exists as an experimental, never-offered kind. */
 /** v4 (owner playtest, 2026-10-31): the seed builds the yard (belt shape, rubble, job, shelf), the job's product sells for the job's price, the job's machine is guaranteed in shift 2, the lesson opens with a broken belt. */
 /** v6 (the fun card and the agent panels, 2026-11-02): a job's yard opens with its line running; orders each shift, each one filled raising every price; a Hopper card brings a Crusher and the job's machine a Splitter; a Splitter sends things ahead as well as to the sides; machines take from the sides as well as from behind; a second buyer from shift 4. */
-export const RULES_VERSION = 6; // bumped on every semantic change; older replays and saves are refused from here on
+/** v7 (2026-11-02): the orders priced against players who follow the lit spots: a novice's first star, Sal's two, and a third that takes more than following them. */
+export const RULES_VERSION = 7; // bumped on every semantic change; older replays and saves are refused from here on
 
 export type MachineKind = 'hopper' | 'conveyor' | 'splitter' | 'crusher' | 'furnace' | 'press' | 'dock' | 'sieve' | 'tuner';
 export type Material = 'scrap' | 'shards' | 'plate' | 'ingot' | 'slag';

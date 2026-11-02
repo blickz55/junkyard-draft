@@ -14,7 +14,7 @@ test('share card text (PLAN-v4 0.7.4): verified standing only when verified; med
   assert.doesNotMatch(local.footer, /rules v/, 'the rules version is never shown (glossary)');
   assert.equal(local.glyphs, '░▒▓▓▒▒');
   assert.equal(local.seedLine, 'Daily 2026-10-25 · 6 shifts');
-  assert.equal(local.score, '$1234');
+  assert.equal(local.score, '$1,234');
   const verified = cardText({
     ...base,
     verified: true,
@@ -34,8 +34,8 @@ test('share card text (PLAN-v4 0.7.4): verified standing only when verified; med
   const bare = cardText({ ...base, verified: true, rank: null });
   assert.equal(bare.standing, 'checked by the Junkyard Draft server');
   const challenge = cardText({ ...base, verified: false, challenge: { player: 'Ann#AB12', score: 1200 }, permalink: 'http://x/?seed=1' });
-  assert.deepEqual(challenge.extras, ["beat Ann#AB12's $1200 by $34", 'http://x/?seed=1']);
-  assert.deepEqual(cardText({ ...base, score: 1200, verified: false, challenge: { player: 'Ann#AB12', score: 1200 } }).extras, ["tied Ann#AB12's $1200"]);
+  assert.deepEqual(challenge.extras, ["beat Ann#AB12's $1,200 by $34", 'http://x/?seed=1']);
+  assert.deepEqual(cardText({ ...base, score: 1200, verified: false, challenge: { player: 'Ann#AB12', score: 1200 } }).extras, ["tied Ann#AB12's $1,200"]);
   const fork = cardText({ ...base, verified: false, fork: { player: 'Jon#7Q2M', round: 2 } });
   assert.equal(fork.standing, "a try from Jon#7Q2M's game, from shift 3");
   assert.equal(fork.footer, 'junkyard draft · a try · not on the board');

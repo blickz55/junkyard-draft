@@ -89,7 +89,7 @@ test('a player adds someone from a recording, and the other accepts in the inbox
 test('the feed shows the game of a friend, and Beat this takes it up in one tap', { timeout: 60000 }, async () => {
   await openFriends(ann);
   await ann.getByTestId('feed-run').waitFor();
-  assert.match(await ann.getByTestId('feed-run').textContent(), /^Sam#\w+ scored \$\d+ on today's yard/);
+  assert.match(await ann.getByTestId('feed-run').textContent(), /^Sam#\w+ scored \$[\d,]+ on today's yard/);
   assert.match(await ann.getByTestId('friends-list').textContent(), /Sam#/);
   await ann.screenshot({ path: path.join(SHOTS, `friends-${Date.now()}.png`) });
   await ann.locator('[data-testid^=feed-beat-]').first().click();
@@ -100,7 +100,7 @@ test('the feed shows the game of a friend, and Beat this takes it up in one tap'
 
 test('friends show on the chart of scores', { timeout: 60000 }, async () => {
   await play(ann, 'Ann', 2);
-  await ann.jd.textMatches('hist-friends', /^Friends on this yard: Sam#\w+ \$\d+$/, 10000);
+  await ann.jd.textMatches('hist-friends', /^Friends on this yard: Sam#\w+ \$[\d,]+$/, 10000);
 });
 
 test('someone is added from a post in the talk, and it reads the same whether or not they said yes', { timeout: 60000 }, async () => {

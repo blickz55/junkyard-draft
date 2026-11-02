@@ -19,6 +19,7 @@ const { dailySeed } = await import('../game/src/sim/daily.ts');
 const { RULES } = await import('../game/src/sim/rules.ts');
 const { dropOnLine } = await import('./e2e/line.ts');
 const V = String(RULES_VERSION); // records are partitioned by rules version (PLAN-v2 0.5.0)
+const dollars = (n) => n.toLocaleString('en-US');
 
 const f = await fixture({
   verifier: true,
@@ -496,7 +497,7 @@ test(
   { timeout: 200000 },
   async () => {
     await page.getByTestId('submit').click();
-    await textMatches('status', /^Checked: \$\d+\. You are #1 of 1 on the board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\./);
+    await textMatches('status', /^Checked: \$[\d,]+\. You are #1 of 1 on the board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\./);
     // histogram_first (PLAN-v1 0.4.1): the only verified run is highlighted and the text says so without inventing a population
     await textMatches('percentile', /^1 game so far · you are #1$/, 10000);
     // the board re-renders after the submission; on a loaded runner the bins can land a frame after the percentile text (CI on 083c883 read 0 bins)
@@ -518,7 +519,7 @@ test(
       { timeout: 120000, every: 1000, what: 'the bot par for classic-e2e-seed' },
     );
     console.log(`bot par for classic-e2e-seed arrived after ${((Date.now() - parT0) / 1000).toFixed(1)} s`);
-    await textMatches('bot-par', /^Sal's mark: \$\d+\. A target to beat/, 30000);
+    await textMatches('bot-par', /^Sal's mark: \$[\d,]+\. A target to beat/, 30000);
     assert.ok(board.botPar > 0, 'the board carries a numeric bot par');
     assert.equal(board.entries.length, 1, 'one verified entry');
     assert.match(
@@ -539,7 +540,7 @@ test(
     assert.equal(await page.locator('[data-testid=tie-rule]').count(), 0, 'the tie rule speaks only when two scores tie; the fair play page always has it');
     // the results card (production roadmap 0.9.2): the standing sentence leads, then the money, then the deltas; round bars, the board and the Play / Share / Watch rows follow in that order
     await textMatches('headline', /^#1 of 1 game on this yard$/, 10000);
-    assert.match(await page.getByTestId('delta-par').textContent(), /^(\+\$\d+ over|−\$\d+ under|exactly) Sal's mark$/, "Sal's mark delta");
+    assert.match(await page.getByTestId('delta-par').textContent(), /^(\+\$[\d,]+ over|−\$[\d,]+ under|exactly) Sal's mark$/, "Sal's mark delta");
     assert.equal(await page.getByTestId('delta-best').textContent(), 'your first game on this yard');
     const order = await page.evaluate(() =>
       ['score', 'headline', 'deltas', 'actions-play', 'round-bars', 'board', 'actions-share', 'actions-watch']
@@ -570,7 +571,7 @@ test(
     // spoiler_free_share (PLAN-v1 0.4.3): label · score, six glyphs, the standing, days played; no per-round dollars, no layout; the link (0.9.2)
     assert.match(
       shared,
-      /^Junkyard Draft · yard classic-e2e-seed · \$\d+\n[░▒▓█]{6}\n#1 of 1 on the board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\n1 day played\nhttp:\/\/127\.0\.0\.1:\d+\/\?challenge=[0-9a-f]+(&verifier=[^\n]+)?$/,
+      /^Junkyard Draft · yard classic-e2e-seed · \$[\d,]+\n[░▒▓█]{6}\n#1 of 1 on the board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\n1 day played\nhttp:\/\/127\.0\.0\.1:\d+\/\?challenge=[0-9a-f]+(&verifier=[^\n]+)?$/,
       `default share text (0.9.2: the "Beat this" link of the checked game by default): ${JSON.stringify(shared)}`,
     );
     assert.doesNotMatch(shared, /shifts \$|hopper|conveyor|crusher|seed=/);
@@ -621,7 +622,7 @@ test('exports: the share card, the loop clip and the GIF say checked for this ch
   );
   assert.deepEqual([card.width, card.height], [1200, 630]);
   assert.ok(card.size > 10_000, `card has bytes (${card.size})`);
-  assert.match(card.filename, /^junkyard-classic-e2e-seed-\$\d+-card\.png$/);
+  assert.match(card.filename, /^junkyard-classic-e2e-seed-\$[\d,]+-card\.png$/);
   assert.match(card.footer, /^junkyard draft · checked · build /);
   assert.match(card.standing, /^#1 of 1 on the board/);
   assert.deepEqual(card.extras, [], 'no group, no medal, no challenge, no link: nothing invented');
@@ -636,7 +637,7 @@ test('exports: the share card, the loop clip and the GIF say checked for this ch
   assert.ok(clip.ms >= 3000, `clip recorded for at least 3 s (${clip.ms} ms)`);
   assert.ok(clip.elapsedMs <= 15000, `export finished in under 15 s (${clip.elapsedMs} ms)`); // 3 s of real-time capture plus encoding; a loaded 4-vCPU runner took 10.1 s (083c883)
   assert.match(clip.mime, /^video\/(webm|mp4)/);
-  assert.match(clip.filename, /^junkyard-classic-e2e-seed-\$\d+-r\d\.(webm|mp4)$/);
+  assert.match(clip.filename, /^junkyard-classic-e2e-seed-\$[\d,]+-r\d\.(webm|mp4)$/);
   assert.ok(clip.frames >= 60 && clip.width >= 624 && clip.height >= 536, `frames ${clip.frames}, ${clip.width}x${clip.height}`);
   assert.equal(await page.evaluate(() => document.querySelector('[data-testid=export-clip]')?.disabled), false, 'the export button is usable again');
   assert.equal(clip.footer, 'junkyard draft · checked recording', 'this run was accepted by the verifier above, so its clip may say so (review F10)');
@@ -654,12 +655,12 @@ test('exports: the share card, the loop clip and the GIF say checked for this ch
   assert.ok(gif.colours > 8 && gif.colours <= 256, `palette of ${gif.colours} colours`);
   assert.ok(gif.width >= 624 && gif.height >= 536, `${gif.width}x${gif.height}`);
   assert.ok(gif.elapsedMs <= 15000, `GIF drawn and encoded in under 15 s (${gif.elapsedMs} ms)`);
-  assert.match(gif.filename, /^junkyard-classic-e2e-seed-\$\d+-r\d\.gif$/);
+  assert.match(gif.filename, /^junkyard-classic-e2e-seed-\$[\d,]+-r\d\.gif$/);
   assert.equal(await page.evaluate(() => document.querySelector('[data-testid=export-gif]')?.disabled), false, 'the GIF button is usable again');
   assert.equal(gif.footer, 'junkyard draft · checked recording');
   // 0.10.6: the GIF is the final layout, and its strip names the yard, the score and the checked hash's first eight characters
   assert.equal(gif.round, 6, 'the final layout by default');
-  assert.match(gif.strip, /classic-e2e-seed · \$\d+ · [0-9a-f]{8}$/, `the strip: ${gif.strip}`);
+  assert.match(gif.strip, /classic-e2e-seed · \$[\d,]+ · [0-9a-f]{8}$/, `the strip: ${gif.strip}`);
   const hasShareSheet = await page.evaluate(() => typeof navigator.share === 'function');
   assert.equal(await page.locator('[data-testid=share-native]').count(), hasShareSheet ? 1 : 0, 'the share-sheet button only where the browser has one');
 });
@@ -677,7 +678,7 @@ test('provenance: a different, unsubmitted attempt on the same yard claims no st
     mine: document.querySelectorAll('[data-testid=histogram] .jd-hist-mine').length,
     verifiedHash: window.__jdGame.scene.getScene('Results').verifiedHash,
   }));
-  assert.match(prov.prior ?? '', /^Your checked game on this yard: \$\d+\. This one counts only once it is on the board\.$/, JSON.stringify(prov));
+  assert.match(prov.prior ?? '', /^Your checked game on this yard: \$[\d,]+\. This one counts only once it is on the board\.$/, JSON.stringify(prov));
   assert.doesNotMatch(prov.pct ?? '', /you are #|Better than/, 'no standing is claimed for an unverified attempt');
   assert.equal(prov.mine, 0, 'no bin is highlighted as this run');
   assert.equal(prov.verifiedHash, null);
@@ -726,7 +727,7 @@ test(
       orig: document.querySelector('[data-testid=replay-original]')?.textContent,
       stop: document.querySelector('[data-testid=stop]')?.textContent,
     }));
-    assert.match(sideTexts.orig || '', /^Their game: \$\d+ this shift · \$\d+ after shift 1 · \$\d+ final$/);
+    assert.match(sideTexts.orig || '', /^Their game: \$[\d,]+ this shift · \$[\d,]+ after shift 1 · \$[\d,]+ final$/);
     assert.equal(sideTexts.stop, 'Stop watching');
     for (let r = 1; r <= 6; r++) {
       await mode('running');
@@ -741,7 +742,7 @@ test(
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.bests.v2')), bestsBefore, 'watching a replay does not change local bests');
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), plantedSave, 'finishing a watched replay leaves the unrelated save untouched');
     assert.equal(
-      await page.evaluate(() => Number(document.querySelector('[data-testid=score]').textContent.slice(1))),
+      await page.evaluate(() => Number(document.querySelector('[data-testid=score]').textContent.replace(/\D/g, ''))),
       board.entries[0].score,
       'playback reproduces the verified score',
     );
@@ -768,7 +769,7 @@ test(
     assert.equal(await page.locator('[data-testid=submit]').count(), 0, 'no submit control on a fork');
     assert.equal(await page.locator('[data-testid=export]').count(), 0);
     assert.equal(await page.locator('[data-testid=download]').count(), 0);
-    assert.match(await page.getByTestId('fork-best').textContent(), /^New best for this try: \$\d+$/);
+    assert.match(await page.getByTestId('fork-best').textContent(), /^New best for this try: \$[\d,]+$/);
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.bests.v2')), bestsBefore, 'a fork never touches the local bests');
     assert.ok(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.forkbests.v1')))['classic-e2e-seed'], 'fork bests live in their own bucket');
     await page.getByTestId('share').click();
@@ -825,7 +826,7 @@ test(
     await page.goto(f.gameUrl());
     await when(() => {
       const t = document.querySelector('[data-testid=daily-board]')?.textContent || '';
-      return /^You: #1 of 1, \$\d+/.test(t) && /1\. \$\d+ e2e player/.test(t);
+      return /^You: #1 of 1, \$[\d,]+/.test(t) && /1\. \$[\d,]+ e2e player/.test(t);
     });
     assert.match(await page.getByTestId('daily-mode').textContent(), /^open · \d+ (hour|hours|minute|minutes) left$/);
     assert.equal(await page.getByTestId('today-card').getAttribute('data-seed'), dinfo.seed);
@@ -957,7 +958,7 @@ test(
     await when((seed) => window.__jdGame && window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, dinfo.seed);
     assert.match(
       await page.getByTestId('challenge-line').textContent(),
-      new RegExp(`^Beat e2e player: they made \\$${entry.rounds[0]} in shift 1, \\$${entry.rounds[0]} so far\\. You have \\$0\\.$`),
+      new RegExp(`^Beat e2e player: they made \\$${dollars(entry.rounds[0])} in shift 1, \\$${dollars(entry.rounds[0])} so far\\. You have \\$0\\.$`),
     );
     // starting over keeps the challenge, as a second go from the results does
     await page.getByTestId('job-start').click();
@@ -974,7 +975,7 @@ test(
     assert.match(
       cr,
       new RegExp(
-        `^Challenge · you \\$\\d+ · e2e player \\$${sub.score} · (beat e2e player's \\$${sub.score} by \\$\\d+|short of e2e player's \\$${sub.score} by \\$\\d+|tied e2e player's \\$${sub.score})$`,
+        `^Challenge · you \\$[\\d,]+ · e2e player \\$${dollars(sub.score)} · (beat e2e player's \\$${dollars(sub.score)} by \\$[\\d,]+|short of e2e player's \\$${dollars(sub.score)} by \\$[\\d,]+|tied e2e player's \\$${dollars(sub.score)})$`,
       ),
       cr,
     );
@@ -983,7 +984,7 @@ test(
     await when(() => /shifts \$/.test(window.__jdGame.scene.getScene('Results').lastShareText), null, 5000);
     assert.match(
       await page.evaluate(() => window.__jdGame.scene.getScene('Results').lastShareText),
-      new RegExp(`\\n(beat|short of|tied) e2e player's \\$${sub.score}`),
+      new RegExp(`\\n(beat|short of|tied) e2e player's \\$${dollars(sub.score)}`),
       'the detailed share says how the challenge went',
     );
     await dismissCopyDialog();
@@ -1054,13 +1055,13 @@ test(
     assert.equal((await fetch(`${VURL}/daily?group=${groupCode}`)).status, 401, "a group board needs a member's token");
     // this device's locally recorded submission on the daily is the anonymous one planted above (the local record keeps the higher score), so the group view honestly says 'beyond the top 2'
     await page.reload();
-    await textMatches('daily-board', /^You: (#\d of 2|beyond the top 2), \$\d+/);
+    await textMatches('daily-board', /^You: (#\d of 2|beyond the top 2), \$[\d,]+/);
     assert.match(await page.getByTestId('daily-mode').textContent(), /· crew Lunch Crew$/);
     await page.getByTestId('groups').click();
     await page.waitForSelector('[data-testid=group-use-everyone]', { timeout: 10000 });
     await page.getByTestId('group-use-everyone').click();
     await page.getByTestId('groups-close').click();
-    await textMatches('daily-board', /^You: (#\d of 3|beyond the top 3), \$\d+/);
+    await textMatches('daily-board', /^You: (#\d of 3|beyond the top 3), \$[\d,]+/);
     await page.goto(f.gameUrl());
     await title();
     assert.match(await page.getByTestId('player-name').textContent(), /^e2e player#[2-9A-HJKMNP-TV-Z]{4}$/);
@@ -1074,16 +1075,16 @@ test(
     // name moderation (PLAN-v4 0.7.7): this player reports Buddy's name by the hash of Buddy's verified daily run; the title strip then reads "player"; the moderator's clear restores it; scores never move
     const strip = async () => {
       await page.goto(f.gameUrl());
-      await textMatches('daily-board', /\d\. \$\d+ /);
+      await textMatches('daily-board', /\d\. \$[\d,]+ /);
       return page.getByTestId('daily-board').innerText();
     };
-    assert.match(await strip(), /\$\d+ Buddy#[2-9A-HJKMNP-TV-Z]{4}/, 'Buddy is named on the strip before the report');
+    assert.match(await strip(), /\$[\d,]+ Buddy#[2-9A-HJKMNP-TV-Z]{4}/, 'Buddy is named on the strip before the report');
     const bearer = { Authorization: `Bearer ${identity.token}`, 'Content-Type': 'application/json' };
     const rep = await vjson('/report', { method: 'POST', headers: bearer, body: JSON.stringify({ hash: bsub.entry.replayHash, reason: 'offensive' }) });
     assert.deepEqual(rep, { ok: true, playerId: bsub.entry.playerId, hidden: true, duplicate: false });
     const hiddenStrip = await strip();
     assert.doesNotMatch(hiddenStrip, /Buddy/, 'the reported name is gone from the strip');
-    assert.match(hiddenStrip, /\$\d+ player(\s|$)/, 'the reported name reads "player" on the title strip');
+    assert.match(hiddenStrip, /\$[\d,]+ player(\s|$)/, 'the reported name reads "player" on the title strip');
     const after = await vjson('/daily');
     const hiddenEntry = after.entries.find((e) => e.replayHash === bsub.entry.replayHash);
     assert.equal(hiddenEntry.score, bsub.entry.score, 'the score is untouched');
@@ -1101,7 +1102,7 @@ test(
       (await fetch(`${VURL}/moderation/clear`, { method: 'POST', headers: mod, body: JSON.stringify({ playerId: bsub.entry.playerId }) })).status,
       200,
     );
-    assert.match(await strip(), /\$\d+ Buddy#[2-9A-HJKMNP-TV-Z]{4}/, 'cleared: the name is back on the strip');
+    assert.match(await strip(), /\$[\d,]+ Buddy#[2-9A-HJKMNP-TV-Z]{4}/, 'cleared: the name is back on the strip');
     const audit = fs
       .readFileSync(path.join(f.verifier.dataDir, 'moderation.jsonl'), 'utf8')
       .trim()

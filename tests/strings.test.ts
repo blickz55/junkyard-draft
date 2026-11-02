@@ -99,8 +99,8 @@ test('pseudo-locale: every letter accented, about 30 % longer, digits, dollar si
   assert.equal(t('title.daily'), "Play today's yard");
 });
 
-test('formats: money without grouping and with the typographic minus, integers, UTC dates', () => {
-  assert.equal(money(1758), '$1758');
+test('formats: money with grouping and the typographic minus, integers without, UTC dates', () => {
+  assert.equal(money(1758), '$1,758');
   assert.equal(money(0), '$0');
   assert.equal(money(-40), '−$40');
   assert.equal(int(1234567), '1234567');
