@@ -409,7 +409,6 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const footer = h(
     'nav',
     { class: 'jd-home-foot', tid: 'home-foot' },
-    feedbackLink,
     link(t('home.howto'), 'howto', () => openHowTo(scene, tips)),
     link(t('title.record'), 'record', () => openRecord(scene), t('title.recordTitle')),
     testing ? null : link(t('title.crews'), 'groups', () => openGroups(scene, verifierUrl, () => scene.scene.restart()), t('title.crewsTitle')),
@@ -623,6 +622,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     { class: 'jd-title' },
     hero,
     testing ? h('div', { class: 'jd-dim jd-home-note', tid: 'test-banner' }, t('test.banner')) : null,
+    testing ? h('div', { class: 'jd-home-note' }, feedbackLink) : null,
     notices,
     playerNote,
     pendingNote,

@@ -329,7 +329,7 @@ export const MORE_STRINGS = {
   'feedback.copy': s('Copy the code', 'tester survey'),
   'feedback.copied': s('Copied', 'tester survey'),
   'test.privacy': s(
-    "This test version sends the game's developer anonymous play data, stored with Cloudflare: which steps you reached, how long they took and how your games ended, under a random number for this device. Your survey answers go the same way. No name, email or internet address is kept. All of it is kept only for this test, then deleted. Settings has the switch that turns play data off.",
+    "This test version sends the game's developer anonymous play data, stored with Cloudflare: which steps you reached, how long they took and how your games ended, under a random number for this device. Your survey answers go the same way, with your tester ID if your test service put one in the link. No name, email or internet address is kept. All of it is kept only for this test, then deleted. Settings has the switch that turns play data off.",
     'tester build, in place of the privacy notice',
   ),
 } as const satisfies Record<string, Entry>;

@@ -210,6 +210,8 @@ for (const device of [
     page.on('pageerror', (e) => errors.push(String(e)));
     const tester = `pro-${device.name}`;
     await page.goto(`${url}?tester=${tester}`);
+    const way = await page.getByTestId('feedback').boundingBox();
+    assert.ok(way.y + way.height <= page.viewportSize().height, 'the way to the survey is on the first screen, with nothing to scroll');
     await page.getByTestId('feedback').click();
     const box = page.getByTestId('feedback-dialog');
     await box.waitFor();
@@ -288,6 +290,7 @@ test('Privacy in this build says what this build does, names no server and offer
   const words = await page.locator('.jd-dialog-label').textContent();
   assert.match(words, /anonymous play data/);
   assert.match(words, /kept only for this test, then deleted/);
+  assert.match(words, /your tester ID if your test service put one in the link/);
   assert.doesNotMatch(await page.evaluate(() => document.body.innerText), /verify\.invalid/);
   assert.equal(await page.locator('[data-testid=data-export]').count(), 0);
   assert.equal(await page.locator('[data-testid=data-delete]').count(), 0);

@@ -146,7 +146,7 @@ After that one command builds it and puts it online, and a fix reaches a tester 
 
 Use wrangler version 3, and run it outside this repository; the script does both. Since 2026, version 4 turns `pages project create` into a Workers deployment: it writes `wrangler.jsonc`, adds itself to `package.json` and publishes `dist/` on the account's `workers.dev` address, which also carries the name of the account's other project.
 
-Send testers the address. A service that gives each person an id can add it as `?tester=<id>`, and it is stored with their answers.
+Send testers the address. A service that gives each person an id can add it as `?tester=<id>`, and it is stored with their answers. The words testers read carry the address, so they are kept outside this repository.
 
     npm run playtest:report
 
