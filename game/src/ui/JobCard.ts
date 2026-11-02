@@ -14,6 +14,7 @@ import { t } from '../content/strings';
 import { int, money } from '../content/format';
 import { jobFlavour, jobLine, jobRecipe, materialMany, otherMaterial, starMarks } from '../content/job';
 import { machineShort } from '../content/machines';
+import { salLater } from '../render/sal';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** Stars as marks: the three targets side by side. */
@@ -48,6 +49,8 @@ export const recipeRow = (job: Job, built?: (kind: string) => boolean) =>
   );
 
 export function openJobCard(scene: Phaser.Scene, seed: string, job: Job, onStart: () => void) {
+  const salMark = h('div', { class: 'jd-amber', tid: 'sal-mark' });
+  if (job.orders) salLater(seed, (g) => (salMark.textContent = t('job.salMark', { amount: money(g.score) })));
   const head =
     seed === TUTORIAL_SEED
       ? 'job.headLesson'
@@ -66,7 +69,7 @@ export function openJobCard(scene: Phaser.Scene, seed: string, job: Job, onStart
       h('div', { class: 'jd-job-goal', tid: 'job-goal' }, jobLine(job)),
       ...(job.orders ? [orderRow(job)] : []),
       starRow(job),
-      ...(job.orders ? [] : [recipeRow(job)]),
+      ...(job.orders ? [salMark] : [recipeRow(job)]),
       h(
         'div',
         { class: 'jd-dim', tid: 'job-why' },

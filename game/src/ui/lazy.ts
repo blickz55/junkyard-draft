@@ -15,6 +15,7 @@ export { openPaint } from './PaintPanel';
 export { openPlayerCard } from './PlayerCardPanel';
 export { openPolicy } from './PolicyPanel';
 export { openPrivacy } from './PrivacyPanel';
+export { mountResults } from './ResultsScreen';
 export { openRecord } from './RecordPanel';
 export { openReminder } from './ReminderPanel';
 export { openSettings } from './SettingsPanel';

@@ -8,12 +8,8 @@ import fs from 'node:fs';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
 import { RULES } from '../game/src/sim/rules';
-import { yardFor } from '../game/src/sim/yard';
-import { Rng } from '../game/src/sim/rng';
-import { playSeed } from './autoplay-lib';
-import { cardOf, plainGame, printCard, yardTree, type TierGame, type YardResult, type Card } from './fun-lib';
+import { cardOf, litGame, printCard, yardTree, type TierGame, type YardResult, type Card } from './fun-lib';
 import { override } from './balance-lib';
-import { starsFor } from '../game/src/sim/yard';
 
 interface Variant {
   label: string;
@@ -36,15 +32,6 @@ export const RUINED: Variant[] = [
 const TRIALS: Variant[] = [];
 const VARIANTS: Variant[] = [...RUINED, ...TRIALS];
 
-function tierGame(seed: string, tries: number, reach: number): TierGame {
-  const { report } = playSeed(seed, new Rng(`${seed}:fun:${tries}`), tries, { reach: { final: reach, pick: reach } });
-  const job = yardFor(seed).job!;
-  const units = job.material === 'ingot' ? report.ingots : report.plates;
-  const orders = job.orders ?? [];
-  const filled = report.rounds.filter((r, i) => r >= orders[i]).length;
-  const close = report.rounds.filter((r, i) => r < orders[i] && r >= orders[i] * 0.9).length;
-  return { score: report.score, units, stars: starsFor(job, filled), close };
-}
 function measure(seed: string, budget: number, deep: boolean, keepPaths = false): YardResult {
   const tree = yardTree(seed, budget, keepPaths);
   const asPlain = (p: { score: number; units: number[]; stars: number; close: number }): TierGame => ({
@@ -53,8 +40,9 @@ function measure(seed: string, budget: number, deep: boolean, keepPaths = false)
     stars: p.stars,
     close: p.close,
   });
-  // a novice takes any card and drops it in its best spot; a casual player takes the card that adds most right now; neither rearranges
-  const tiers = { novice: asPlain(plainGame(seed, 'random')), casual: asPlain(plainGame(seed, 'best')), competent: tierGame(seed, 30, 3) };
+  // all three go where the coach points and move nothing after: a novice takes any card, a casual player one that says it helps, and a
+  // competent one the card that helps most, which is Sal's game
+  const tiers = { novice: asPlain(litGame(seed, 'any')), casual: asPlain(litGame(seed, 'helps')), competent: asPlain(litGame(seed, 'most')) };
   return { tree, tiers, deeper: deep ? yardTree(seed, budget * 8).best.score : undefined };
 }
 

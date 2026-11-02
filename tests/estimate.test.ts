@@ -2,10 +2,10 @@
 // the shift ran, and to a hole left in the belt by "Back to the shelf".
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { apply, newRun } from '../game/src/sim/run';
+import { apply, cardParts, newRun } from '../game/src/sim/run';
 import { runLayout } from '../game/src/sim/sim';
 import { cardGain } from '../game/src/render/estimate';
-import { liftActions } from '../game/src/render/placement';
+import { dropActions, liftActions } from '../game/src/render/placement';
 import { RULES } from '../game/src/sim/rules';
 import type { RunState } from '../game/src/sim/run';
 
@@ -37,6 +37,42 @@ test('a Tuner beside a slow Furnace reads as a gain, and it is the one the line 
 test('a card that needs a partner reads as nothing yet, which is true', () => {
   const s = line();
   assert.equal(cardGain(s.layout, ['press']).gain, 0);
+});
+
+test("a card's plan, made with the game's own moves, earns exactly what the card says, on every yard and every card", () => {
+  const kinds: Record<string, { lit: number; all: number }> = {};
+  for (let i = 0; i < 60; i++) {
+    const seed = `plan-${i}`;
+    for (const [at, kind] of newRun(seed).offers.entries()) {
+      const run = newRun(seed);
+      const before = runLayout(run.layout).earned;
+      const parts = cardParts(kind, run.job, seed);
+      const { gain, plan } = cardGain(run.layout, parts, run.bin.filter((m) => m.kind === 'conveyor').length);
+      apply(run, { t: 'pick', i: at });
+      const row = (kinds[parts.join('+')] ??= { lit: 0, all: 0 });
+      row.all++;
+      if (!gain) {
+        assert.deepEqual(plan, [], 'nothing to light when the card adds nothing');
+        continue;
+      }
+      row.lit++;
+      for (const p of plan) {
+        const part = run.bin.find((m) => m.kind === p.kind);
+        assert.ok(part, `${seed} ${kind}: the shelf holds the ${p.kind} the plan asks for`);
+        for (const a of dropActions(run, part, p.x, p.y, p.dir)) apply(run, a);
+      }
+      assert.equal(runLayout(run.layout).earned, before + gain, `${seed} ${kind}: ${JSON.stringify(plan)}`);
+    }
+  }
+  console.log(JSON.stringify(kinds));
+  for (const k of ['hopper+crusher', 'furnace+splitter'])
+    assert.ok(kinds[k].lit >= kinds[k].all * 0.8, `${k}: says what it adds on ${kinds[k].lit} of ${kinds[k].all}`);
+});
+
+test('a branch needs its belts: with none on the shelf the card offers only what a single part can do', () => {
+  const s = line();
+  const { plan } = cardGain(s.layout, ['furnace', 'splitter'], 0);
+  assert.ok(!plan.some((p) => p.kind === 'splitter'));
 });
 
 test('a machine lifted out of the line leaves a belt piece behind when the shelf has one', () => {

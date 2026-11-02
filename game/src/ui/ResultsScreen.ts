@@ -41,6 +41,7 @@ import { reactionLine, reactionTotal, type ReactionCounts } from '../content/rea
 import { loadReactions } from '../render/reactions';
 import { friendButton, reactionBar, talkButton } from './ReactionBar';
 import { syncNow } from '../render/link';
+import { salGame } from '../render/sal';
 import { recordWatched } from '../render/storage';
 import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
 import { groupHeaders, groupParam, loadGroup } from '../render/groups';
@@ -185,6 +186,24 @@ export function mountResults(
         );
       })()
     : null;
+  // Sal's game on this yard, with his recording a tap away: the second game's reason. Never for a recording, a try from a shift, or a lesson.
+  const salBlock =
+    job?.orders && !o.replayed && !fork
+      ? (() => {
+          const sal = salGame(run.seed);
+          const lead = run.score - sal.score;
+          const text =
+            lead > 0 ? t('results.salBeat', { amount: money(lead) }) : lead < 0 ? t('results.salLost', { amount: money(-lead) }) : t('results.salLevel');
+          return h(
+            'div',
+            { class: 'jd-row jd-center', tid: 'sal-result', style: 'gap:0.4em 0.8em; margin-top:0.3em' },
+            h('span', { class: lead > 0 ? 'jd-green' : 'jd-amber', tid: 'sal-line' }, text),
+            btn(t('results.watchSal'), 'watch-sal', () => scene.scene.start('Game', { seed: run.seed, replay: sal.actions, replayLabel: t('recording.sal') }), {
+              small: true,
+            }),
+          );
+        })()
+      : null;
   const newRank = o.stars && rankFor(o.stars.after).index > rankFor(o.stars.before).index;
   const rankBlock = o.stars
     ? h(
@@ -201,6 +220,7 @@ export function mountResults(
     { style: 'text-align:center' },
     jobBlock,
     h('div', { class: 'jd-gold jd-pop jd-results-score', tid: 'score' }, money(run.score)),
+    salBlock,
     headline,
     rankBlock,
     social,

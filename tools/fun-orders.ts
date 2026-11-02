@@ -9,9 +9,7 @@ import { Worker, isMainThread, parentPort, workerData } from 'node:worker_thread
 import { fileURLToPath } from 'node:url';
 import { RULES } from '../game/src/sim/rules';
 import { yardFor, type Job } from '../game/src/sim/yard';
-import { Rng } from '../game/src/sim/rng';
-import { playSeed } from './autoplay-lib';
-import { plainGame, yardTree, median, scale, type PathResult, type YardTree } from './fun-lib';
+import { litGame, yardTree, median, scale, type PathResult, type YardTree } from './fun-lib';
 import { override } from './balance-lib';
 
 /** What one kind of player earned, shift by shift. */
@@ -160,12 +158,11 @@ export function read(yards: readonly Dumped[], o: Orders): Reading {
 
 function dumpYard(seed: string, budget: number): Dumped {
   const tree = yardTree(seed, budget, true);
-  const { report } = playSeed(seed, new Rng(`${seed}:fun:30`), 30, { reach: { final: 3, pick: 3 } });
   return {
     tree,
-    novice: { rounds: plainGame(seed, 'random').rounds },
-    casual: { rounds: plainGame(seed, 'best').rounds },
-    competent: { rounds: report.rounds },
+    novice: { rounds: litGame(seed, 'any').rounds },
+    casual: { rounds: litGame(seed, 'helps').rounds },
+    competent: { rounds: litGame(seed, 'most').rounds },
   };
 }
 

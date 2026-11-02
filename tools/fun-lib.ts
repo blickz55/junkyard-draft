@@ -6,11 +6,13 @@
  * second try at a day's yard. Nothing here is player-facing and nothing under game/src may import it.
  */
 import { DIR_DX, DIR_DY, RULES } from '../game/src/sim/rules';
-import { cardParts, draftOffers, newRun, shiftTerms } from '../game/src/sim/run';
+import { apply, cardParts, draftOffers, newRun, shiftTerms, type Action } from '../game/src/sim/run';
 import { analyseRound } from '../game/src/sim/bottleneck';
 import { createSim, step } from '../game/src/sim/sim';
 import { Rng } from '../game/src/sim/rng';
 import { starsFor, type Job } from '../game/src/sim/yard';
+import { cardGain, type Placed } from '../game/src/render/estimate';
+import { dropActions } from '../game/src/render/placement';
 import { recipeLine } from './autoplay-lib';
 import type { Dir, Layout, Machine, MachineKind, Material, RunResult } from '../game/src/sim/types';
 
@@ -305,37 +307,63 @@ const POLISH_PATHS = 12;
 const POLISH_FACTOR = 6;
 
 /**
- * A player who never rearranges: each shift a card, then its parts in their best spots one at a time, and no more thought than that. Two
- * ways of choosing the card: at random, or the one that adds most right now, which is what the cards themselves say. Works under any rules,
- * which a scripted recipe does not.
+ * A player who goes where the coach points, in the game itself: a card, then its parts on the lit spots, nothing moved after that. Three ways
+ * of choosing the card: any of them, one that says it adds something now, or the one that adds most, which is Sal's game (render/sal.ts).
  */
-export function plainGame(seed: string, choose: 'random' | 'best'): PathResult {
-  const run = newRun(seed);
-  const rng = new Rng(`${seed}:fun:plain:${choose}`);
-  const free = run.layout.machines.filter((m) => m.kind === 'conveyor').length + run.bin.filter((m) => m.kind === 'conveyor').length;
-  const anchors: ReadonlySet<number> = new Set(run.layout.machines.filter((m) => m.kind === 'hopper' || m.kind === 'dock').map((m) => m.id));
-  let layout = run.layout;
-  let spare: MachineKind[] = [];
-  const picks: MachineKind[] = [];
-  const rounds: number[] = [];
-  const units: number[] = [];
-  let belts = 0;
-  for (let round = 1; round <= RULES.rounds; round++) {
-    const terms = shiftTerms(round, run.job, 0);
-    const tryCard = (kind: MachineKind) => solve({ ...layout, ...terms }, [...spare, ...cardParts(kind, run.job, seed)], free, 0, 0, rng, anchors, run.job);
-    const offers = draftOffers(seed, round);
-    const kind = choose === 'random' ? offers[rng.int(offers.length)] : offers.map((k) => ({ k, v: tryCard(k).value })).sort((a, b) => b.v - a.v)[0].k;
-    const p = tryCard(kind);
-    layout = p.layout;
-    spare = p.spare;
-    picks.push(kind);
-    rounds.push(p.earned);
-    units.push(run.job ? p.shipped[run.job.material] : 0);
-    belts = Math.max(belts, p.belts - free);
+export function litGame(seed: string, choose: 'any' | 'helps' | 'most'): PathResult {
+  const s = newRun(seed);
+  const rng = new Rng(`${seed}:fun:lit:${choose}`);
+  const act = (a: Action) => apply(s, a);
+  while (s.phase !== 'finished') {
+    if (s.phase === 'draft') {
+      const belts = s.bin.filter((m) => m.kind === 'conveyor').length;
+      const cards = s.offers.map((k, i) => ({ i, ...cardGain(s.layout, cardParts(k, s.job, seed), belts) }));
+      const helpers = cards.filter((c) => c.gain > 0);
+      const card =
+        choose === 'any'
+          ? cards[rng.int(cards.length)]
+          : choose === 'helps'
+            ? (helpers.length ? helpers : cards)[rng.int((helpers.length ? helpers : cards).length)]
+            : cards.slice().sort((a, b) => b.gain - a.gain)[0];
+      act({ t: 'pick', i: card.i });
+      for (const p of card.plan) {
+        const part = s.bin.find((m) => m.kind === p.kind);
+        if (!part) break;
+        dropActions(s, part, p.x, p.y, p.dir).forEach(act);
+      }
+    }
+    act({ t: 'run' });
+    act({ t: 'next' });
   }
-  const { pay, filled, close } = paidGame(rounds, run.job);
-  const score = pay.reduce((a, b) => a + b, 0) - belts * RULES.beltCost;
-  return { picks, rounds: pay, units, score, stars: run.job ? starsFor(run.job, filled.length) : 0, belts, filled, close };
+  const orders = s.job?.orders ?? [];
+  const filled = s.rounds.flatMap((r, i) => (orders[i] !== undefined && r.earned >= orders[i] ? [i + 1] : []));
+  const close = s.rounds.filter((r, i) => orders[i] !== undefined && r.earned < orders[i] && r.earned >= orders[i] * 0.9).length;
+  return {
+    picks: s.picks,
+    rounds: s.rounds.map((r) => r.earned),
+    units: s.rounds.map((r) => (s.job ? r.result.shipped[s.job.material] : 0)),
+    score: s.score,
+    stars: s.job ? starsFor(s.job, s.filled) : 0,
+    belts: 0,
+    filled,
+    close,
+  };
+}
+
+/** The card's own best try, set down on a layout: where the search starts as well as from the bare line, so what the coach knows the search knows. */
+function withPlan(l: Layout, plan: readonly Placed[], shelf: readonly MachineKind[]): { layout: Layout; shelf: MachineKind[] } {
+  const machines = l.machines.slice();
+  const rest = shelf.slice();
+  for (const p of plan) {
+    const under = machines.findIndex((m) => m.x === p.x && m.y === p.y);
+    if (under >= 0) {
+      const [u] = machines.splice(under, 1);
+      if (u.kind !== 'conveyor') rest.push(u.kind);
+    }
+    machines.push({ id: nextPart++, ...p });
+    if (p.kind !== 'conveyor') rest.splice(rest.indexOf(p.kind), 1);
+  }
+  return { layout: { ...l, machines }, shelf: rest };
 }
 
 /** Search every set of parts on a yard and add up every path through its offers. `budget` is the annealing steps per set. */
@@ -354,16 +382,18 @@ export function yardTree(seed: string, budget: number, keepPaths = false): YardT
     const known = memo.get(key);
     if (known) return known;
     const price = RULES.beltCost / Math.max(1, rounds - held.length + 1);
-    const p = solve(
-      { ...(parent ? parent.layout : run.layout), ...shiftTerms(Math.max(1, held.length), run.job, 0) },
-      [...(parent?.spare ?? []), ...(added ? cardParts(added, run.job, seed) : [])],
-      free,
-      price,
-      parent ? budget : 0,
-      rng,
-      anchors,
-      run.job,
-    );
+    const base = { ...(parent ? parent.layout : run.layout), ...shiftTerms(Math.max(1, held.length), run.job, 0) };
+    const shelf = [...(parent?.spare ?? []), ...(added ? cardParts(added, run.job, seed) : [])];
+    let p = solve(base, shelf, free, price, parent ? budget : 0, rng, anchors, run.job);
+    if (parent && added) {
+      const placed = base.machines.filter((m) => m.kind === 'conveyor').length;
+      const { plan: lit } = cardGain(base, cardParts(added, run.job, seed), Math.max(0, free - placed));
+      if (lit.length) {
+        const start = withPlan(base, lit, shelf);
+        const other = solve(start.layout, start.shelf, free, price, budget, rng, anchors, run.job);
+        if (other.value > p.value) p = other;
+      }
+    }
     memo.set(key, p);
     return p;
   };
@@ -558,6 +588,15 @@ export function cardOf(yards: readonly YardResult[]): Card {
   const rates = Object.values(takeRates);
   const healthy = share(rates, (r) => r >= 0.1 && r <= 0.6);
   const choices = 0.7 * scale(real, 0.05, 0.6) + 0.3 * scale(healthy, 0.3, 1);
+  const sorted = (c: { values: number[] }) => c.values.slice().sort((a, b) => b - a);
+  const noMatter = share(picks, (c) => {
+    const v = sorted(c);
+    return v.length > 1 && (v[0] - v[v.length - 1]) / (v[0] || 1) < 0.05;
+  });
+  const clear = share(picks, (c) => {
+    const v = sorted(c);
+    return v.length > 1 && (v[0] - v[1]) / (v[0] || 1) > 0.05;
+  });
 
   const med = (f: (y: YardResult) => number) => median(yards.map(f));
   const medians = {
@@ -612,7 +651,7 @@ export function cardOf(yards: readonly YardResult[]): Card {
 
   const dimensions = [
     dim('Alive to the last shift', 15, alive, { flatSteps: flat, lastShiftBest: lastBest }),
-    dim('Every pick a real choice', 15, choices, { realPicks: real, healthyCards: healthy }),
+    dim('Every pick a real choice', 15, choices, { realPicks: real, healthyCards: healthy, allClose: noMatter, oneClearWinner: clear }),
     dim('Skill shows', 15, skill, { tiersInOrder: ordered, expertOverNovice: ratio, deeperGain: deeper }),
     dim('The problem keeps moving', 10, moving, { limitsPerGame: distinct }),
     dim('More than one way to win', 5, ways, { threeWaysYards: threeWays, modalBestSet: modal }),

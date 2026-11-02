@@ -7,7 +7,6 @@ import { runStars } from '../../sim/run';
 import type { Challenge } from '../challenge';
 import type { CardInput } from '../card';
 import type { Rank } from '../share';
-import { mountResults } from '../../ui/ResultsScreen';
 import { ui } from '../../ui/dom';
 import type { ClipResult } from '../clip';
 import { loadPlayer, loadSubmissions } from '../storage';
@@ -193,17 +192,21 @@ export class ResultsScene extends Phaser.Scene {
     this.lastMedal = null;
     this.lastCard = null;
     this.cardInput = null;
-    mountResults(this, run, {
-      replayed: !!data.replayed,
-      replayLabel: data.replayLabel,
-      newOverall: rec.newOverall,
-      newSeed: rec.newSeed,
-      prevSeedBest: rec.prevSeedBest,
-      stars,
-      challenge: data.challenge,
-      replayHash: data.replayHash,
-      replayPlayer: data.replayPlayer,
-      newFork: forkRec.newFork,
+    const shownFor = this.sys.settings.data; // a first visit never gets this far unless it plays a whole game, so the screen loads when one ends
+    void import('../../ui/lazy').then(({ mountResults }) => {
+      if (this.sys.settings.data !== shownFor || !this.sys.isActive()) return;
+      mountResults(this, run, {
+        replayed: !!data.replayed,
+        replayLabel: data.replayLabel,
+        newOverall: rec.newOverall,
+        newSeed: rec.newSeed,
+        prevSeedBest: rec.prevSeedBest,
+        stars,
+        challenge: data.challenge,
+        replayHash: data.replayHash,
+        replayPlayer: data.replayPlayer,
+        newFork: forkRec.newFork,
+      });
     });
     this.events.once('shutdown', () => ui.unmount());
   }

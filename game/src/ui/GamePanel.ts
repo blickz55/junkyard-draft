@@ -50,6 +50,7 @@ import {
 } from '../content/job';
 import { yardLabel } from '../content/yard';
 import { cardGain } from '../render/estimate';
+import { salKnown, salLater } from '../render/sal';
 import { recipeRow } from './JobCard';
 import { reactionBar } from './ReactionBar';
 import { verifierUrl as resolveVerifierUrl } from '../render/config';
@@ -808,13 +809,14 @@ export class GamePanel {
     }
     this.side.append(this.legend());
   }
-  /** What the card adds to this line right now, on its own, in its best spot. */
+  /** Whether the card adds to this line right now, on its own, in its best spot. How much stays the player's to judge: the exact figure made
+   * the pick a matter of reading the biggest number, and a player who only did that came within 4 % of the search's best game. */
   private cardWorth(kind: MachineKind, r: RunState, i: number): HTMLElement {
-    const { gain } = cardGain(r.layout, cardParts(kind, r.job, r.seed));
+    const { gain } = cardGain(r.layout, cardParts(kind, r.job, r.seed), r.bin.filter((m) => m.kind === 'conveyor').length);
     return h(
       'div',
       { class: gain > 0 ? 'jd-green jd-offer-worth' : 'jd-dim jd-offer-worth', tid: `offer-worth-${i}` },
-      gain > 0 ? t('game.cardGain', { amount: money(gain) }) : t('game.cardNoGain'),
+      t(gain > 0 ? 'game.cardHelps' : 'game.cardNoGain'),
     );
   }
   /** Keep a card: the other two slide away, so "the other two go back on the truck" is something you see. The pick itself is immediate. */
@@ -1087,6 +1089,18 @@ export class GamePanel {
     const done = t('job.shift', { n: int(p.thisShift), mat: materialOf(r.job.material, p.thisShift) });
     return p.nextStar == null ? `${done} · ${t('job.got')}` : done;
   }
+  /** Against Sal's game on this yard, money for money. His game is worked out the first time it is asked for, so a saved game picks it up by its next shift. */
+  private salRace(r: RunState): HTMLElement | null {
+    if (!r.job?.orders || this.replayMode) return null;
+    const sal = salKnown(r.seed);
+    if (!sal) {
+      salLater(r.seed, () => {});
+      return null;
+    }
+    const lead = r.score - sal.rounds.slice(0, r.rounds.length).reduce((a, b) => a + b, 0);
+    const text = lead > 0 ? t('job.salAhead', { amount: money(lead) }) : lead < 0 ? t('job.salBehind', { amount: money(-lead) }) : t('job.salLevel');
+    return h('div', { class: lead >= 0 ? 'jd-green jd-banner-job' : 'jd-dim jd-banner-job', tid: 'sal-race' }, text);
+  }
   /** Against the shift before: a pick that worked has to show. */
   private shiftChange(r: RunState): HTMLElement | null {
     const n = r.rounds.length;
@@ -1131,6 +1145,7 @@ export class GamePanel {
         ),
         this.shiftChange(r),
         note ? h('div', { class: 'jd-banner-job', tid: 'job-pace' }, note) : null,
+        this.salRace(r),
         this.bannerForeman
           ? h(
               'div',

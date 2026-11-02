@@ -15,6 +15,7 @@ import type { Machine, MachineKind } from '../sim/types';
 import { loadKeyMap } from './storage';
 import { DIR_DX, DIR_DY, RULES } from '../sim/rules';
 import { dropActions, smartFacing, strokeActions } from './placement';
+import { plannedFacing } from './guide';
 import { money } from '../content/format';
 import { inputTravelDirs, outputDirs } from '../sim/advice';
 import { explainRunError, placementWarning } from '../content/advice';
@@ -388,7 +389,7 @@ export class InputController {
   /** The machine as it would stand at a spot: a shelf part takes the facing the drop will give it. */
   private facingAt(m: Machine, x: number, y: number): Machine {
     if (m.x >= 0) return m;
-    return { ...m, dir: smartFacing(this.run.layout, m.kind, x, y, m.dir, this.occupantAt(x, y)?.id) };
+    return { ...m, dir: plannedFacing(this.run, m.kind, x, y) ?? smartFacing(this.run.layout, m.kind, x, y, m.dir, this.occupantAt(x, y)?.id) };
   }
   /** Put a machine at a cell the way a person means it: a part on the belt goes in the belt, whatever stood there steps aside, the part faces the way the line runs. */
   dropAt(m: Machine, x: number, y: number): boolean {
@@ -398,7 +399,7 @@ export class InputController {
       this.showReject(explainRunError('cell blocked by rubble'), { x, y });
       return false;
     }
-    const acts = dropActions(this.run, m, x, y);
+    const acts = dropActions(this.run, m, x, y, m.x < 0 ? plannedFacing(this.run, m.kind, x, y) : undefined);
     if (!acts.length) return false;
     const ok = this.host.actAll(acts);
     if (ok) {

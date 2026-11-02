@@ -1,15 +1,12 @@
 // The coach (docs/UX-STANDARD.md): one instruction at a time and what to touch, as a pure function of the run.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { apply, newRun, TUTORIAL_SEED, type Action } from '../game/src/sim/run';
-import { hintFor, type Guidance } from '../game/src/render/guide';
+import { apply, newRun, TUTORIAL_SEED } from '../game/src/sim/run';
+import { cardPlan, hintFor, type Guidance } from '../game/src/render/guide';
 import { dropActions, smartFacing } from '../game/src/render/placement';
+import { machineName } from '../game/src/content/machines';
 
-type Run = ReturnType<typeof newRun>;
 const ctx = (mode = 'build', tutorial = false) => ({ tutorial, touch: false, watching: null, mode });
-const shelf = (s: Run, k: string) => s.bin.find((m) => m.kind === k)!;
-const doAll = (s: Run, actions: Action[]) => actions.forEach((a) => apply(s, a));
-const drop = (s: Run, kind: string, x: number, y: number) => doAll(s, dropActions(s, shelf(s, kind), x, y));
 const spotKinds = (g: { spots: Guidance['spots'] }) => g.spots.map((p) => p.kind);
 
 test("outside the lesson the coach says one thing per moment and names the shift's order", () => {
@@ -20,16 +17,27 @@ test("outside the lesson the coach says one thing per moment and names the shift
   assert.equal(pick.step, 0);
   assert.deepEqual(pick.spots, [], 'a real choice lights nothing');
   apply(s, { t: 'pick', i: s.offers.indexOf('furnace') });
-  const furnace = s.bin.find((m) => m.kind === 'furnace')!;
   const place = hintFor(s, ctx());
-  assert.match(place.text, /^Drag the Furnace onto the belt/, 'the first part of the card');
-  assert.deepEqual(place.spots[0], { kind: 'shelf', i: s.bin.indexOf(furnace) });
-  assert.ok(place.spots.length > 1 && place.spots.slice(1).every((p) => p.kind === 'cell' && p.soft), 'the belt pieces it could take are lit softly');
-  assert.match(hintFor(s, { ...ctx(), touch: true }).text, /^Tap the Furnace, then tap the belt/);
-  assert.match(hintFor(s, { ...ctx(), touch: true, selected: furnace.id }).text, /^Now tap the belt/, 'already selected: no need to tap it');
-  const line = s.layout.machines.filter((m) => m.kind === 'conveyor');
-  drop(s, 'furnace', line[line.length - 1].x, line[line.length - 1].y);
-  assert.match(hintFor(s, ctx()).text, /^Drag the Splitter onto the belt/, 'the second part of the card comes next');
+  const plan = cardPlan(s);
+  assert.ok(plan.length >= 4, 'the card says what it adds, so the coach knows where');
+  assert.equal(place.text, `Drag the ${machineName(plan[0].kind)} to the lit spot.`, 'one spot at a time');
+  assert.deepEqual(place.spots, [
+    { kind: 'shelf', i: s.bin.findIndex((m) => m.kind === plan[0].kind) },
+    { kind: 'cell', x: plan[0].x, y: plan[0].y },
+  ]);
+  assert.equal(hintFor(s, { ...ctx(), touch: true }).text, `Tap the ${machineName(plan[0].kind)}, then tap the lit spot.`);
+  const first = s.bin.find((m) => m.kind === plan[0].kind)!;
+  assert.equal(
+    hintFor(s, { ...ctx(), touch: true, selected: first.id }).text,
+    `Now tap the lit spot for the ${machineName(plan[0].kind)}.`,
+    'already selected: no need to tap it',
+  );
+  // a part put somewhere else ends the plan: the plain words take over
+  const lost = hintFor(s, ctx());
+  for (const a of dropActions(s, first, 0, 0)) apply(s, a);
+  assert.notEqual(hintFor(s, ctx()).text, lost.text);
+  assert.ok(!hintFor(s, ctx()).spots.some((p) => p.kind === 'cell' && !p.soft), 'no spot is lit once the plan is off');
+  apply(s, { t: 'unplace', id: first.id });
   while (s.bin.length) apply(s, { t: 'sell', id: s.bin[0].id });
   const ready = hintFor(s, ctx());
   assert.match(ready.text, /Start the shift/);

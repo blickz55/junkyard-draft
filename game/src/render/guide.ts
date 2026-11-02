@@ -4,8 +4,8 @@
  * the spots. A lesson is a script (content/lessons.ts): the first move not done yet is the instruction, and `lessonAllows`
  * says whether an edit is that move, so a lesson has one way through.
  */
-import { apply, canBuyBelt, cardParts, orderFor, RunError, type Action, type RunState } from '../sim/run';
-import type { Machine, MachineKind } from '../sim/types';
+import { apply, canBuyBelt, cardParts, newRun, orderFor, RunError, type Action, type RunState } from '../sim/run';
+import type { Dir, Machine, MachineKind } from '../sim/types';
 import { DIR_DX, DIR_DY, RULES } from '../sim/rules';
 import { outputDirs } from '../sim/advice';
 import { hasText, t, type StringKey } from '../content/strings';
@@ -15,6 +15,7 @@ import { nextNeeded } from '../content/job';
 import { lessonOf, type About, type Move } from '../content/lessons';
 import { flowLinks } from './FlowOverlay';
 import { beltShape } from './placement';
+import { cardGain, type Placed } from './estimate';
 
 /** Something to touch: a card, a shelf slot, a spot in the yard, or a button. */
 export type Spot =
@@ -162,6 +163,28 @@ export function lessonStep(run: RunState, touch = false, selected: number | null
   };
 }
 
+let planned: { key: string; plan: Placed[] } | null = null;
+/**
+ * The plan for the card just picked: where its parts earn what the card said (render/estimate.ts). It is made once, from the yard as the
+ * build began, because a plan made again halfway would chase its own half-built line. Undo rebuilds the run, so the key is what the plan
+ * is made of, not the object.
+ */
+export function cardPlan(r: RunState): Placed[] {
+  const pick = r.picks[r.picks.length - 1];
+  if (r.phase !== 'build' || !pick) return [];
+  const before = r.rounds[r.rounds.length - 1]?.layout;
+  const key = `${r.seed}:${r.picks.join()}:${before ? JSON.stringify(before.machines) : ''}`;
+  if (planned?.key !== key) {
+    const start = before ?? newRun(r.seed).layout;
+    const belts = r.bin.filter((m) => m.kind === 'conveyor').length;
+    planned = { key, plan: cardGain({ ...r.layout, machines: start.machines }, cardParts(pick, r.job, r.seed), belts).plan };
+  }
+  return planned.plan;
+}
+/** The way the plan wants a part to face, when this is one of its spots. */
+export const plannedFacing = (r: RunState, kind: MachineKind, x: number, y: number): Dir | undefined =>
+  cardPlan(r).find((p) => p.kind === kind && p.x === x && p.y === y)?.dir;
+
 /** The coach outside the lesson: the pick, the build, the shift, the summary, each one instruction. */
 function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[] } {
   if (ctx.mode === 'running' || ctx.mode === 'paused')
@@ -177,6 +200,17 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[] } 
           ? t('coach.pickOrder', { amount: money(order) })
           : t('coach.pick');
     return { text, spots: [] };
+  }
+  // the card's plan, one lit spot at a time; a part put somewhere else ends it, and the words below take over
+  const step = cardPlan(r).find((p) => !r.layout.machines.some((m) => m.kind === p.kind && m.x === p.x && m.y === p.y));
+  if (step) {
+    const i = r.bin.findIndex((m) => m.kind === step.kind);
+    const spot: Spot = { kind: 'cell', x: step.x, y: step.y };
+    if (i >= 0) {
+      const how = ctx.touch ? (ctx.selected === r.bin[i].id ? 'Selected' : 'Touch') : '';
+      return { text: t(`coach.plan${how}` as StringKey, { name: machineName(step.kind) }), spots: [{ kind: 'shelf', i }, spot] };
+    }
+    if (step.kind === 'conveyor' && canBuyBelt(r) === null) return { text: t('coach.planBuy'), spots: [{ kind: 'buy' }, spot] };
   }
   // the parts just picked wait on the shelf (spare parts never hold the coach up: a card's parts have the newest ids in the game)
   const newest = Math.max(0, ...r.layout.machines.map((m) => m.id), ...r.bin.map((m) => m.id));

@@ -41,11 +41,11 @@ export function smartFacing(l: Layout, kind: MachineKind, x: number, y: number, 
 }
 
 /** The rule-checked actions that put machine `m` at (x, y). A machine already there goes to the shelf, or swaps places when `m` came from the yard. */
-export function dropActions(run: RunState, m: Machine, x: number, y: number): Action[] {
+export function dropActions(run: RunState, m: Machine, x: number, y: number, facing?: Dir): Action[] {
   const fromYard = m.x >= 0;
   if (fromYard && m.x === x && m.y === y) return [];
   const occupant = at(run.layout, x, y, m.id);
-  const dir = fromYard ? m.dir : smartFacing(run.layout, m.kind, x, y, m.dir, occupant?.id);
+  const dir = facing ?? (fromYard ? m.dir : smartFacing(run.layout, m.kind, x, y, m.dir, occupant?.id));
   if (!occupant) return [{ t: 'place', id: m.id, x, y, dir }];
   const { x: fx, y: fy } = m;
   const out: Action[] = [
