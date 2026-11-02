@@ -5,6 +5,15 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### Your game to work out — 2026-11-02 (no rules change)
+
+- **A game's spots are dark until you ask:** the lessons still light every move, and in a game "Show me where" lights one card. The job card's switch says "Show where parts go: on" or "off".
+- **A card that pays nothing says why:** "Pays less per shard" on a Plate Press where ingots pay more, and in the coach's line the two prices, or that the line is short of scrap, or which machine is the slow one.
+- A spare part from a card the line did not need can wait on the shelf, and the coach says so instead of asking where it goes.
+- Advice asks for a Tuner only where one could stand.
+- **Buy a belt stands beside Start**, and "Show me where" is never cut off on a phone.
+- **Turn right and Turn left**, and a note when a drop turns another part where it stands.
+
 ### Counted right — 2026-11-02 (no rules change)
 
 - **Home counts every game you have finished,** under any rules, and shows your earlier best until you set one under the rules as they stand.

@@ -75,21 +75,28 @@ export function smartFacing(l: Layout, kind: MachineKind, x: number, y: number, 
   const ahead = feeds[0] ?? current;
   const order: Dir[] = [ahead, leftOf(ahead), rightOf(ahead), opposite(ahead)];
   if (kind === 'hopper') return order.reduce((best, d) => (scrapWay(l, x, y, d, ignore) > scrapWay(l, x, y, best, ignore) ? d : best), ahead);
-  return out(order) ?? ahead;
+  const taker = out(order);
+  if (taker !== undefined) return taker;
+  // nothing takes its load yet: never face a Hopper beside it, which takes nothing and could then never feed this part; face away from it
+  const hopper = ALL.find((d) => at(l, x + DIR_DX[d], y + DIR_DY[d], ignore)?.kind === 'hopper');
+  return hopper !== undefined && ahead === hopper ? opposite(hopper) : ahead;
 }
 
 /**
- * Hoppers beside (x, y) whose scrap goes nowhere, into a free cell, or into a Furnace or a Press, and could feed a Crusher put there, with the
- * way each should turn. One that sends scrap to a Dock keeps its way: that line pays, and the Crusher may not lead anywhere yet.
+ * Hoppers beside (x, y) that should feed a Crusher put there, with the way each should turn: the Hopper from the Crusher's own card
+ * (the ninth panel dropped a kit's three parts in a row, and its Hopper had already turned to the old Crusher), and any other whose
+ * scrap goes nowhere, into a free cell, or into a Furnace or a Press. One that sends scrap to a Dock keeps its way: that line pays, and
+ * the Crusher may not lead anywhere yet.
  */
-function idleHoppers(l: Layout, x: number, y: number, crusherDir: Dir, ignore?: number): { h: Machine; dir: Dir }[] {
+function idleHoppers(l: Layout, x: number, y: number, crusherDir: Dir, crusherId: number): { h: Machine; dir: Dir }[] {
   const found: { h: Machine; dir: Dir }[] = [];
   for (const d of ALL) {
-    const h = at(l, x + DIR_DX[d], y + DIR_DY[d], ignore);
+    const h = at(l, x + DIR_DX[d], y + DIR_DY[d], crusherId);
     if (h?.kind !== 'hopper' || d === crusherDir) continue; // a Hopper in front of the Crusher would push head-on into its output
     const toward = opposite(d);
-    const now = reach(l, h.x, h.y, h.dir, ignore);
-    if (h.dir === toward || (now !== null && now !== 'open' && now !== 'furnace' && now !== 'press')) continue; // it faces here, or its scrap pays
+    const kit = h.id === crusherId - 1; // a Hopper card's parts are numbered Hopper, Crusher, Dock
+    const now = reach(l, h.x, h.y, h.dir, crusherId);
+    if (h.dir === toward || (!kit && now !== null && now !== 'open' && now !== 'furnace' && now !== 'press')) continue; // it faces here, or its scrap pays
     found.push({ h, dir: toward });
   }
   return found;

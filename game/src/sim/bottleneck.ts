@@ -166,7 +166,16 @@ export function analyseRound(layout: Layout, result: RunResult, nextRound: numbe
         fixes: (['dock', 'press'] as MachineKind[]).filter((k) => inPool(k, nextRound)),
       };
     const fixes: MachineKind[] = [];
-    if (inPool('tuner', nextRound) && !tunerBeside(top.cell)) fixes.push('tuner'); // advice a player has already taken is noise: two Tuners do not stack
+    // a Tuner needs a side to stand on, free or a belt piece it can take the place of: the ninth panel was told "a Tuner touching it" for
+    // four shifts about a Crusher boxed in on all four sides
+    const roomForTuner = ([0, 1, 2, 3] as Dir[]).some((d) => {
+      const x = (top.cell % W) + DIR_DX[d];
+      const y = Math.floor(top.cell / W) + DIR_DY[d];
+      if (x < 0 || y < 0 || x >= W || y >= H || layout.rubble?.includes(cellIndex(x, y, W))) return false;
+      const q = grid[cellIndex(x, y, W)];
+      return !q || q.kind === 'conveyor';
+    });
+    if (inPool('tuner', nextRound) && !tunerBeside(top.cell) && roomForTuner) fixes.push('tuner'); // advice a player has already taken is noise: two Tuners do not stack
     if (inPool('splitter', nextRound) && inPool(m.kind, nextRound)) fixes.push('splitter');
     return { ...base, kind: 'saturated', machine: m, heldTicks: top.ticks, fixes, twins: layout.machines.filter((q) => q.kind === m.kind).length };
   }

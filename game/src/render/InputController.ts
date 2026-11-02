@@ -25,6 +25,7 @@ import { fit, setArt } from './atlas';
 import { audio } from './audio';
 import { ui } from '../ui/dom';
 import { t } from '../content/strings';
+import { machineName } from '../content/machines';
 import { BIN_Y, GRID_W, GRID_X, GRID_Y } from './layout';
 import { DPR } from './dpr';
 import { boundKey, CONTROLS, LONG_PRESS_MS, TAP_SLOP_PX, type ControlId } from '../content/controls';
@@ -38,7 +39,7 @@ export interface MachineView {
 }
 /** What a tap on the yard landed on. */
 export type Inspected = { kind: 'machine'; id: number } | { kind: 'rubble'; x: number; y: number } | { kind: 'ground'; x: number; y: number };
-export type ToastKind = 'refusal' | 'warning';
+export type ToastKind = 'refusal' | 'warning' | 'note';
 export interface Toast {
   text: string;
   kind: ToastKind;
@@ -406,10 +407,15 @@ export class InputController {
     }
     const acts = dropActions(this.run, m, x, y, m.x < 0 ? plannedFacing(this.run, m.kind, x, y) : undefined);
     if (!acts.length) return false;
+    const was = new Map(this.run.layout.machines.map((q) => [q.id, { x: q.x, y: q.y, dir: q.dir, kind: q.kind }]));
     const ok = this.host.actAll(acts);
     if (ok) {
       if (acts.length > 1) audio.swap();
       else audio.place();
+      // a part the drop turned where it stands is said, at that part: the ninth panel's "parts turn themselves, and nothing says so"
+      const turned = acts.find((a) => a.t === 'place' && a.id !== m.id && was.get(a.id)?.x === a.x && was.get(a.id)?.y === a.y && was.get(a.id)?.dir !== a.dir);
+      const q = turned?.t === 'place' ? was.get(turned.id) : undefined;
+      if (q) this.showNote(t('game.autoTurned', { name: machineName(q.kind), target: machineName(m.kind) }), { x: q.x, y: q.y });
     } else {
       audio.invalid();
       this.flashBad(x, y);
@@ -485,6 +491,14 @@ export class InputController {
     const shown = this.toast;
     setTimeout(() => {
       if (this.toast === shown) this.clearToast('refusal'); // a note left standing reads as a new refusal of the next thing tried
+    }, REFUSAL_MS);
+  }
+  /** A note about what a move did beside the part moved, gone after the same time as a refusal or at the next action. */
+  showNote(text: string, cell: { x: number; y: number }) {
+    this.showToast({ text, kind: 'note', x: cell.x, y: cell.y });
+    const shown = this.toast;
+    setTimeout(() => {
+      if (this.toast === shown) this.clearToast('note');
     }, REFUSAL_MS);
   }
   showToast(toast: Toast) {

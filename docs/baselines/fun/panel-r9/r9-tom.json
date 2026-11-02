@@ -1,0 +1,61 @@
+{
+  "persona": "Tom",
+  "device": "phone",
+  "goalInOwnWords": "You run a scrap yard. You line machines up so junk goes in one end and something worth more comes out the other, and the dock pays you for it. Each shift has an order to fill, and the whole point is to make more money than Sal the foreman.",
+  "stoppedWhere": "Today's yard (the real game), just after shift 1 of 6: order of $450 filled with $1,005, 1 of 6 orders. I went Menu, Save and go home, then Give feedback from the home screen. No full game was finished. For the record: all three lessons were finished with three stars each (the home screen then said Yard Hand, 9 stars) and the best lesson total was $3,926 in lesson 3; those are lessons, not games, so the game figures below are 0.",
+  "stoppedWhy": "My fifteen minutes were about used up and I had the hang of it. I would have played the other five shifts to see if I could beat Sal, but this was a fair place to stop and do the questions. [Test note: the session ended at the action budget, a little over it because of the survey. Tom would have carried on through the rest of this yard.]",
+  "lessonsFinished": 3,
+  "gamesFinished": 0,
+  "bestStars": 0,
+  "bestMoney": 0,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Today's yard card, before the first shift",
+      "what": "What the button 'Lit spots: when you ask' does. It sounds like a setting and I did not want to touch it.",
+      "gotOutHow": "Never tapped it. Only at the end of shift 1, from Sal's line 'The lit spots are his game: beat him by finding better', did I work out what lit spots are."
+    },
+    {
+      "where": "Today's yard, build screen after I picked the Hopper + Crusher + Dock card",
+      "what": "Where on the yard the three parts should go. I guessed a square for the dock and nothing happened.",
+      "gotOutHow": "Tapped the button whose label is cut off at the edge of the screen ('Show me wher'), then followed Sal's 'Step 1 of 3' lit spots."
+    }
+  ],
+  "confused": [
+    "Lesson 1: the 'Your line needs' list still showed Crusher and Furnace as missing, yet Sal said 'Line closed. Start the shift.'",
+    "Lesson 1: '$37' next to 'If every shift pays this: 0 of 20 ingots' before the first shift. I read it three times.",
+    "'Pick ONE card. The others go back on the truck.' What truck, and why were the other two cards greyed out so I could not pick them?",
+    "A spare Crusher, spare belt pieces and a spare Furnace sat on my shelf for a good while with no explanation; each was explained a few taps later.",
+    "Lesson 1: a red tag 'held you back' appeared over the Furnace at the end and nobody said what it meant until lesson 3.",
+    "Lesson 3: why was I made to take the Tuner when a perfectly good spare Furnace was already on my shelf?",
+    "Lesson 3: after the Tuner went in, the belt by the corner looked broken in the picture, though the forecast said it would work.",
+    "Lesson 3, shift 4: the second Dock did not move the forecast at all ('saves belts'), so I could not see what it was for.",
+    "Today's yard: the button 'Lit spots: when you ask'.",
+    "Today's yard: the line already made $888 against a $450 order, so why add the kit at all? Nobody had said the score is the money and Sal's $12,804 is the target."
+  ],
+  "annoyed": [
+    "Up to eighteen taps to set up one shift in the lessons, and every one was a spot Sal lit for me. I never decided anything.",
+    "The same sentence, 'A small order to learn the ropes', at the top of all three lesson cards.",
+    "The 'Show me where' button is cut off at the edge of the screen ('Show me wher').",
+    "The 'What held you back' box after a shift runs off the bottom of the screen, so I could not read it without scrolling.",
+    "Tapping a blank square on the real yard just does nothing, with no word on why."
+  ],
+  "pleased": [
+    "Every shift ends with the sum written out (37 x scrap @ $1 = $37). I could check it myself.",
+    "The forecast 'This shift will pay $1,005' matched the result to the dollar.",
+    "Each machine card says what goes in and what comes out, in plain words.",
+    "Red stripes on the belt where it backs up, and tags like 'waiting for scrap' and 'held you back', show the problem on the yard itself.",
+    "Sal talks in short plain lines, and each lesson ends with one sentence I can remember: when a line backs up, find the slowest machine and speed it up or share its work.",
+    "The Buy a belt button said plainly it costs $20 out of my score, and nothing in the game asked for my real money.",
+    "'Fits this line now' and 'No easy spot yet' on the cards helped me choose.",
+    "The survey is one page, one minute, and does not ask for my name."
+  ],
+  "bestMoment": "The end of lesson 1: scrap sold for $37, then crushed shards for $111, then the furnace turned them into gold ingots, three stars popped up on the yard and the sum read 24 ingots at $24 = $576.",
+  "worstMoment": "Lesson 3, shifts 3 and 4: about fourteen taps in a row to add a second furnace, a belt I had to buy, and then a Dock that changed nothing on the forecast. That was the first time I felt I was doing chores for Sal.",
+  "oneChange": "Let me play the real thing sooner and make my own choices, with Sal checking my work afterwards instead of lighting every tap for me, and say up front that the goal is to beat his score.",
+  "completionCode": "AT2X-DBGE"
+}

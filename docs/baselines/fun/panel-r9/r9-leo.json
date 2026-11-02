@@ -1,0 +1,70 @@
+{
+  "persona": "Leo",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory line out of the parts they give you, make as much money as you can each shift, fill the six orders (the dollar targets) to get 3 stars, and beat Sal's score.",
+  "stoppedWhere": "Today's yard, after I used 'Try again from shift 5' for the missing 3rd star and the retried shift 5 finished with 'Missed the order by $440 ... You're $186 behind Sal'. I left through Menu > Save and go home and did the survey from the home screen.",
+  "stoppedWhy": "I'd finished a whole game (4 of 6 orders, beat Sal by $20, confetti, new rank) and that was the high point. The one thing I tried after it went worse and the game only explained why in tiny text after the shift, so the 3rd star was gone anyway. Everything else would have been the same four taps again. It's not bad, but I wouldn't open it by myself over Clash Royale.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 12824,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Today's yard, shift 4: Plate Press card",
+      "what": "It said 'No easy spot for the Plate Press yet. Move a machine to make room.' I could not work out what to move or how. When I dropped it on a belt piece of the old line like in the lesson, the pay forecast fell by $576 ('the Furnace waits for scrap').",
+      "gotOutHow": "Undo, then Undo pick, then took the green 'Fits this line now' card instead."
+    },
+    {
+      "where": "Today's yard, shifts 3 to 6: the spare Shipping Dock on the shelf",
+      "what": "Sal kept saying 'Tap the Shipping Dock on the shelf, then where you think it pays' once the line was already done. I had no idea where it should go. I tapped an empty square and nothing happened except a tip line.",
+      "gotOutHow": "Ignored it and started the shift. In shift 6 I found 'Sell for $10' by accident and sold both spare docks, which put me $20 past Sal."
+    },
+    {
+      "where": "Today's yard, shift 6: Furnace + Splitter + Dock card",
+      "what": "Same 'No easy spot for the Furnace yet. Move a machine to make room.' I wanted the bigger ingot money but could not tell what to move.",
+      "gotOutHow": "Gave up, Undo pick, took the green Hopper + Crusher + Dock card."
+    },
+    {
+      "where": "Results of every shift on today's yard",
+      "what": "The game said 'The lit spots are his game: beat him by finding better.' I never worked out how to do better than the glowing spots, so I could not get the missing 3rd star.",
+      "gotOutHow": "Did not. I followed the glow every time except two failed tries."
+    }
+  ],
+  "confused": [
+    "Home screen: a lot of small text, and I did not know what 'orders' or the row of dollar amounts meant until a few shifts in.",
+    "The first job card lists Hopper, Crusher, Furnace, Dock but my first shift only needed a belt; nothing said why the rest were there.",
+    "A 'Lit spots: when you ask' button on the job card of today's yard; I had no idea what it did and ignored it.",
+    "'Show me where' is cut off on the right edge of the phone screen ('Show me wher').",
+    "Why a spare Shipping Dock stays on the shelf and where it is supposed to go ('where you think it pays').",
+    "'No easy spot yet' and 'Move a machine to make room': what to move and how.",
+    "Why putting the Plate Press on the old belt piece made the pay forecast drop by $576.",
+    "'The lit spots are his game: beat him by finding better.' Better how?",
+    "The glow put the Tuner next to the hopper, Sal said 'the Crusher is the slow one', and I missed the order by $440. Only after the shift did it say a Tuner touching the crusher would fix it."
+  ],
+  "annoyed": [
+    "Same loop every shift (pick card, Show me where, tap glow, tap glow, Start): after shift 3 it felt like homework and I never decided anything.",
+    "1x speed is slow; I had to find 4x myself or sit and wait.",
+    "Lots of small text in boxes everywhere (Sal's bubble, 'Last shift', the forecast, the card text). I skip all of it.",
+    "'What held you back' is tiny text at the bottom of the results, after the shift, when it is too late to fix anything.",
+    "Sal nagging about the spare dock every shift when I could not use it.",
+    "Nothing felt risky or fast: Undo is free and the glow path always works. Clash Royale has a clock and an opponent; this just waits for me."
+  ],
+  "pleased": [
+    "Lesson 1: the glowing spot made the first taps easy without reading, and the belt joining up felt good.",
+    "Seeing the 'This shift will pay' number jump before starting ($37, then $111, then $576 in the lesson).",
+    "The big gold 'ORDER FILLED! Every price up 25%' banner and the '+$495' popup.",
+    "Results screen: confetti, 'New rank: Yard Hand!', 'You beat Sal by $20' and the shift bars climbing.",
+    "Undo took back a mistake in one tap after I wrecked the line.",
+    "4x stayed on between shifts so I did not have to set it again.",
+    "Menu > Save and go home, then the feedback form, was easy to find and short."
+  ],
+  "bestMoment": "The results screen after shift 6: confetti, 'You beat Sal by $20' (even though I got there by selling two spare docks for $10 each) and 'New rank: Yard Hand!'. Close second: the gold ORDER FILLED banner after shift 1 of today's yard.",
+  "worstMoment": "The retry of shift 5: I put the Tuner on the glowing spot, hit the big Start button, and missed the order by $440 again. Only then, in tiny text at the bottom, did it say the crusher was the slow one and a Tuner touching it would have fixed it. Too late, and the 3rd star was gone.",
+  "oneChange": "Stop doing it for me after the lesson: make me actually decide where things go, and say in one short line, before I press Start, what to fix when I'm short.",
+  "completionCode": "54SN-UYF5"
+}

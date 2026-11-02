@@ -1,0 +1,60 @@
+{
+  "persona": "Aisha",
+  "device": "desk",
+  "goalInOwnWords": "Build a line of machines that turns scrap into whatever the job pays most for and make as much money as possible over six shifts. Each shift you keep one new part, find the slowest machine and fix it, fill the order so every price rises, and try to finish ahead of Sal's score.",
+  "stoppedWhere": "The results screen after my first full game on today's yard ($18,822, three stars, 6 of 6 orders), after sending the survey and getting the completion code.",
+  "stoppedWhy": "I beat Sal by $6,018 on my first try, so there was nothing left to chase, the page said this test version has no leaderboard, and my lunch break was over after about 25 minutes. I know I left money on the table and I would try the crusher and splitter idea, but I would not open a second game right now just to do that.",
+  "lessonsFinished": 3,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 18822,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "maybe",
+  "stuck": [
+    {
+      "where": "Home, How to play popup, then Machine demos",
+      "what": "How much each thing is worth and how long a shift lasts. The first popup says prices go up but gives no figures; the numbers were a popup deeper (Machine demos) and the shift length was only in a collapsed list inside the game.",
+      "gotOutHow": "Read all eight demo tabs, then opened the tiny WHAT THINGS SELL FOR heading in lesson 1, which gave the full price list and said a shift lasts 80 s."
+    },
+    {
+      "where": "Today's yard job card and the shift receipts",
+      "what": "Whether 'every price goes up 25%' compounds or adds 25% of the starting price each time.",
+      "gotOutHow": "Compared the unit price on the receipts: ingots paid $24, then $30, $36, $42, $48, $54, so each filled order adds a flat $6."
+    },
+    {
+      "where": "End of lesson 3, shift 4",
+      "what": "Why the lesson had me add a second Dock and sell a spare belt for $10 when the forecast stayed at $1,272 either way, and what Sal's last line meant (it was cut off with '...').",
+      "gotOutHow": "I did not work it out. I just followed the lit spots."
+    }
+  ],
+  "confused": [
+    "How to play says filling an order makes every price go up, with no amount and no rule for whether it compounds.",
+    "Machine demos say an ingot is $12, or $24 when the job wants them; on today's yard nothing said which product the job wants, so I inferred ingots from the $24 on the price list.",
+    "Cards tagged 'No easy spot yet' read like a verdict on the card, but Furnace + Splitter + Dock, tagged that way in shift 2, was my best pick (+$855) against about +$117 for a plain second feed, which was tagged 'Fits this line now'.",
+    "Whether to keep or sell the Splitter and spare Docks that sat unused on my shelf for the last four shifts; nobody said what they are for later.",
+    "In lesson 3 the second Dock changed no number on the forecast, so I could not see what it bought me."
+  ],
+  "annoyed": [
+    "The lessons ran about twelve minutes and mostly follow lit arrows; on every pick all but one card is greyed out, so I made no real choice until today's yard.",
+    "Lesson 3 left a spare Furnace on my shelf and would not let me use it, though it is the obvious fix for the slowest machine.",
+    "The money numbers are hard to find: Machine demos is a popup inside How to play, and the full price list is a tiny collapsed heading at the bottom of the side panel.",
+    "Sal's last line at the end of lesson 3 is cut off with '...' ('The yard didn't pay more. See what wa...').",
+    "I beat Sal's whole-game score by $6,018 on my first try and the page then said this test version has no leaderboard, so there was nothing to chase."
+  ],
+  "pleased": [
+    "The 'This shift will pay $X' forecast was right to the dollar every shift, so I could optimise by it and trust it.",
+    "The receipt after each shift itemises count x unit price, belts bought and parts sold, and the running total ties out to the dollar.",
+    "'What held you back' names the slowest machine, says for how many of the 80 seconds, and names the fix.",
+    "The Machine demos put real numbers in the captions: scrap $1, shards $3, 3 s per ingot, a Tuner makes a neighbour one second faster.",
+    "Sal's 'ahead of Sal' line after each order, and the honest note that the lit spots are his game and I should beat him by finding better.",
+    "The 1x, 2x, 4x and skip buttons, so I never had to sit through 80 seconds of watching.",
+    "The little tooltips say why a part is idle, for example 'Nothing feeds the Crusher. It takes things from behind or either side, never head-on.'"
+  ],
+  "bestMoment": "Shift 2 of today's yard: I ignored the 'Fits this line now' card, worked out that a furnace on my new feed would turn $3 shards into $30 ingots, built it, watched the forecast jump by $855, and the shift paid exactly that and put me $438 ahead of Sal.",
+  "worstMoment": "Right after the results screen: I had beaten Sal by $6,018 on my first try and the page said this test version has no leaderboard, so the 'beat this' had nothing behind it.",
+  "oneChange": "Give me a score to chase after the first game: a board with other people's scores, or a Sal who cannot be beaten on the first try.",
+  "completionCode": "VJVW-2SCC"
+}

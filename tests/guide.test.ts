@@ -1,8 +1,8 @@
 // The coach (docs/UX-STANDARD.md): one instruction at a time and what to touch, as a pure function of the run.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { apply, newRun, TUTORIAL_SEED } from '../game/src/sim/run';
-import { cardPlan, hintFor, type Guidance } from '../game/src/render/guide';
+import { apply, newRun, TUTORIAL_SEED, type RunState } from '../game/src/sim/run';
+import { cardPlan, hintFor, pressPaysLess, type Guidance } from '../game/src/render/guide';
 import { dropActions, smartFacing } from '../game/src/render/placement';
 import { machineName } from '../game/src/content/machines';
 
@@ -51,21 +51,45 @@ test('with the spots dark the coach leaves the spot to the player and offers "Sh
   assert.ok(!dark.spots.some((p) => p.kind === 'cell'), 'and none is lit until asked');
   assert.match(dark.text, /where you think/);
   assert.equal(hintFor(s, ctx()).showMe, undefined, 'lit, there is nothing to ask for');
-  // a card no spot pays for: the coach does not promise one, it says what could make one
-  let found = false;
-  for (let n = 0; n < 40 && !found; n++) {
+  // a card no spot pays for: the coach does not promise one, it says why in the line's own terms
+  const seen = { press: false, other: false };
+  for (let n = 0; n < 60 && !(seen.press && seen.other); n++) {
     const fresh = newRun(`no-spot-${n}`);
-    for (let i = 0; i < fresh.offers.length && !found; i++) {
+    for (let i = 0; i < fresh.offers.length; i++) {
       const r = newRun(`no-spot-${n}`);
       apply(r, { t: 'pick', i });
       if (cardPlan(r).length) continue;
-      found = true;
       const g = hintFor(r, ctx());
-      assert.match(g.text, /^No easy spot for the .+ yet\. Move a machine to make room\.$/);
       assert.equal(g.showMe, undefined, 'nothing to show');
+      if (pressPaysLess(r, r.picks[0])) {
+        seen.press = true;
+        assert.match(g.text, /^Plates: \$[\d,]+ for two shards\. Ingots: \$[\d,]+ for one\. A Press needs spare shards\.$/);
+      } else {
+        seen.other = true;
+        assert.match(
+          g.text,
+          /^(Nothing pays more with the .+ yet: (the line is short of scrap|the .+ is the slow one)\.|No spot pays more with the .+ yet\. It can wait on the shelf\.)$/,
+        );
+      }
     }
   }
-  assert.ok(found, 'some card on these yards has no easy spot');
+  assert.ok(seen.press && seen.other, 'a Press that pays less and another card no spot pays for, on these yards');
+});
+
+test('a Plate Press on an ingot yard pays less per shard, and the coach says so with the prices; nowhere else', () => {
+  let ingot: RunState | null = null;
+  let plate: RunState | null = null;
+  for (let n = 0; n < 40 && (!ingot || !plate); n++) {
+    const r = newRun(`pays-less-${n}`);
+    if (r.job?.material === 'ingot') ingot ??= r;
+    if (r.job?.material === 'plate') plate ??= r;
+  }
+  assert.ok(ingot && plate, 'both kinds of yard in forty');
+  assert.equal(pressPaysLess(ingot, 'press'), true, 'a plate takes two shards and sells for less than two ingots');
+  assert.equal(pressPaysLess(ingot, 'furnace'), false, "the job's own machine");
+  assert.equal(pressPaysLess(plate, 'press'), false, "on a plate yard the Press is the job's own machine");
+  assert.equal(pressPaysLess(plate, 'furnace'), false);
+  assert.equal(pressPaysLess(newRun('classic-pays-less'), 'press'), false, 'a yard with no job');
 });
 
 test('when no card on offer fits, the coach says New offers deals three more and lights it, and only then', () => {
@@ -131,4 +155,30 @@ test('ready but short of the order: the coach says by how much, and lights the s
   assert.match(g.text, /^\$[\d,]+ short of the order: the .+ (is the slow one|waits for scrap)\.$/, g.text);
   assert.deepEqual(spotKinds(g), ['cell', 'run'], 'the machine to look at, and the shift can still start');
   assert.ok(g.text.split(/\s+/).length <= 14, 'one short instruction');
+});
+
+test("once a card's plan is all in, the part it did not need is spare: the coach stops asking where it goes and says it can wait", () => {
+  let checked = 0;
+  for (let n = 0; n < 60 && checked < 3; n++) {
+    const fresh = newRun(`spare-${n}`);
+    for (let i = 0; i < fresh.offers.length; i++) {
+      const r = newRun(`spare-${n}`);
+      apply(r, { t: 'pick', i });
+      const plan = cardPlan(r);
+      const kinds = plan.map((p) => p.kind);
+      const card = r.bin.slice(-3).map((m) => m.kind);
+      if (!plan.length || card.length < 3 || card.every((k) => kinds.includes(k))) continue; // a plan that leaves one of its card's parts out
+      for (const p of plan) {
+        const part = r.bin.find((m) => m.kind === p.kind)!;
+        for (const a of dropActions(r, part, p.x, p.y, p.dir)) apply(r, a);
+      }
+      const g = hintFor(r, { ...ctx(), lights: false });
+      assert.doesNotMatch(g.text, /on the shelf, then where/, `${r.seed}: the spare is not asked for`);
+      if (!/short of the order|more to fill|\$[\d,]+ short/.test(g.text))
+        assert.match(g.text, /^Ready\? Start the shift\. The spare .+ can wait on the shelf\.$/);
+      checked++;
+      break;
+    }
+  }
+  assert.ok(checked > 0, 'a plan that left a part of its card out, on these yards');
 });

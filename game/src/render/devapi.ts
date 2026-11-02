@@ -21,7 +21,7 @@ export interface DevApi {
   pick: (i: number) => void;
   hint: () => string;
   /** the toast at a cell (0.9.3): a refusal or a warning, or null */
-  toast: () => { text: string; kind: 'refusal' | 'warning'; x: number; y: number } | null;
+  toast: () => { text: string; kind: 'refusal' | 'warning' | 'note'; x: number; y: number } | null;
   /** the flow overlay (0.9.3): drawn in the build phase; connected outputs and outputs that go nowhere */
   flow: () => { visible: boolean; links: number; loose: number };
   /** keyboard cursor: grid cell, visibility, and the id of the machine held in hand (null when empty) */

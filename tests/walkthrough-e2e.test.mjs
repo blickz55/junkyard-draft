@@ -424,7 +424,10 @@ test('a real yard: the job card, then every screen answers where am I, what is t
   await mode('build');
   assert.equal((await audit('the build')).step, 'Build');
   assert.ok(await page.locator('[data-spot^=shelf]').count(), 'the new part is lit on the shelf');
-  assert.ok((await page.locator('[data-spot^=cell]').count()) >= 1, 'and so are the belt pieces it could take');
+  // in a game the yard is the player's to work out (the eighth panel); where it pays is one tap away
+  assert.equal(await page.locator('[data-spot^=cell]').count(), 0, 'no spot on the yard is lit until asked for');
+  await page.getByTestId('show-spot').click();
+  await when(() => document.querySelectorAll('[data-spot^=cell]').length >= 1);
   await page.getByTestId('run').click();
   await mode('running');
   assert.equal((await audit('the shift')).step, 'Run');

@@ -7,7 +7,7 @@
 import { apply, canBuyBelt, canReroll, cardParts, newRun, orderFor, RunError, type Action, type RunState } from '../sim/run';
 import { runLayout } from '../sim/sim';
 import { analyseRound } from '../sim/bottleneck';
-import { isTutorialSeed } from '../sim/yard';
+import { isTutorialSeed, priceOf } from '../sim/yard';
 import type { Dir, Machine, MachineKind } from '../sim/types';
 import { RULES } from '../sim/rules';
 import { hasText, t, type StringKey } from '../content/strings';
@@ -220,6 +220,28 @@ export const planUnderway = (r: RunState): boolean => {
 };
 
 /** The coach outside the lesson: the pick, the build, the shift, the summary, each one instruction. */
+/**
+ * A Plate Press on an ingot yard pays less per shard than the Furnaces it would take shards from, so no spot pays: the card and the coach
+ * say that, instead of a spot it has not got (the eighth panel: five of six met the card, and one read "No easy spot yet" as a full yard).
+ */
+export function pressPaysLess(r: Pick<RunState, 'job' | 'layout'>, kind: MachineKind): boolean {
+  return !!r.job && kind === 'press' && r.job.material === 'ingot' && priceOf(r.layout, 'plate') / RULES.pressShards < priceOf(r.layout, 'ingot');
+}
+
+/**
+ * Why no spot pays for a part, in the line's own terms: the line is short of scrap (every machine keeps up, or one waits for things to do),
+ * or another machine is the slow one. The eighth panel's youngest took a Furnace kit marked "No easy spot yet" on a yard of empty squares,
+ * put its parts down anywhere, and read "unused" and "nothing came" without learning why.
+ */
+function noSpotText(r: RunState, kind: MachineKind): string {
+  const name = machineName(kind);
+  const b = analyseRound(r.layout, runLayout(r.layout), r.round + 1);
+  if (b.kind === 'starved' || b.kind === 'balanced') return t('coach.noSpotFeed', { name });
+  if (b.kind === 'saturated' && b.machine && b.machine.kind !== kind && b.machine.kind !== 'conveyor')
+    return t('coach.noSpotSlow', { name, slow: machineName(b.machine.kind) });
+  return t('coach.noSpot', { name });
+}
+
 function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; showMe?: boolean } {
   if (ctx.mode === 'running' || ctx.mode === 'paused')
     return { text: ctx.watching ? t('hint.watching', { label: ctx.watching }) : t('coach.running'), spots: [] };
@@ -262,12 +284,24 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
   // a card's parts have the newest ids in the game: spare parts never hold the coach up, and where no spot is known the coach says so
   const newest = Math.max(0, ...r.layout.machines.map((m) => m.id), ...r.bin.map((m) => m.id));
   const card = r.picks.length ? cardParts(r.picks[r.picks.length - 1], r.job, r.seed).length : 0;
-  const i = card ? r.bin.findIndex((m) => m.id > newest - card) : -1;
+  // once the card's plan is all in, what is left of the card is spare: the coach stops asking for it (the ninth panel was told again and
+  // again where to put a kit's Dock that the line did not need) and says it can wait
+  const spare = cardPlan(r).length > 0 && !nextPlanned(r);
+  const i = card && !spare ? r.bin.findIndex((m) => m.id > newest - card) : -1;
+  const left = card && spare ? r.bin.find((m) => m.id > newest - card) : undefined;
   // where no spot pays, the coach says what could change that instead of promising one (the fourth panel)
   // on a touch screen it says the two taps, because a tap on the yard with nothing in hand only lets go (the seventh panel tapped the yard
   // for a spare Dock and nothing happened)
   const free = ctx.touch ? 'coach.placeFreeTouch' : 'coach.placeFree';
-  if (i >= 0) return say({ text: t(cardPlan(r).length ? free : 'coach.noSpot', { name: machineName(r.bin[i].kind) }), spots: [{ kind: 'shelf', i }] });
+  if (i >= 0) {
+    const kind = r.bin[i].kind;
+    const text = cardPlan(r).length
+      ? t(free, { name: machineName(kind) })
+      : pressPaysLess(r, kind)
+        ? t('coach.pressPaysLess', { plate: money(priceOf(r.layout, 'plate')), ingot: money(priceOf(r.layout, 'ingot')) })
+        : noSpotText(r, kind);
+    return say({ text, spots: [{ kind: 'shelf', i }] });
+  }
   const loose = flowLinks(r.layout).find((l) => !l.ok);
   if (loose) {
     const outOfBelts = !r.bin.some((m) => m.kind === 'conveyor') && canBuyBelt(r) === null;
@@ -288,7 +322,7 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
       return say({ text: t('coach.shortStarved', { amount, name: machineName(m.kind) }), spots: [{ kind: 'cell', x: m.x, y: m.y }, { kind: 'run' }] });
     return say({ text: t('coach.short', { amount }), spots: [{ kind: 'run' }] });
   }
-  return say({ text: t('coach.ready'), spots: [{ kind: 'run' }] });
+  return say({ text: left ? t('coach.readySpare', { name: machineName(left.kind) }) : t('coach.ready'), spots: [{ kind: 'run' }] });
 }
 
 /** What the coach says now. A resume notice comes first, once; the lesson runs its own script. */

@@ -21,16 +21,18 @@ const store = new Map<string, string>();
 
 const storage = await import('../game/src/render/storage');
 
-test('the lit spots: on for a first game, off once a game outside the lessons is finished under any rules, and a choice on the job card stands', () => {
+test('the lit spots in a game: off until the player asks on the job card, a first game included, and the choice stands', () => {
   store.clear();
   assert.equal(storage.loadSettings().lights, null, 'nobody chose');
-  assert.equal(storage.lightsOn(), true, 'a first game is lit');
+  assert.equal(storage.lightsOn(), false, 'a first game is for the player to work out; Show me where lights one card');
   storage.recordBest('tutorial-2', 300);
-  assert.equal(storage.lightsOn(), true, 'a lesson is not a game');
-  storage.recordBest('daily-2026-11-01', 900, 7);
-  assert.equal(storage.lightsOn(), false, 'a finished game under older rules counts');
+  assert.equal(storage.lightsOn(), false, 'a lesson finished changes nothing');
   storage.updateSettings({ lights: true });
   assert.equal(storage.lightsOn(), true, 'the player turned them on');
+  storage.recordBest('daily-2026-11-01', 900);
+  assert.equal(storage.lightsOn(), true, 'and they stay on after a game');
+  storage.updateSettings({ lights: false });
+  assert.equal(storage.lightsOn(), false, 'and off again when turned off');
   store.set('jd.settings.v1', JSON.stringify({ lights: 'yes' }));
   assert.equal(storage.loadSettings().lights, null, 'a stored value of the wrong type is no choice');
   store.clear();

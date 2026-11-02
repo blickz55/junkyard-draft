@@ -29,6 +29,8 @@ test('a tap on the lit spot puts the lit part in: nothing to take off the shelf 
   const { api, draft, mode, frames, settled, at } = page.jd;
   await page.goto(f.gameUrl('scene=game&seed=sal-lit-7'));
   await draft();
+  await page.getByTestId('job-lights').click();
+  assert.equal(await page.getByTestId('job-lights').textContent(), 'Show where parts go: on', 'asked for on the job card');
   await page.getByTestId('job-start').click();
   await page.jd.noDialog('job-card');
   const worth = await page.evaluate(() => [0, 1, 2].map((i) => document.querySelector(`[data-testid=offer-worth-${i}]`)?.textContent));
@@ -55,6 +57,7 @@ test('a kit: the part the coach lights is the one in hand, and a tap on its spot
   const { api, draft, mode, settled, at, when } = page.jd;
   await page.goto(f.gameUrl('scene=game&seed=sal-kit'));
   await draft();
+  await page.getByTestId('job-lights').click();
   await page.getByTestId('job-start').click();
   await page.jd.noDialog('job-card');
   const offers = (await api('state')).offers;
@@ -75,14 +78,17 @@ test('a kit: the part the coach lights is the one in hand, and a tap on its spot
   await page.ctx.close();
 });
 
-test('the lit spots can be turned off on the job card, and stay off: the coach says to work it out', { timeout: 60000 }, async () => {
+test('a first game is dark until asked: the coach says to work it out, and the job card turns the lit spots on and back off', { timeout: 60000 }, async () => {
   const page = await f.page();
   const { api, draft, mode, settled } = page.jd;
   await page.goto(f.gameUrl('scene=game&seed=sal-lit-7'));
   await draft();
-  assert.equal(await page.getByTestId('job-lights').textContent(), 'Lit spots: on', 'a first game: on, and not "always"');
+  assert.equal(await page.getByTestId('job-lights').textContent(), 'Show where parts go: off', 'a first game: the player works it out');
   await page.getByTestId('job-lights').click();
-  assert.equal(await page.getByTestId('job-lights').textContent(), 'Lit spots: when you ask');
+  assert.equal(await page.getByTestId('job-lights').textContent(), 'Show where parts go: on');
+  assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.settings.v1'))).lights, true, 'the choice is kept');
+  await page.getByTestId('job-lights').click();
+  assert.equal(await page.getByTestId('job-lights').textContent(), 'Show where parts go: off');
   await page.getByTestId('job-start').click();
   await page.jd.noDialog('job-card');
   const worth = await page.evaluate(() => [0, 1, 2].map((i) => document.querySelector(`[data-testid=offer-worth-${i}]`)?.textContent));
@@ -99,16 +105,12 @@ test('the lit spots can be turned off on the job card, and stay off: the coach s
   await page.ctx.close();
 });
 
-test('after a first game the spots wait to be asked for: "Show me" lights the card, and its lit spot takes a tap', { timeout: 60000 }, async () => {
-  const at0 = '2026-11-01T12:00:00.000Z';
-  const bests = {
-    byVersion: { 8: { overall: { score: 900, seed: 'daily-2026-11-01', at: at0 }, bySeed: { 'daily-2026-11-01': { score: 900, at: at0 } }, runs: 1 } },
-  };
-  const page = await f.page(undefined, { init: { fn: (b) => localStorage.setItem('jd.bests.v2', b), arg: JSON.stringify(bests) } });
+test('the spots wait to be asked for: "Show me" lights the card, and its lit spot takes a tap', { timeout: 60000 }, async () => {
+  const page = await f.page();
   const { api, draft, mode, settled, at, when } = page.jd;
   await page.goto(f.gameUrl('scene=game&seed=sal-lit-7'));
   await draft();
-  assert.equal(await page.getByTestId('job-lights').textContent(), 'Lit spots: when you ask', 'the job card says how it stands');
+  assert.equal(await page.getByTestId('job-lights').textContent(), 'Show where parts go: off', 'the job card says how it stands');
   await page.getByTestId('job-start').click();
   await page.jd.noDialog('job-card');
   const worth = await page.evaluate(() => [0, 1, 2].map((i) => document.querySelector(`[data-testid=offer-worth-${i}]`)?.textContent));

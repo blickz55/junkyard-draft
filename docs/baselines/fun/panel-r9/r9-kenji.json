@@ -1,0 +1,73 @@
+{
+  "persona": "Kenji",
+  "device": "desk",
+  "goalInOwnWords": "Build a little production line out of scrap (hopper, crusher, furnace or press, dock) and make as much money as possible over six shifts. You draft one part per shift from three cards, each shift has an order you have to hit for stars, every filled order raises all prices by 25 percent, and the money is the score. Beat the foreman Sal's number.",
+  "stoppedWhere": "Second game on today's yard, in the build step of shift 3 (I had just fixed a hopper that had turned the wrong way). Then Menu, Save and go home, Give feedback.",
+  "stoppedWhy": "About fifteen minutes in, which is what I signed up for. I know the better plan on this yard (four feeds, two presses each fed from two sides, no tuner), but proving it means five more shifts of execution on a yard whose offers I now know repeat exactly, and the test version has no board to climb. Not bored, I just had what I came for.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 15552,
+  "playedAnotherByChoice": true,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Game 1, shifts 2 to 6: the bottom feed's crusher",
+      "what": "The game said every shift that the crusher held me back and that a Tuner touching it would fix it, but I had boxed that crusher in on all four sides two shifts earlier, so there was nowhere to put a Tuner.",
+      "gotOutHow": "I never fixed it. I stopped trying and put my money into presses and another feed elsewhere."
+    },
+    {
+      "where": "Game 1, shift 6",
+      "what": "The forecast said I was $496 short of the $4,600 order and none of the three cards obviously helped (two said No easy spot yet).",
+      "gotOutHow": "I worked out that each press was only half fed, so I took the feed card and pointed a second hopper and crusher at the press from the side. The forecast confirmed the number before I ran it."
+    },
+    {
+      "where": "Game 2, shift 2 to 3",
+      "what": "My new hopper had turned itself to face my existing crusher when I dropped it, so the whole new feed sat idle for a shift. Turn then sent it down instead of right.",
+      "gotOutHow": "Tapped the idle hopper for its info card (dropped 0, waited 40 s), picked the next card, selected the hopper again and used Turn and then Turn back until it said Sends to the right."
+    },
+    {
+      "where": "Every shift in game 1: the Furnace + Splitter + Dock card",
+      "what": "It said No easy spot yet all game and never told me why or what to move to make a spot.",
+      "gotOutHow": "I did not. I ignored that card all game."
+    }
+  ],
+  "confused": [
+    "Tuner and Furnace on the home screen before I had seen either",
+    "In the lesson the two unplaced things on the yard looked like the missing crusher and furnace, but they were only junk",
+    "Lit spots: when you ask on the job card, I could not tell if it was a setting or a button",
+    "You're level with Sal. The lit spots are his game. It took a couple of shifts to work out that Sal is a bot that plays the lit spots",
+    "Why the Tuner on its lit spot gave only $36",
+    "What No easy spot yet means and whether I could make a spot",
+    "Whether Turn goes clockwise or the other way",
+    "Why plates were not worth taking until a message said from shift 4 plates sell for $42"
+  ],
+  "annoyed": [
+    "The first lesson holds your hand for every move: everything is lit, two of the three cards are greyed out, there is no decision in it",
+    "A part turns itself when it lands next to a machine and nothing tells you, so a new feed can sit idle without a warning at Start",
+    "The same advice (a Tuner touching it) four shifts in a row about a crusher I could not reach, with no way to dismiss it",
+    "No easy spot yet never says why, and an early placement can block a later card without any warning",
+    "The Tuner card said Adds a little and delivered a tiny gain, so that pick was nearly wasted",
+    "A spare Dock from the last card just sat on the shelf with no hint that I could sell it",
+    "The test version has no leaderboard and a replay hands you identical offers, so a second game is just execution"
+  ],
+  "pleased": [
+    "The forecast before every shift (This shift will pay $X, up $Y, that fills the order) was exact to the dollar and made planning possible",
+    "The What held you back box after each shift names the bottleneck machine and the seconds lost, like a profiler",
+    "Dragging a machine onto a belt piece or a dock swaps them and puts the old piece on the shelf, no fiddling",
+    "Orders as stars and money as score, with each filled order raising prices 25 percent, is a real escalation",
+    "The ORDER FILLED banner and the three stars at the end felt good",
+    "Sal as a benchmark (level with, behind, ahead) and the Next shift preview of the cards",
+    "Idle parts are labelled unused and nothing came, and tapping a part gives an info card with what it dropped last shift",
+    "The plates suddenly paying $42 from shift 4 was a good twist",
+    "The speed setting stays on 4x between shifts",
+    "The results screen lists what I picked and shows shift by shift bars"
+  ],
+  "bestMoment": "Game 1, shift 6: I worked out in my head that both presses were half fed, aimed a second hopper and crusher at the press from the side, the forecast came up with exactly my number, and the order filled for the third star.",
+  "worstMoment": "The first lesson: two minutes of dragging pieces into lit spots with nothing to decide. Close second, discovering in game 2 that a whole new feed sat idle for a shift because the hopper had turned itself the wrong way.",
+  "oneChange": "A board for the daily yard so the better plan I worked out is worth proving (the test version has none), or yards that differ between replays; and tell me why a card says No easy spot yet.",
+  "completionCode": "NMKQ-DMDF"
+}

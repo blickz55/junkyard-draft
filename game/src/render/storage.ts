@@ -2,7 +2,6 @@ import type { MachineKind } from '../sim/types';
 import type { MedalName } from '../daily/medals';
 import { MACHINE_KINDS } from '../sim/rules';
 import { isValidSeed, validateAction, type Action } from '../sim/run';
-import { isTutorialSeed } from '../sim/yard';
 import type { ReplayFile } from '../sim/replay';
 import { RULES_VERSION } from '../sim/types';
 import { dailySeed } from '../sim/daily';
@@ -73,7 +72,7 @@ export interface Settings {
   reducedAudio: boolean;
   /** the foreman (0.9.1): every line, or the teaching lines only */ chatter: 'full' | 'less';
   /** how fast shifts run: a player who likes 4× should not have to ask again every game */ speed: number;
-  /** the coach lights where a card's parts go: on, off, or null for the first game only (`lightsOn`); the job card sets it */ lights: boolean | null;
+  /** the coach lights where a card's parts go: on, off, or null for not chosen, which is off (`lightsOn`); the job card sets it */ lights: boolean | null;
 }
 /** Default for reduced motion follows the OS preference until the player chooses. */
 const systemReducedMotion = () => {
@@ -848,11 +847,13 @@ export function recordSalBeaten(seed: string, version: number = RULES_VERSION) {
   write(K.salBeaten, { ...all, [String(version)]: [...mine, seed].slice(-500) });
 }
 
-/** Whether the coach lights where parts go: as the player set it, else until this device has finished a game outside the lessons, under
- * any rules (the fourth panel: the lit shifts read as "filling in a form", and the fun started where they stopped; after the first game
- * "Show me" lights one card on request). */
-export const lightsOn = (): boolean =>
-  loadSettings().lights ?? !Object.values(loadBestsAll().byVersion).some((b) => Object.keys(b.bySeed).some((seed) => !isTutorialSeed(seed)));
+/**
+ * Whether the coach lights where a card's parts go in a game: only once the player has asked for it on the job card. The lessons light
+ * every move, and "Show me where" lights one card on request. The fourth panel found the lit shifts read as "filling in a form"; the
+ * eighth, six strangers on their first game, asked four times in their own words to decide for themselves, and their best moments were
+ * the parts they placed themselves with the forecast agreeing.
+ */
+export const lightsOn = (): boolean => loadSettings().lights ?? false;
 
 export type KindCounts = Partial<Record<MachineKind, number>>;
 export const loadKinds = (version: number = RULES_VERSION): KindCounts => {

@@ -137,3 +137,16 @@ test('a queue is blamed on its head: with a Crusher waiting on a Furnace, the Fu
   assert.equal(b.kind, 'saturated');
   assert.equal(b.machine?.kind, 'furnace');
 });
+
+test('a slow machine boxed in on all four sides is not told to get a Tuner touching it; a free side, or a belt piece, gives it room', () => {
+  const boxed = lay(m('hopper', 2, 2), m('crusher', 3, 2), m('furnace', 4, 2), m('dock', 5, 2), m('dock', 4, 1), m('dock', 4, 3));
+  const { b, line } = analyse(boxed, 4);
+  assert.equal(b.kind, 'saturated');
+  assert.equal(b.machine?.kind, 'furnace');
+  assert.deepEqual(b.fixes, ['splitter'], 'no side for a Tuner (the ninth panel was told it for four shifts)');
+  assert.doesNotMatch(line, /Tuner/);
+  const open = lay(m('hopper', 2, 2), m('crusher', 3, 2), m('furnace', 4, 2), m('dock', 5, 2), m('dock', 4, 3));
+  assert.deepEqual(analyse(open, 4).b.fixes, ['tuner', 'splitter'], 'a free side above it');
+  const belt = lay(m('hopper', 2, 2), m('crusher', 3, 2), m('furnace', 4, 2), m('dock', 5, 2), m('conveyor', 4, 1, 1), m('dock', 4, 3));
+  assert.deepEqual(analyse(belt, 4).b.fixes, ['tuner', 'splitter'], 'a belt piece a Tuner can take the place of');
+});

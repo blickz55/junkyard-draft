@@ -1,0 +1,74 @@
+{
+  "persona": "Priya",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory line that turns junk into things worth more money, and make more money than the foreman Sal over six shifts, hitting each shift's money target to earn stars.",
+  "stoppedWhere": "The results screen after finishing today's yard (shift 6 of 6): 1 star out of 3, $11,151, 'Sal beat you by $1,653', with the 'Try again from shift 4' button showing. I opened the feedback form from there. (Earlier I finished the lesson with all 3 stars and $724.)",
+  "stoppedWhy": "My break was nearly over, I had finished the whole yard, and the only thing left to chase was $1,653 behind a pretend foreman. Trying again from shift 4 means three more rounds of tapping lit squares for another go at the $11 I missed. I would think about it tomorrow, not right now. Ten minutes for one game is long next to the Mini.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 1,
+  "bestMoney": 11151,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Today's yard, shift 2: after the lit squares ran out, Sal said 'Tap the Shipping Dock on the shelf, then where you think it pays.'",
+      "what": "A leftover Dock was on the shelf with no lit square and no 'Show me where'. I could not work out where it should go, or whether I had to place it at all.",
+      "gotOutHow": "Dropped it in a random empty square. The forecast did not change, and after the shift the yard labelled it 'nothing came'."
+    },
+    {
+      "where": "Today's yard, shift 3: the Tuner card, placed without the helper",
+      "what": "Where a Tuner should go so that it helps. The 'This shift will pay' line was the same before and after I placed it, so I could not tell if I had done well.",
+      "gotOutHow": "Guessed (next to the hopper). Only after the shift did the game say the crusher was the slow one and a Tuner touching it would clear it."
+    },
+    {
+      "where": "Today's yard, shift 4: '$11 short of the order'",
+      "what": "How to find $11 with the parts I had. Moving the Tuner onto the slow crusher only moved the problem to the hopper ('the Crusher waits for scrap') and the forecast stayed the same.",
+      "gotOutHow": "I did not. I started the shift and missed the order by $11."
+    },
+    {
+      "where": "Today's yard, shifts 5 and 6: orders of $3,200 and $4,600",
+      "what": "After the missed order the forecast said I was $866 and then $2,266 short before I placed anything, and nothing on screen showed how to catch up.",
+      "gotOutHow": "Followed the lit squares and pressed go to finish the game."
+    }
+  ],
+  "confused": [
+    "The first screen has a lot of cards and numbers: 'Fill six orders', a row of six dollar amounts, stars at 2/4/6 orders. I skimmed it.",
+    "'Lit spots: when you ask' on the job card: no idea what it was, so I left it alone.",
+    "Two loose machines sit in the yard from the very first screen and nobody says what they are.",
+    "In lesson shift 3 the first two machines went red and a 'held you back' label appeared on the furnace, and nothing said whether red was bad.",
+    "'38 sped up' and '40 sped up' labels under the Tuner.",
+    "Why a card brings a spare Dock I cannot use (shift 2), and the wording 'where you think it pays'.",
+    "Plate Press and 'Furnace + Splitter + Dock' with 'No easy spot yet': what a Splitter is, and whether 'no easy spot' means do not take it.",
+    "The Tuner panel says 'Sends to the left' when a Tuner does not seem to send anything.",
+    "'The lit spots are his game: beat him by finding better': no idea how to find better, the hint only came on the last screen.",
+    "A belt piece with two arrows (x2, x4) turning up on the shelf after a machine replaced a belt piece."
+  ],
+  "annoyed": [
+    "The lit squares play the game for you. After the lesson I mostly tapped what was lit, so it felt hand-held rather than puzzling.",
+    "The advice about what was slow only arrives after the shift. When I placed the Tuner myself nothing warned me.",
+    "Missing one order means prices do not rise, so every later order was out of reach. Shifts 5 and 6 were pointless.",
+    "'Show me where' is cut off at the right edge of my phone screen, and 'Buy a belt: $20' is half hidden behind the 'This shift will pay' line.",
+    "After I scrolled the panel once, the next pick screen stayed scrolled and Sal's bubble and the Show me where button were half cut off.",
+    "I did not know I could retry a shift until the very end ('Try again from shift 4'), when I would have used it right after missing by $11.",
+    "Too many words on the first screen and on the job card.",
+    "A whole game is about ten minutes, long next to the Mini."
+  ],
+  "pleased": [
+    "The lesson: one instruction at a time, tap and tap and a payoff. I understood scrap, shards and ingots without reading anything long ('Better goods pay more').",
+    "'This shift will pay $X (up $Y)' before I start: I can see my change work.",
+    "The yellow 'ORDER FILLED! Every price up 25%' banner sliding across the yard.",
+    "Sal as a named rival with lines like 'You're $195 behind Sal', and 'Try again from shift 4' pointing at the exact shift I missed.",
+    "The yard labels 'nothing came' and 'held you back' and the 'What held you back' explanation, once I read it.",
+    "'Next shift: ...' showing which cards are coming.",
+    "The rank line 'Scrap Picker, 1 more star to Yard Hand'.",
+    "The survey really took about a minute and nothing on it was cut off."
+  ],
+  "bestMoment": "Lesson shift 3: putting the furnace in, watching the forecast jump from $111 to $576 and gold bars slide down the belt. It was the first time I felt I had built something. A close second was the 'ORDER FILLED' banner on shift 1 of the real yard.",
+  "worstMoment": "Shift 4's result, 'Missed the order by $11', then finding out the next two orders were out of reach, so the last two shifts were just tapping lit squares and waiting.",
+  "oneChange": "Make the near miss the game: when I am $11 short, tell me what is slow while I am still placing my part (before I run the shift), and let me redo that shift straight away. That was the one time I wanted another go.",
+  "completionCode": "AKUC-F2BR"
+}

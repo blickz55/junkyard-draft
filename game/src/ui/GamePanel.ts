@@ -50,7 +50,7 @@ import {
 } from '../content/job';
 import { yardLabel } from '../content/yard';
 import { salKnown, salLater } from '../render/sal';
-import { offerWorths, planUnderway } from '../render/guide';
+import { offerWorths, planUnderway, pressPaysLess } from '../render/guide';
 import { recipeRow } from './JobCard';
 import { reactionBar } from './ReactionBar';
 import { verifierUrl as resolveVerifierUrl } from '../render/config';
@@ -496,7 +496,7 @@ export class GamePanel {
     this.root.querySelector(`[data-testid="${tid}"]`)?.classList.add('jd-spot');
   }
   /** A refusal or a warning at a cell (0.9.3): above the cell, below it on the top row; null hides it. Never on a timer: the scene clears it on the next action. */
-  setToast(toast: { text: string; kind: 'refusal' | 'warning'; x: number; y: number } | null) {
+  setToast(toast: { text: string; kind: 'refusal' | 'warning' | 'note'; x: number; y: number } | null) {
     const el = this.toastEl;
     if (!toast) {
       el.style.display = 'none';
@@ -860,7 +860,17 @@ export class GamePanel {
     return h(
       'div',
       { class: (gain > 0 && !little) || room ? 'jd-green jd-offer-worth' : 'jd-dim jd-offer-worth', tid: `offer-worth-${i}` },
-      t(little ? 'game.cardLittle' : gain > 0 ? 'game.cardHelps' : room ? 'game.cardRoom' : 'game.cardNoGain'),
+      t(
+        little
+          ? 'game.cardLittle'
+          : gain > 0
+            ? 'game.cardHelps'
+            : room
+              ? 'game.cardRoom'
+              : pressPaysLess(r, r.offers[i])
+                ? 'game.cardPaysLess'
+                : 'game.cardNoGain',
+      ),
     );
   }
   /** Keep a card: the other two slide away, so "the other two go back on the truck" is something you see. The pick itself is immediate. */
@@ -939,28 +949,28 @@ export class GamePanel {
           t(coarsePointer() ? 'game.buildHelpTouch' : 'game.buildHelp'),
         ),
       );
-    this.side.append(
-      h(
-        'div',
-        { class: 'jd-row jd-between', style: 'margin-top:0.5em' },
-        (s.lesson ? s.lessonWants === 'buy' : !s.playbackPending)
-          ? btn(t('game.buyBelt', { cost: money(RULES.beltCost) }), 'buy-belt', () => this.actions.buyBelt(), {
-              small: true,
-              disabled: canBuyBelt(r) != null,
-              title: t('game.buyBeltTitle'),
-            })
-          : h('span', {}),
-      ),
-    );
+    // Buy a belt stands beside Start, in the row that stays at the panel's foot on a phone: as its own row above, the sticky row covered
+    // it on a 360-pixel phone (the ninth panel: "half hidden behind the forecast line")
+    const buy =
+      (s.lesson ? s.lessonWants === 'buy' : !s.playbackPending) &&
+      btn(t('game.buyBelt', { cost: money(RULES.beltCost) }), 'buy-belt', () => this.actions.buyBelt(), {
+        disabled: canBuyBelt(r) != null,
+        title: t('game.buyBeltTitle'),
+      });
     this.side.append(
       h(
         'div',
         { class: 'jd-run-row' }, // sticky at the panel's bottom on a phone: the primary action stays in reach while the panel scrolls (0.10.0)
         this.forecast(r),
         h(
-          'button',
-          { class: 'jd-btn jd-btn-dark jd-run', tid: 'run', type: 'button', disabled: s.lesson && !s.lessonReady, onClick: () => this.actions.startRun() },
-          t('game.startShift', { n: r.round }),
+          'div',
+          { class: 'jd-run-actions' },
+          buy || null,
+          h(
+            'button',
+            { class: 'jd-btn jd-btn-dark jd-run', tid: 'run', type: 'button', disabled: s.lesson && !s.lessonReady, onClick: () => this.actions.startRun() },
+            t('game.startShift', { n: r.round }),
+          ),
         ),
       ),
     );
@@ -1377,6 +1387,7 @@ export const GAME_STYLE = `
 #ui .jd-advice-old { opacity: 0.5; }
 #ui .jd-toast { position: absolute; max-width: min(92%, 22em); background: rgba(30, 26, 21, 0.98); border: 1px solid #3f382d; border-left: 3px solid #eb6757; padding: 0.45em 0.7em; font-size: 0.8125em; line-height: 1.3; border-radius: 0.4em; box-shadow: 0 2px 10px rgba(0,0,0,0.5); pointer-events: none; z-index: 3; }
 #ui .jd-toast-warning { border-left-color: #f0a830; }
+#ui .jd-toast-note { border-left-color: #8fb3d0; }
 #ui .jd-toast::after { content: ''; position: absolute; left: calc(50% + var(--arrow, 0px)); bottom: -${em(7)}; margin-left: -${em(6)}; border: ${em(6)} solid transparent; border-top-color: #3f382d; border-bottom: 0; }
 #ui .jd-toast-below::after { bottom: auto; top: -${em(7)}; border-top: 0; border-bottom: ${em(6)} solid #3f382d; }
 #ui .jd-board > .jd-inspect { position: absolute; width: 20em; max-width: 100%; z-index: 4; pointer-events: auto; background: rgba(30, 26, 21, 0.98); border: 1px solid #5f574a; border-radius: 0.6em; box-shadow: 0 6px 18px rgba(0,0,0,0.55); padding: 0.6em 0.7em; font-size: 0.8125em; }
@@ -1441,6 +1452,10 @@ export const GAME_STYLE = `
 #ui .jd-forecast { font-size: 0.875em; font-weight: 600; margin-bottom: 0.35em; line-height: 1.25; }
 #ui .jd-forecast .jd-dim { font-size: 0.875em; font-weight: 400; }
 #ui .jd-run { width: 100%; font-family: var(--jd-display); font-size: 1.375em; padding: 0.5em 0; letter-spacing: 0.02em; }
+#ui .jd-run-actions { display: flex; gap: 0.5em; align-items: stretch; }
+#ui .jd-run-actions .jd-run { flex: 1 1 auto; min-width: 0; }
+#ui .jd-run-actions > [data-testid=buy-belt] { flex: 0 0 auto; white-space: nowrap; }
+#ui .jd-coach > .jd-btn { flex: 0 0 auto; white-space: nowrap; }
 #ui .jd-run.jd-spot { background: linear-gradient(180deg, #ffc24d, #e0932a); color: #1a1612; border-color: rgba(0, 0, 0, 0.35); }
 #ui .jd-lesson-ways { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 1.4em; }
 #ui .jd-skip { align-self: center; margin-top: 0.5em; font-size: 0.8125em; color: #a89d88; }

@@ -1,0 +1,59 @@
+{
+  "persona": "Margaret",
+  "device": "phone",
+  "goalInOwnWords": "To build a little factory line out of scrap, so the scrap gets crushed and melted into things worth more, and to ship whatever each job asks for. The money you make is your score, and you get stars for filling the orders. When the line backs up you find the slowest machine and fix it. And you try to beat the foreman Sal's score on the day's yard.",
+  "stoppedWhere": "Today's yard, on the results of shift 1 of 6 (first order filled, $1,005, 'You're level with Sal'). I then went Menu, Save and go home, and Give feedback. All three lessons were finished before that; no whole game was finished.",
+  "stoppedWhy": "I had already given it more than the quarter of an hour I set aside, and it was a natural place to stop: one order filled and a clear thing to try for next time (beat Sal's $12,804 by choosing better than his lit squares). I was not bored and not stuck. My tea had gone cold.",
+  "lessonsFinished": 3,
+  "gamesFinished": 0,
+  "bestStars": 3,
+  "bestMoney": 3926,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Today's yard, first shift, after picking the Hopper + Crusher + Dock card",
+      "what": "Sal said 'Tap the Scrap Hopper on the shelf, then where you think it pays.' Nothing glowed and I had no idea where a part should go.",
+      "gotOutHow": "I noticed a button at the right, 'Show me where' (its last word was cut off at the screen edge), and pressed it. It then lit one square at a time, 'Step 1 of 3', for the Hopper, the Crusher and the Dock."
+    },
+    {
+      "where": "Lesson 1, the screen before the first shift",
+      "what": "The strip said 'Your line needs Crusher > Furnace' in dotted boxes, yet Sal said 'Line closed. Start the shift', and under '$37' it said 'If every shift pays this: 0 of 20 ingots'. I could not work out what the 0 of 20 meant.",
+      "gotOutHow": "Trusted Sal and pressed Start shift. The result explained the first part (raw scrap at $1 each); the 0 of 20 line I only half understood later, when it began to show stars and counts such as '36 of 40 plates'."
+    }
+  ],
+  "confused": [
+    "Lesson 1: the strip said 'Your line needs Crusher > Furnace' in dotted boxes while Sal said 'Line closed. Start the shift'.",
+    "'If every shift pays this: 0 of 20 ingots' under a payout of $37 made no sense at first.",
+    "The red 'held you back' tag at the end of lesson 1 sounded like a telling-off; it only made sense in lesson 2 when a tag said 'waiting for scrap' and Sal explained it.",
+    "Heaps of rubble and bits lying about the yard, and spare parts left on the shelf, that nobody mentioned: scenery, or something to use?",
+    "Why I had to 'Sell' a spare belt piece for $10 (lesson 3, last shift) rather than keep it or throw it away; I was worried for a moment I was selling the wrong thing.",
+    "I was told to add a second Dock and the pay was exactly the same as the shift before, so I did not see what it was for.",
+    "'Lit spots: when you ask' on today's job card: I could not tell whether it was a switch I could press or a thing already set, so I left it alone.",
+    "'Tap the Scrap Hopper, then where you think it pays' in the real yard: no clue where."
+  ],
+  "annoyed": [
+    "Being led square by square, thirty-odd taps of 'tap this, then the lit spot', before I was allowed to choose anything myself.",
+    "The reasons ('held you back', 'waiting for scrap') only appear once the shift is over; I wanted to see them while things were moving.",
+    "'Show me where' is cut off at the right edge of my phone ('Show me wher').",
+    "Greyed-out cards and the small grey print are hard to read, and there is a lot of reading on every screen.",
+    "On the home screen, 'Starting a new game replaces your saved one' beside 'Keep playing' made me nervous about pressing the wrong thing tomorrow; in the menu, 'Start this yard over' looks just like 'Save and go home' and sits beside it.",
+    "Shifts run on at their own pace and then move on; I missed watching one in lesson 3 because I looked away."
+  ],
+  "pleased": [
+    "Sal's one sentence after every shift ('Three times the money from the same scrap', 'The Furnace cannot keep up, so everything behind it waits').",
+    "The forecast before each shift ('This shift will pay $1,272') coming true to the dollar.",
+    "Every part has a plain card saying what goes in and what comes out; the Furnace card warned me about feeding it raw scrap.",
+    "'Your game saves by itself. Pick it up any time.' in the menu: exactly what a careful person wants to read.",
+    "Three stars in each lesson, and my title going from Scrap Picker to Yard Hand.",
+    "'Sal's game on this yard: $12,804. Beat it.' and 'The lit spots are his game: beat him by finding better.' It is like a daily puzzle with a target.",
+    "Nothing took money from me without saying so first (the $20 belt was announced)."
+  ],
+  "bestMoment": "Lesson 1, shift 3: the Furnace went in, a gold 'Job done.' banner with three stars appeared and the money ran up from $148 to $724 in one shift, and I knew exactly why it had worked.",
+  "worstMoment": "The first free choice in today's yard: 'Tap the Scrap Hopper on the shelf, then where you think it pays', with nothing glowing and no idea where. For a moment it felt as if the helping hand had been taken away.",
+  "oneChange": "After the lessons, let me work out where parts go for myself, with Sal's lit squares plainly there as the answer key only when I ask, like the back of the crossword book, so that beating his score feels earned.",
+  "completionCode": "JXAM-RCWD"
+}

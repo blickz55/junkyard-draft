@@ -1,0 +1,36 @@
+6 agents in r9
+median fun 4, median clear 4
+finished a game: 4, played another by choice: 1
+come back tomorrow: yes 0, maybe 6, no 0
+would pay: yes 0, maybe 1, no 5
+stuck at least once: 6
+
+Aisha (desk): fun 4, clear 4, lessons 3, games 1, best 3★ $18822, again false
+  goal: Build a line of machines that turns scrap into whatever the job pays most for and make as much money as possible over six shifts. Each shift you keep one new part, find the slowest machine and fix it, fill the order so every price rises, and try to finish ahead of Sal's score.
+  stopped: I beat Sal by $6,018 on my first try, so there was nothing left to chase, the page said this test version has no leaderboard, and my lunch break was over after about 25 minutes. I know I left money on the table and I would try the crusher and splitter idea, but I would not open a second game right now just to do that.
+  one change: Give me a score to chase after the first game: a board with other people's scores, or a Sal who cannot be beaten on the first try.
+
+Kenji (desk): fun 4, clear 4, lessons 1, games 1, best 3★ $15552, again true
+  goal: Build a little production line out of scrap (hopper, crusher, furnace or press, dock) and make as much money as possible over six shifts. You draft one part per shift from three cards, each shift has an order you have to hit for stars, every filled order raises all prices by 25 percent, and the money is the score. Beat the foreman Sal's number.
+  stopped: About fifteen minutes in, which is what I signed up for. I know the better plan on this yard (four feeds, two presses each fed from two sides, no tuner), but proving it means five more shifts of execution on a yard whose offers I now know repeat exactly, and the test version has no board to climb. Not bored, I just had what I came for.
+  one change: A board for the daily yard so the better plan I worked out is worth proving (the test version has none), or yards that differ between replays; and tell me why a card says No easy spot yet.
+
+Leo (phone): fun 3, clear 3, lessons 1, games 1, best 2★ $12824, again false
+  goal: Build a little factory line out of the parts they give you, make as much money as you can each shift, fill the six orders (the dollar targets) to get 3 stars, and beat Sal's score.
+  stopped: I'd finished a whole game (4 of 6 orders, beat Sal by $20, confetti, new rank) and that was the high point. The one thing I tried after it went worse and the game only explained why in tiny text after the shift, so the 3rd star was gone anyway. Everything else would have been the same four taps again. It's not bad, but I wouldn't open it by myself over Clash Royale.
+  one change: Stop doing it for me after the lesson: make me actually decide where things go, and say in one short line, before I press Start, what to fix when I'm short.
+
+Margaret (phone): fun 3, clear 4, lessons 3, games 0, best 3★ $3926, again false
+  goal: To build a little factory line out of scrap, so the scrap gets crushed and melted into things worth more, and to ship whatever each job asks for. The money you make is your score, and you get stars for filling the orders. When the line backs up you find the slowest machine and fix it. And you try to beat the foreman Sal's score on the day's yard.
+  stopped: I had already given it more than the quarter of an hour I set aside, and it was a natural place to stop: one order filled and a clear thing to try for next time (beat Sal's $12,804 by choosing better than his lit squares). I was not bored and not stuck. My tea had gone cold.
+  one change: After the lessons, let me work out where parts go for myself, with Sal's lit squares plainly there as the answer key only when I ask, like the back of the crossword book, so that beating his score feels earned.
+
+Priya (phone): fun 3, clear 4, lessons 1, games 1, best 1★ $11151, again false
+  goal: Build a little factory line that turns junk into things worth more money, and make more money than the foreman Sal over six shifts, hitting each shift's money target to earn stars.
+  stopped: My break was nearly over, I had finished the whole yard, and the only thing left to chase was $1,653 behind a pretend foreman. Trying again from shift 4 means three more rounds of tapping lit squares for another go at the $11 I missed. I would think about it tomorrow, not right now. Ten minutes for one game is long next to the Mini.
+  one change: Make the near miss the game: when I am $11 short, tell me what is slow while I am still placing my part (before I run the shift), and let me redo that shift straight away. That was the one time I wanted another go.
+
+Tom (phone): fun 4, clear 4, lessons 3, games 0, best 0★ $0, again false
+  goal: You run a scrap yard. You line machines up so junk goes in one end and something worth more comes out the other, and the dock pays you for it. Each shift has an order to fill, and the whole point is to make more money than Sal the foreman.
+  stopped: My fifteen minutes were about used up and I had the hang of it. I would have played the other five shifts to see if I could beat Sal, but this was a fair place to stop and do the questions. [Test note: the session ended at the action budget, a little over it because of the survey. Tom would have carried on through the rest of this yard.]
+  one change: Let me play the real thing sooner and make my own choices, with Sal checking my work afterwards instead of lighting every tap for me, and say up front that the goal is to beat his score.

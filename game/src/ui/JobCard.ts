@@ -15,7 +15,7 @@ import { int, money } from '../content/format';
 import { jobFlavour, jobLine, jobRecipe, materialMany, starMarks, yardNote } from '../content/job';
 import { machineShort } from '../content/machines';
 import { salLater } from '../render/sal';
-import { lightsOn, loadSettings, updateSettings } from '../render/storage';
+import { lightsOn, updateSettings } from '../render/storage';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 /** Stars as marks: the three targets side by side. */
@@ -49,8 +49,7 @@ export const recipeRow = (job: Job, built?: (kind: string) => boolean) =>
     }),
   );
 
-// "always" only once chosen: on a first game they are on because it is the first, and they go dark after it by themselves
-const lightsLabel = () => t(!lightsOn() ? 'job.lightsOff' : loadSettings().lights ? 'job.lightsOn' : 'job.lightsFirst');
+const lightsLabel = () => t(lightsOn() ? 'job.lightsOn' : 'job.lightsOff');
 /** What this yard's line starts with that another's does not (rules v9): the first good card moves with it. */
 const variantLine = (seed: string, job: Job) => {
   const note = yardNote(seed, job);

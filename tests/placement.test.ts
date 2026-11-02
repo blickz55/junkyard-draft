@@ -152,3 +152,20 @@ test('a Hopper whose scrap already goes down the belts to a Dock keeps its way w
     'the starter Hopper at 1,2 still feeds its belts',
   );
 });
+
+test('a Crusher dropped beside the Hopper from its own card turns that Hopper to it, though it already fed another Crusher', () => {
+  const s = newRun('classic-aim-5');
+  apply(s, { t: 'pick', i: s.offers.indexOf('crusher') });
+  // the old line's Crusher at 3,3 facing east; the card's Hopper (id 700) beside it at 3,4, facing up into it; the card's Crusher (701) goes at 2,4
+  s.layout.machines.push({ id: 690, kind: 'crusher', x: 3, y: 3, dir: 0 }, { id: 700, kind: 'hopper', x: 3, y: 4, dir: 3 });
+  const crusher = { id: 701, kind: 'crusher' as const, x: -1, y: -1, dir: 0 as const };
+  s.bin.push(crusher);
+  const acts = dropActions(s, crusher, 2, 4);
+  assert.deepEqual(acts.slice(1), [{ t: 'place', id: 700, x: 3, y: 4, dir: 2 }], 'the kit belongs together');
+  // a Hopper from an older card that feeds a Crusher keeps its way
+  s.layout.machines.find((m) => m.id === 700)!.id = 650;
+  assert.deepEqual(
+    dropActions(s, crusher, 2, 4).map((a) => a.t),
+    ['place'],
+  );
+});
