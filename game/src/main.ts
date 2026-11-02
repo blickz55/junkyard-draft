@@ -27,8 +27,6 @@ declare global {
   }
 }
 
-// ?renderer=canvas forces the Canvas renderer (perf presets, weak GPUs); anything else keeps AUTO (WebGL when available).
-const rendererParam = new URLSearchParams(location.search).get('renderer');
 // HiDPI: the canvas is DPR times the logical size and every scene's camera zooms the logical space onto it (render/dpr.ts).
 // Text objects rasterise their own canvas, so they need the same resolution or they would be upscaled and blurry:
 // inject it once here instead of at every add.text call site.
@@ -45,7 +43,7 @@ if (DPR !== 1) {
 const container = document.getElementById('game') ?? document.body;
 const initial = containerSize(container);
 const game = new Phaser.Game({
-  type: rendererParam === 'canvas' ? Phaser.CANVAS : Phaser.AUTO,
+  type: Phaser.CANVAS, // the only renderer in the build (scripts/esbuild-config.mjs): a first visit carries no WebGL
   parent: 'game',
   width: Math.round(initial.w * DPR),
   height: Math.round(initial.h * DPR),

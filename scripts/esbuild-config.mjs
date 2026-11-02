@@ -5,12 +5,12 @@ export const DEFAULT_VERIFIER_URL = 'http://127.0.0.1:4400';
 
 /**
  * Phaser gates optional code with `typeof FLAG` and its own webpack build replaces the whole expression; esbuild's define
- * cannot, so this plugin does it in the source text (production roadmap 0.10.2). Both renderers stay (the perf gate measures
- * Canvas, phones without WebGL fall back to it); sound (the game has its own WebAudio bus), the 3D camera, the Facebook
- * plugin and the WebGL debug build go.
+ * cannot, so this plugin does it in the source text (production roadmap 0.10.2). Only the Canvas renderer stays (Goal 12:
+ * WebGL was about 35 KiB of a first visit, the game draws the same on Canvas, and its few tints are drawn once on canvases,
+ * game/src/render/tint.ts); sound (the game has its own WebAudio bus), the 3D camera and the Facebook plugin go too.
  */
 export const PHASER_FLAGS = {
-  WEBGL_RENDERER: 'true',
+  WEBGL_RENDERER: 'false',
   CANVAS_RENDERER: 'true',
   FEATURE_SOUND: 'false',
   PLUGIN_CAMERA3D: 'false',

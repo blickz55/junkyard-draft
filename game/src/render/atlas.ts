@@ -29,6 +29,11 @@ export const artStatus: ArtStatus = { built: false, packed: [], missing: [], atl
 const packedSet = new Set<string>();
 
 /** Scale that draws a texture at its logical size: 1 / ART_SCALE for a packed frame, 1 for a procedural texture. */
+/** Whether a key's frame lives in the packed atlas at its scale; a tint drawn from one is marked the same, so it fits the same. */
+export const isPacked = (key: string) => packedSet.has(key);
+export const markPacked = (key: string) => {
+  packedSet.add(key);
+};
 export function baseScale(key: string): number {
   return packedSet.has(key) ? 1 / artStatus.scale : 1;
 }
@@ -71,7 +76,7 @@ export function buildArtAtlas(scene: Phaser.Scene): ArtStatus {
   const tm = scene.textures;
   const keys = Object.keys(FRAMES);
   const k = ART_SCALE / SHEET_SCALE;
-  const atlas = tm.exists(SHEET_KEY) ? makeAtlas(tm, k, scene.game.renderer.type === Phaser.WEBGL) : null;
+  const atlas = tm.exists(SHEET_KEY) ? makeAtlas(tm, k) : null;
   if (!atlas) {
     artStatus.built = false;
     artStatus.missing = keys;
@@ -103,12 +108,11 @@ export function buildArtAtlas(scene: Phaser.Scene): ArtStatus {
 }
 
 /**
- * At full size under WebGL the sheet is the atlas. Elsewhere a canvas is: scaled on a lower pixel ratio, so a frame stays a 1:1 blit, and at full size on the Canvas
- * renderer too, which draws from a canvas faster than from a decoded image (preset D's p95: 50 ms from the image, 33 from a canvas).
+ * The atlas is a canvas: scaled on a lower pixel ratio, so a frame stays a 1:1 blit, and at full size too, because the Canvas renderer (the only one in the
+ * build) draws from a canvas faster than from a decoded image (preset D's p95: 50 ms from the image, 33 from a canvas).
  */
-function makeAtlas(tm: Phaser.Textures.TextureManager, k: number, webgl: boolean): Phaser.Textures.Texture | null {
+function makeAtlas(tm: Phaser.Textures.TextureManager, k: number): Phaser.Textures.Texture | null {
   if (tm.exists(ART_TEXTURE)) tm.remove(ART_TEXTURE);
-  if (k === 1 && webgl) return tm.renameTexture(SHEET_KEY, ART_TEXTURE) ? tm.get(ART_TEXTURE) : null;
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(SHEET_W * k);
   canvas.height = Math.round(SHEET_H * k);

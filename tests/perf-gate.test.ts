@@ -110,13 +110,13 @@ test("perf gate: dropped frames gate by rate, not count, so frame-count differen
     false,
     '4 of 60 is over it',
   );
-  // the committed CI baseline itself: identical report passes, a 30 % script regression fails on both samples
+  // the committed CI baseline itself: identical report passes, a 30 % script regression fails on every sample (preset B on Canvas since the build dropped WebGL)
   const ci = JSON.parse(fs.readFileSync('docs/baselines/ci/perf-ci.json', 'utf8')) as GateReport;
   assert.equal(compare(ci, ci, { strict: true }).ok, true);
   const slow = { samples: ci.samples.map((s) => ({ ...s, scriptMsPerFrame: (s.scriptMsPerFrame ?? 0) * 1.3 })) };
   const verdict = compare(slow, ci, { strict: true });
   assert.equal(verdict.ok, false);
-  assert.equal(verdict.verdicts.filter((v) => !v.ok).length, 2);
+  assert.equal(verdict.verdicts.filter((v) => !v.ok).length, ci.samples.length);
 });
 
 test('perf gate --p95 (production roadmap 0.10.2): an absolute frame-time budget fails a sample over it, baseline or not, and a sample without p95', () => {

@@ -1,26 +1,6 @@
 {
   "samples": [
     {
-      "label": "device B webgl 1366x768@1 cpu×6 @4×",
-      "renderer": "webgl",
-      "frames": 106,
-      "p50": 33.3,
-      "p95": 50,
-      "max": 66.6,
-      "dropped": 106,
-      "cpuMsPerFrame": 32.79,
-      "scriptMsPerFrame": 8.51,
-      "drawsPerFrame": 3.6,
-      "bindsPerFrame": 8.2,
-      "maxObjects": 61,
-      "textObjectsCreated": 16,
-      "heapMB": 42.6,
-      "runMs": 3411,
-      "machines": 11,
-      "peakItems": 4,
-      "withinBudget": false
-    },
-    {
       "label": "device B canvas 1366x768@1 cpu×6 @4×",
       "frames": 130,
       "dropped": 74,

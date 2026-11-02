@@ -169,11 +169,11 @@ test("a recording plays in its author's paint, and the next game in the player's
   assert.deepEqual(unexpected(sam), []);
 });
 
-test('the Canvas renderer draws it too', { timeout: 60000 }, async () => {
+test('the paint shows in what is drawn', { timeout: 60000 }, async () => {
   const plain = await f.page();
-  await plain.goto(f.gameUrl('renderer=canvas&scene=game&seed=paint-yard'));
+  await plain.goto(f.gameUrl('scene=game&seed=paint-yard'));
   await plain.jd.draft();
-  await ann.goto(f.gameUrl('renderer=canvas&scene=game&seed=paint-yard'));
+  await ann.goto(f.gameUrl('scene=game&seed=paint-yard'));
   await ann.jd.draft();
   assert.equal(await ann.evaluate(() => window.__jdGame.renderer.type), 1, 'Phaser.CANVAS');
   const [a, b] = [await drawn(ann), await drawn(plain)];

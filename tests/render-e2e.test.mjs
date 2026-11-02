@@ -93,57 +93,6 @@ test('canvas_renderer_completes_a_round: ?renderer=canvas boots the Canvas rende
 });
 
 test(
-  'webgl_context_loss_keeps_the_run: losing and restoring the context mid-build leaves the state untouched and the grid redrawn',
-  { timeout: 60000 },
-  async () => {
-    const page = await open('seed=classic-render-loss');
-    const { api, when, mode } = page.jd;
-    assert.equal(await page.evaluate(() => window.__jdGame.renderer.type), 2, 'WebGL renderer in use');
-    await api('pick', 0);
-    const before = await api('state');
-    const lost = await page.evaluate(() => {
-      const c = document.querySelector('canvas');
-      const gl = c.getContext('webgl2') || c.getContext('webgl');
-      const ext = gl.getExtension('WEBGL_lose_context');
-      if (!ext) return 'no-ext';
-      window.__loseExt = ext;
-      ext.loseContext();
-      return 'lost';
-    });
-    assert.equal(lost, 'lost', 'WEBGL_lose_context available');
-    await when(() => window.__jdGame.renderer.contextLost === true, null, 10000);
-    await page.evaluate(() => window.__loseExt.restoreContext());
-    await when(() => window.__jdGame.renderer.contextLost === false, null, 10000);
-    await when(
-      () => {
-        const g = window.__jdGame;
-        const t = g.textures.get('m-crusher');
-        const img = g.scene
-          .getScene('Game')
-          .children.list.flatMap((o) => (o.list ? o.list : [o]))
-          .find((o) => o.texture && o.texture.key === 'm-conveyor');
-        return !!t.source[0].glTexture && !!img && img.visible && img.active;
-      },
-      null,
-      10000,
-    );
-    const after = await api('state');
-    assert.deepEqual(after, before, 'run state unchanged by the context loss');
-    // the scene still works: place the part and run a round
-    await api('act', { t: 'place', id: before.bin[0].id, x: 5, y: 4, dir: 0 });
-    await api('run');
-    await api('finishRun');
-    await mode('summary');
-    assert.deepEqual(
-      page.errors.filter((e) => !/context/i.test(e)),
-      [],
-      'no page errors after the restore',
-    );
-    await page.ctx.close();
-  },
-);
-
-test(
   'stall_marker_names_the_blocking_cell (PLAN-v1 0.3.5): a head-on conveyor jams the line; the HUD says what and where, the total stays at $0, the marker sits on the first blocking cell',
   { timeout: 60000 },
   async () => {

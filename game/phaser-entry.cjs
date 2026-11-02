@@ -1,5 +1,5 @@
 // The custom Phaser entry (production roadmap 0.10.2). The npm package's `dist/phaser.esm.js` is one 1.2 MB file that no
-// bundler can trim, so the game is built from `phaser/src` with only the modules it uses: the WebGL and Canvas renderers,
+// bundler can trim, so the game is built from `phaser/src` with only the modules it uses: the Canvas renderer (WebGL is off in the build flags),
 // the 2D camera, images, graphics, text, containers and groups, the keyboard, mouse and touch input, the
 // image loader, tweens, the clock, textures and the scale manager. No physics, tilemaps, sound (the game
 // has its own WebAudio bus in game/src/render/audio.ts), particles, sprites, animations beyond what the core needs, or

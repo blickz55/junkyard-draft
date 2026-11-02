@@ -11,6 +11,7 @@ import { RULES } from '../sim/rules';
 import { BELT_FRAMES, CELL, itemTexture, machineTexture } from './textures';
 import { artStatus, baseScale, fit, setArt } from './atlas';
 import { CSS, P } from './palette';
+import { tinted } from './tint';
 import { label } from './ui';
 import { prefs } from './prefs';
 import type { MachineView } from './InputController';
@@ -47,10 +48,9 @@ export class SimView {
   ) {}
 
   attach(): this {
-    this.stallMark = fit(this.scene.add.image(0, 0, 'tile-sel'))
+    this.stallMark = fit(this.scene.add.image(0, 0, tinted(this.scene, 'tile-sel', P.red)))
       .setOrigin(0)
       .setDepth(7)
-      .setTint(P.red)
       .setVisible(false)
       .setName('stall-mark');
     this.beltCount = label(this.scene, 0, 0, '', 15, CSS.text, { fontStyle: 'bold', backgroundColor: '#1e1a15', padding: { x: 4, y: 1 } })
@@ -183,8 +183,8 @@ export class SimView {
       if (v.inBin || prefs.reducedMotion) continue; // reduced motion: belts stay on frame 0, machines do not wobble
       if (v.belt) setArt(v.belt, (this.belts.get(v.m.id) ?? 'straight') === 'straight' ? bf : bendFrame);
       const f = machineFrame(v.m.kind, sim, cellIndex(v.m.x, v.m.y, RULES.gridWidth), phase);
-      if (f.key && v.img.texture.key !== f.key) setArt(v.img, f.key);
-      if (f.tint != null) v.img.setTint(f.tint);
+      const key = f.key && f.tint != null ? tinted(this.scene, f.key, f.tint) : f.key;
+      if (key && v.img.texture.key !== key) setArt(v.img, key);
       if (f.scale != null) fit(v.img, f.scale);
       if (f.angleOffset != null) v.img.setAngle(v.m.dir * 90 + f.angleOffset);
     }
@@ -219,8 +219,7 @@ export class SimView {
     if (!prefs.reducedMotion) {
       for (const tr of d.transforms) {
         const c = this.centerOfCell(tr.cell);
-        const flash = fit(this.scene.add.image(c.x, c.y, 'fx-glow'), 0.7)
-          .setTint(transformColour(tr.to))
+        const flash = fit(this.scene.add.image(c.x, c.y, tinted(this.scene, 'fx-glow', transformColour(tr.to))), 0.7)
           .setDepth(3)
           .setBlendMode(Phaser.BlendModes.ADD);
         this.scene.tweens.add({ targets: flash, scale: 1.3 * baseScale('fx-glow'), alpha: 0, duration: 300, onComplete: () => flash.destroy() });
@@ -262,9 +261,7 @@ export class SimView {
     for (const j of this.jamMarks.values()) j.destroy();
     this.jamMarks.clear();
     for (const v of this.views.values()) {
-      fit(v.img)
-        .setTint(0xffffff)
-        .setAngle(v.m.dir * 90);
+      fit(v.img).setAngle(v.m.dir * 90);
       if (v.m.kind !== 'conveyor' && v.img.texture.key !== machineTexture(v.m.kind)) setArt(v.img, machineTexture(v.m.kind)); // a conveyor's frame is its shape, set in sync
     }
     if (!prefs.reducedMotion)

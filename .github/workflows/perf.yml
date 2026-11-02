@@ -12,8 +12,8 @@
 # The gate reads the whole run's script time, not per frame: at a fixed game speed a slow host draws fewer frames and each does more. Runners still differ, so
 # the baseline is built by tools/perf-baseline.ts from several runs, the middle total and the worst drop rate, never one artifact. A yardstick timed in the
 # page was tried and made things worse: over six runs of identical code it varied 2x and did not track script time.
-# 0.10.2 adds three absolute budgets for weak phones: device preset D (915x412, DPR 2.6, CPU x4; the Canvas renderer, since
-# the runner's software WebGL is not a phone's GPU) at 1x speed must keep its frame-time p95 at or under 33 ms (perf-gate
+# 0.10.2 adds three absolute budgets for weak phones: device preset D (915x412, DPR 2.6, CPU x4; the Canvas renderer, the
+# only one in the build since Goal 12 took WebGL out) at 1x speed must keep its frame-time p95 at or under 33 ms (perf-gate
 # --p95 34: two 60 Hz frames read 33.4, see the step; the D baseline at docs/baselines/ci/perf-ci-d.json, when committed, adds the relative rules); the production
 # bundle must gzip under 300 KiB (tools/bundle-size.ts); the title must be tappable within 4 s on Lighthouse's slow-4G
 # profile (tools/first-interactive.ts).
