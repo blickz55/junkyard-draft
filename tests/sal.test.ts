@@ -2,7 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { salGame, salKnown, salLater } from '../game/src/render/sal';
-import { replay } from '../game/src/sim/run';
+import { apply, newRun, replay } from '../game/src/sim/run';
+import { hintFor } from '../game/src/render/guide';
 import { RULES_VERSION } from '../game/src/sim/types';
 import { RULES } from '../game/src/sim/rules';
 
@@ -43,6 +44,18 @@ test("Sal's money after each shift counts what he spent and sold, so the race ag
   assert.equal(s.score, g.score);
 });
 
-test('Sal sells nothing: following the lights ties him to the dollar, spare parts and all (the seventh panel sat $10 behind for three shifts)', () => {
-  for (const seed of ['sal-sells-1', 'sal-sells-2', 'sal-sells-3']) assert.ok(!salGame(seed).actions.some((a) => a.t === 'sell'), seed);
+test('Sal sells only what the coach offers to sell, the moment it offers it: following the coach ties him to the dollar (the seventh panel sat $10 behind a Sal who sold what the coach never mentioned)', () => {
+  let sold = 0;
+  for (const seed of ['sal-sells-1', 'sal-sells-2', 'sal-sells-3', 'sal-sells-4', 'sal-sells-5', 'sal-sells-6']) {
+    const r = newRun(seed);
+    for (const a of salGame(seed).actions) {
+      if (a.t === 'sell') {
+        const offer = hintFor(r, { tutorial: false, touch: false, watching: null, mode: 'build', lights: false }).sell;
+        assert.equal(offer?.id, a.id, `${seed}, shift ${r.round}: the coach offers the part he sells`);
+        sold++;
+      }
+      apply(r, a);
+    }
+  }
+  assert.ok(sold > 0, 'he sold a spare on these yards');
 });

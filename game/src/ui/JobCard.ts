@@ -12,7 +12,7 @@ import { isMintedDailySeed } from '../sim/daily';
 import { RULES } from '../sim/rules';
 import { t } from '../content/strings';
 import { int, money } from '../content/format';
-import { jobFlavour, jobLine, jobRecipe, materialMany, starMarks, truckNote, yardNote } from '../content/job';
+import { jobFlavour, jobLine, jobPriceAfter, jobRecipe, materialMany, starMarks, truckNote, yardNote } from '../content/job';
 import { machineShort } from '../content/machines';
 import { salLater } from '../render/sal';
 import { lightsOn, updateSettings } from '../render/storage';
@@ -87,7 +87,12 @@ export function openJobCard(scene: Phaser.Scene, seed: string, job: Job, onStart
         'div',
         { class: 'jd-dim', tid: 'job-why' },
         job.orders
-          ? t('job.ordersWhy', { raise: RULES.job.raise })
+          ? t('job.ordersWhy', {
+              mat: materialMany(job.material),
+              first: money(jobPriceAfter(job, 0)),
+              second: money(jobPriceAfter(job, 1)),
+              third: money(jobPriceAfter(job, 2)),
+            })
           : `${t('job.pays', { mat: cap(materialMany(job.material)), price: money(RULES.job.price) })} ${t('job.why')}`,
       ),
     ],

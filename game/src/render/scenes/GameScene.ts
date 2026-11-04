@@ -753,7 +753,7 @@ export class GameScene extends Phaser.Scene {
       this.tele.tutorialStep(this.tutorialStep, g.step);
       this.tutorialStep = g.step;
     } // funnel: which lesson step is on screen
-    this.panel?.setHint(g.text, g.spots, g.about, g.showMe);
+    this.panel?.setHint(g.text, g.spots, g.about, g.showMe, g.sell);
   }
   /** Current hint text (typed accessor for the dev API and tests instead of private-field access). */
   hintText(): string {

@@ -389,7 +389,7 @@ test('a real yard: the job card, then every screen answers where am I, what is t
   assert.equal((await page.getByTestId('order-list').textContent()).split(' · ').length, 6, 'all six orders, in a row');
   assert.equal(
     await page.getByTestId('job-why').textContent(),
-    'An order is money to make in one shift. Fill it and every price goes up 25% for the rest of the job.',
+    'An order is money to make in one shift. Each one you fill raises every price for the rest of the job: ingots sell for $24, then $30, then $36.',
   );
   // rules v9: this yard opens with two Furnaces, and the card says so before the first pick
   assert.equal(await page.getByTestId('job-variant').textContent(), 'On this yard a second Furnace already stands, with its own Dock.');

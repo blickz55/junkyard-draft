@@ -3,7 +3,7 @@
  * the pace. The numbers come from game/src/sim/yard.ts; this module only words them. Pure, so the HUD, the job card, the
  * results and the home screen all say the same thing.
  */
-import { JOB_MACHINE, isTutorialSeed, yardFor, type Job } from '../sim/yard';
+import { JOB_MACHINE, isTutorialSeed, priceOf, yardFor, type Job } from '../sim/yard';
 import { RULES } from '../sim/rules';
 import { shippedTotal, type RunState } from '../sim/run';
 import type { MachineKind, Material } from '../sim/types';
@@ -31,6 +31,8 @@ export const truckNote = (seed: string): string | null => {
 export const jobLine = (job: Job): string => (job.orders ? t('job.orders') : t('job.ship', { n: int(jobTarget(job)), mat: materialMany(job.material) }));
 /** The other product, which a second buyer starts paying the job's price for. */
 export const otherMaterial = (job: Job): Material => (job.material === 'ingot' ? 'plate' : 'ingot');
+/** What the job's product sells for once `filled` orders are filled: each adds RULES.job.raise % of the first price, never compounding. */
+export const jobPriceAfter = (job: Job, filled: number): number => priceOf({ premium: job.material, rate: 100 + filled * RULES.job.raise }, job.material);
 export const starMarks = (n: number): string => '★'.repeat(n);
 /** What a star says as it lands. The first two say nothing: the stars on the bar are the news. The third says the job is done. */
 export const starWords = (n: number): string | null => (n === 3 ? t('job.done') : null);

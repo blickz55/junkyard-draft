@@ -29,6 +29,7 @@ function shift(s: RunState, act: (a: Action) => void) {
       act({ t: 'reroll' });
       cards = judge();
     }
+    const newest = Math.max(0, ...s.layout.machines.map((m) => m.id), ...s.bin.map((m) => m.id));
     let best = 0;
     let top = -1;
     let plan: Placed[] = [];
@@ -36,11 +37,18 @@ function shift(s: RunState, act: (a: Action) => void) {
       if (value(g) > top) [best, top, plan] = [i, value(g), g.plan];
     });
     act({ t: 'pick', i: best });
+    let built = plan.length > 0;
     for (const p of plan) {
       const part = s.bin.find((m) => m.kind === p.kind);
-      if (!part) break;
+      if (!part) {
+        built = false;
+        break;
+      }
       dropActions(s, part, p.x, p.y, p.dir).forEach(act);
     }
+    // what the card brought and its plan did not need, he sells, as the coach offers (render/guide.ts): a player who follows the coach
+    // stays level with him (the seventh panel sat $10 behind a Sal who sold what the coach never mentioned)
+    if (built) for (const m of s.bin.filter((q) => q.id > newest)) act({ t: 'sell', id: m.id });
   }
   act({ t: 'run' });
   act({ t: 'next' });

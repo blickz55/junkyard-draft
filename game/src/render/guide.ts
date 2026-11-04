@@ -12,7 +12,7 @@ import type { Dir, Layout, Machine, MachineKind } from '../sim/types';
 import { RULES } from '../sim/rules';
 import { hasText, t, type StringKey } from '../content/strings';
 import { money } from '../content/format';
-import { machineName } from '../content/machines';
+import { machineName, machineShort } from '../content/machines';
 import { nextNeeded } from '../content/job';
 import { lessonOf, type About, type Move } from '../content/lessons';
 import { flowLinks } from './FlowOverlay';
@@ -52,6 +52,7 @@ export interface Guidance {
   /** lesson step on screen, 0 outside the lesson */ step: number;
   /** what the parts in this step do, in the lesson */ about?: { kind: MachineKind; text: string }[];
   /** a spot is known but not lit: the panel offers "Show me" */ showMe?: boolean;
+  /** a part of the card just picked that its plan did not need: the panel offers to sell it */ sell?: { id: number; name: string };
 }
 
 /** The numbers a lesson's words use. */
@@ -254,7 +255,7 @@ function noSpotText(r: RunState, kind: MachineKind): string {
   return t('coach.noSpot', { name });
 }
 
-function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; showMe?: boolean } {
+function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; showMe?: boolean; sell?: { id: number; name: string } } {
   if (ctx.mode === 'running' || ctx.mode === 'paused')
     return { text: ctx.watching ? t('hint.watching', { label: ctx.watching }) : t('coach.running'), spots: [] };
   if (r.phase === 'result') return { text: t(r.round >= RULES.rounds ? 'hint.summaryFinal' : 'hint.summary'), spots: [{ kind: 'next' }] };
@@ -292,7 +293,8 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
   if (lit && next && buy) return { text: t('coach.planBuy'), spots: [{ kind: 'buy' }, { kind: 'cell', x: next.step.x, y: next.step.y }] };
   // with the spots dark the player works it out, and "Show me" stays one tap away while a spot is known (the fourth panel)
   const showMe = !lit && (!!next?.part || buy);
-  const say = (g: { text: string; spots: Spot[] }) => (showMe ? { ...g, showMe } : g);
+  let sell: { id: number; name: string } | undefined;
+  const say = (g: { text: string; spots: Spot[] }) => ({ ...g, ...(showMe ? { showMe } : {}), ...(sell ? { sell } : {}) });
   // a card's parts have the newest ids in the game: spare parts never hold the coach up, and where no spot is known the coach says so
   const newest = Math.max(0, ...r.layout.machines.map((m) => m.id), ...r.bin.map((m) => m.id));
   const card = r.picks.length ? cardParts(r.picks[r.picks.length - 1], r.job, r.seed).length : 0;
@@ -300,7 +302,10 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
   // again where to put a kit's Dock that the line did not need) and says it can wait
   const spare = cardPlan(r).length > 0 && !nextPlanned(r);
   const i = card && !spare ? r.bin.findIndex((m) => m.id > newest - card) : -1;
-  const left = card && spare ? r.bin.find((m) => m.id > newest - card) : undefined;
+  const left = card && spare ? r.bin.find((m) => m.id > newest - card && m.kind !== 'conveyor') : undefined; // a belt bought on the way is never a card's
+  // and it sells, one tap from the coach: every card brings what its own plan needs, so a spare waits for nothing, and all six of the
+  // eleventh panel had a shelf of them with nothing said about what they were for. Sal sells his too (render/sal.ts)
+  if (left) sell = { id: left.id, name: machineShort(left.kind) };
   // where no spot pays, the coach says what could change that instead of promising one (the fourth panel)
   // on a touch screen it says the two taps, because a tap on the yard with nothing in hand only lets go (the seventh panel tapped the yard
   // for a spare Dock and nothing happened)
@@ -346,7 +351,10 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
     if (b.kind === 'balanced') return say({ text: t('coach.shortFeed', { amount }), spots: [{ kind: 'run' }] });
     return say({ text: t('coach.short', { amount }), spots: [{ kind: 'run' }] });
   }
-  return say({ text: left ? t('coach.readySpare', { name: machineName(left.kind) }) : t('coach.ready'), spots: [{ kind: 'run' }] });
+  return say({
+    text: left ? t('coach.readySpare', { name: machineName(left.kind), amount: money(RULES.sellValue) }) : t('coach.ready'),
+    spots: [{ kind: 'run' }],
+  });
 }
 
 /** What the coach says now. A resume notice comes first, once; the lesson runs its own script. */

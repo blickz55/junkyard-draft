@@ -332,12 +332,19 @@ export function litGame(
           : choose === 'helps'
             ? (helpers.length ? helpers : cards)[rng.int((helpers.length ? helpers : cards).length)]
             : cards.slice().sort((a, b) => (b.gain || ('room' in b && b.room ? 0.5 : 0)) - (a.gain || ('room' in a && a.room ? 0.5 : 0)))[0];
+      const newest = Math.max(0, ...s.layout.machines.map((m) => m.id), ...s.bin.map((m) => m.id));
       act({ t: 'pick', i: card.i });
+      let placedAll = card.plan.length > 0;
       for (const p of card.plan) {
         const part = s.bin.find((m) => m.kind === p.kind);
-        if (!part) break;
+        if (!part) {
+          placedAll = false;
+          break;
+        }
         dropActions(s, part, p.x, p.y, p.dir).forEach(act);
       }
+      // what the card brought and its plan did not need is sold, as the coach offers and Sal does (render/sal.ts, 2026-11-04)
+      if (placedAll) for (const m of s.bin.filter((q) => q.id > newest)) act({ t: 'sell', id: m.id });
       built?.push({ picks: s.picks.slice(), layout: copy(s.layout), spare: s.bin.map((m) => m.kind) });
     }
     act({ t: 'run' });

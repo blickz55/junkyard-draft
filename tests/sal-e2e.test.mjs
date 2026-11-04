@@ -202,7 +202,7 @@ test('the end of a game names Sal, his recording comes back to these results, an
   assert.match(await page.getByTestId('delta-par').textContent(), /^(You beat Sal by \$[\d,]+|Sal beat you by \$[\d,]+|Level with Sal)$/);
   // nothing was built, so Sal won: the results say what his game cannot do, which is how to pass him
   assert.match(await page.getByTestId('delta-par').textContent(), /^Sal beat you/);
-  assert.match(await page.getByTestId('sal-how').textContent(), /never moves a machine/);
+  assert.match(await page.getByTestId('sal-how').textContent(), /never moves them/);
   const score = await page.getByTestId('score').textContent();
   const games = () => page.evaluate(() => JSON.stringify(localStorage.getItem('jd.bests.v2')).length);
   const stored = await games();
@@ -286,5 +286,54 @@ test('New offers with a card that fits asks first: keeping the cards costs nothi
   await when((score) => window.__jd.state().score < score, before.score);
   assert.equal((await api('state')).score, before.score - 40);
   assert.deepEqual(page.errors, []);
+  await page.ctx.close();
+});
+
+test('a part the card did not need is one tap from the coach: Sell names it, pays the sale, and the next spare follows', { timeout: 60000 }, async () => {
+  // a yard whose first card leaves a part over once its plan is in, found the way the coach finds it
+  const { newRun, apply } = await import('../game/src/sim/run.ts');
+  const { cardPlan, hintFor } = await import('../game/src/render/guide.ts');
+  const { dropActions } = await import('../game/src/render/placement.ts');
+  const ctx = { tutorial: false, touch: false, watching: null, mode: 'build', lights: false };
+  let found = null;
+  for (let n = 0; n < 40 && !found; n++) {
+    const seed = `spare-${n}`;
+    for (let i = 0; i < 3 && !found; i++) {
+      const r = newRun(seed);
+      const acts = [{ t: 'pick', i }];
+      apply(r, acts[0]);
+      const plan = cardPlan(r);
+      if (!plan.length) continue;
+      for (const p of plan) {
+        const part = r.bin.find((m) => m.kind === p.kind);
+        for (const a of dropActions(r, part, p.x, p.y, p.dir)) {
+          apply(r, a);
+          acts.push(a);
+        }
+      }
+      const offer = hintFor(r, ctx).sell;
+      if (offer) found = { seed, acts, offer };
+    }
+  }
+  assert.ok(found, 'a card that leaves a part over');
+  const page = await f.page();
+  const { api, draft, mode, settled, when } = page.jd;
+  await page.goto(f.gameUrl(`scene=game&seed=${found.seed}`));
+  await draft();
+  await page.getByTestId('job-start').click();
+  await page.jd.noDialog('job-card');
+  await api('pick', found.acts[0].i);
+  await mode('build');
+  for (const a of found.acts.slice(1)) await api('act', a);
+  await settled();
+  const sell = page.getByTestId('coach-sell');
+  await sell.waitFor();
+  assert.equal(await sell.textContent(), `Sell ${found.offer.name}`);
+  const before = await api('state');
+  await sell.click();
+  await when((n) => window.__jd.state().bin.length < n, before.bin.length);
+  const now = await api('state');
+  assert.equal(now.score, before.score + 10, 'the sale is paid');
+  assert.ok(!now.bin.some((m) => m.id === found.offer.id), 'and the part has gone');
   await page.ctx.close();
 });

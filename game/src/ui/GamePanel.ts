@@ -37,6 +37,7 @@ import { money, int } from '../content/format';
 import { cardLine, machineName, machineBlurb, machineWord, materialName } from '../content/machines';
 import {
   jobLine,
+  jobPriceAfter,
   jobRecipe,
   jobTarget,
   materialMany,
@@ -163,6 +164,8 @@ export class GamePanel {
   private coachEl: HTMLElement;
   private hintEl: HTMLElement;
   private showMeEl: HTMLButtonElement;
+  private sellEl: HTMLButtonElement;
+  private sellId: number | null = null;
   private aboutEl: HTMLElement;
   private spots: Spot[] = [];
   /** the rings on the board for the lit spots */
@@ -265,7 +268,16 @@ export class GamePanel {
     // outside the status line, so a screen reader hears the words once and finds the button as a button
     this.showMeEl = btn(t('coach.showMe'), 'show-spot', () => this.actions.showSpot(), { small: true });
     this.showMeEl.hidden = true;
-    this.coachEl = h('div', { class: 'jd-coach', tid: 'coach' }, h('span', { class: 'jd-coach-face' }, t('foreman.name')), this.hintEl, this.showMeEl);
+    this.sellEl = btn('', 'coach-sell', () => this.sellId !== null && this.actions.sell(this.sellId), { small: true });
+    this.sellEl.hidden = true;
+    this.coachEl = h(
+      'div',
+      { class: 'jd-coach', tid: 'coach' },
+      h('span', { class: 'jd-coach-face' }, t('foreman.name')),
+      this.hintEl,
+      this.showMeEl,
+      this.sellEl,
+    );
     this.aboutEl = h('div', { class: 'jd-about', tid: 'lesson-about' });
     this.gridLayer = h('div', { class: 'jd-gridlayer' });
     this.spotLayer = h('div', { class: 'jd-spotlayer' });
@@ -404,7 +416,7 @@ export class GamePanel {
       const stars = r.job ? r.job.stars.filter((n) => before + 1 >= n).length : 0;
       const newStar = stars > r.job!.stars.filter((n) => before >= n).length;
       this.actions.starReached(newStar ? stars : 1);
-      this.ribbon(t('job.orderPop'), t('job.orderRaise', { raise: RULES.job.raise }));
+      this.ribbon(t('job.orderPop'), t('job.orderRaise', { mat: cap(materialMany(r.job!.material)), price: money(jobPriceAfter(r.job!, before + 1)) }));
       if (newStar) this.starPop(stars);
     }
   }
@@ -450,10 +462,13 @@ export class GamePanel {
 
   // ---------- the coach ----------
   /** One instruction and what to touch; the spots light up where they are. */
-  setHint(text: string, spots: Spot[] = [], about: { kind: MachineKind; text: string }[] = [], showMe = false) {
+  setHint(text: string, spots: Spot[] = [], about: { kind: MachineKind; text: string }[] = [], showMe = false, sell?: { id: number; name: string }) {
     this.hintText = text;
     this.hintEl.textContent = text;
     this.showMeEl.hidden = !showMe;
+    this.sellId = sell?.id ?? null;
+    this.sellEl.hidden = !sell;
+    if (sell) this.sellEl.textContent = t('coach.sellSpare', { name: sell.name });
     this.spots = spots;
     this.applySpots();
     const key = JSON.stringify(about);
@@ -1187,7 +1202,9 @@ export class GamePanel {
         h(
           'span',
           { class: won ? 'jd-gold jd-banner-won' : 'jd-amber' },
-          won ? t('job.filled', { raise: RULES.job.raise }) : t('job.missed', { amount: money(order - rec.earned) }),
+          won
+            ? t('job.filled', { mat: cap(materialMany(r.job!.material)), price: money(jobPriceAfter(r.job!, r.filled)) })
+            : t('job.missed', { amount: money(order - rec.earned) }),
         ),
         ` ${t('job.filledCount', { n: r.filled, total: r.job?.orders?.length ?? 0 })}`,
       );

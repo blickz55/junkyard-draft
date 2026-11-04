@@ -159,7 +159,7 @@ test('ready but short of the order: the coach says by how much, and lights the s
   assert.ok(g.text.split(/\s+/).length <= 14, 'one short instruction');
 });
 
-test("once a card's plan is all in, the part it did not need is spare: the coach stops asking where it goes and says it can wait", () => {
+test("once a card's plan is all in, the part it did not need is spare: the coach stops asking where it goes and offers to sell it", () => {
   let checked = 0;
   for (let n = 0; n < 60 && checked < 3; n++) {
     const fresh = newRun(`spare-${n}`);
@@ -176,8 +176,21 @@ test("once a card's plan is all in, the part it did not need is spare: the coach
       }
       const g = hintFor(r, { ...ctx(), lights: false });
       assert.doesNotMatch(g.text, /on the shelf, then where/, `${r.seed}: the spare is not asked for`);
-      if (!/short of the order|more to fill|\$[\d,]+ short/.test(g.text))
-        assert.match(g.text, /^Ready\? Start the shift\. The spare .+ can wait on the shelf\.$/);
+      const ready = !/short of the order|more to fill|\$[\d,]+ short/.test(g.text);
+      if (ready) assert.match(g.text, /^Ready\? Start the shift\. The spare .+ sells for \$10: every card brings what it needs\.$/);
+      // the sale is one tap from the coach, and once every spare is sold there is nothing more to offer
+      let offer = g.sell;
+      assert.ok(offer, `${r.seed}: the spare is offered for sale`);
+      while (offer) {
+        const id = offer.id;
+        const part = r.bin.find((m) => m.id === id);
+        assert.ok(part && part.kind !== 'conveyor', `${r.seed}: a part of the card, never a belt`);
+        const before = r.score;
+        apply(r, { t: 'sell', id });
+        assert.equal(r.score, before + 10);
+        offer = hintFor(r, { ...ctx(), lights: false }).sell;
+      }
+      if (ready) assert.equal(hintFor(r, { ...ctx(), lights: false }).text, 'Ready? Start the shift.');
       checked++;
       break;
     }

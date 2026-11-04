@@ -347,7 +347,7 @@ export const MORE_STRINGS = {
   'results.deltaParUnder': s('Sal beat you by {d}', 'deltas row'),
   'results.deltaParEqual': s('Level with Sal', 'deltas row'),
   'results.salHow': s(
-    'Sal takes the card that pays most this shift and never moves a machine. Plan a shift ahead, or make room, and you pass him.',
+    'Sal takes the card that pays most this shift, and once his machines are down he never moves them. Pick for the shifts ahead, or move a machine to a better spot, and you pass him.',
     'the results, level with Sal or behind him: what his game cannot do',
   ),
   'results.deltaBestFirst': s('your first game on this yard', 'deltas row'),
