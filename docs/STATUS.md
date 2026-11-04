@@ -12,6 +12,7 @@
 - **The summary names only fixes that pay** (`payingFixes`; DESIGN.md): of 65 times Sal's games were told a second job machine would clear the slow one, its card had a paying spot 18 times. A unit test holds each named fix to its card's tag.
 - **The card with the tiers selling their spares** (`tools/fun-card.ts`, 40 held-out yards, 171 s): **83, lowest 54**: picks 62 (real 0.296, healthy cards 1: the Press taken 0.141 of the times offered), skill 54, moving 73, ways 83, ladder 97 (expert3 0.725), yards 82, the rest 100; expert $18,190. Against the 79 an hour before, nothing in the game changed: the bots did (Sal's line has fewer spares, so the expert starts elsewhere), and two thresholds crossed (the Press's 10 %, the experts' 70 %). The card moves about 4 points from its bots alone.
 - **Checks:** unit 539 pass; browser suite 179 pass, 1 skipped.
+- **The shelf keeps its order:** machines from the first box, the belts' stack in the last; the coach's shelf spots are worked out from the shelf as it is (a stale slot map the old order had hidden). Unit 539 and browser 179 pass, 1 skipped; seen at 390 px.
 
 ## Session 2026-11-02 (107) — rules 11: the scrap truck (main; saves and scores from v10 do not carry over)
 

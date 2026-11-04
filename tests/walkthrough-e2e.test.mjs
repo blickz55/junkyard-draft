@@ -492,8 +492,8 @@ test(
     await page.mouse.click(pp.x, pp.y);
     await page.waitForSelector('[data-testid=inspector]');
     assert.equal(await page.getByTestId('inspector-name').textContent(), 'Junk pile');
-    // a shelf part
-    const shelf = await at(binSlotCenter(0));
+    // a shelf part: the belts' stack, which stands in the shelf's last slot
+    const shelf = await at(binSlotCenter((await page.evaluate(() => window.__jd.geometry().slots.length)) - 1));
     await page.mouse.click(shelf.x, shelf.y);
     await page.waitForFunction(() => document.querySelector('[data-testid=inspector-name]')?.textContent === 'Conveyor');
     // a real drag in the pick says what to do instead

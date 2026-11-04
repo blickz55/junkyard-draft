@@ -738,6 +738,7 @@ export class GameScene extends Phaser.Scene {
   // ---------- onboarding hints ----------
   /** The coach (render/guide.ts) reads the run; the scene shows the instruction, lights what to touch and moves the lesson's funnel step. */
   updateHint() {
+    setShelf(this.run.bin); // the spots it lights on the shelf are slots of the shelf as it is now, not as the machines were last drawn
     const g = hintFor(this.run, {
       tutorial: this.tutorial,
       touch: coarsePointer(),

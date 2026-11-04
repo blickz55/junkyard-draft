@@ -72,7 +72,7 @@ test('binSlotXY: seven shelf slots fit inside the shelf panel', () => {
   }
 });
 
-test('the shelf: belts share one slot, every other part has its own; past seven slots they sit closer and the last stays in its frame', () => {
+test('the shelf: belts share the last slot, every other part has its own from the first; past seven slots they sit closer and the last stays in its frame', () => {
   const parts = (n: number) => Array.from({ length: n }, () => ({ kind: 'hopper' }));
   setShelf(parts(4));
   const seven = Array.from({ length: 7 }, (_, i) => slotXY(i).px);
@@ -89,9 +89,13 @@ test('the shelf: belts share one slot, every other part has its own; past seven 
     assert.equal(slotXY(0).px, seven[0], 'the first stays put');
   }
   const bin = [{ kind: 'conveyor' }, { kind: 'conveyor' }, { kind: 'hopper' }, { kind: 'conveyor' }, { kind: 'crusher' }, { kind: 'dock' }];
-  assert.deepEqual(shelfSlotsOf(bin), [0, 0, 1, 0, 2, 3], 'the belts share the first belt slot');
+  assert.deepEqual(shelfSlotsOf(bin), [6, 6, 0, 6, 1, 2], 'the machines from the first slot, the belts on one stack in the last');
   setShelf(bin);
   assert.equal(shelfSlots(), 7, 'four slots fit in the seven');
   assert.deepEqual(binSlotXY(3), binSlotXY(0), 'every belt sits on the one stack');
+  const crowded = [...parts(7), { kind: 'conveyor' }];
+  assert.deepEqual(shelfSlotsOf(crowded), [0, 1, 2, 3, 4, 5, 6, 7], 'seven machines and the belts: the stack still last');
+  setShelf(crowded);
+  assert.equal(shelfSlots(), 8);
   setShelf(parts(7));
 });

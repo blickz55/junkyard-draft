@@ -56,11 +56,16 @@ export function boardCameraCenter(fit: BoardFit, boardX: number, boardY: number,
 const SHELF_ROOM = 7;
 let shelfCount = SHELF_ROOM;
 let slotMap: number[] = [];
-/** Each shelf part's slot, by its index on the shelf. */
+/**
+ * Each shelf part's slot, by its index on the shelf: the machines from the first slot in the order they came, and the belts on one stack
+ * in the last, so the first box is always the newest card's first part when no spare waits (the eleventh panel: the belt stack moved
+ * between the first box and the second, and a player who tapped the first box picked a belt).
+ */
 export function shelfSlotsOf(bin: readonly { kind: string }[]): number[] {
+  const machines = bin.filter((m) => m.kind !== 'conveyor').length;
+  const last = Math.max(SHELF_ROOM, machines + (machines < bin.length ? 1 : 0)) - 1;
   let next = 0;
-  let belt = -1;
-  return bin.map((m) => (m.kind === 'conveyor' ? (belt < 0 ? (belt = next++) : belt) : next++));
+  return bin.map((m) => (m.kind === 'conveyor' ? last : next++));
 }
 export const setShelf = (bin: readonly { kind: string }[]) => {
   slotMap = shelfSlotsOf(bin);
