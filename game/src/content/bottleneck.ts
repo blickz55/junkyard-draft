@@ -24,7 +24,7 @@ export const sameLimit = (a: Bottleneck, b: Bottleneck): boolean =>
 export const againLine = (b: Bottleneck): string =>
   b.heldTicks > 0 ? t('bottleneck.again', { name: machineWord(b.machine!.kind), held: int(b.heldTicks), total: int(b.ticks) }) : bottleneckLine(b);
 
-export function bottleneckLine(b: Bottleneck): string {
+export function bottleneckLine(b: Bottleneck, nothingPays = false): string {
   const m = b.machine;
   switch (b.kind) {
     case 'disconnected':
@@ -51,7 +51,12 @@ export function bottleneckLine(b: Bottleneck): string {
       const name = machineWord(m!.kind);
       const twin = (b.twins ?? 1) > 1 ? t('bottleneck.fixAnother', { name }) : t('bottleneck.fixSecond', { name });
       const fixes = [b.fixes.includes('tuner') ? t('bottleneck.fixTuner') : '', b.fixes.includes('splitter') ? twin : ''].filter(Boolean);
-      return t('bottleneck.saturated', { name, held: int(b.heldTicks), total: int(b.ticks), fix: would(fixes) || t('bottleneck.fixNone') });
+      return t('bottleneck.saturated', {
+        name,
+        held: int(b.heldTicks),
+        total: int(b.ticks),
+        fix: would(fixes) || t(nothingPays ? 'bottleneck.fixNothingPays' : 'bottleneck.fixNone'),
+      });
     }
     case 'starved':
       return t('bottleneck.starved', {

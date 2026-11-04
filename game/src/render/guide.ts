@@ -6,7 +6,7 @@
  */
 import { apply, canBuyBelt, canReroll, cardParts, newRun, orderFor, RunError, type Action, type RunState } from '../sim/run';
 import { runLayout } from '../sim/sim';
-import { analyseRound } from '../sim/bottleneck';
+import { analyseRound, type Bottleneck } from '../sim/bottleneck';
 import { isTutorialSeed, priceOf, truckLoad, yardFor } from '../sim/yard';
 import type { Dir, Layout, Machine, MachineKind } from '../sim/types';
 import { RULES } from '../sim/rules';
@@ -209,6 +209,27 @@ export function offerWorths(r: RunState): Worth[] {
     };
   }
   return worths.list;
+}
+
+let fixesMemo: { key: string; pays: MachineKind[] } | null = null;
+/**
+ * The summary's fixes that pay on this yard now, as the cards' tags would say. In Sal's games on the 40 held-out yards the summary named a
+ * second job machine behind a Splitter 65 times and that machine's card had a paying spot 18 times, and three of the eleventh panel met
+ * the card saying "No spot pays more yet" right after the summary had named it. `nothingPays` is true when every fix named was dropped.
+ */
+export function payingFixes(r: RunState, b: Bottleneck): { b: Bottleneck; nothingPays: boolean } {
+  const checked: MachineKind[] = r.job ? b.fixes.filter((k) => k === 'tuner' || k === 'splitter' || k === 'hopper') : [];
+  if (!checked.length) return { b, nothingPays: false };
+  const belts = r.bin.filter((m) => m.kind === 'conveyor').length;
+  const key = `${r.seed}:${r.round}:${belts}:${checked.join()}:${b.machine?.kind ?? ''}:${JSON.stringify(r.layout.machines)}`;
+  if (fixesMemo?.key !== key) {
+    // a second machine behind a Splitter is that machine's card: on a job's yard it brings its own Splitter
+    const card = (k: MachineKind): MachineKind => (k === 'splitter' && b.machine ? b.machine.kind : k);
+    fixesMemo = { key, pays: checked.filter((k) => cardGain(r.layout, cardParts(card(k), r.job, r.seed), belts).gain > 0) };
+  }
+  const pays = fixesMemo.pays;
+  const fixes = b.fixes.filter((k) => !checked.includes(k) || pays.includes(k));
+  return { b: { ...b, fixes }, nothingPays: fixes.length < b.fixes.length && !fixes.length };
 }
 
 /** The way the plan wants a part to face, when this is one of its spots. */

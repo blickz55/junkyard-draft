@@ -424,6 +424,10 @@ export const STRINGS = {
   'bottleneck.fixAnother': s('another {name} behind a Splitter', 'fix phrase'),
   'bottleneck.again': s('The {name} again, for {held} of {total} seconds.', 'the same machine held the line as last shift'),
   'bottleneck.fixNone': s('A second line to share the work would clear it.', 'fix'),
+  'bottleneck.fixNothingPays': s(
+    'No card pays to clear it yet: moving a machine may make room.',
+    'fix: the fixes there are have no paying spot on this yard now, as the cards would say (the eleventh panel)',
+  ),
   'bottleneck.wouldClear': s('would clear it', 'fix verb'),
   'bottleneck.starved': s('Not enough scrap: the {name} sat idle {pct} % of the shift. {fix}', 'summary'),
   'bottleneck.starvedFix': s('A second hopper would keep it busy.', 'fix'),

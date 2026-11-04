@@ -2,7 +2,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { apply, newRun, TUTORIAL_SEED, type RunState } from '../game/src/sim/run';
-import { cardPlan, hintFor, pressPaysLess, type Guidance } from '../game/src/render/guide';
+import { cardPlan, hintFor, offerWorths, payingFixes, pressPaysLess, type Guidance } from '../game/src/render/guide';
+import { salGame } from '../game/src/render/sal';
+import { bottleneckLine } from '../game/src/content/bottleneck';
 import { dropActions, smartFacing } from '../game/src/render/placement';
 import { machineName } from '../game/src/content/machines';
 import { analyseRound } from '../game/src/sim/bottleneck';
@@ -211,4 +213,31 @@ test('ready but short with every machine keeping up: the coach says the line nee
     seen++;
   }
   assert.ok(seen, 'a yard whose opening line keeps up everywhere');
+});
+
+test('the summary names only fixes whose card pays now, so a card on offer never says "No spot pays" for a fix the summary just named', () => {
+  let named = 0;
+  let dropped = 0;
+  for (let n = 0; n < 24; n++) {
+    const seed = `fixes-${n}`;
+    const r = newRun(seed);
+    for (const a of salGame(seed).actions) {
+      if (r.phase === 'draft' && r.rounds.length && a.t !== 'reroll') {
+        const last = r.rounds[r.rounds.length - 1];
+        const raw = analyseRound(last.layout, last.result, r.round);
+        const { b, nothingPays } = payingFixes(r, raw);
+        dropped += raw.fixes.length - b.fixes.length;
+        const worths = offerWorths(r);
+        r.offers.forEach((kind, i) => {
+          const isNamed = (b.fixes.includes('splitter') && b.machine?.kind === kind) || (kind !== 'splitter' && b.fixes.includes(kind));
+          if (!isNamed) return;
+          named++;
+          assert.ok(worths[i].gain > 0, `${seed}, shift ${r.round}: the summary named the ${kind}, and its card pays`);
+        });
+        if (nothingPays) assert.match(bottleneckLine(b, true), /No card pays to clear it yet/);
+      }
+      apply(r, a);
+    }
+  }
+  assert.ok(named > 0 && dropped > 0, `fixes named with their card on offer (${named}) and fixes dropped (${dropped})`);
 });

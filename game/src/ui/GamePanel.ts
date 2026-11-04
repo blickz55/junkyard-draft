@@ -52,7 +52,7 @@ import {
 } from '../content/job';
 import { yardLabel } from '../content/yard';
 import { salKnown, salLater } from '../render/sal';
-import { offerWorths, planUnderway, pressPaysLess } from '../render/guide';
+import { offerWorths, payingFixes, planUnderway, pressPaysLess } from '../render/guide';
 import { recipeRow } from './JobCard';
 import { reactionBar } from './ReactionBar';
 import { verifierUrl as resolveVerifierUrl } from '../render/config';
@@ -648,7 +648,12 @@ export class GamePanel {
     return h(
       'div',
       { class: 'jd-advice', tid: 'last-shift' },
-      h('div', { class: 'jd-advice-text' }, h('b', {}, `${t('coach.lastShift')}: `), missing ?? bottleneckLine(b)),
+      h(
+        'div',
+        { class: 'jd-advice-text' },
+        h('b', {}, `${t('coach.lastShift')}: `),
+        missing ?? bottleneckLine(payingFixes(r, b).b, payingFixes(r, b).nothingPays),
+      ),
       // named, because a "Show me" beside a suggested Tuner read as a way to place the Tuner (the fifth panel)
       here ? btn(t('coach.showMachine', { name: machineName(here.kind) }), 'show-me', () => this.actions.showMachine(here.id), { small: true }) : null,
     );
@@ -1170,7 +1175,7 @@ export class GamePanel {
         h(
           'div',
           { class: !missing && bottleneck.kind === 'balanced' ? 'jd-green' : 'jd-amber', tid: 'bottleneck', style: 'font-size:0.8125em' },
-          missing ?? (again ? againLine(bottleneck) : bottleneckLine(bottleneck)),
+          missing ?? (again ? againLine(bottleneck) : bottleneckLine(payingFixes(r, bottleneck).b, payingFixes(r, bottleneck).nothingPays)),
         ),
       );
     }
