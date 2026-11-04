@@ -209,7 +209,15 @@ test('ready but short with every machine keeping up: the coach says the line nee
     if (analyseRound(r.layout, runLayout(r.layout), 2).kind !== 'balanced') continue;
     r.round = 5; // a late order the opening line cannot fill
     r.picks = []; // no card in hand: the coach goes straight to whether the line fills the order
-    assert.match(hintFor(r, ctx()).text, /^\$[\d,]+ short of the order: every machine keeps up; it needs more scrap\.$/, r.seed);
+    // and, where a Hopper card has a paying spot, that it is the card to look for next shift (the eleventh panel)
+    const hopper = payingFixes(r, analyseRound(r.layout, runLayout(r.layout), r.round + 1)).b.fixes.includes('hopper');
+    assert.match(
+      hintFor(r, ctx()).text,
+      hopper
+        ? /^\$[\d,]+ short of the order: every machine keeps up\. A Hopper card next shift would bring more scrap\.$/
+        : /^\$[\d,]+ short of the order: every machine keeps up; it needs more scrap\.$/,
+      r.seed,
+    );
     seen++;
   }
   assert.ok(seen, 'a yard whose opening line keeps up everywhere');

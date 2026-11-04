@@ -9,7 +9,8 @@
 /** v9 (the fifth panel, 2026-11-02): a third of yards open with a second job machine and its own Dock behind a Splitter, a third with a Tuner at the job's machine, so the first good card moves from yard to yard. */
 /** v10 (the sixth panel, 2026-11-02): a Hopper card and the job machine's card each bring their own Dock, and a Dock is no longer dealt alone, so a new feed or machine can sell where it stands. */
 /** v11 (blind comparisons 4 and 5, the card +3 held out, 2026-11-02): the scrap truck brings a Hopper and a Crusher at shift 4 to cells kept free for it, and the orders of shifts 4 to 6 are 15 % higher. */
-export const RULES_VERSION = 11; // bumped on every semantic change; older replays and saves are refused from here on
+/** v12 (the eleventh panel, 2026-11-04): the lit spots put the job's machine where a Dock stands that shards reach, so the lights and Sal earn more, and the orders of shifts 5 and 6 are a tenth higher to keep the third star where it was. */
+export const RULES_VERSION = 12; // bumped on every semantic change; older replays and saves are refused from here on
 
 export type MachineKind = 'hopper' | 'conveyor' | 'splitter' | 'crusher' | 'furnace' | 'press' | 'dock' | 'sieve' | 'tuner';
 export type Material = 'scrap' | 'shards' | 'plate' | 'ingot' | 'slag';

@@ -194,6 +194,42 @@ function idleMaker(l: Layout, kind: MachineKind, belts: number, dock: boolean): 
 }
 
 /**
+ * The card's machine where a Dock stands that something reaches, and its load carried on to whatever takes it or into the Dock the card
+ * brings, straight or one belt on: a Hopper card's line sells shards, and a Furnace in its Dock's place makes them the job's product. In
+ * Sal's games on 40 held-out yards the job machine's card had a paying spot 50 times in 206 offers, and this one paid in 72 more, a median
+ * $732 a shift (2026-11-04). The old Dock goes to the shelf, as a drop onto a machine sends it.
+ */
+function inPlaceOfDock(l: Layout, kind: MachineKind, belts: number, dock: boolean): Try {
+  let best = NOTHING;
+  const map = routeMap(l);
+  const open = (px: number, py: number) => !blocked(l, px, py) && !at(l, px, py);
+  for (const d of l.machines) {
+    if (d.kind !== 'dock') continue;
+    const rest = l.machines.filter((m) => m !== d);
+    for (const dir of ALL) {
+      const maker = part(kind, d.x, d.y, dir);
+      const ax = d.x + DIR_DX[dir],
+        ay = d.y + DIR_DY[dir];
+      if (!open(ax, ay)) continue;
+      const tries: Machine[][] = [];
+      const route = routeFrom(l, map, ax, ay);
+      if (route.length <= belts && !route.some((r) => r.x === d.x && r.y === d.y)) tries.push(route);
+      if (dock) {
+        tries.push([part('dock', ax, ay, 0, -7)]);
+        const bx = ax + DIR_DX[dir],
+          by = ay + DIR_DY[dir];
+        if (belts > 0 && open(bx, by)) tries.push([part('conveyor', ax, ay, dir, -8), part('dock', bx, by, 0, -7)]);
+      }
+      for (const t of tries) {
+        const earned = worth(l, [...rest, maker, ...t]);
+        if (earned > best.earned) best = { earned, plan: [maker, ...t].map(({ kind, x, y, dir }) => ({ kind, x, y, dir })) };
+      }
+    }
+  }
+  return best;
+}
+
+/**
  * A twin on a branch: a Splitter behind a machine, the twin at the Splitter's side, and its load round into whatever takes it, by at most two
  * belts. A yard's first line has no belt behind its machine, so the machine can step along the belt to make the room: the card's own machine
  * takes the belt piece ahead, the Splitter lands on the old machine and sends it to the shelf, and that one becomes the twin.
@@ -283,7 +319,9 @@ export function cardGain(layout: Layout, parts: readonly MachineKind[], belts = 
     const s = single(layout, kind);
     const one = b.earned > s.earned ? b : s;
     const o = idleMaker(layout, kind, belts, dock);
-    return o.earned > one.earned ? o : one;
+    const two = o.earned > one.earned ? o : one;
+    const u = inPlaceOfDock(layout, kind, belts, dock);
+    return u.earned > two.earned ? u : two;
   };
   const best = !kit ? single(layout, parts[0]) : parts[0] === 'hopper' ? feed(layout, belts, dock) : twin(parts[0]);
   const gain = Math.floor(best.earned) - base;

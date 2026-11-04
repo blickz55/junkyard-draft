@@ -1,0 +1,507 @@
+{
+ "yards": 40,
+ "budget": 1200,
+ "ms": 1007707,
+ "card": {
+  "total": 83,
+  "lowest": 60,
+  "dimensions": [
+   {
+    "name": "Alive to the last shift",
+    "weight": 15,
+    "score": 100,
+    "read": {
+     "flatSteps": 0,
+     "lastShiftBest": 1
+    }
+   },
+   {
+    "name": "Every pick a real choice",
+    "weight": 15,
+    "score": 62,
+    "read": {
+     "realPicks": 0.3,
+     "healthyCards": 1,
+     "allClose": 0.158,
+     "oneClearWinner": 0.371
+    }
+   },
+   {
+    "name": "Skill shows",
+    "weight": 15,
+    "score": 66,
+    "read": {
+     "tiersInOrder": 0.85,
+     "expertOverNovice": 2.073,
+     "deeperGain": 0.05
+    }
+   },
+   {
+    "name": "The problem keeps moving",
+    "weight": 10,
+    "score": 60,
+    "read": {
+     "limitsPerGame": 2.8
+    }
+   },
+   {
+    "name": "More than one way to win",
+    "weight": 5,
+    "score": 90,
+    "read": {
+     "threeWaysYards": 0.725,
+     "modalBestSet": 0.175
+    }
+   },
+   {
+    "name": "The stars are a ladder",
+    "weight": 15,
+    "score": 100,
+    "read": {
+     "novice1": 0.9,
+     "competent2": 0.925,
+     "expert3": 0.525
+    }
+   },
+   {
+    "name": "One more try",
+    "weight": 10,
+    "score": 100,
+    "read": {
+     "nearMisses": 0.525
+    }
+   },
+   {
+    "name": "A climax",
+    "weight": 5,
+    "score": 83,
+    "read": {
+     "lastStarLate": 0.525,
+     "growthShift2ToLast": 4.104
+    }
+   },
+   {
+    "name": "Yards differ",
+    "weight": 5,
+    "score": 79,
+    "read": {
+     "scoreSpread": 0.122,
+     "distinctBestSets": 0.425,
+     "openingVariety": 1
+    }
+   },
+   {
+    "name": "One bad pick is not fatal",
+    "weight": 5,
+    "score": 100,
+    "read": {
+     "worstPickKeeps": 0.79
+    }
+   }
+  ],
+  "medians": {
+   "novice": 9516,
+   "casual": 15475,
+   "competent": 18426,
+   "expert": 19728
+  },
+  "takeRates": {
+   "press": 0.118,
+   "hopper": 0.507,
+   "furnace": 0.339,
+   "tuner": 0.329
+  }
+ },
+ "rows": [
+  {
+   "seed": "fun-0",
+   "novice": 10056,
+   "casual": 10863,
+   "competent": 10899,
+   "expert": 17430,
+   "deeper": 19714
+  },
+  {
+   "seed": "fun-1",
+   "novice": 8503,
+   "casual": 15020,
+   "competent": 15530,
+   "expert": 18302
+  },
+  {
+   "seed": "fun-10",
+   "novice": 7564,
+   "casual": 12497,
+   "competent": 12706,
+   "expert": 18821
+  },
+  {
+   "seed": "fun-11",
+   "novice": 7064,
+   "casual": 11544,
+   "competent": 14092,
+   "expert": 16521
+  },
+  {
+   "seed": "fun-12",
+   "novice": 8682,
+   "casual": 12516,
+   "competent": 18358,
+   "expert": 20620
+  },
+  {
+   "seed": "fun-13",
+   "novice": 8510,
+   "casual": 16331,
+   "competent": 17131,
+   "expert": 17271
+  },
+  {
+   "seed": "fun-14",
+   "novice": 10966,
+   "casual": 15494,
+   "competent": 18412,
+   "expert": 18518,
+   "deeper": 18704
+  },
+  {
+   "seed": "fun-15",
+   "novice": 7663,
+   "casual": 18412,
+   "competent": 20795,
+   "expert": 20843
+  },
+  {
+   "seed": "fun-16",
+   "novice": 17446,
+   "casual": 21356,
+   "competent": 23569,
+   "expert": 24368
+  },
+  {
+   "seed": "fun-17",
+   "novice": 14228,
+   "casual": 18284,
+   "competent": 20156,
+   "expert": 22119
+  },
+  {
+   "seed": "fun-18",
+   "novice": 7804,
+   "casual": 15998,
+   "competent": 18524,
+   "expert": 19957
+  },
+  {
+   "seed": "fun-19",
+   "novice": 11369,
+   "casual": 14991,
+   "competent": 19206,
+   "expert": 19728
+  },
+  {
+   "seed": "fun-2",
+   "novice": 5872,
+   "casual": 15248,
+   "competent": 16085,
+   "expert": 15996
+  },
+  {
+   "seed": "fun-20",
+   "novice": 9356,
+   "casual": 15475,
+   "competent": 19414,
+   "expert": 20171
+  },
+  {
+   "seed": "fun-21",
+   "novice": 11242,
+   "casual": 18690,
+   "competent": 19109,
+   "expert": 19558,
+   "deeper": 20636
+  },
+  {
+   "seed": "fun-22",
+   "novice": 6530,
+   "casual": 10557,
+   "competent": 14458,
+   "expert": 18222
+  },
+  {
+   "seed": "fun-23",
+   "novice": 10420,
+   "casual": 15098,
+   "competent": 15238,
+   "expert": 16440
+  },
+  {
+   "seed": "fun-24",
+   "novice": 15286,
+   "casual": 20392,
+   "competent": 22174,
+   "expert": 23243
+  },
+  {
+   "seed": "fun-25",
+   "novice": 5646,
+   "casual": 9137,
+   "competent": 9107,
+   "expert": 14474
+  },
+  {
+   "seed": "fun-26",
+   "novice": 9167,
+   "casual": 12500,
+   "competent": 17231,
+   "expert": 18183
+  },
+  {
+   "seed": "fun-27",
+   "novice": 12453,
+   "casual": 18250,
+   "competent": 21676,
+   "expert": 22685
+  },
+  {
+   "seed": "fun-28",
+   "novice": 8048,
+   "casual": 12350,
+   "competent": 17412,
+   "expert": 18981,
+   "deeper": 19452
+  },
+  {
+   "seed": "fun-29",
+   "novice": 9045,
+   "casual": 12590,
+   "competent": 19131,
+   "expert": 20084
+  },
+  {
+   "seed": "fun-3",
+   "novice": 8288,
+   "casual": 15418,
+   "competent": 16427,
+   "expert": 18768
+  },
+  {
+   "seed": "fun-30",
+   "novice": 9516,
+   "casual": 11171,
+   "competent": 18426,
+   "expert": 18543
+  },
+  {
+   "seed": "fun-31",
+   "novice": 8248,
+   "casual": 14416,
+   "competent": 14796,
+   "expert": 17520
+  },
+  {
+   "seed": "fun-32",
+   "novice": 10924,
+   "casual": 18785,
+   "competent": 21604,
+   "expert": 22186
+  },
+  {
+   "seed": "fun-33",
+   "novice": 10056,
+   "casual": 14610,
+   "competent": 20898,
+   "expert": 20868
+  },
+  {
+   "seed": "fun-34",
+   "novice": 9733,
+   "casual": 18345,
+   "competent": 21360,
+   "expert": 21621
+  },
+  {
+   "seed": "fun-35",
+   "novice": 6472,
+   "casual": 16440,
+   "competent": 17926,
+   "expert": 18855,
+   "deeper": 19810
+  },
+  {
+   "seed": "fun-36",
+   "novice": 5610,
+   "casual": 13496,
+   "competent": 17994,
+   "expert": 19754
+  },
+  {
+   "seed": "fun-37",
+   "novice": 10716,
+   "casual": 18985,
+   "competent": 21355,
+   "expert": 21867
+  },
+  {
+   "seed": "fun-38",
+   "novice": 9844,
+   "casual": 18083,
+   "competent": 19016,
+   "expert": 20855
+  },
+  {
+   "seed": "fun-39",
+   "novice": 6340,
+   "casual": 11724,
+   "competent": 14200,
+   "expert": 15052
+  },
+  {
+   "seed": "fun-4",
+   "novice": 12235,
+   "casual": 21597,
+   "competent": 24222,
+   "expert": 24183
+  },
+  {
+   "seed": "fun-5",
+   "novice": 10914,
+   "casual": 18759,
+   "competent": 21594,
+   "expert": 22081
+  },
+  {
+   "seed": "fun-6",
+   "novice": 15183,
+   "casual": 15110,
+   "competent": 22067,
+   "expert": 23463
+  },
+  {
+   "seed": "fun-7",
+   "novice": 11060,
+   "casual": 15900,
+   "competent": 18426,
+   "expert": 19314,
+   "deeper": 19818
+  },
+  {
+   "seed": "fun-8",
+   "novice": 6505,
+   "casual": 15760,
+   "competent": 15960,
+   "expert": 17161
+  },
+  {
+   "seed": "fun-9",
+   "novice": 17070,
+   "casual": 18589,
+   "competent": 21874,
+   "expert": 21871
+  }
+ ],
+ "ruined": [
+  {
+   "label": "one card only",
+   "total": 45,
+   "drop": 38,
+   "dimensions": {
+    "Alive to the last shift": 100,
+    "Every pick a real choice": 0,
+    "Skill shows": 11,
+    "The problem keeps moving": 23,
+    "More than one way to win": 0,
+    "The stars are a ladder": 45,
+    "One more try": 100,
+    "A climax": 28,
+    "Yards differ": 67,
+    "One bad pick is not fatal": 100
+   }
+  },
+  {
+   "label": "raw scrap pays like the job",
+   "total": 55,
+   "drop": 28,
+   "dimensions": {
+    "Alive to the last shift": 100,
+    "Every pick a real choice": 22,
+    "Skill shows": 78,
+    "The problem keeps moving": 2,
+    "More than one way to win": 50,
+    "The stars are a ladder": 60,
+    "One more try": 0,
+    "A climax": 100,
+    "Yards differ": 57,
+    "One bad pick is not fatal": 100
+   }
+  },
+  {
+   "label": "machines crawl",
+   "total": 44,
+   "drop": 39,
+   "dimensions": {
+    "Alive to the last shift": 97,
+    "Every pick a real choice": 28,
+    "Skill shows": 57,
+    "The problem keeps moving": 23,
+    "More than one way to win": 89,
+    "The stars are a ladder": 0,
+    "One more try": 0,
+    "A climax": 30,
+    "Yards differ": 64,
+    "One bad pick is not fatal": 100
+   }
+  },
+  {
+   "label": "stars for nothing",
+   "total": 66,
+   "drop": 17,
+   "dimensions": {
+    "Alive to the last shift": 100,
+    "Every pick a real choice": 57,
+    "Skill shows": 62,
+    "The problem keeps moving": 59,
+    "More than one way to win": 88,
+    "The stars are a ladder": 60,
+    "One more try": 0,
+    "A climax": 100,
+    "Yards differ": 79,
+    "One bad pick is not fatal": 100
+   }
+  },
+  {
+   "label": "two-second shifts",
+   "total": 48,
+   "drop": 35,
+   "dimensions": {
+    "Alive to the last shift": 90,
+    "Every pick a real choice": 54,
+    "Skill shows": 41,
+    "The problem keeps moving": 53,
+    "More than one way to win": 86,
+    "The stars are a ladder": 0,
+    "One more try": 0,
+    "A climax": 32,
+    "Yards differ": 81,
+    "One bad pick is not fatal": 100
+   }
+  },
+  {
+   "label": "every yard alike",
+   "total": 75,
+   "drop": 8,
+   "dimensions": {
+    "Alive to the last shift": 100,
+    "Every pick a real choice": 61,
+    "Skill shows": 45,
+    "The problem keeps moving": 63,
+    "More than one way to win": 81,
+    "The stars are a ladder": 100,
+    "One more try": 100,
+    "A climax": 70,
+    "Yards differ": 9,
+    "One bad pick is not fatal": 100
+   }
+  }
+ ]
+}

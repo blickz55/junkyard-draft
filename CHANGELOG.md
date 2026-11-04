@@ -5,6 +5,13 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### Rules version 12: a Furnace where a Dock stood — 2026-11-04 (saves and scores from version 11 do not carry over)
+
+- **"Show me where" finds more:** the job's machine can go where a Dock stands that shards reach, turning a line that sells shards into one that makes the job's product. The old Dock goes to the shelf.
+- **Spare parts sell from the coach:** once a card's plan is in, the coach says what its spare part sells for, with a Sell button beside it. A Dock on the shelf is always spare.
+- **The last two orders are a tenth higher**, because the lights now find more.
+- **Clearer words:** the job card says what an order does to the price ("ingots sell for $24, then $30, then $36"); the summary names only a fix whose card pays; how to pass Sal is said plainly; the shelf keeps the machines first and the belts last.
+
 ### Rules version 11: the scrap truck — 2026-11-02 (saves and scores from version 10 do not carry over)
 
 - **At shift 4 a scrap truck drops a free Hopper and Crusher** on two cells marked from the first shift, kept free until it comes. Its shards need somewhere to go: a machine in front of the Crusher, or belts to your line. The job card, the pick and the coach say so.

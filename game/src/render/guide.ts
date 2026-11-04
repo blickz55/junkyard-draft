@@ -323,7 +323,9 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
   // again where to put a kit's Dock that the line did not need) and says it can wait
   const spare = cardPlan(r).length > 0 && !nextPlanned(r);
   const i = card && !spare ? r.bin.findIndex((m) => m.id > newest - card) : -1;
-  const left = card && spare ? r.bin.find((m) => m.id > newest - card && m.kind !== 'conveyor') : undefined; // a belt bought on the way is never a card's
+  // a belt bought on the way is never a card's; a Dock on the shelf is always spare, because no card comes without one and a plan that puts
+  // the job's machine where a Dock stood sends that Dock to the shelf
+  const left = card && spare ? r.bin.find((m) => (m.id > newest - card || m.kind === 'dock') && m.kind !== 'conveyor') : undefined;
   // and it sells, one tap from the coach: every card brings what its own plan needs, so a spare waits for nothing, and all six of the
   // eleventh panel had a shelf of them with nothing said about what they were for. Sal sells his too (render/sal.ts)
   if (left) sell = { id: left.id, name: machineShort(left.kind) };
@@ -366,10 +368,16 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
     const m = b.machine;
     if (m && b.kind === 'saturated' && m.kind !== 'conveyor')
       return say({ text: t('coach.shortSlow', { amount, name: machineName(m.kind) }), spots: [{ kind: 'cell', x: m.x, y: m.y }, { kind: 'run' }] });
+    // short of scrap: nothing on the yard fixes that now, so the coach says what will, when a Hopper card has a paying spot (the eleventh
+    // panel's youngest looked at the lit Crusher and could not tell what to do with it)
+    const hopper = (b.kind === 'starved' || b.kind === 'balanced') && payingFixes(r, b).b.fixes.includes('hopper');
     if (m && b.kind === 'starved')
-      return say({ text: t('coach.shortStarved', { amount, name: machineName(m.kind) }), spots: [{ kind: 'cell', x: m.x, y: m.y }, { kind: 'run' }] });
+      return say({
+        text: t(hopper ? 'coach.shortStarvedHopper' : 'coach.shortStarved', { amount, name: machineName(m.kind) }),
+        spots: [{ kind: 'cell', x: m.x, y: m.y }, { kind: 'run' }],
+      });
     // every machine keeps up: the line is short of scrap, which is a thing to do, not "try a change" (the tenth panel's worst moment)
-    if (b.kind === 'balanced') return say({ text: t('coach.shortFeed', { amount }), spots: [{ kind: 'run' }] });
+    if (b.kind === 'balanced') return say({ text: t(hopper ? 'coach.shortFeedHopper' : 'coach.shortFeed', { amount }), spots: [{ kind: 'run' }] });
     return say({ text: t('coach.short', { amount }), spots: [{ kind: 'run' }] });
   }
   return say({

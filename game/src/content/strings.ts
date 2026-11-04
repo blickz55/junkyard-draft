@@ -927,7 +927,15 @@ export const STRINGS = {
   'coach.sellSpare': s('Sell {name}', "the coach's button, as short as Show me where: sell a part of the card just picked that its plan did not need"),
   'coach.shortSlow': s('{amount} short of the order: the {name} is the slow one.', 'the build, ready but short of the order; the machine is lit'),
   'coach.shortStarved': s('{amount} short of the order: the {name} waits for scrap.', 'the build, ready but short; the machine is lit'),
+  'coach.shortStarvedHopper': s(
+    '{amount} short of the order: the {name} waits for scrap. A Hopper card next shift would feed it.',
+    'the build, ready but short; the machine is lit, and a Hopper card has a paying spot',
+  ),
   'coach.shortFeed': s('{amount} short of the order: every machine keeps up; it needs more scrap.', 'the build, ready but short; no machine is slow'),
+  'coach.shortFeedHopper': s(
+    '{amount} short of the order: every machine keeps up. A Hopper card next shift would bring more scrap.',
+    'the build, ready but short; no machine is slow, and a Hopper card has a paying spot',
+  ),
   'coach.short': s('{amount} short of the order. Start anyway, or try a change.', 'the build, ready but short of the order'),
   'coach.broken': s('This piece leads nowhere. Turn it or move it, then start.', 'the build with a dead end, the piece lit'),
   'coach.brokenBuy': s('This piece leads nowhere. Out of belts? Buy one.', 'the build with a dead end and no belt on the shelf'),

@@ -344,7 +344,7 @@ export function litGame(
         dropActions(s, part, p.x, p.y, p.dir).forEach(act);
       }
       // what the card brought and its plan did not need is sold, as the coach offers and Sal does (render/sal.ts, 2026-11-04)
-      if (placedAll) for (const m of s.bin.filter((q) => q.id > newest)) act({ t: 'sell', id: m.id });
+      if (placedAll) for (const m of s.bin.filter((q) => q.id > newest || q.kind === 'dock')) act({ t: 'sell', id: m.id });
       built?.push({ picks: s.picks.slice(), layout: copy(s.layout), spare: s.bin.map((m) => m.kind) });
     }
     act({ t: 'run' });

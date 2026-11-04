@@ -8,6 +8,7 @@ import { cardGain } from '../game/src/render/estimate';
 import { yardFor } from '../game/src/sim/yard';
 import { dropActions, liftActions } from '../game/src/render/placement';
 import { RULES } from '../game/src/sim/rules';
+import { salGame } from '../game/src/render/sal';
 import type { RunState } from '../game/src/sim/run';
 
 /** The classic straight line with a crusher and a furnace in it: hopper, crusher, furnace, belt, dock. */
@@ -125,4 +126,37 @@ test('with no belt on the shelf, or for a part beside the line, it just comes of
     ),
     [{ t: 'unplace', id: 94 }],
   );
+});
+
+test("the job machine's card where a Dock stands that shards reach: the old Dock goes to the shelf, and the plan earns what the card said", () => {
+  let seen = 0;
+  for (let n = 0; n < 16 && seen < 6; n++) {
+    const seed = `upgrade-${n}`;
+    const s = newRun(seed);
+    for (const a of salGame(seed).actions) {
+      if (s.phase === 'draft' && a.t === 'pick') {
+        for (const [i, kind] of s.offers.entries()) {
+          const run = structuredClone(s);
+          const belts = run.bin.filter((m) => m.kind === 'conveyor').length;
+          const { gain, plan } = cardGain(run.layout, cardParts(kind, run.job, seed), belts);
+          const dock = gain > 0 ? run.layout.machines.find((m) => m.kind === 'dock' && m.x === plan[0].x && m.y === plan[0].y) : undefined;
+          if (!dock || plan[0].kind === 'dock') continue;
+          const before = runLayout(run.layout).earned;
+          apply(run, { t: 'pick', i });
+          for (const p of plan) {
+            const part = run.bin.find((m) => m.kind === p.kind)!;
+            for (const act of dropActions(run, part, p.x, p.y, p.dir)) apply(run, act);
+          }
+          assert.equal(runLayout(run.layout).earned, before + gain, `${seed} shift ${s.round} ${kind}: ${JSON.stringify(plan)}`);
+          assert.ok(
+            run.bin.some((m) => m.id === dock.id),
+            'the Dock it stood on is on the shelf',
+          );
+          seen++;
+        }
+      }
+      apply(s, a);
+    }
+  }
+  assert.ok(seen >= 6, `plans that take a Dock's place (${seen})`);
 });

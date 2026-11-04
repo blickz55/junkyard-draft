@@ -48,7 +48,7 @@ function shift(s: RunState, act: (a: Action) => void) {
     }
     // what the card brought and its plan did not need, he sells, as the coach offers (render/guide.ts): a player who follows the coach
     // stays level with him (the seventh panel sat $10 behind a Sal who sold what the coach never mentioned)
-    if (built) for (const m of s.bin.filter((q) => q.id > newest)) act({ t: 'sell', id: m.id });
+    if (built) for (const m of s.bin.filter((q) => q.id > newest || q.kind === 'dock')) act({ t: 'sell', id: m.id });
   }
   act({ t: 'run' });
   act({ t: 'next' });

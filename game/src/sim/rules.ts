@@ -85,7 +85,7 @@ export const RULES = {
   job: {
     price: 24,
     weights: { ingot: 2, plate: 1 } as Record<'ingot' | 'plate', number>,
-    orders: { ingot: [450, 800, 1400, 2470, 3680, 5290], plate: [380, 500, 1300, 2190, 3450, 4950] } as Record<'ingot' | 'plate', readonly number[]>,
+    orders: { ingot: [450, 800, 1400, 2470, 4050, 5820], plate: [380, 500, 1300, 2190, 3800, 5450] } as Record<'ingot' | 'plate', readonly number[]>,
     raise: 25,
     stars: [2, 4, 6] as readonly [number, number, number],
     /** the shift the other product starts selling at the job's price: a finished line has a new customer */
