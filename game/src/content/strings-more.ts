@@ -374,6 +374,15 @@ export const MORE_STRINGS = {
   'results.challengeLine': s('Challenge · you {score} · {player} {theirs} · {outcome}', 'header'),
   'results.roundByRound': s('Shift by shift', 'panel head'),
   'results.round': s('Shift {n}', 'bar label'),
+  'results.salShift': s('Sal {amount}', "the round bars: what Sal's game made that shift on this yard"),
+  'results.salGapPick': s(
+    'Sal gained most on you in shift {n}, {amount}: he took the {his} card there, and you took the {yours}.',
+    'the round bars, behind Sal: the shift where his lead grew most, and the cards that shift (the eleventh panel)',
+  ),
+  'results.salGapPlace': s(
+    'Sal gained most on you in shift {n}, {amount}: you both took the {card} card, and his went where it paid more.',
+    'the round bars, behind Sal: the shift where his lead grew most, both on the same card',
+  ),
   'results.shipped': s('What shipped', 'panel head'),
   'results.shippedLine': s('{n} × {mat} = {total}', 'shipped row: what they really paid, shift by shift'),
   'results.sold': s('Sold spare parts = {amount}', 'shipped panel'),

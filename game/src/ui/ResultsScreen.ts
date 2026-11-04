@@ -4,7 +4,8 @@ import type Phaser from 'phaser';
 import '../content/strings-more';
 import { h, btn, ui, textureImg, promptText, showText, foremanBox, setForeman } from './dom';
 import { foremanSays, resultsBand } from '../content/foreman';
-import { runStars, shippedTotal, type RunState } from '../sim/run';
+import { replay, runStars, shippedTotal, type RunState } from '../sim/run';
+import { RULES_VERSION } from '../sim/types';
 import { priceOf } from '../sim/yard';
 import { jobTarget, materialMany, materialOf, starMarks } from '../content/job';
 import { rankFor, rankLine, rankNext } from '../content/ranks';
@@ -320,7 +321,10 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
   );
   header.append(foreman);
   let foremanSettled = !!foreman.textContent?.trim() && bests.runs === 1;
-  const max = Math.max(1, ...run.rounds.map((r) => r.earned));
+  // Sal's shifts beside the player's, and the shift where he pulled furthest ahead: one thing to try next time (the eleventh panel asked for
+  // "my shifts side by side with Sal's"). Only for a whole game of the player's own.
+  const salRounds = sal && !fork && run.rounds.length === sal.rounds.length ? sal.rounds : null;
+  const max = Math.max(1, ...run.rounds.map((r) => r.earned), ...(salRounds ?? []));
   const rounds = h(
     'div',
     { class: 'jd-panel', tid: 'round-bars' },
@@ -334,10 +338,38 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
           'div',
           { style: 'flex:1' },
           h('div', { class: `jd-bar${i === run.rounds.length - 1 ? ' jd-bar-last' : ''}`, style: `width:${Math.round((100 * r.earned) / max)}%` }),
+          salRounds ? h('div', { class: 'jd-bar-sal', style: `width:${Math.round((100 * salRounds[i]) / max)}%` }) : null,
         ),
-        h('span', { style: 'width:4em; text-align:right; font-weight:700; font-size:0.875em' }, money(r.earned)),
+        h(
+          'span',
+          { style: 'width:5em; text-align:right; font-size:0.875em' },
+          h('b', {}, money(r.earned)),
+          salRounds
+            ? h('div', { class: 'jd-dim', tid: `sal-shift-${i + 1}`, style: 'font-size:0.8em' }, t('results.salShift', { amount: money(salRounds[i]) }))
+            : null,
+        ),
       ),
     ),
+    ...(() => {
+      if (!sal || !salRounds || run.score > sal.score) return [];
+      // where his lead grew most, which is nearer the cause than where it was largest: a line that falls behind falls further every shift
+      const gaps = salRounds.map((v, i) => v - run.rounds[i].earned);
+      const grew = gaps.map((g, i) => g - (i ? gaps[i - 1] : 0));
+      const at = grew.indexOf(Math.max(...grew));
+      if (grew[at] <= 0) return [];
+      const his = replay(run.seed, sal.actions, RULES_VERSION).picks[at];
+      const yours = run.picks[at];
+      const where = { n: at + 1, amount: money(grew[at]) };
+      return [
+        h(
+          'div',
+          { class: 'jd-dim', tid: 'sal-gap', style: 'margin-top:0.5em; font-size:0.875em' },
+          his && yours && his !== yours
+            ? t('results.salGapPick', { ...where, his: machineName(his), yours: machineName(yours) })
+            : t('results.salGapPlace', { ...where, card: machineName(yours ?? his) }),
+        ),
+      ];
+    })(),
   );
 
   const shipped = run.rounds.reduce(

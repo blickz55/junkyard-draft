@@ -203,6 +203,12 @@ test('the end of a game names Sal, his recording comes back to these results, an
   // nothing was built, so Sal won: the results say what his game cannot do, which is how to pass him
   assert.match(await page.getByTestId('delta-par').textContent(), /^Sal beat you/);
   assert.match(await page.getByTestId('sal-how').textContent(), /never moves them/);
+  // his shifts stand beside the player's, and the shift where he pulled furthest ahead is named with the cards taken there
+  for (let n = 1; n <= 6; n++) assert.match(await page.getByTestId(`sal-shift-${n}`).textContent(), /^Sal \$[\d,]+$/);
+  assert.match(
+    await page.getByTestId('sal-gap').textContent(),
+    /^Sal gained most on you in shift [1-6], \$[\d,]+: (he took the .+ card there, and you took the .+|you both took the .+ card, and his went where it paid more)\.$/,
+  );
   const score = await page.getByTestId('score').textContent();
   const games = () => page.evaluate(() => JSON.stringify(localStorage.getItem('jd.bests.v2')).length);
   const stored = await games();

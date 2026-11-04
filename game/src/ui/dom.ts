@@ -298,6 +298,7 @@ const STYLE = `
 #ui .jd-entry:disabled { cursor: default; color: ${CSS.text}; }
 #ui .jd-bar { height: 1em; background: ${CSS.amber}; border-radius: 0.1em; }
 #ui .jd-bar-last { background: ${CSS.gold}; }
+#ui .jd-bar-sal { height: 0.35em; margin-top: 0.15em; background: ${CSS.dim}; border-radius: 0.1em; opacity: 0.7; }
 #ui .jd-pop { animation: jd-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes jd-pop { from { transform: scale(0.5); } to { transform: scale(1); } }
 #ui.jd-reduced-motion .jd-pop { animation: none; }
