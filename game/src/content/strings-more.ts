@@ -375,6 +375,8 @@ export const MORE_STRINGS = {
   'results.roundByRound': s('Shift by shift', 'panel head'),
   'results.round': s('Shift {n}', 'bar label'),
   'results.salShift': s('Sal {amount}', "the round bars: what Sal's game made that shift on this yard"),
+  'results.salSold': s('Outside the shifts, Sal sold spare parts for {sal} and you for {you}.', 'the round bars: sales, which the bars do not show'),
+  'results.salSpent': s('Belts and new offers cost Sal {sal} and you {you}.', 'the round bars: what was bought, which the bars do not show'),
   'results.salGapPick': s(
     'Sal gained most on you in shift {n}, {amount}: he took the {his} card there, and you took the {yours}.',
     'the round bars, behind Sal: the shift where his lead grew most, and the cards that shift (the eleventh panel)',

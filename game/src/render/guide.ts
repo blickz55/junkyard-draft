@@ -93,6 +93,11 @@ export function lessonTurnAt(r: RunState, x: number, y: number): boolean {
   const m = nextMove(r);
   return m?.do === 'turn' && m.x === x && m.y === y;
 }
+/** The shelf part the lesson's next move puts on this cell, if that is its next move: a tap on the lit spot puts it in, as in a game. */
+export function lessonPlaceAt(r: RunState, x: number, y: number): Machine | null {
+  const m = nextMove(r);
+  return m?.do === 'place' && m.x === x && m.y === y ? (r.bin.find((q) => q.kind === m.kind) ?? null) : null;
+}
 /** Every move of this shift is made: it can start. */
 export const lessonReady = (r: RunState): boolean => r.phase === 'build' && !nextMove(r);
 /** The card a lesson's pick wants; null when there is no pick on screen. */
@@ -302,8 +307,10 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
   const lit = ctx.lights !== false;
   if (lit && next?.part) {
     const said = t(ctx.touch ? 'coach.planTouch' : 'coach.plan', { name: next.step.kind === 'conveyor' ? t('coach.planBelt') : machineName(next.step.kind) });
+    // a part that goes where a Dock stands sends the Dock to the shelf: said before it happens (the twelfth panel did not see why)
+    const onDock = next.step.kind !== 'dock' && r.layout.machines.some((m) => m.kind === 'dock' && m.x === next.step.x && m.y === next.step.y);
     return {
-      text: next.of > 1 ? `${said} ${t('coach.planOf', { n: next.at + 1, total: next.of })}` : said,
+      text: [said, next.of > 1 ? t('coach.planOf', { n: next.at + 1, total: next.of }) : '', onDock ? t('coach.planOnDock') : ''].filter(Boolean).join(' '),
       spots: [
         { kind: 'shelf', i: r.bin.indexOf(next.part) },
         { kind: 'cell', x: next.step.x, y: next.step.y },

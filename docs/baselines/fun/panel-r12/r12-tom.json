@@ -1,0 +1,51 @@
+{
+  "persona": "Tom",
+  "device": "phone",
+  "goalInOwnWords": "Build a line of machines that turns junk into ingots, fill the orders each shift, and make more money than the foreman, Sal.",
+  "stoppedWhere": "Results screen after replaying shifts 5 and 6 of today's yard, after sending the feedback survey",
+  "stoppedWhy": "I'd beaten nothing new: the retry gave the identical score because I made the same choices, and the hint said no spot pays more, so I didn't know how to catch Sal. Fine for a bit, not something I'd open every day.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 15666,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Lesson, shift 2 and 3, placing the Crusher and Furnace",
+      "what": "The part glowed on the shelf like it was already chosen, but tapping the lit spot did nothing, then a red 'Not yet. Use the lit part, on the lit spot' appeared though I had.",
+      "gotOutHow": "Tapped the part on the shelf again, then the spot."
+    },
+    {
+      "where": "Shifts 5 and 6 of today's yard",
+      "what": "Furnace held me back for 50 of 80 seconds and Sal said no spot pays more with the Furnace, so I could not work out how to beat him.",
+      "gotOutHow": "Didn't; took the Tuner on shift 6 and finished the game."
+    }
+  ],
+  "confused": [
+    "Lesson: top bar says '0 of 20 ingots' while money goes up from scrap",
+    "Part looks selected after picking a card but isn't, and the refusal message says I did the wrong thing",
+    "Spare Shipping Docks and Furnaces pile up on the shelf with no clear use",
+    "Star row on the results: one lit, one dim, not clear what it meant for 4 of 6 orders",
+    "Retrying from shift 5 says 'New best for this try' when the score is the same"
+  ],
+  "annoyed": [
+    "Job card has a lot of small words to read before every game",
+    "Being offered the same Furnace card when Sal says no spot can use it",
+    "Red 'Not yet' message when I had done what it asked"
+  ],
+  "pleased": [
+    "Lessons walk you through with a lit spot, easy for a beginner",
+    "Seeing ingots jump from $37 to $576 in the lesson",
+    "'Show me where' button puts parts in the right place",
+    "End-of-shift note says what held the line back in plain words",
+    "Shift-by-shift comparison with Sal"
+  ],
+  "bestMoment": "Shift 2 of the lesson, when the Furnace turned a $37 shift into $576",
+  "worstMoment": "Tapping the lit spot, getting 'Not yet' scolded back at me when I'd picked the right part",
+  "oneChange": "Tell me plainly what to do differently to beat Sal when the hint says nothing helps, and clear the leftover parts off the shelf.",
+  "completionCode": "3T35-WCEX"
+}

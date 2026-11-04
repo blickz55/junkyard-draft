@@ -580,3 +580,33 @@ test('every random yard is a different yard: Practice opens a new layout each ti
   assert.ok(seen.size >= 3, `${seen.size} different layouts out of 4`);
   await page.ctx.close();
 });
+
+test('in a lesson the lit spot takes the lit part with nothing in hand, as a game does', { timeout: 60000 }, async () => {
+  const page = await f.page({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const { api, frames, settled, when } = page.jd;
+  await page.goto(f.gameUrl(`scene=game&seed=${LESSONS[0].seed}`));
+  // past any opening dialog to the first move: a part glowing on the shelf and its spot on the yard
+  for (let i = 0; i < 6; i++) {
+    await frames(2);
+    await settled();
+    const l = await lit(page);
+    if (l.dialog) {
+      await page.getByTestId(l.dialog).click();
+      continue;
+    }
+    if (l.rings.length === 2) break;
+  }
+  const l = await lit(page);
+  assert.equal(l.rings.length, 2, `the part and its spot are lit: ${JSON.stringify(l)}`);
+  const spot = l.rings.find((r) => r.startsWith('cell:'));
+  const [x, y] = spot.slice(5).split(',').map(Number);
+  // the twelfth panel tapped the spot straight away, with the part glowing on the shelf, and the lesson let go instead
+  const p = await ringPoint(page, spot);
+  await page.touchscreen.tap(p.x, p.y);
+  await when(([x, y]) => window.__jd.state().layout.machines.some((m) => m.x === x && m.y === y && m.kind === 'conveyor'), [x, y]);
+  assert.ok(
+    (await api('state')).layout.machines.some((m) => m.x === x && m.y === y),
+    'the lit part is in',
+  );
+  await page.ctx.close();
+});

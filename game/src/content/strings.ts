@@ -949,7 +949,10 @@ export const STRINGS = {
   // ---- the lesson (rules v4) ----
   'lesson.gap': s('The belt has a gap. Drag this Conveyor into the lit spot.', 'lesson 1, shift 1'),
   'lesson.gapTouch': s('The belt has a gap. Tap this Conveyor, then the lit spot.', 'lesson 1, shift 1 under a coarse pointer'),
-  'lesson.start1': s('Line closed. Start the shift.', 'lesson 1, shift 1 ready'),
+  'lesson.start1': s(
+    'Belt joined: scrap reaches the Dock. Start the shift; the Crusher and Furnace come next.',
+    'lesson 1, shift 1 ready; "Line closed" read as finished beside a job card that still wants a Crusher and a Furnace (the twelfth panel)',
+  ),
   'lesson.after1': s('Your scrap reached the dock at {scrap} each. Better goods pay more.', 'lesson 1, shift 1 summary'),
   'lesson.pickCrusher': s('Pick the Crusher. You keep ONE part. The others go back on the truck.', 'lesson 1, shift 2 pick'),
   'lesson.dropCrusher': s('Drag the Crusher onto the lit belt piece. The belt piece goes to the shelf.', 'lesson 1, shift 2 build'),
@@ -1124,6 +1127,7 @@ export const STRINGS = {
   'sound.belt': s('Belt rumble', 'sound test row'),
   'coach.plan': s('Click the lit spot for the {name}.', 'the build: where the card pays'),
   'coach.planTouch': s('Tap the lit spot for the {name}.', 'the build under a coarse pointer'),
+  'coach.planOnDock': s('It goes where the Dock stands, and the Dock goes back on the shelf.', 'the build: the lit spot is where a Dock stands (rules v12)'),
   'coach.planBelt': s('belt', 'the build: the word for a conveyor in the line above, as the Buy a belt button has it'),
   'coach.moveHere': s('Tap where the {name} should go.', 'the build: a machine in hand to move'),
   'coach.planOf': s('Step {n} of {total}.', 'the build: after the instruction, on a plan of several parts'),

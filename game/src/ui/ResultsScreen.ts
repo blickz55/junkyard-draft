@@ -351,24 +351,47 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
       ),
     ),
     ...(() => {
-      if (!sal || !salRounds || run.score > sal.score) return [];
+      if (!sal || !salRounds) return [];
+      const salRun = replay(run.seed, sal.actions, RULES_VERSION);
+      const out: HTMLElement[] = [];
       // where his lead grew most, which is nearer the cause than where it was largest: a line that falls behind falls further every shift
       const gaps = salRounds.map((v, i) => v - run.rounds[i].earned);
       const grew = gaps.map((g, i) => g - (i ? gaps[i - 1] : 0));
       const at = grew.indexOf(Math.max(...grew));
-      if (grew[at] <= 0) return [];
-      const his = replay(run.seed, sal.actions, RULES_VERSION).picks[at];
-      const yours = run.picks[at];
-      const where = { n: at + 1, amount: money(grew[at]) };
-      return [
-        h(
-          'div',
-          { class: 'jd-dim', tid: 'sal-gap', style: 'margin-top:0.5em; font-size:0.875em' },
-          his && yours && his !== yours
-            ? t('results.salGapPick', { ...where, his: machineName(his), yours: machineName(yours) })
-            : t('results.salGapPlace', { ...where, card: machineName(yours ?? his) }),
-        ),
-      ];
+      if (run.score <= sal.score && grew[at] > 0) {
+        const his = salRun.picks[at];
+        const yours = run.picks[at];
+        const where = { n: at + 1, amount: money(grew[at]) };
+        out.push(
+          h(
+            'div',
+            { class: 'jd-dim', tid: 'sal-gap', style: 'margin-top:0.5em; font-size:0.875em' },
+            his && yours && his !== yours
+              ? t('results.salGapPick', { ...where, his: machineName(his), yours: machineName(yours) })
+              : t('results.salGapPlace', { ...where, card: machineName(yours ?? his) }),
+          ),
+        );
+      }
+      // the money outside the shifts, which the bars do not show: a game that matched Sal shift for shift ended $40 behind him, on the parts
+      // he sold (the twelfth panel)
+      const spent = (s: RunState) => s.rerolls * RULES.rerollCost + s.belts * RULES.beltCost;
+      if (salRun.sold !== run.sold)
+        out.push(
+          h(
+            'div',
+            { class: 'jd-dim', tid: 'sal-sold', style: 'margin-top:0.35em; font-size:0.875em' },
+            t('results.salSold', { sal: money(salRun.sold), you: money(run.sold) }),
+          ),
+        );
+      if (spent(salRun) !== spent(run))
+        out.push(
+          h(
+            'div',
+            { class: 'jd-dim', tid: 'sal-spent', style: 'margin-top:0.35em; font-size:0.875em' },
+            t('results.salSpent', { sal: money(spent(salRun)), you: money(spent(run)) }),
+          ),
+        );
+      return out;
     })(),
   );
 

@@ -1,0 +1,40 @@
+{
+  "persona": "Leo",
+  "device": "phone",
+  "goalInOwnWords": "build a line of machines that turns junk into money and ships enough each round to hit the order number",
+  "stoppedWhere": "Today's yard, after shift 4 of 6, results card ($4,656 total, 3k behind Sal), via Menu then Save and go home",
+  "stoppedWhy": "It turned into fiddly placing and reading. I kept missing the order and the dead-end text was a wall of words. Not a game I would open instead of Clash Royale.",
+  "lessonsFinished": 1,
+  "gamesFinished": 0,
+  "bestStars": 0,
+  "bestMoney": 4656,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {"where": "Shift 2 of today's yard", "what": "Why the crusher piled up and the order was missed; I mistapped the dock spot and the game let me start the shift anyway", "gotOutHow": "Read the held-you-back line next shift and placed the spare dock from the shelf"}
+  ],
+  "confused": [
+    "Starting a shift with a part still unplaced on the shelf did not warn me",
+    "Shelf filling with spare parts and unclear what they are for",
+    "Why the truck dropped hopper and crusher on the side that connects to nothing",
+    "Card choice wording: what 'Pays less per shard' means"
+  ],
+  "annoyed": [
+    "Lots of text popups and boxes, I skip text",
+    "Three taps per card then rotating and placing, slow",
+    "Missing the order by 70 dollars with no obvious fix"
+  ],
+  "pleased": [
+    "The lesson lit exactly where to tap, first shift worked in seconds",
+    "Money jumping from $37 to $111 to $576 over the three shifts",
+    "4x speed button",
+    "Seeing the held you back tag on the machine"
+  ],
+  "bestMoment": "Lesson shift 3: $576 after $37, the numbers jumped",
+  "worstMoment": "Shift 4 on today's yard: $1,890, missed order by $830, 3k behind Sal, no idea what to fix quickly",
+  "oneChange": "Make the build part faster and more tap-and-go, with one clear thing to fix after a miss and less text",
+  "completionCode": "YZSP-3FW2"
+}

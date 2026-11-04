@@ -1,0 +1,43 @@
+{
+  "persona": "Priya, 34, ICU nurse",
+  "device": "phone",
+  "goalInOwnWords": "Build a line of machines that turns scrap into ingots, fill the orders each shift, and make more money than Sal.",
+  "stoppedWhere": "Results screen after the second try of game 1 (try from shift 5), after the survey and completion code",
+  "stoppedWhy": "About a dozen minutes in and I'd had my fill for a break. Beating Sal still feels possible, but I'd come back later, not right now. It is more fiddly than the NYT Mini.",
+  "lessonsFinished": 1,
+  "gamesFinished": 2,
+  "bestStars": 2,
+  "bestMoney": 16119,
+  "playedAnotherByChoice": true,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {"where": "Shifts 5-6 retry, furnace card", "what": "The lit spot for the Furnace was on top of an existing Dock, and placing it pushed the Dock back onto the shelf. I did not understand why.", "gotOutHow": "Followed the lit spots and put the Dock where it lit next."},
+    {"where": "Shift 5, first game", "what": "Could not tell how to close a $1,000 gap to the order", "gotOutHow": "Did not; missed the order and carried on"}
+  ],
+  "confused": [
+    "Lesson showed '0 ingots' after shift 1 and 2 with money still going up",
+    "Furnace card placed over a Dock and moved it to the shelf",
+    "Spare parts left on the shelf (Splitter, Dock) with no clear purpose beyond a Sell button",
+    "Shelf slot positions shift after each placement, so tapping the wrong slot was easy"
+  ],
+  "annoyed": [
+    "The job card is a wall of text before every game; I skimmed it",
+    "Missed an order by $50 on the retry after getting $4,410 of $4,460",
+    "Had to look at the screen often to find the lit spot far from the thumb"
+  ],
+  "pleased": [
+    "Lesson took a few minutes and told me exactly what to tap",
+    "Money tripling when the Crusher went in",
+    "'What held you back' after each shift said plainly what to fix",
+    "Forecast of what the shift will pay before starting",
+    "Shift by shift bars against Sal made me want to beat him",
+    "4x speed button"
+  ],
+  "bestMoment": "Shift 3 of the daily yard: $1,722 in one shift after the second feed and Tuner, with orders filling and ingot price rising.",
+  "worstMoment": "Missing the order by $50 on the retry.",
+  "oneChange": "Make it a 3-minute game I can finish on a break, with one clear thing to improve next time, and less text up front.",
+  "completionCode": "BTB2-4R88"
+}

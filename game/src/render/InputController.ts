@@ -15,7 +15,7 @@ import type { Machine, MachineKind } from '../sim/types';
 import { loadKeyMap } from './storage';
 import { DIR_DX, DIR_DY, RULES } from '../sim/rules';
 import { dropActions, smartFacing, strokeActions } from './placement';
-import { lessonTurnAt, nextPlanned, plannedFacing } from './guide';
+import { lessonPlaceAt, lessonTurnAt, nextPlanned, plannedFacing } from './guide';
 import { money } from '../content/format';
 import { inputTravelDirs, outputDirs } from '../sim/advice';
 import { explainRunError, placementWarning } from '../content/advice';
@@ -451,9 +451,15 @@ export class InputController {
     const held = this.machineById(this.heldId) ?? (selected && selected.x < 0 ? selected : undefined); // a part selected on the shelf is in hand
     // the lit spot takes the lit part, whatever shelf part is in hand: the words name it, so that is what lands
     const lit = (held && held.x >= 0) || hit?.inBin || this.host.lesson || !this.host.lit() ? null : nextPlanned(this.run);
+    // and in a lesson the same: its lit spot takes its lit part with nothing in hand (two of the twelfth panel tapped the lit spot with the
+    // part glowing on the shelf, and the lesson let go instead)
+    const lessonPart = this.host.lesson && cell && !(held && held.x >= 0) && !hit?.inBin ? lessonPlaceAt(this.run, cell.x, cell.y) : null;
     if (lit?.part && cell && lit.step.x === cell.x && lit.step.y === cell.y) {
       this.heldId = null;
       if (this.dropAt(lit.part, cell.x, cell.y)) this.selectedId = lit.part.id;
+    } else if (lessonPart && cell) {
+      this.heldId = null;
+      if (this.dropAt(lessonPart, cell.x, cell.y)) this.selectedId = lessonPart.id;
     } else if (hit?.inBin) {
       this.heldId = this.heldId === hit.m.id ? null : hit.m.id;
       this.selectedId = hit.m.id;

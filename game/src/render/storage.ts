@@ -537,14 +537,15 @@ export const loadForkBests = (): Record<string, { score: number; at: string }> =
       if (isObj(v) && isFiniteNum(v.score) && isValidSeed(seed)) out[seed] = { score: v.score, at: isStr(v.at) ? v.at : '' };
   return out;
 };
-export const recordForkBest = (seed: string, score: number): { newFork: boolean } => {
+/** A try's best on a yard. `game` is the player's own best game there: a try only says "new best" when it beats that too (the twelfth panel read it on a try that tied the game). */
+export const recordForkBest = (seed: string, score: number, game = -Infinity): { newFork: boolean } => {
   const all = loadForkBests();
-  const newFork = !own(all, seed) || score > all[seed].score;
-  if (newFork) {
+  const better = !own(all, seed) || score > all[seed].score;
+  if (better) {
     all[seed] = { score, at: new Date().toISOString() };
     write(K.forkBests, all);
   }
-  return { newFork };
+  return { newFork: better && score > game };
 };
 /** UTC dates with at least one finished run on this device (PLAN-v1 0.4.3 share line; the streak of 0.6.4 builds on it). Bounded, validated. */
 export const loadDaysPlayed = (): string[] => {

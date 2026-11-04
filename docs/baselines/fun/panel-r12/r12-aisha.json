@@ -1,0 +1,42 @@
+{
+  "persona": "Aisha",
+  "device": "desk",
+  "goalInOwnWords": "Build a production line from the parts dealt each shift so it earns more money, fill the six orders for stars, and beat Sal's total.",
+  "stoppedWhere": "Start of a second game on today's yard (shift 1 pick screen), then Menu, Save and go home, and the survey",
+  "stoppedWhy": "I had finished the game at $19,200, $40 short of Sal. I want to try again, but it means redoing thirty moves and my lunch is nearly over. I would do it tomorrow.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 3,
+  "bestMoney": 19200,
+  "playedAnotherByChoice": true,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "yes",
+  "wouldPay": "maybe",
+  "stuck": [],
+  "confused": [
+    "Lesson 1: 'Line closed' shows while Crusher and Furnace are still listed as needed, and the forecast says 'pays $37' with '0 of 20 ingots'.",
+    "'If every shift pays this: 0 of 20 ingots' line is unclear.",
+    "Results say Sal beat me by $40 although every shift column matches his, so I could not find the $40.",
+    "'You're $10/$20/$40 behind Sal' during the game: I could not tell how it is worked out.",
+    "Spare parts (extra Docks, Splitters) pile up on the shelf with only a small 'sell for $10' note.",
+    "Advice to add a Tuner when none was among that shift's cards."
+  ],
+  "annoyed": [
+    "Told a Tuner would clear the bottleneck, but the Tuner was not offered that shift.",
+    "Losing to Sal by $40 with no way to see the cause.",
+    "'Play again' means rebuilding the same line from scratch."
+  ],
+  "pleased": [
+    "Forecast before starting a shift ('will pay $1,500, up $636, fills the $880 order') because it is exact and hides nothing.",
+    "'What shipped' breakdown (37 x scrap @ $1 = $37), which shows how scoring works.",
+    "'What held you back' tells me the bottleneck.",
+    "Honest warning on New offers that the new cards may fit no better.",
+    "Order raise ($30, then $36, then $42) creates a compounding feel, and the Sal comparison is a real hook.",
+    "The scrap truck message explaining what to do with the free parts."
+  ],
+  "bestMoment": "Shift 6: placed the Tuner, saw the forecast say it fills the final $6,400 order, ran it and got all three stars.",
+  "worstMoment": "The results screen saying Sal beat me by $40 while his and my shift-by-shift numbers were identical.",
+  "oneChange": "Show exactly where the gap to Sal comes from, so I can replay with a specific change in mind.",
+  "completionCode": "FWJC-5HDE"
+}

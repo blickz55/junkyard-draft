@@ -1,0 +1,54 @@
+{
+  "persona": "Margaret",
+  "device": "phone",
+  "goalInOwnWords": "Build a line of machines that turns scrap into things that sell, fill each shift's order, and beat Sal's total money.",
+  "stoppedWhere": "Today's yard, retry from shift 5, with the forecast saying $50 short of the order and a spare Splitter on the shelf; I went to Menu, Save and go home, then the survey.",
+  "stoppedWhy": "I had finished the three lessons and one whole game and was told I was $50 short again, with Sal repeating that the furnace was the slow one. I could not tell what to do about it, and I was afraid of pressing the wrong thing and spoiling it, so I stopped rather than fiddle.",
+  "lessonsFinished": 3,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 16149,
+  "playedAnotherByChoice": true,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Lesson 2, shift 2, placing the second Hopper's belt",
+      "what": "The conveyor on the shelf was already glowing, I tapped the lit spot and nothing happened, and I did not know why.",
+      "gotOutHow": "Tapped the conveyor on the shelf again, then the spot."
+    },
+    {
+      "where": "Today's yard, shift 5 (and again on the retry)",
+      "what": "The forecast said $50 short of the order and Sal said the Furnace was the slow one, but I could not see what to change. The spare Splitter only offered 'Sell Splitter'.",
+      "gotOutHow": "Did not get out. I sold the spare parts for $10 each, which did not change the forecast, started the shift, missed the order by $50, then stopped on the retry."
+    }
+  ],
+  "confused": [
+    "Lesson 1, shift 1: the sign said 'Line closed' and 'Start the shift' while the Crusher and Furnace boxes were still not ticked.",
+    "The goal said 'Ship 20 ingots' but shift 1 and 2 only made scrap and shards, with 0 ingots.",
+    "A spare Crusher sat on the shelf in lesson 2 and I did not know whether to use it.",
+    "Selling spare parts: I was not sure the Sell buttons would not sell something I needed.",
+    "The job card on today's yard has many new words at once: orders, raise, truck, Sal's game.",
+    "'$50 short of the order' while the 'sell for $10' buttons do not change what the shift pays.",
+    "What the red dot on the order row meant until I read the shift summary."
+  ],
+  "annoyed": [
+    "The bottom part of the screen shows ghost text from the next card over the buttons during changes, which is hard to read.",
+    "Needing to tap the shelf piece again when it already looked picked.",
+    "Missing an order by only $50 after being warned and not being given a way to fix it.",
+    "Sal repeating 'the Furnace is the slow one' even after I added a Tuner."
+  ],
+  "pleased": [
+    "Sal tells me the next step in plain words each time, like a patient teacher.",
+    "The lessons were short and I felt clever by the end of the first.",
+    "'This shift will pay $X' before I start is wonderful.",
+    "Shift by shift against Sal at the end, and the sentence about which card he used.",
+    "The 'What held you back' notes after each shift."
+  ],
+  "bestMoment": "Lesson 1, shift 3: placing the Furnace and watching ingots take me from $111 to $576 with all three stars.",
+  "worstMoment": "Being told I was $50 short, not knowing what to do, and doing it again on the retry.",
+  "oneChange": "When the forecast says how short I am, tell me the one move that closes the gap, or what the spare part is for, in plain words.",
+  "completionCode": "7TRS-B2JR"
+}

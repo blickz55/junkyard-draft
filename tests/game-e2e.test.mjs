@@ -777,7 +777,8 @@ test(
     assert.equal(await page.locator('[data-testid=submit]').count(), 0, 'no submit control on a fork');
     assert.equal(await page.locator('[data-testid=export]').count(), 0);
     assert.equal(await page.locator('[data-testid=download]').count(), 0);
-    assert.match(await page.getByTestId('fork-best').textContent(), /^New best for this try: \$[\d,]+$/);
+    // the try builds nothing, so it falls short of this player's own game on the yard: no new best, though it is the first try (the twelfth panel)
+    assert.match(await page.getByTestId('fork-best').textContent(), /^Best for this try: \$[\d,]+$/);
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.bests.v2')), bestsBefore, 'a fork never touches the local bests');
     assert.ok(JSON.parse(await page.evaluate(() => localStorage.getItem('jd.forkbests.v1')))['classic-e2e-seed'], 'fork bests live in their own bucket');
     await page.getByTestId('share').click();

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { fitScreen } from '../viewport';
 import type { RunState } from '../../sim/run';
 import { audio } from '../audio';
-import { clearSave, recordBest, recordDayPlayed, recordForkBest, recordKinds, recordRun, recordStars } from '../storage';
+import { clearSave, loadBests, recordBest, recordDayPlayed, recordForkBest, recordKinds, recordRun, recordStars } from '../storage';
 import { runStars } from '../../sim/run';
 import type { Challenge } from '../challenge';
 import type { CardInput } from '../card';
@@ -205,7 +205,7 @@ export class ResultsScene extends Phaser.Scene {
     const fork = !!run.forkedFrom; // PLAN-v4 0.7.3: a fork is practice: it never touches the save, the bests or the days played
     if (!data.replayed && !fork) clearSave(); // a watched replay is someone else's run: the player's own unfinished save stays untouched
     const rec = data.replayed || fork ? { newOverall: false, newSeed: false, prevSeedBest: null } : recordBest(run.seed, run.score);
-    const forkRec = fork ? recordForkBest(run.seed, run.score) : { newFork: false };
+    const forkRec = fork ? recordForkBest(run.seed, run.score, loadBests().bySeed[run.seed]?.score) : { newFork: false };
     const stars = !data.replayed && !fork && run.job ? recordStars(run.seed, runStars(run)) : undefined; // rules v4: the career rank counts each yard's best
     if (!data.replayed && !fork) {
       recordDayPlayed();

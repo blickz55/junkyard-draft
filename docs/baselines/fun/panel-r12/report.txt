@@ -1,0 +1,36 @@
+6 agents in r12
+median fun 4, median clear 4
+finished a game: 5, played another by choice: 4
+come back tomorrow: yes 1, maybe 5, no 0
+would pay: yes 0, maybe 1, no 5
+stuck at least once: 5
+
+Aisha (desk): fun 4, clear 4, lessons 1, games 1, best 3★ $19200, again true
+  goal: Build a production line from the parts dealt each shift so it earns more money, fill the six orders for stars, and beat Sal's total.
+  stopped: I had finished the game at $19,200, $40 short of Sal. I want to try again, but it means redoing thirty moves and my lunch is nearly over. I would do it tomorrow.
+  one change: Show exactly where the gap to Sal comes from, so I can replay with a specific change in mind.
+
+Kenji (desk): fun 3, clear 4, lessons 1, games 2, best 2★ $15495, again true
+  goal: Build a factory chain from scrap to ingots, fill the shift's orders for stars and score more money than Sal the foreman.
+  stopped: Got the loop in two games. The last shift paid the same as the one before because my Tuner did nothing, and the coach walked me step by step in the retry. It's a neat puzzle but small; not hooked enough to grind it tonight.
+  one change: Let me place more than one machine per shift or give me a real choice of layout so there is depth beyond picking the lit card; and warn me when a part will not change the pay.
+
+Leo (phone): fun 3, clear 3, lessons 1, games 0, best 0★ $4656, again false
+  goal: build a line of machines that turns junk into money and ships enough each round to hit the order number
+  stopped: It turned into fiddly placing and reading. I kept missing the order and the dead-end text was a wall of words. Not a game I would open instead of Clash Royale.
+  one change: Make the build part faster and more tap-and-go, with one clear thing to fix after a miss and less text
+
+Margaret (phone): fun 4, clear 4, lessons 3, games 1, best 2★ $16149, again true
+  goal: Build a line of machines that turns scrap into things that sell, fill each shift's order, and beat Sal's total money.
+  stopped: I had finished the three lessons and one whole game and was told I was $50 short again, with Sal repeating that the furnace was the slow one. I could not tell what to do about it, and I was afraid of pressing the wrong thing and spoiling it, so I stopped rather than fiddle.
+  one change: When the forecast says how short I am, tell me the one move that closes the gap, or what the spare part is for, in plain words.
+
+Priya, 34, ICU nurse (phone): fun 4, clear 4, lessons 1, games 2, best 2★ $16119, again true
+  goal: Build a line of machines that turns scrap into ingots, fill the orders each shift, and make more money than Sal.
+  stopped: About a dozen minutes in and I'd had my fill for a break. Beating Sal still feels possible, but I'd come back later, not right now. It is more fiddly than the NYT Mini.
+  one change: Make it a 3-minute game I can finish on a break, with one clear thing to improve next time, and less text up front.
+
+Tom (phone): fun 3, clear 4, lessons 1, games 1, best 2★ $15666, again false
+  goal: Build a line of machines that turns junk into ingots, fill the orders each shift, and make more money than the foreman, Sal.
+  stopped: I'd beaten nothing new: the retry gave the identical score because I made the same choices, and the hint said no spot pays more, so I didn't know how to catch Sal. Fine for a bit, not something I'd open every day.
+  one change: Tell me plainly what to do differently to beat Sal when the hint says nothing helps, and clear the leftover parts off the shelf.

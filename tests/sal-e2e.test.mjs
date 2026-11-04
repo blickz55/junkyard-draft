@@ -209,6 +209,11 @@ test('the end of a game names Sal, his recording comes back to these results, an
     await page.getByTestId('sal-gap').textContent(),
     /^Sal gained most on you in shift [1-6], \$[\d,]+: (he took the .+ card there, and you took the .+|you both took the .+ card, and his went where it paid more)\.$/,
   );
+  // the money outside the shifts, which the bars do not show (the twelfth panel matched Sal shift for shift and ended $40 behind)
+  const { salGame } = await import('../game/src/render/sal.ts');
+  const sold = salGame('sal-results').actions.filter((a) => a.t === 'sell').length * 10;
+  assert.ok(sold > 0, 'Sal sold a spare on this yard');
+  assert.equal(await page.getByTestId('sal-sold').textContent(), `Outside the shifts, Sal sold spare parts for $${sold} and you for $0.`);
   const score = await page.getByTestId('score').textContent();
   const games = () => page.evaluate(() => JSON.stringify(localStorage.getItem('jd.bests.v2')).length);
   const stored = await games();

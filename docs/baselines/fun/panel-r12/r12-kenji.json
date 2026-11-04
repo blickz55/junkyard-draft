@@ -1,0 +1,43 @@
+{
+  "persona": "Kenji",
+  "device": "desk",
+  "goalInOwnWords": "Build a factory chain from scrap to ingots, fill the shift's orders for stars and score more money than Sal the foreman.",
+  "stoppedWhere": "Results screen after a second try from shift 5 on today's yard ($15,495, Sal still ahead), right after the survey",
+  "stoppedWhy": "Got the loop in two games. The last shift paid the same as the one before because my Tuner did nothing, and the coach walked me step by step in the retry. It's a neat puzzle but small; not hooked enough to grind it tonight.",
+  "lessonsFinished": 1,
+  "gamesFinished": 2,
+  "bestStars": 2,
+  "bestMoney": 15495,
+  "playedAnotherByChoice": true,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {"where": "Today's yard, turning machines", "what": "Crusher would not face the way I wanted; Turn left/right labels did not match what happened and took several taps", "gotOutHow": "tapped repeatedly until the arrow pointed the right way"},
+    {"where": "Placing parts from the shelf", "what": "Shelf slots shift after each part is placed so my next drag started on empty space and missed", "gotOutHow": "looked again and aimed at the new slot"}
+  ],
+  "confused": [
+    "Lesson 1 said Line closed with no Crusher or Furnace placed, then the shift paid scrap at $1",
+    "Rotate buttons Turn left/Turn right and which way a machine ends up facing",
+    "A Tuner on the last shift changed nothing and nothing told me before I started",
+    "The retry's lit spot sat on my old Dock, so the plan to replace it was not obvious"
+  ],
+  "annoyed": [
+    "Lesson holds your hand with one lit spot per step",
+    "Only one card per shift limits experimenting",
+    "Shelf slots reshuffle after each placement",
+    "Last shift paid exactly as much as shift 5"
+  ],
+  "pleased": [
+    "Live forecast of what the shift will pay, and it matched the real result",
+    "What held you back report after each shift, like Factorio production stats",
+    "Shift by shift bars against Sal give a target to chase",
+    "The jump from $37 to $576 in the first lesson",
+    "Try again from shift 5 to retry a decision"
+  ],
+  "bestMoment": "Adding the second Furnace and seeing the forecast jump by $1,416 and then the shift pay out as promised.",
+  "worstMoment": "Fighting the rotate buttons and misplaced drags with parts on the shelf, then the final shift paying exactly the same as the one before.",
+  "oneChange": "Let me place more than one machine per shift or give me a real choice of layout so there is depth beyond picking the lit card; and warn me when a part will not change the pay.",
+  "completionCode": "BAF6-XZFZ"
+}
