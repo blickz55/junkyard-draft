@@ -57,18 +57,35 @@ const SHELF_ROOM = 7;
 let shelfCount = SHELF_ROOM;
 let slotMap: number[] = [];
 /**
- * Each shelf part's slot, by its index on the shelf: the machines from the first slot in the order they came, and the belts on one stack
- * in the last, so the first box is always the newest card's first part when no spare waits (the eleventh panel: the belt stack moved
- * between the first box and the second, and a player who tapped the first box picked a belt).
+ * Each shelf part's slot, by its index on the shelf. A machine keeps the slot it came to until it leaves the shelf, a new one takes the
+ * first free slot, and the belts stack in the last: parts that closed up after a placement sent the next tap or drag to an empty slot or
+ * the wrong part (the eleventh and twelfth panels). `kept` is each part's slot from the last time, by id.
  */
-export function shelfSlotsOf(bin: readonly { kind: string }[]): number[] {
-  const machines = bin.filter((m) => m.kind !== 'conveyor').length;
-  const last = Math.max(SHELF_ROOM, machines + (machines < bin.length ? 1 : 0)) - 1;
+export function shelfSlotsOf(bin: readonly { id?: number; kind: string }[], kept: ReadonlyMap<number, number> = new Map()): number[] {
+  const slot = new Map<number, number>(); // index on the shelf to slot
+  const taken = new Set<number>();
+  bin.forEach((m, i) => {
+    const was = m.kind === 'conveyor' || m.id == null ? undefined : kept.get(m.id);
+    if (was !== undefined && !taken.has(was)) {
+      slot.set(i, was);
+      taken.add(was);
+    }
+  });
   let next = 0;
-  return bin.map((m) => (m.kind === 'conveyor' ? last : next++));
+  bin.forEach((m, i) => {
+    if (m.kind === 'conveyor' || slot.has(i)) return;
+    while (taken.has(next)) next++;
+    slot.set(i, next);
+    taken.add(next);
+  });
+  const top = taken.size ? Math.max(...taken) : -1;
+  const last = Math.max(SHELF_ROOM, top + 1 + (bin.some((m) => m.kind === 'conveyor') ? 1 : 0)) - 1;
+  return bin.map((m, i) => (m.kind === 'conveyor' ? last : slot.get(i)!));
 }
-export const setShelf = (bin: readonly { kind: string }[]) => {
-  slotMap = shelfSlotsOf(bin);
+let kept = new Map<number, number>();
+export const setShelf = (bin: readonly { id?: number; kind: string }[]) => {
+  slotMap = shelfSlotsOf(bin, kept);
+  kept = new Map(bin.flatMap((m, i): [number, number][] => (m.kind !== 'conveyor' && m.id != null ? [[m.id, slotMap[i]]] : [])));
   shelfCount = Math.max(SHELF_ROOM, slotMap.length ? Math.max(...slotMap) + 1 : 0);
 };
 export const shelfSlots = () => shelfCount;

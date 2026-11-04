@@ -15,6 +15,7 @@ import {
   BIN_Y,
   BIN_H,
   setShelf,
+  slotOfBin,
   shelfSlots,
   shelfSlotsOf,
   slotXY,
@@ -98,4 +99,18 @@ test('the shelf: belts share the last slot, every other part has its own from th
   setShelf(crowded);
   assert.equal(shelfSlots(), 8);
   setShelf(parts(7));
+});
+
+test('a shelf part keeps its slot while it stays: one placed leaves a gap, the rest stay put, and a new part takes the first free slot', () => {
+  const part = (id: number, kind: string) => ({ id, kind });
+  setShelf([part(1, 'hopper'), part(2, 'crusher'), part(3, 'dock'), part(9, 'conveyor')]);
+  assert.deepEqual([0, 1, 2, 3].map(slotOfBin), [0, 1, 2, 6]);
+  setShelf([part(2, 'crusher'), part(3, 'dock'), part(9, 'conveyor')]); // the Hopper went onto the yard
+  assert.deepEqual([0, 1, 2].map(slotOfBin), [1, 2, 6], 'the Crusher and the Dock did not move');
+  setShelf([part(2, 'crusher'), part(3, 'dock'), part(9, 'conveyor'), part(4, 'furnace')]);
+  assert.equal(slotOfBin(3), 0, 'a new part takes the first free slot');
+  setShelf([]);
+  setShelf([part(1, 'hopper')]);
+  assert.equal(slotOfBin(0), 0, 'an empty shelf starts again from the first slot');
+  setShelf(Array.from({ length: 7 }, () => ({ kind: 'hopper' })));
 });
