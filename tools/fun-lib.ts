@@ -312,7 +312,12 @@ const POLISH_FACTOR = 6;
  * A player who goes where the coach points, in the game itself: a card, then its parts on the lit spots, nothing moved after that. Three ways
  * of choosing the card: any of them, one that says it adds something now, or the one that adds most, which is Sal's game (render/sal.ts).
  */
-export function litGame(seed: string, choose: 'any' | 'helps' | 'most', sample = 0): PathResult {
+export function litGame(
+  seed: string,
+  choose: 'any' | 'helps' | 'most',
+  sample = 0,
+  built?: { picks: MachineKind[]; layout: Layout; spare: MachineKind[] }[],
+): PathResult {
   const s = newRun(seed);
   const rng = new Rng(`${seed}:fun:lit:${choose}:${sample}`);
   const act = (a: Action) => apply(s, a);
@@ -333,6 +338,7 @@ export function litGame(seed: string, choose: 'any' | 'helps' | 'most', sample =
         if (!part) break;
         dropActions(s, part, p.x, p.y, p.dir).forEach(act);
       }
+      built?.push({ picks: s.picks.slice(), layout: copy(s.layout), spare: s.bin.map((m) => m.kind) });
     }
     act({ t: 'run' });
     act({ t: 'next' });
@@ -408,6 +414,11 @@ export function yardTree(seed: string, budget: number, keepPaths = false): YardT
   // the yard's own hopper and dock stay put: the search otherwise shortens the belt for a few sales and strands everything after
   const anchors: ReadonlySet<number> = new Set(run.layout.machines.filter((m) => m.kind === 'hopper' || m.kind === 'dock').map((m) => m.id));
   const rng = new Rng(`${seed}:fun:tree`);
+  // Sal's line, a card at a time: an expert can always play what the lights play, so where a set of parts is one Sal held, the search
+  // also starts from his layout (on 12 of 40 held-out yards it had ended below him, 2026-11-04)
+  const salLine: { picks: MachineKind[]; layout: Layout; spare: MachineKind[] }[] = [];
+  litGame(seed, 'most', 0, salLine);
+  const salAt = new Map(salLine.map((b) => [`${b.picks.length}|${setKey(b.picks)}`, b]));
   const plan = (held: readonly MachineKind[], parent: Plan | null, added: MachineKind | null): Plan => {
     const key = `${held.length}|${setKey(held)}`;
     const known = memo.get(key);
@@ -430,6 +441,13 @@ export function yardTree(seed: string, budget: number, keepPaths = false): YardT
         const other = solve(start.layout, start.shelf, free, price, budget, rng, anchors, run.job);
         if (other.value > p.value) p = other;
       }
+    }
+    const sal = salAt.get(key);
+    if (sal) {
+      const start: Layout = { ...sal.layout, ...shiftTerms(Math.max(1, held.length), run.job, 0) };
+      delete start.rate; // the tree pays the raises along a path, as paidGame does, so a layout is priced as if none were filled
+      const other = solve(start, sal.spare, free, price, budget, new Rng(`${seed}:fun:sal:${key}`), anchors, run.job);
+      if (other.value > p.value) p = other;
     }
     memo.set(key, p);
     return p;

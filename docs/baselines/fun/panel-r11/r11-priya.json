@@ -1,0 +1,56 @@
+{
+  "persona": "Priya, 34, ICU nurse",
+  "device": "phone",
+  "goalInOwnWords": "Build a little factory line out of scrap so it earns as much money as possible each shift, fill each shift's order to get stars, and beat the foreman's score.",
+  "stoppedWhere": "The results screen after finishing my first full game on today's yard (4 of 6 orders, $14,655, Sal ahead by $3,009), right after getting the completion code.",
+  "stoppedWhy": "I had used up a lunch break's worth of time and my thumb was tired from tapping. I was a little annoyed that Sal's tips contradicted the card labels and that I missed two orders without knowing which card would have fixed it. I would try again tomorrow to beat Sal, but I would not start a second game right now.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 14655,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 4 of today's yard, after the scrap truck dropped a Hopper and Crusher on the left edge",
+      "what": "Sal lit no spot and said 'No spot pays more with the Furnace yet. It can wait on the shelf.' But the card text said to put a Furnace in front of the Crusher, and the forecast said I was $776 short of the order. I did not know where the Furnace or Dock should go, and the Dock had an outline I did not understand.",
+      "gotOutHow": "Guessed: put the Dock above the truck's crusher (forecast still short), undid it, then put the Furnace above the crusher and the Dock above that, like the lesson's chain. The forecast jumped to $2,994 and filled the order. It took about 15 taps."
+    },
+    {
+      "where": "Shift 5, choosing a card",
+      "what": "The card marked 'fits this line now' (Hopper + Crusher + Dock) could not reach the order by its own forecast, while the card that matched Sal's note about the slow furnace (Furnace + Splitter + Dock) was marked 'No spot pays more yet'. I could not tell which to take, and I never worked out what the leftover Splitter was for.",
+      "gotOutHow": "I did not get out of it. I followed the green label, ran the shift and missed the order by $372."
+    }
+  ],
+  "confused": [
+    "Home and job cards were wordy: 'Fill six orders', a scrap truck at shift 4, 'every price goes up 25%'. I skimmed and only half understood.",
+    "The lesson's top bar said 'Ship 20 ingots, 0 of 20' while money was going up with no ingots, and 'If every shift pays this: 0 of 20 ingots' sat next to a dollar figure.",
+    "'Show where parts go' was off by default after the lesson, which seemed odd for a new player.",
+    "The dashed 'Truck at shift 4' box on the yard meant nothing to me until it arrived.",
+    "What the Splitter is for. I carried one unused on the shelf for three shifts.",
+    "What 'Buy a belt: $20' does and when it is worth it.",
+    "Sal says nothing pays more while a forecast shows a clear gain elsewhere, so I did not know whether to trust him or the numbers.",
+    "Why one offer is marked 'Pays less per shard' or 'Adds a little', and whether to take the Plate Press at all."
+  ],
+  "annoyed": [
+    "Every part is two taps (the part, then the spot), and in the later shifts three-part cards made that 15 or more taps per shift on a phone.",
+    "Sal's advice and the card tags sometimes disagreed, and the one time I trusted the numbers instead I was right.",
+    "Missing the 5th and 6th orders with no card that would obviously fix it, while 'Sal beat you by $3,009' kept growing.",
+    "Having to skip to the end of each shift because watching at 1x is slow."
+  ],
+  "pleased": [
+    "The 'This shift will pay $X' forecast updating as I place parts, and 'fills the order' or '$4 short' as a mini-puzzle I can see before committing.",
+    "The 'ORDER FILLED! Every price up 25%' banner and the +$ pop on the dock.",
+    "The first lesson: 37 to 111 to 576 dollars over three shifts made the idea click in about three minutes, and Sal told me what to tap each time.",
+    "'What held you back' after each shift said in plain words what limited the line.",
+    "The results screen: the shift-by-shift bars climbing, a clear 'Plan a shift ahead' hint, and 'Try again from shift 5'.",
+    "Undo works and never punished a wrong guess."
+  ],
+  "bestMoment": "Putting the Furnace and Dock above the truck's crusher on my own after Sal said nothing would pay more, watching the forecast jump to $2,994 and 'fills the $2,720 order', then seeing the order-filled banner.",
+  "worstMoment": "Missing the order in shift 5 by $372 after taking the card the game labelled 'fits this line now', with no card on offer that I could tell would have hit it.",
+  "oneChange": "Make the coach and the card labels agree and say plainly which card will close the gap to the order, and cut the taps to place a kit (one tap to drop a whole card where it lit) so a shift on a phone does not feel like a chore.",
+  "completionCode": "S3HW-FF2Y"
+}

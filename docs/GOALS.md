@@ -37,6 +37,8 @@ A goal's bar never moves to make a number pass. A measure can change when it was
 
 - 2026-11-02: Yards differ also reads how varied the openings are (each yard's opening with its position taken out; the entropy over the most it could be: 1.000 on the 40 held-out yards). Goal 2's sixth ruin, every yard alike (straight lines, no junk, one job, one opening: variety 0.552), was +1 and is now −0.4: still not caught. Weighing Yards 15 instead of 5 caught it at −6 but let stars for nothing through at −8, so the weights stay. The card scores one game at a time, and a ruin that makes each game cleaner and every day the same is the one it cannot see; that needs a measure across days, not a heavier weight.
 
+- 2026-11-04: the card's expert ended below Sal, the competent tier, on 12 of 40 held-out yards: the search kept one layout per set of parts, from whichever path reached it first, and Sal's own line could be better. An expert can always play what the lights play, so where a set is one Sal held the search also starts from his layout. The same yards, rules 11: 79 before and 79 after, Skill 38 to 56 (tiers in order 0.475 to 0.725), the ladder 100 to 87 (the experts' third star 0.6 to 0.8, above its band), real picks 0.238 to 0.321 with the Press taken under a tenth of the times it is offered, the lowest dimension 38 to 54.
+
 ## What stays with the owner
 
 Spending money, anything public or sent to real people, legal choices and anything destructive. Real testers are the owner's call: the link and the instructions are ready. Goals 9 and 10 stand in until then, and they do not replace it.

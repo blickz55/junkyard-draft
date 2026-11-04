@@ -1,0 +1,59 @@
+{
+  "persona": "Leo, 16",
+  "device": "phone",
+  "goalInOwnWords": "Build a conveyor factory that turns junk into money, hit the order numbers each shift, and make more money than Sal.",
+  "stoppedWhere": "Results screen after the first full game (1 star, $8,769, Sal beat me by $8,895), then the survey.",
+  "stoppedWhy": "The lesson was fun because the glow told me what to tap and the money jumped. The real game was the same three-tap build every shift with boxes of text, the orders ran away from me, and I could not tell what to do differently. Losing by double to Sal with no clear way to fix it made me not want another go.",
+  "lessonsFinished": 1,
+  "gamesFinished": 1,
+  "bestStars": 1,
+  "bestMoney": 8769,
+  "playedAnotherByChoice": false,
+  "fun": 3,
+  "clear": 3,
+  "comeBackTomorrow": "no",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 3 of the real game, $13 short of the order",
+      "what": "It said the Crusher waits for scrap and lit the old crusher, but I could not work out what to do with it",
+      "gotOutHow": "I did not, I started the shift and missed the order by $13"
+    },
+    {
+      "where": "Shift 4, after picking the Furnace + Splitter + Dock card",
+      "what": "The card said it fits this line now, then Sal said no spot pays more with the Furnace and it could wait on the shelf. I could not tell what the furnace was for",
+      "gotOutHow": "Tapped an empty cell near the truck's crusher; a Shipping Dock appeared instead of the furnace, which added $195, and I carried on"
+    }
+  ],
+  "confused": [
+    "The job card is a wall of text and numbers; I tapped Start without reading it",
+    "A grey 'Show where parts go: off' toggle on the job card that I did not understand",
+    "The 'Truck at shift 4' dashed box with no obvious meaning until it showed up",
+    "Unplaced parts piling up on the shelf, including duplicate furnaces, splitters and docks",
+    "A card saying 'Fits this line now' and then Sal saying no spot pays more",
+    "Shift summary said the crusher waited for scrap and also that the crusher held me back 0 of 80 seconds",
+    "Why the orders jump to $4,050 and $5,820 while my shifts only creep up",
+    "What 'make room' means in 'plan a shift ahead, or make room, and you pass him'"
+  ],
+  "annoyed": [
+    "Missing the order by $13 with no clear fix",
+    "Doing the same hopper, crusher, dock three-tap build over and over for about $195 each time",
+    "Sal pulling further away every shift ($288 to $8,895 behind)",
+    "So much reading on every shift",
+    "Speed button resets to 1x every shift, so I tapped 4x six times"
+  ],
+  "pleased": [
+    "In the lesson, the glow showed exactly what to tap and the belt snapped together",
+    "Money jumping from $37 to $111 to $576 in the lesson",
+    "The pick-a-card step felt like Clash Royale",
+    "The live forecast ('This shift will pay $1,110, that fills the order') updating as I place a part",
+    "The green 'Fits this line now' tags and the Show me where button when I did not know where to put something",
+    "Tags on the machines like 'waiting for scrap' and '79 sped up'",
+    "The 4x speed button",
+    "A rival score to beat (Sal's number) is a hook"
+  ],
+  "bestMoment": "The first lesson payoff: shift 3 jumped to $576 with three stars after I followed the glow.",
+  "worstMoment": "Shift 3 in the real game: all that building and I missed the order by $13 with no idea what to change, then Sal was over $1,000 ahead and kept pulling away.",
+  "oneChange": "Make the real game as clear and quick as the lesson: fewer text boxes, a plain way to see what to change when I miss an order, and a rival I can actually catch.",
+  "completionCode": "JZJ2-E7VC"
+}

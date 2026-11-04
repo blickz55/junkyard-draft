@@ -1,0 +1,54 @@
+{
+  "persona": "Aisha",
+  "device": "desk",
+  "goalInOwnWords": "Build a line that turns scrap into the most valuable thing it can (ingots), fill each shift's money order to earn stars (an order is a money target for one shift, and filling it makes every price rise 25% of the starting price), and finish with more total money than Sal.",
+  "stoppedWhere": "Shift 6 retry (Try again from shift 6) on today's yard: the forecast was still $474 short of the $5,820 order and could not beat my $17,796 best, so I chose Menu, Save and go home, then the feedback form.",
+  "stoppedWhy": "I had my answer: 5 of 6 orders, $132 ahead of Sal, and the forecast said the retry could not reach three stars. I could not find the last 9 ingots without a pencil and it was no longer lunch. I would come back and replay this yard from shift 1 using the next-shift previews and the leftover parts I wasted.",
+  "lessonsFinished": 3,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 17796,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "yes",
+  "wouldPay": "maybe",
+  "stuck": [
+    {
+      "where": "Shift 2 of the real yard, building the second feed",
+      "what": "The forecast stayed flat at $1,080 while I placed the new hopper and crusher, and I thought the card did nothing. The crusher was also flagged as leading nowhere when I fed it into the side of the splitter.",
+      "gotOutHow": "Read the small grey note that it pays when the last piece is in, then moved the hopper and crusher so the crusher fed the first furnace from the side; the forecast jumped to $1,470."
+    },
+    {
+      "where": "Shifts 5 and 6, needing the last two orders",
+      "what": "A card with nothing to improve (the game said no spot pays more) left me with three splitters, a furnace and a dock on the shelf, and I did not realise they were reusable until the retry.",
+      "gotOutHow": "Did not fully get out: on the retry I rebuilt with the shelf parts but the forecast still came out $474 short of the last order."
+    }
+  ],
+  "confused": [
+    "How to play and the job card say every price goes up 25% but not whether of the current price or the starting one; I assumed it compounds and my plan was wrong until a furnace card showed ingots at $36.",
+    "The forecast stays at the old number until the last piece of a card is down, so the first two pieces seem to do nothing; the note explaining this is small and grey.",
+    "Lesson 1 lists Crusher and Furnace as needed, yet Sal says 'Line closed' for a belt from hopper to dock, which looked contradictory.",
+    "I only learned a shift is 80 seconds from the 'held you back for 63 of 80 seconds' line, never from a rule.",
+    "Spare parts from a card that cannot improve the line (I took a Furnace card with no spot that pays more) pile up on the shelf with no hint they can be used later."
+  ],
+  "annoyed": [
+    "No leaderboard in the test version; beating a daily board is what keeps me coming back to my other puzzles.",
+    "Picking a card that does nothing felt like a wasted turn, and New offers costs $40.",
+    "Placing and rearranging needs many single drags; making a three-furnace layout took nine or ten actions.",
+    "Missing the third star by about 9 ingots with no cheap way to find them."
+  ],
+  "pleased": [
+    "Every shift ends with an itemised receipt like '36 x ingot @ $24 = $864' that adds up to the dollar, including belt costs and spare sales.",
+    "The 'This shift will pay $X' forecast was exactly right every time and shows how short of the order I am before I start.",
+    "'What held you back' names the slow machine and the seconds lost, and the red tag sits on the machine itself.",
+    "The next shift's offers are shown ahead, so I can plan two moves out.",
+    "Sal as a running target: 'You're $30 behind Sal', then '$516 ahead of Sal'.",
+    "Dragging a placed piece to move it, and refusals that explain themselves (the dashed truck spot).",
+    "'One more order for three stars' plus 'Try again from shift 6'."
+  ],
+  "bestMoment": "Shift 2 of the real yard: I wired the second crusher into the first furnace myself, the forecast jumped from $1,080 to $1,470, and the result matched exactly.",
+  "worstMoment": "Seeing the retry of shift 6 still $474 short of the last order after rebuilding the whole layout, and not being able to find the last nine ingots.",
+  "oneChange": "Put a daily leaderboard back and say in the rules that each filled order adds 25% of the starting price; with those two, and a way to replay a yard from shift 1, I would play every day.",
+  "completionCode": "P6AM-F4DH"
+}

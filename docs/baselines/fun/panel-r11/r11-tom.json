@@ -1,0 +1,56 @@
+{
+  "persona": "Tom",
+  "device": "phone",
+  "goalInOwnWords": "Build a line of machines that turns scrap into things that sell for more, fill the money order each shift, and finish with more money than the foreman, Sal.",
+  "stoppedWhere": "Results screen after finishing my first full game on today's yard (5 of 6 orders, two stars, $16,758, $906 behind Sal), right after sending the survey. The Play again button was in front of me.",
+  "stoppedWhy": "I only stopped because the test's action budget ran out. Left to myself I would have pressed Play again straight away to beat Sal and get the third star: I missed the last order by $147 and I could see what to do better.",
+  "lessonsFinished": 2,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 16758,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "yes",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Shift 4 of today's yard, after the scrap truck dropped a Hopper and Crusher",
+      "what": "The helper said no spot pays more with the Furnace and it can wait on the shelf, but I could not tell where the Crusher's shards should go to make money",
+      "gotOutHow": "Put the Furnace where the Crusher sends and a Dock where the Furnace sends, then watched the money figure jump from $1,944 to $2,994 and fill the order"
+    },
+    {
+      "where": "Shift 5 of today's yard",
+      "what": "Short of the order and the helper again said nothing pays more; two spare Splitters on the shelf and no idea what they are for",
+      "gotOutHow": "Moved a Dock one square over and put the Furnace in between by myself, using Move; the figure said the order would fill and it did. Never worked out the Splitters"
+    }
+  ],
+  "confused": [
+    "Lesson 1 said the job was 20 ingots and then paid me for scrap and shards first; I did not know where the ingots would come from until the Furnace card came up",
+    "'The others go back on the truck' when picking a card: what truck?",
+    "Leftover spare parts (belts, Splitters) sat on the shelf and nobody said what they are for",
+    "'Every price goes up 25%' on the job card: I did not know what that meant for my line until I saw the next shift's numbers",
+    "'You're $X behind Sal' kept growing for the first four shifts even though I filled every order, so I could not tell whether I was doing well",
+    "The helper line says 'nothing pays more yet' or 'fits this line now' when the real answer was different, so I did not know which words to trust",
+    "Big list of cards on the first shift of the real game with no hint of which suits me except 'fits this line now'"
+  ],
+  "annoyed": [
+    "The helper note was wrong at least twice ('No spot pays more with the Furnace yet') and nearly talked me out of a good move",
+    "Rearranging a belt with Move takes about four taps, and picking a part twice (shelf then yard) feels fussy",
+    "Small print and a screen that scrolls; the lit squares are hard to find after the card is picked",
+    "The tip about how to beat Sal (plan a shift ahead, make room) only shows up at the very end",
+    "Racing a made-up foreman whose score is far out of reach at the start"
+  ],
+  "pleased": [
+    "Lesson 1 and 2 walked me through step by step with one instruction at a time, and it worked every time",
+    "The 'this shift will pay' figure before pressing Start, and it was exactly right",
+    "Each shift's 'what held you back' box told me which machine was the slow one, like a fault finder",
+    "Fixing the line myself on shift 4 and watching the money figure jump",
+    "Undo gave my money figure back when a change made it worse",
+    "Nothing asked for money or tricked me until the survey question"
+  ],
+  "bestMoment": "Shift 4: no lit squares, I put a Furnace and a Dock where the stray Crusher was dumping shards, the figure jumped by a thousand, and the shift filled the order.",
+  "worstMoment": "Missing the sixth order by $147 and the third star, and learning only on the results screen that Sal never moves a machine and that planning a shift ahead would have passed him.",
+  "oneChange": "Tell me earlier, plainly, what a spare part or a stray machine is for and how to beat Sal, and make the helper line stop saying nothing pays more when something does. Then I would play it every day like my word games.",
+  "completionCode": "JSD8-U7FB"
+}

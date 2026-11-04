@@ -1,0 +1,52 @@
+{
+  "persona": "Kenji",
+  "device": "desk",
+  "goalInOwnWords": "Build a small factory line from scrap, fill each shift's order, and finish with more money than Sal the bot by placing parts well.",
+  "stoppedWhere": "Results screen after finishing today's yard (17,382 dollars, 5 of 6 orders, Sal beat me by 282) and one 'try again from shift 6' that gave the same score; I sent the survey from there.",
+  "stoppedWhy": "I hit my budget and I could not find the last 474 dollars in the try. I got close enough to want to come back, but I wanted to think about my layout first, not click through the same shift again.",
+  "lessonsFinished": 2,
+  "gamesFinished": 1,
+  "bestStars": 2,
+  "bestMoney": 17382,
+  "playedAnotherByChoice": true,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Today's yard, shift 2 and shift 6",
+      "what": "Why an extra hopper feeding the old crusher changed nothing, and why the coach text said add a hopper when the furnace was the real limit; later, which of two slow machines a Tuner should touch.",
+      "gotOutHow": "Used the live forecast number as a test bench: moved the part, watched the number, kept what raised it."
+    },
+    {
+      "where": "Shift 5 and 6",
+      "what": "Could not make my spare splitters, docks and furnace useful; nothing told me how a spare splitter could help.",
+      "gotOutHow": "Did not; left them on the shelf."
+    }
+  ],
+  "confused": [
+    "The first lessons' big lit spots made it look like there was nothing for me to decide.",
+    "Sal's hint 'add a hopper' did not move the number; the furnace was the limit.",
+    "Coach text changed between 'short of scrap' and 'the furnace is the slow one' depending on where I held a part.",
+    "Splitters on the shelf with no obvious use after shift 3."
+  ],
+  "annoyed": [
+    "Lessons dictate every drag and every spot, five lit spots in a row in lesson 2.",
+    "The Tuner only showed up late, at shift 6, when it would have helped most earlier.",
+    "Card offers were often only one that fit, so it felt like a vending machine, not a draft.",
+    "Hold-back note repeated 'the furnace again, 13 of 80 seconds' two shifts running with no clean fix on offer."
+  ],
+  "pleased": [
+    "The forecast on every edit: 'this shift will pay X' lets me test a layout before running it.",
+    "The forecast was exactly right when the shift ran.",
+    "Skip to the end of the shift and 4x speed.",
+    "'What held you back' with real seconds.",
+    "Sal as a score to beat; ending one order and 282 dollars short made me want another go.",
+    "Moving a Tuner one cell was worth about 1,200 dollars."
+  ],
+  "bestMoment": "Shift 3 of today's yard: I put a furnace in my second hopper's shard line and the forecast jumped from 1,296 to 2,196 before I even ran it, then the shift paid exactly that.",
+  "worstMoment": "Lesson 2: five lit spots in a row, each with a sentence telling me what to drag, no choices at all.",
+  "oneChange": "Let me skip or shorten the lit-up lessons for someone who knows factory games, put the Tuner in the offers earlier, and say plainly why a placement did nothing so my spare parts are not dead weight.",
+  "completionCode": "SQFZ-9JTF"
+}

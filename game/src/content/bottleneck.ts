@@ -20,7 +20,9 @@ const would = (phrases: string[]): string => {
 /** The same machine, the same advice: said once, and after that only that it is still so. */
 export const sameLimit = (a: Bottleneck, b: Bottleneck): boolean =>
   !!a.machine && a.kind === b.kind && a.machine.id === b.machine?.id && a.fixes.join() === b.fixes.join();
-export const againLine = (b: Bottleneck): string => t('bottleneck.again', { name: machineWord(b.machine!.kind), held: int(b.heldTicks), total: int(b.ticks) });
+/** Only what held the line for some seconds can say so again: a machine short of scrap held nothing (the eleventh panel read "0 of 80 seconds"). */
+export const againLine = (b: Bottleneck): string =>
+  b.heldTicks > 0 ? t('bottleneck.again', { name: machineWord(b.machine!.kind), held: int(b.heldTicks), total: int(b.ticks) }) : bottleneckLine(b);
 
 export function bottleneckLine(b: Bottleneck): string {
   const m = b.machine;

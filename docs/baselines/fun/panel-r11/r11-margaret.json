@@ -1,0 +1,55 @@
+{
+  "persona": "Margaret, 70, retired school librarian",
+  "device": "phone",
+  "goalInOwnWords": "Build a line of machines that turns scrap into things worth more, ship enough to fill each order, earn stars, and try to beat the foreman's score.",
+  "stoppedWhere": "Home screen after the survey, having left today's yard (Beams for the hospital wing) halfway through: 3 of 6 orders filled, $4,359, just before the scrap truck at shift 4.",
+  "stoppedWhy": "I had gone well past the quarter hour I was asked for and halfway through a real yard felt like a natural place to rest my eyes. I liked it, but I would put it down now and come back another morning with my coffee.",
+  "lessonsFinished": 3,
+  "gamesFinished": 0,
+  "bestStars": 3,
+  "bestMoney": 4359,
+  "playedAnotherByChoice": false,
+  "fun": 4,
+  "clear": 4,
+  "comeBackTomorrow": "maybe",
+  "wouldPay": "no",
+  "stuck": [
+    {
+      "where": "Lesson 1, second pick (Furnace) and later picks, shelf under the yard",
+      "what": "Sal said tap the Furnace, but the parts on the shelf change places each time, so my habit of tapping the first box picked the spare belt piece instead.",
+      "gotOutHow": "Looked at the shelf again, saw the Furnace in the second box and tapped that."
+    },
+    {
+      "where": "Today's yard, shift 3 card choice",
+      "what": "The note said the furnace held me back and a Tuner or a second furnace would clear it, but the cards offered had no Tuner and the second-furnace card said no spot pays more yet, so I could not tell which card was right.",
+      "gotOutHow": "Trusted the green tag Fits this line now and took the Hopper kit; it worked ($1,995) but I do not know if it was the clever choice."
+    }
+  ],
+  "confused": [
+    "Lesson 1: Sal said the line was closed while the Crusher and Furnace were still shown as not ticked, and the shift was said to pay $37 when ingots were $24 each (it was plain scrap at $1).",
+    "Why a spare Crusher, spare Furnace or spare Dock sat on the shelf unused until Sal finally pointed at it.",
+    "Nobody said why I was asked to tap a Conveyor right after picking the Hopper (Lesson 2).",
+    "The note on every shift in today's yard, You're level with Sal. He builds a shift at a time and never moves a machine: plan ahead, or rearrange, meant nothing to me.",
+    "On the first real job card: what an order is exactly (one per shift?), the scrap truck, and marked spots, all at once.",
+    "The little panels with Turn right, Turn left, Move and Back to the shelf: I was afraid of lifting my part up and losing my place.",
+    "The picture of the belt looked broken near the Tuner in Lesson 3 although money was coming in."
+  ],
+  "annoyed": [
+    "Shelf boxes change order, so I cannot tap from memory.",
+    "Text at the bottom of the build panel was partly hidden behind buttons (if every shift pays this).",
+    "A lot of words on the job card for today's yard.",
+    "I never felt I made a clever choice myself; the tags decided for me."
+  ],
+  "pleased": [
+    "Sal telling me exactly one thing to do at a time, so I never felt lost.",
+    "The forecast before every shift (This shift will pay $576, up $465) and it being right to the dollar.",
+    "The red label on a machine saying held you back or waiting for scrap, which showed me the problem instead of lecturing.",
+    "Each lesson ending with one plain sentence I can remember.",
+    "Home saying my game is saved and asking before replacing it; Undo being there.",
+    "Buying a belt explained honestly as coming out of my score."
+  ],
+  "bestMoment": "The end of Lesson 3: ingots at $24 piling up, three stars filled, and the line I had arranged with a Tuner and a Splitter actually working.",
+  "worstMoment": "Starting today's yard: a wall of new words and a choice of three cards with no way to know which was right, plus a boast from Sal I could not use.",
+  "oneChange": "Let me make one choice on my own and tell me afterwards whether it was a good one, in plain words, and drop the lines comparing me to Sal.",
+  "completionCode": "6ZNG-7MKM"
+}

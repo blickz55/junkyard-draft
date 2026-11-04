@@ -9,6 +9,7 @@ import { truckCells, truckLoad, yardFor, TUTORIAL_SEED } from '../game/src/sim/y
 import { cardGain } from '../game/src/render/estimate';
 import { dropActions } from '../game/src/render/placement';
 import { yardLines } from '../game/src/render/mirror';
+import { cardPlan, offerWorths } from '../game/src/render/guide';
 
 const W = RULES.gridWidth;
 const seeds = Array.from({ length: 40 }, (_, i) => `truck-${i}`);
@@ -109,4 +110,24 @@ test('the yard in words names the kept cells until the truck comes', () => {
   const lines = yardLines(newRun(seed));
   assert.equal(lines.filter((l) => /kept for the scrap truck$/.test(l)).length, 2);
   assert.equal(yardLines(upTo(seed, RULES.yard.truck.shift)).filter((l) => /kept for the scrap truck$/.test(l)).length, 0);
+});
+
+test('as the truck comes, a card whose tag says it pays has a plan once picked: the coach builds on the yard with the truck', () => {
+  let checked = 0;
+  for (const seed of seeds) {
+    const s = upTo(seed, RULES.yard.truck.shift);
+    if (!yardFor(seed).delivery) continue;
+    const worths = offerWorths(s);
+    for (const [i, w] of worths.entries()) {
+      if (!(w.gain > 0)) continue;
+      const run = structuredClone(s);
+      const belts = run.bin.filter((m) => m.kind === 'conveyor').length;
+      const parts = cardParts(run.offers[i], run.job, seed);
+      const { plan } = cardGain(run.layout, parts, belts);
+      apply(run, { t: 'pick', i });
+      assert.deepEqual(cardPlan(run), plan, `${seed} ${run.picks.at(-1)}: the coach's plan is the tag's`);
+      checked++;
+    }
+  }
+  assert.ok(checked >= 40, `cards that pay as the truck comes (${checked})`);
 });

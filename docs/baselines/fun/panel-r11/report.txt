@@ -1,0 +1,36 @@
+6 agents in r11
+median fun 4, median clear 4
+finished a game: 5, played another by choice: 1
+come back tomorrow: yes 2, maybe 3, no 1
+would pay: yes 0, maybe 1, no 5
+stuck at least once: 6
+
+Aisha (desk): fun 4, clear 4, lessons 3, games 1, best 2★ $17796, again false
+  goal: Build a line that turns scrap into the most valuable thing it can (ingots), fill each shift's money order to earn stars (an order is a money target for one shift, and filling it makes every price rise 25% of the starting price), and finish with more total money than Sal.
+  stopped: I had my answer: 5 of 6 orders, $132 ahead of Sal, and the forecast said the retry could not reach three stars. I could not find the last 9 ingots without a pencil and it was no longer lunch. I would come back and replay this yard from shift 1 using the next-shift previews and the leftover parts I wasted.
+  one change: Put a daily leaderboard back and say in the rules that each filled order adds 25% of the starting price; with those two, and a way to replay a yard from shift 1, I would play every day.
+
+Kenji (desk): fun 4, clear 4, lessons 2, games 1, best 2★ $17382, again true
+  goal: Build a small factory line from scrap, fill each shift's order, and finish with more money than Sal the bot by placing parts well.
+  stopped: I hit my budget and I could not find the last 474 dollars in the try. I got close enough to want to come back, but I wanted to think about my layout first, not click through the same shift again.
+  one change: Let me skip or shorten the lit-up lessons for someone who knows factory games, put the Tuner in the offers earlier, and say plainly why a placement did nothing so my spare parts are not dead weight.
+
+Leo, 16 (phone): fun 3, clear 3, lessons 1, games 1, best 1★ $8769, again false
+  goal: Build a conveyor factory that turns junk into money, hit the order numbers each shift, and make more money than Sal.
+  stopped: The lesson was fun because the glow told me what to tap and the money jumped. The real game was the same three-tap build every shift with boxes of text, the orders ran away from me, and I could not tell what to do differently. Losing by double to Sal with no clear way to fix it made me not want another go.
+  one change: Make the real game as clear and quick as the lesson: fewer text boxes, a plain way to see what to change when I miss an order, and a rival I can actually catch.
+
+Margaret, 70, retired school librarian (phone): fun 4, clear 4, lessons 3, games 0, best 3★ $4359, again false
+  goal: Build a line of machines that turns scrap into things worth more, ship enough to fill each order, earn stars, and try to beat the foreman's score.
+  stopped: I had gone well past the quarter hour I was asked for and halfway through a real yard felt like a natural place to rest my eyes. I liked it, but I would put it down now and come back another morning with my coffee.
+  one change: Let me make one choice on my own and tell me afterwards whether it was a good one, in plain words, and drop the lines comparing me to Sal.
+
+Priya, 34, ICU nurse (phone): fun 3, clear 4, lessons 1, games 1, best 2★ $14655, again false
+  goal: Build a little factory line out of scrap so it earns as much money as possible each shift, fill each shift's order to get stars, and beat the foreman's score.
+  stopped: I had used up a lunch break's worth of time and my thumb was tired from tapping. I was a little annoyed that Sal's tips contradicted the card labels and that I missed two orders without knowing which card would have fixed it. I would try again tomorrow to beat Sal, but I would not start a second game right now.
+  one change: Make the coach and the card labels agree and say plainly which card will close the gap to the order, and cut the taps to place a kit (one tap to drop a whole card where it lit) so a shift on a phone does not feel like a chore.
+
+Tom (phone): fun 4, clear 4, lessons 2, games 1, best 2★ $16758, again false
+  goal: Build a line of machines that turns scrap into things that sell for more, fill the money order each shift, and finish with more money than the foreman, Sal.
+  stopped: I only stopped because the test's action budget ran out. Left to myself I would have pressed Play again straight away to beat Sal and get the third star: I missed the last order by $147 and I could see what to do better.
+  one change: Tell me earlier, plainly, what a spare part or a stray machine is for and how to beat Sal, and make the helper line stop saying nothing pays more when something does. Then I would play it every day like my word games.

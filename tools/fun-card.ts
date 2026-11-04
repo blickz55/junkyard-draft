@@ -104,13 +104,30 @@ if (isMainThread) {
   const named = opt('variant', '');
   const chosen = named ? (VARIANTS.find((v) => v.label === named) ?? VARIANTS.find((v) => v.label.includes(named))) : null;
   if (named && !chosen) throw new Error(`no variant ${named}`);
-  const base = cardOf(await measureAll(seeds, chosen ?? null, BUDGET, WORKERS, !args.includes('--trials')));
+  const measured = await measureAll(seeds, chosen ?? null, BUDGET, WORKERS, !args.includes('--trials'));
+  const base = cardOf(measured);
   console.log(printCard(chosen?.label ?? `the game, rules as they stand (${RULES.rounds} shifts)`, base));
-  const report: { yards: number; budget: number; ms: number; card: Card; ruined?: { label: string; total: number; drop: number }[] } = {
+  const report: {
+    yards: number;
+    budget: number;
+    ms: number;
+    card: Card;
+    /** each yard's four tiers, so a dimension can be read yard by yard */
+    rows: { seed: string; novice: number; casual: number; competent: number; expert: number; deeper?: number }[];
+    ruined?: { label: string; total: number; drop: number; dimensions: Record<string, number> }[];
+  } = {
     yards: YARDS,
     budget: BUDGET,
     ms: 0,
     card: base,
+    rows: measured.map((y) => ({
+      seed: y.tree.seed,
+      novice: y.tiers.novice.score,
+      casual: y.tiers.casual.score,
+      competent: y.tiers.competent.score,
+      expert: y.tree.best.score,
+      ...(y.deeper === undefined ? {} : { deeper: y.deeper }),
+    })),
   };
   if (args.includes('--trials')) {
     const list = opt('trials', '')
@@ -130,7 +147,12 @@ if (isMainThread) {
     for (const v of RUINED) {
       const c = cardOf(await measureAll(seeds, v, BUDGET, WORKERS));
       console.log(printCard(v.label, c));
-      report.ruined.push({ label: v.label, total: c.total, drop: base.total - c.total });
+      report.ruined.push({
+        label: v.label,
+        total: c.total,
+        drop: base.total - c.total,
+        dimensions: Object.fromEntries(c.dimensions.map((d) => [d.name, d.score])),
+      });
     }
     console.log(`\nValidation: ${report.ruined.map((r) => `${r.label} -${r.drop}`).join(', ')}`);
   }

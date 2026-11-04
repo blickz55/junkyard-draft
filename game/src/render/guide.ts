@@ -7,8 +7,8 @@
 import { apply, canBuyBelt, canReroll, cardParts, newRun, orderFor, RunError, type Action, type RunState } from '../sim/run';
 import { runLayout } from '../sim/sim';
 import { analyseRound } from '../sim/bottleneck';
-import { isTutorialSeed, priceOf, yardFor } from '../sim/yard';
-import type { Dir, Machine, MachineKind } from '../sim/types';
+import { isTutorialSeed, priceOf, truckLoad, yardFor } from '../sim/yard';
+import type { Dir, Layout, Machine, MachineKind } from '../sim/types';
 import { RULES } from '../sim/rules';
 import { hasText, t, type StringKey } from '../content/strings';
 import { money } from '../content/format';
@@ -168,11 +168,23 @@ export function cardPlan(r: RunState): Placed[] {
   const before = r.rounds[r.rounds.length - 1]?.layout;
   const key = `${r.seed}:${r.picks.join()}:${before ? JSON.stringify(before.machines) : ''}`;
   if (planned?.key !== key) {
-    const start = before ?? newRun(r.seed).layout;
+    const start = before ? buildStart(r, before) : newRun(r.seed).layout.machines;
     const belts = r.bin.filter((m) => m.kind === 'conveyor').length;
-    planned = { key, plan: cardGain({ ...r.layout, machines: start.machines }, cardParts(pick, r.job, r.seed), belts).plan };
+    planned = { key, plan: cardGain({ ...r.layout, machines: start }, cardParts(pick, r.job, r.seed), belts).plan };
   }
   return planned.plan;
+}
+/**
+ * The yard as this build began: the line as it ran last shift, and the scrap truck's load when it came as this shift started (rules v11).
+ * Without the load the coach planned the shift-4 card on a yard with no truck, and said no spot paid where the card's tag had seen one in
+ * front of the truck's Crusher (the eleventh panel, twice).
+ */
+function buildStart(r: RunState, before: Layout): Machine[] {
+  const top = Math.max(0, ...r.layout.machines.map((m) => m.id));
+  const load = truckLoad(r.seed, r.round, before).map(
+    (m, i) => r.layout.machines.find((q) => q.kind === m.kind && q.x === m.x && q.y === m.y) ?? { id: top + 1 + i, ...m },
+  );
+  return [...before.machines, ...load];
 }
 /** What a card on offer does for the line as it stands, on its own, in its best spot (render/estimate.ts). */
 export interface Worth {
