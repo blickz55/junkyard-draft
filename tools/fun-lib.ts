@@ -10,7 +10,7 @@ import { apply, cardParts, draftOffers, newRun, shiftTerms, type Action } from '
 import { analyseRound } from '../game/src/sim/bottleneck';
 import { createSim, step } from '../game/src/sim/sim';
 import { Rng } from '../game/src/sim/rng';
-import { starsFor, truckLoad, type Job } from '../game/src/sim/yard';
+import { starsFor, truckCells, truckLoad, type Job } from '../game/src/sim/yard';
 import { cardGain, type Placed } from '../game/src/render/estimate';
 import { dropActions } from '../game/src/render/placement';
 import { recipeLine } from './autoplay-lib';
@@ -436,7 +436,9 @@ export function yardTree(seed: string, budget: number, keepPaths = false): YardT
     const load = truckLoad(seed, held.length, base);
     if (load.length) {
       base.machines = [...base.machines, ...load.map((m, i) => ({ id: 9990 + i, ...m }))];
-      delete base.reserved;
+      const kept = truckCells(seed).filter((c) => !base.machines.some((m) => m.y * base.width + m.x === c));
+      if (kept.length) base.reserved = kept;
+      else delete base.reserved;
     }
     const shelf = [...(parent?.spare ?? []), ...(added ? cardParts(added, run.job, seed) : [])];
     let p = solve(base, shelf, free, price, parent ? budget : 0, rng, anchors, run.job);
