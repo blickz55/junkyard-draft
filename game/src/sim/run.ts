@@ -342,14 +342,7 @@ export function apply(s: RunState, a: Action): RunState {
       s.round++;
       Object.assign(s.layout, shiftTerms(s.round, s.job, s.filled));
       const load = truckLoad(s.seed, s.round, s.layout); // the scrap truck (rules v11)
-      if (load.length) {
-        // the spot was kept for it: from here it is the yard's (a second truck on trial keeps its own cells until it comes)
-        const kept = truckCells(s.seed).filter(
-          (c) => !load.some((m) => m.y * s.layout.width + m.x === c) && !s.layout.machines.some((m) => m.y * s.layout.width + m.x === c),
-        );
-        if (kept.length) s.layout.reserved = kept;
-        else delete s.layout.reserved;
-      }
+      if (load.length) delete s.layout.reserved; // the spot was kept for it: from here it is the yard's
       for (const m of load) s.layout.machines.push({ id: s.nextId++, ...m });
       s.offers = draftOffers(s.seed, s.round);
       s.phase = 'draft';

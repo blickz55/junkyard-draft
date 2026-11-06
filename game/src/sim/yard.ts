@@ -9,7 +9,7 @@
  *   classic-*   the original yard: the straight belt, no rubble, no job, an empty shelf
  */
 import { Rng } from './rng';
-import { DIR_DX, DIR_DY, RULES, TRIAL, type YardVariant } from './rules';
+import { DIR_DX, DIR_DY, RULES, type YardVariant } from './rules';
 import type { Dir, Layout, Machine, MachineKind, Material } from './types';
 
 export type JobMaterial = Extract<Material, 'ingot' | 'plate'>;
@@ -33,8 +33,6 @@ export interface Yard {
   variant?: Exclude<YardVariant, 'standard'>;
   /** the scrap truck (rules v11): where its Hopper lands as RULES.yard.truck.shift starts, the way it faces, and its Crusher in front */
   delivery?: { x: number; y: number; dir: Dir; crusher: { x: number; y: number; dir: Dir } };
-  /** on trial (TRIAL.truck2): a second truck's spot, chosen apart from the first; never set in play */
-  delivery2?: { x: number; y: number; dir: Dir; crusher: { x: number; y: number; dir: Dir } };
 }
 
 export const TUTORIAL_SEED = 'tutorial-1';
@@ -244,26 +242,18 @@ function withDelivery(seed: string, yard: Yard): Yard {
         }
       }
     }
-  if (!spots.length) return yard;
-  const delivery = spots[rng.int(spots.length)];
-  if (!TRIAL.truck2) return { ...yard, delivery };
-  // on trial: a second truck, its cells two or more from the first's as from the line
-  const first = [delivery, delivery.crusher];
-  const away = (x: number, y: number) => first.every((c) => Math.abs(c.x - x) + Math.abs(c.y - y) >= 2);
-  const rest = spots.filter((s) => away(s.x, s.y) && away(s.crusher.x, s.crusher.y));
-  return rest.length ? { ...yard, delivery, delivery2: rest[rng.int(rest.length)] } : { ...yard, delivery };
+  return spots.length ? { ...yard, delivery: spots[rng.int(spots.length)] } : yard;
 }
 
 /** The cells the scrap truck lands on, kept free until it comes (blind comparison 5: a lit spot put a part there and no truck came). */
 export function truckCells(seed: string): number[] {
-  const y = yardFor(seed);
-  return [y.delivery, y.delivery2].flatMap((d) => (d ? [d.y * W + d.x, d.crusher.y * W + d.crusher.x] : []));
+  const d = yardFor(seed).delivery;
+  return d ? [d.y * W + d.x, d.crusher.y * W + d.crusher.x] : [];
 }
 
 /** What the scrap truck lands as shift `round` starts on this yard, or nothing; all of it, or nothing when a spot is taken. */
 export function truckLoad(seed: string, round: number, layout: Pick<Layout, 'machines' | 'rubble' | 'width'>): Omit<Machine, 'id'>[] {
-  const y = yardFor(seed);
-  const d = round === RULES.yard.truck.shift ? y.delivery : TRIAL.truck2 && round === TRIAL.truck2 ? y.delivery2 : undefined;
+  const d = round === RULES.yard.truck.shift ? yardFor(seed).delivery : undefined;
   if (!d) return [];
   const load: Omit<Machine, 'id'>[] = [
     { kind: 'hopper', x: d.x, y: d.y, dir: d.dir },

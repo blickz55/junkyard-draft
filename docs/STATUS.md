@@ -4,6 +4,7 @@
 
 - **Goal 11 re-measured on e709741** (rules 12 with both panels' fixes): the rules monkey 1,000,263 random actions in 4,590 games, 791,927 refused in words, 0 failures (6 s); the browser monkey 1,000 sessions of 60 random taps on the tester build, 0 page errors (379 s). Both read from `tools/monkey.ts` output.
 - **A CI flake closed:** the fixture's lost-preflight filter now also matches a CORS reply without headers, which its comment had promised since c662f7d; the one CI failure of c5db0c7 was that wording on a `/weekly` read.
+- **The consultant panel** (a 19-agent workflow: four readers, two web researchers, four consultants, eight skeptics, one synthesis; its backlog in `tools/scratch/consult-backlog.md` for this session) chose seven items, about 39 hours, in build order: count the return (built), the game ends on the record and the appointment, yesterday's yard still open on Home, Sal in the share text, the score placed before the name is asked, "next time" after a miss, Steam plumbing behind an edition flag. Its one rules item was measured and set aside (DESIGN.md: a second scrap truck late, 78/77/78 against 79 on the tuning yards).
 - **The test link's report cannot be read:** `npm run playtest:report` says the Cloudflare login has expired (`npx wrangler@3 login` is the owner's). The link itself still serves 563eee7; a redeploy will need the login too.
 
 ## Session 2026-11-04 (109) — rules 12: the job's machine where a Dock stood (main; saves and scores from v11 do not carry over)
