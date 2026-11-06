@@ -44,6 +44,7 @@ export interface GuideContext {
   /** the machine selected right now */ selected?: number | null;
   /** the machine in hand */ held?: number | null;
   /** the player turned the lit spots off */ lights?: boolean;
+  /** a try started from the results' next-time line: the card it named, lit on the first draft (2026-11-06) */ showCard?: MachineKind | null;
   resumeNotice?: string | null;
 }
 export interface Guidance {
@@ -286,6 +287,8 @@ function coach(r: RunState, ctx: GuideContext): { text: string; spots: Spot[]; s
     return { text: ctx.watching ? t('hint.watching', { label: ctx.watching }) : t('coach.running'), spots: [] };
   if (r.phase === 'result') return { text: t(r.round >= RULES.rounds ? 'hint.summaryFinal' : 'hint.summary'), spots: [{ kind: 'next' }] };
   if (r.phase === 'draft') {
+    if (ctx.showCard && r.offers.includes(ctx.showCard))
+      return { text: t('coach.nextTimeCard', { name: machineName(ctx.showCard) }), spots: [{ kind: 'offer', i: r.offers.indexOf(ctx.showCard) }] };
     // nothing on offer adds to the line or gives it room: New offers deals three more, and on 60 yards, played Sal's way, that found a
     // better card 24 times in 37 (docs/DESIGN.md); with a card that fits, the coach never suggests paying for more
     if (canReroll(r) === null && offerWorths(r).every((w) => w.gain <= 0 && !w.room))

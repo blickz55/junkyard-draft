@@ -191,7 +191,7 @@ test('Move puts a machine in hand: the next tap is where it goes, and a stray ta
 
 test('the end of a game names Sal, his recording comes back to these results, and nothing is counted twice', { timeout: 120000 }, async () => {
   const page = await f.page();
-  const { draft, results, when } = page.jd;
+  const { api, draft, results, when } = page.jd;
   await page.goto(f.gameUrl('scene=game&seed=sal-results'));
   await draft();
   await page.getByTestId('job-start').click();
@@ -202,7 +202,6 @@ test('the end of a game names Sal, his recording comes back to these results, an
   assert.match(await page.getByTestId('delta-par').textContent(), /^(You beat Sal by \$[\d,]+|Sal beat you by \$[\d,]+|Level with Sal)$/);
   // nothing was built, so Sal won: the results say what his game cannot do, which is how to pass him
   assert.match(await page.getByTestId('delta-par').textContent(), /^Sal beat you/);
-  assert.match(await page.getByTestId('sal-how').textContent(), /never moves them/);
   // his shifts stand beside the player's, and the shift where he pulled furthest ahead is named with the cards taken there
   for (let n = 1; n <= 6; n++) assert.match(await page.getByTestId(`sal-shift-${n}`).textContent(), /^Sal \$[\d,]+$/);
   assert.match(
@@ -224,6 +223,22 @@ test('the end of a game names Sal, his recording comes back to these results, an
   assert.equal(await page.getByTestId('score').textContent(), score, 'your own game, not his');
   assert.equal(await games(), stored, 'it was counted when it ended, and not again');
   assert.deepEqual(page.errors, []);
+  // after a miss the results name the one card that would have paid, with the figure, in place of how to pass Sal (2026-11-06); the try
+  // starts at that shift with the card lit on its first draft
+  const nextLine = page.getByTestId('next-time');
+  if (await nextLine.count()) {
+    const text = await nextLine.textContent();
+    assert.match(text, /^Next time: in shift [1-6], the .+ card would have paid \$[\d,]+ more(, enough for the order)?\.$/);
+    const shift = Number(text.match(/in shift (\d)/)[1]);
+    assert.equal(await page.locator('[data-testid=sal-how]').count(), 0, 'the line stands in for how to pass Sal');
+    if (shift >= 2) {
+      assert.equal(await page.getByTestId('try-from').textContent(), `Try again from shift ${shift}`);
+      await page.getByTestId('try-from').click();
+      await when((n) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.phase() === 'draft' && window.__jd.state().round === n, shift);
+      assert.match(await api('hint'), /^This is the one: the .+ card paid more here\.$/, 'the card the line named is lit on the first draft');
+      assert.equal(await page.locator('.jd-spot[data-testid^=offer-]').count(), 1, 'one card lit');
+    }
+  } else assert.match(await page.getByTestId('sal-how').textContent(), /never moves them/);
   await page.ctx.close();
 });
 

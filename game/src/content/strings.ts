@@ -926,6 +926,10 @@ export const STRINGS = {
     'the build: a Plate Press on an ingot yard, where no spot pays because a plate takes two shards',
   ),
   'coach.showMe': s('Show me where', 'the build: light where the card pays, when the spots are not lit'),
+  'coach.nextTimeCard': s(
+    'This is the one: the {name} card paid more here.',
+    "a try from the results' next-time line: its first draft, the card lit (2026-11-06)",
+  ),
   'coach.placeFreeTouch': s('Tap the {name} on the shelf, then where you think it pays.', 'the build on a touch screen: no spot lit for this part'),
   'coach.placeFree': s(
     'Put the {name} where you think. The pay shows if it helps.',

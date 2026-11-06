@@ -45,6 +45,7 @@ import { loadReactions } from '../render/reactions';
 import { friendButton, reactionBar, talkButton } from './ReactionBar';
 import { syncNow } from '../render/link';
 import { salGame } from '../render/sal';
+import { nextTime } from '../render/nexttime';
 import { gamesEver, recordSalBeaten } from '../render/storage';
 import { recordWatched } from '../render/storage';
 import { challengeLink, challengeOutcome, type Challenge } from '../render/challenge';
@@ -149,8 +150,22 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
     }
     if (scene.lastMedal)
       deltas.append(h('span', { class: 'jd-badge-pill', tid: 'medal', style: 'font-size:0.75em' }, t('results.medalPill', { medal: cap(scene.lastMedal) })));
-    // level with Sal or behind him: what he cannot do, which is how to pass him (the fifth panel tied him four shifts running and asked how)
-    if (botPar != null && run.score <= botPar && !fork)
+    // after a miss, the one card that would have paid, with the figure (2026-11-06); else, level with Sal or behind him, what he cannot
+    // do, which is how to pass him (the fifth panel tied him four shifts running and asked how)
+    if (next)
+      deltas.append(
+        h(
+          'div',
+          { class: 'jd-amber', tid: 'next-time', style: 'flex-basis:100%; font-size:0.875em' },
+          t('results.nextTime', {
+            n: next.shift,
+            card: machineName(next.card),
+            figure: money(next.figure),
+            fills: next.fillsOrder ? t('results.nextTimeFills') : '',
+          }),
+        ),
+      );
+    else if (botPar != null && run.score <= botPar && !fork)
       deltas.append(h('div', { class: 'jd-dim', tid: 'sal-how', style: 'flex-basis:100%; font-size:0.875em' }, t('results.salHow')));
   };
   const yesterdayBest = (() => {
@@ -203,19 +218,28 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
         { small: true },
       )
     : null;
-  // the first order missed, as a try: it goes on no board, and it saves building the same first shifts again to get at the one that went wrong
+  // the first order missed, as a try: it goes on no board, and it saves building the same first shifts again to get at the one that went wrong.
+  // Since 2026-11-06 the try starts at the shift the next-time line names, with that card lit, when there is one from shift 2 on.
   const missed = job?.orders && !o.replayed ? run.rounds.findIndex((r, i) => r.earned < job.orders![i]) : -1;
+  const next = job?.orders && !o.replayed && !fork ? nextTime(run, sal?.score ?? null) : null;
+  const tryShift = next && next.shift >= 2 ? next.shift : missed > 0 ? missed + 1 : 0;
   const tryFrom =
-    missed > 0
+    tryShift >= 2
       ? btn(
-          t('results.tryFrom', { n: missed + 1 }),
+          t('results.tryFrom', { n: tryShift }),
           'try-from',
           () => {
             audio.unlock();
+            telemetry.track('fork_started');
             scene.scene.start('Game', {
               seed: run.seed,
               fresh: false,
-              fork: { origin: { hash: null, player: t('results.yourGame') }, actions: run.actions, round: missed },
+              fork: {
+                origin: { hash: null, player: t('results.yourGame') },
+                actions: run.actions,
+                round: tryShift - 1,
+                ...(next && next.shift === tryShift ? { showCard: next.card } : {}),
+              },
             });
           },
           { small: true },

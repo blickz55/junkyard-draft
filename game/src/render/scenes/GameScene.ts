@@ -28,7 +28,7 @@ import { TipsPanel } from '../../ui/TipsPanel';
 import { GamePanel, coarsePointer, type PanelState } from '../../ui/GamePanel';
 import { telemetry } from '../telemetry';
 import { RULES } from '../../sim/rules';
-import type { SimEvent } from '../../sim/types';
+import type { SimEvent, MachineKind } from '../../sim/types';
 import { CELL } from '../textures';
 import { fit } from '../atlas';
 import { label } from '../ui';
@@ -132,6 +132,8 @@ export class GameScene extends Phaser.Scene {
   private comeBack: { run: RunState; shown: ResultsShown } | null = null;
   /** "Show me" was tapped: this card's spots are lit */
   private reveal = false;
+  /** the card the results' next-time line named, lit on a try's first draft until the pick (2026-11-06) */
+  private showCard: MachineKind | null = null;
   /** the watched replay's identity, so a fork can name its origin (PLAN-v4 0.7.3) */
   private replayOrigin: ReplayOrigin | null = null;
   init(data: {
@@ -144,7 +146,12 @@ export class GameScene extends Phaser.Scene {
     challenge?: Challenge;
     replayHash?: string;
     replayPlayer?: string;
-    fork?: { origin: Omit<ForkOrigin, 'round'>; actions: Action[]; round: number };
+    fork?: {
+      origin: Omit<ForkOrigin, 'round'>;
+      actions: Action[];
+      round: number;
+      /** the card the results named, lit on the first draft */ showCard?: MachineKind;
+    };
     /** the game whose results a recording was opened from: it ends back there */
     comeBack?: { run: RunState; shown: ResultsShown };
   }) {
@@ -156,6 +163,7 @@ export class GameScene extends Phaser.Scene {
     if (data.fork) {
       // PLAN-v4 0.7.3: resume from the forked state's action prefix (deterministic), then mark the run as a fork
       const f = forkFrom(data.seed, data.fork.actions, RULES_VERSION, data.fork.round, data.fork.origin);
+      this.showCard = data.fork.showCard ?? null;
       data = { seed: data.seed, fresh: false, actions: f.actions.slice() };
       forked = f.forkedFrom!;
     }
@@ -630,6 +638,7 @@ export class GameScene extends Phaser.Scene {
   private onStateChange(a: Action | null) {
     if (!this.panel) return; // init() runs before create(): nothing to draw yet
     if (a) {
+      if (a.t === 'pick') this.showCard = null;
       this.panel.showInspector(null);
       this.inputCtl.clearToast();
       if (a.t === 'place' && !this.replayQueue) {
@@ -745,6 +754,7 @@ export class GameScene extends Phaser.Scene {
       selected: this.inputCtl?.selectedId,
       held: this.inputCtl?.heldId,
       lights: this.reveal || lightsOn(),
+      showCard: this.showCard,
       watching: this.replayLabel,
       mode: this.mode,
       resumeNotice: this.ctl.resumeNotice,

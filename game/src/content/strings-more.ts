@@ -354,6 +354,11 @@ export const MORE_STRINGS = {
   'results.deltaParOver': s('You beat Sal by {d}', 'deltas row'),
   'results.deltaParUnder': s('Sal beat you by {d}', 'deltas row'),
   'results.deltaParEqual': s('Level with Sal', 'deltas row'),
+  'results.nextTime': s(
+    'Next time: in shift {n}, the {card} card would have paid {figure} more{fills}.',
+    'the results after a miss, in place of how to pass Sal: the one card of that deal that would have paid most, with the figure (2026-11-06)',
+  ),
+  'results.nextTimeFills': s(', enough for the order', "the results: the next-time card's figure would have filled the order"),
   'results.salHow': s(
     'Sal takes the card that pays most this shift, and once his machines are down he never moves them. Pick for the shifts ahead, or move a machine to a better spot, and you pass him.',
     'the results, level with Sal or behind him: what his game cannot do',

@@ -11,6 +11,7 @@ older replays and saves on purpose.
 - **Yesterday's yard is still open on Home** while the game still takes it (48 hours) and this device has not had it checked: "Play it" keeps a missed day.
 - **The share text and the card carry Sal:** "$40 short of Sal's $19,240", the one mark everyone on a yard has.
 - **The score goes first, the name after:** the results say where your score would stand among today's games before anything is asked; "Put my score on the board" sends it, and only then asks a name for it. Home says how many games are on the board today, in words.
+- **After a miss, one thing to try:** the results name the card of that shift that would have paid most, with the figure ("Next time: in shift 5, the Furnace card would have paid $726 more, enough for the order"), and "Try again from shift 5" starts there with that card lit.
 - **For the people who count:** next-day and seven-day return visits in the funnel and the playtest report.
 
 ### Rules version 12: a Furnace where a Dock stood — 2026-11-04 (saves and scores from version 11 do not carry over)
