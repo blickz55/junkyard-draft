@@ -23,7 +23,7 @@ onStorageFailure(() =>
 
 declare global {
   interface ImportMeta {
-    env: { DEV: boolean; BUILD: string; VERIFIER_URL: string };
+    env: { DEV: boolean; BUILD: string; VERIFIER_URL: string; EDITION: 'web' | 'steam' };
   }
 }
 
@@ -61,6 +61,18 @@ pwa.register(import.meta.env.DEV || isTestEdition()); // 0.10.3: the service wor
 if (isTestEdition()) useTestWords();
 telemetry.configure({ url: () => (isTestEdition() ? location.origin : resolveVerifierUrl()), eager: isTestEdition() });
 telemetry.init();
+
+// The Steam edition (scripts/build-steam.mjs): the bridge module (render/steam.ts) loads in a chunk of its own and says where the
+// player is. The guard is inline on purpose: esbuild folds `import.meta.env.EDITION === 'steam'` and drops this line from a web
+// build, where a helper such as isSteamEdition() would be called at runtime and the import kept. Not through ui/lazy.ts either:
+// that static re-export list lands in the web build's lazy chunk. editionPlugin (scripts/esbuild-config.mjs) is the second net,
+// and tools/bundle-size.ts --forbid holds the web output to both.
+if (import.meta.env.EDITION === 'steam')
+  import('./render/steam')
+    .then((m) => m.steam().presence('home'))
+    .catch(() => {
+      /* no bridge chunk: the game plays as the web edition does */
+    });
 
 // Expose for dev tooling only (scene key lookups), behind the same gate as window.__jd; competitive authority never lives here.
 if (devEnabled()) (window as unknown as { __jdGame?: Phaser.Game }).__jdGame = game;

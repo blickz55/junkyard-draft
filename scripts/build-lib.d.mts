@@ -3,6 +3,7 @@ export function buildDist(opts: {
   dist: string;
   verifierUrl?: string;
   reports?: boolean;
+  edition?: 'web' | 'steam';
 }): Promise<{ size: number; commit: string; version: string; bundle: string; precache: string[] }>;
 export function listFiles(dir: string, base?: string): string[];
 export function renderServiceWorker(template: string, opts: { version: string; precache: string[] }): string;

@@ -10,9 +10,9 @@ import { buildOptions, cspFor, renderHeaders, DEFAULT_VERIFIER_URL } from './esb
  * Bundle game/src/main.ts into `dist` as main-<content hash>.js (0.8.5: the hosted bundle is cached immutably and every build
  * changes the name) with the verifier URL and CSP baked in, copy index.html (rewritten to the hashed name) and game/public,
  * render deploy/_headers into dist/_headers (Cloudflare Pages), write build.json. Returns { size, commit, version, bundle }. `reports` (default true) also writes the esbuild metafile under
- * .control-room/reports/.
+ * .control-room/reports/. `edition` (web | steam, default web) is the build's edition (scripts/esbuild-config.mjs): build.json says which.
  */
-export async function buildDist({ root, dist, verifierUrl = process.env.VERIFIER_URL || DEFAULT_VERIFIER_URL, reports = true }) {
+export async function buildDist({ root, dist, verifierUrl = process.env.VERIFIER_URL || DEFAULT_VERIFIER_URL, reports = true, edition = 'web' }) {
   fs.rmSync(dist, { recursive: true, force: true });
   fs.mkdirSync(dist, { recursive: true });
   let commit = 'unknown';
@@ -23,7 +23,7 @@ export async function buildDist({ root, dist, verifierUrl = process.env.VERIFIER
   } catch {}
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const result = await build({
-    ...buildOptions({ root, outdir: dist, dev: false, commit, version: pkg.version, verifierUrl, entryNames: 'main-[hash]' }),
+    ...buildOptions({ root, outdir: dist, dev: false, commit, version: pkg.version, verifierUrl, entryNames: 'main-[hash]', edition }),
     minify: true,
     sourcemap: false,
     metafile: true,
@@ -60,7 +60,7 @@ export async function buildDist({ root, dist, verifierUrl = process.env.VERIFIER
   fs.writeFileSync(path.join(dist, '_headers'), renderHeaders(fs.readFileSync(path.join(root, 'deploy', '_headers'), 'utf8'), { verifierUrl, bundle }));
   fs.writeFileSync(
     path.join(dist, 'build.json'),
-    JSON.stringify({ version: pkg.version, commit, builtAt: new Date().toISOString(), dev: false, verifierUrl, bundle, initial }, null, 2),
+    JSON.stringify({ version: pkg.version, commit, builtAt: new Date().toISOString(), dev: false, edition, verifierUrl, bundle, initial }, null, 2),
   );
   // 0.10.3: the service worker with this build's shell list (everything in dist but the worker itself and the Pages header file)
   const precache = listFiles(dist).filter((p) => p !== 'sw.js' && p !== '_headers');

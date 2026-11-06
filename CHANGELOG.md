@@ -11,6 +11,7 @@ older replays and saves on purpose.
 - **Spare parts sell from the coach:** once a card's plan is in, the coach says what its spare part sells for, with a Sell button beside it. A Dock on the shelf is always spare.
 - **The last two orders are a tenth higher**, because the lights now find more.
 - **Clearer words:** the job card says what an order does to the price ("ingots sell for $24, then $30, then $36"); the summary names only a fix whose card pays; how to pass Sal is said plainly; the shelf keeps the machines first and the belts last.
+- **Desktop:** the build has an edition, `web` (the product, unchanged) or `steam` (`npm run build:steam`, for a depot: it bakes the hosted verifier and carries no service worker); the Electron shell has a Steam bridge that answers "not available" until the owner installs `steamworks.js` with an app id; and a check holds the web bundle to carrying no Steam code.
 
 ### Rules version 11: the scrap truck — 2026-11-02 (saves and scores from version 10 do not carry over)
 

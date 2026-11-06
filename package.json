@@ -21,6 +21,7 @@
     "demo": "node --import tsx tools/demo.ts",
     "build": "node scripts/build.mjs",
     "build:test": "node scripts/build-test.mjs",
+    "build:steam": "node scripts/build-steam.mjs",
     "deploy:test": "node scripts/deploy-test.mjs",
     "playtest:report": "node --import tsx tools/playtest-report.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -31,7 +32,7 @@
     "funnel": "node --import tsx tools/funnel.ts",
     "selftest:instrumentation": "node control-room/selftest.mjs",
     "verifier": "node --import tsx server/verify.ts",
-    "test:quick": "node --import tsx --test --test-reporter=spec \"tests/*.test.ts\" tests/control-room-state.test.mjs",
+    "test:quick": "node --import tsx --test --test-reporter=spec \"tests/*.test.ts\" tests/control-room-state.test.mjs tests/steam-bridge.test.mjs",
     "desktop": "electron desktop/main.cjs",
     "desktop:icon": "node tools/make-icon.mjs",
     "desktop:pack": "npm run build && electron-builder --dir",
@@ -42,8 +43,8 @@
     "lint": "eslint .",
     "format": "prettier --write \"game/src/**/*.ts\" \"server/*.ts\" \"deploy/**/*.ts\" \"tools/**/*.{ts,mjs}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"control-room/*.mjs\" \"control-room/ui/*.js\" \"desktop/**/*.{js,mjs,cjs}\" \"eslint.config.mjs\"",
     "format:check": "prettier --check \"game/src/**/*.ts\" \"server/*.ts\" \"deploy/**/*.ts\" \"tools/**/*.{ts,mjs}\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"control-room/*.mjs\" \"control-room/ui/*.js\" \"desktop/**/*.{js,mjs,cjs}\" \"eslint.config.mjs\"",
-    "test:unit": "node --import tsx --test --test-reporter=spec --experimental-test-coverage --test-coverage-include=\"game/src/sim/**\" --test-coverage-include=\"server/**\" --test-coverage-exclude=\"server/dist/**\" --test-coverage-lines=95 --test-coverage-branches=85 --test-coverage-functions=88 --test-skip-pattern=\"computed off the request path|storage measurement|runBalance|gateVerdict|search policies: neutral|reroll study|derived sanity bound\" \"tests/*.test.ts\" tests/control-room-state.test.mjs && npm run test:timing",
-    "test:e2e": "node --import tsx --test --test-reporter=spec \"tests/*-e2e.test.mjs\" tests/deploy.test.mjs tests/control-room-live.test.mjs tests/desktop-smoke.test.mjs",
+    "test:unit": "node --import tsx --test --test-reporter=spec --experimental-test-coverage --test-coverage-include=\"game/src/sim/**\" --test-coverage-include=\"server/**\" --test-coverage-exclude=\"server/dist/**\" --test-coverage-lines=95 --test-coverage-branches=85 --test-coverage-functions=88 --test-skip-pattern=\"computed off the request path|storage measurement|runBalance|gateVerdict|search policies: neutral|reroll study|derived sanity bound\" \"tests/*.test.ts\" tests/control-room-state.test.mjs tests/steam-bridge.test.mjs && npm run test:timing",
+    "test:e2e": "node --import tsx --test --test-reporter=spec \"tests/*-e2e.test.mjs\" tests/deploy.test.mjs tests/editions.test.mjs tests/control-room-live.test.mjs tests/desktop-smoke.test.mjs",
     "test:timing": "node --import tsx --test --test-reporter=spec --test-name-pattern=\"computed off the request path|storage measurement|runBalance|gateVerdict|search policies: neutral|reroll study|derived sanity bound\" tests/verifier.test.ts tests/storage-measure.test.ts tests/balance-tool.test.ts"
   },
   "devDependencies": {
@@ -74,6 +75,7 @@
     "files": [
       "desktop/main.cjs",
       "desktop/preload.cjs",
+      "desktop/steam-bridge.cjs",
       "dist/**/*",
       "package.json"
     ],

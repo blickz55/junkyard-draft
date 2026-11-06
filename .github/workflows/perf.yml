@@ -74,10 +74,10 @@ jobs:
           echo "::warning::preset D failed its first measurement; measuring once more"
           node --import tsx tools/perf.ts --device D --speed 1 --renderer canvas --skip-electron --json perf-ci-d-2.json > /dev/null
           node --import tsx tools/perf-gate.ts perf-ci-d-2.json "$BASE" --strict --dropped-slack 0.15 --p95 34
-      - name: "Bundle weight (0.10.2): the production bundle gzips under 300 KiB"
+      - name: "Bundle weight (0.10.2): the production bundle gzips under 300 KiB, and the web edition carries no Steam code"
         run: |
           npm run build
-          node --import tsx tools/bundle-size.ts --max 300 --json bundle-size.json
+          node --import tsx tools/bundle-size.ts --max 300 --json bundle-size.json --forbid 'jdDesktop\??\.steam|steam-bridge'
       - name: "First interactive on slow 4G (0.10.2): the title tappable within 4 s on a mid-range phone"
         run: node --import tsx tools/first-interactive.ts --budget 4000 --json first-interactive.json
       - uses: actions/upload-artifact@v4
