@@ -126,7 +126,9 @@ export async function fixture({ verifier = false, verifierEnv = {}, browser: eng
         // a preflight that got no usable answer on a busy runner (twice on c662f7d, once on a9c0ac5): the verifier answers every preflight
         // with its CORS headers (tests/verifier.test.ts holds that), and the game treats a failed read as no data. A reply without the headers
         // ("No 'Access-Control-Allow-Origin' header is present on the requested resource") still counts.
-        const lostPreflight = /Response to preflight request doesn't pass access control check/.test(m.text());
+        const lostPreflight = /Response to preflight request doesn't pass access control check|No 'Access-Control-Allow-Origin' header is present/.test(
+          m.text(),
+        );
         if (
           m.type() === 'error' &&
           !playData &&
