@@ -2,7 +2,7 @@
 // keeps its baked verifier whatever the link says, and challenge links never carry the parameter there.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isLoopbackHost, overrideAllowedFor, pickVerifierUrl } from '../game/src/render/config';
+import { isLoopbackHost, isSteamEditionFor, overrideAllowedFor, pickVerifierUrl } from '../game/src/render/config';
 import { buildChallengeLink } from '../game/src/render/challenge';
 
 const BAKED = 'https://verifier.example';
@@ -14,6 +14,11 @@ test('loopback hosts are the only pages where the override counts in a productio
   assert.equal(overrideAllowedFor(false, '127.0.0.1'), true);
   assert.equal(overrideAllowedFor(true, 'junkyarddraft.com'), true, 'dev builds keep the override everywhere');
   assert.equal(overrideAllowedFor(false, ''), false, 'file:// (Electron) has an empty hostname and uses the baked URL');
+});
+
+test('isSteamEditionFor: the steam edition and nothing else (web is the product; there is no demo or test edition)', () => {
+  assert.equal(isSteamEditionFor('steam'), true);
+  for (const e of ['web', '', 'Steam', 'STEAM', 'demo', 'test', 'steam ']) assert.equal(isSteamEditionFor(e), false, JSON.stringify(e));
 });
 
 test('pickVerifierUrl: baked unless allowed and the override is an http(s) URL', () => {

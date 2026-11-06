@@ -48,6 +48,9 @@ test(
         assert.ok(fs.existsSync(saved) && fs.statSync(saved).size === 3, `clip written through the bridge at ${saved}`);
         fs.rmSync(saved, { force: true });
       }
+      // the Steam bridge (desktop/steam-bridge.cjs): a web build in a shell without steamworks.js says so, and an unlock is a quiet no
+      assert.deepEqual(await page.evaluate('window.jdDesktop.steam.status()'), { available: false }, 'no Steam behind the bridge');
+      assert.equal(await page.evaluate("window.jdDesktop.steam.unlock('smoke')"), false);
       // text entry without window.prompt (review F04): the title's player name, custom seed and replay import are DOM dialogs
       await page.waitForFunction(() => !!document.querySelector('[data-testid=settings]'), null, { timeout: 20000 }); // function predicates: the built page's CSP (0.8.0) blocks the eval that polls a string one
       await page.click('[data-testid=settings]');

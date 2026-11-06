@@ -81,6 +81,8 @@ Protocol level 3 (PLAN-v3 §1, reported by `/health`; 3 since 0.11.3, every step
 
 **Runtime dependency (the first, by the production roadmap's rule 6): `web-push`** builds the VAPID-signed, aes128gcm-encrypted request the push services require (RFC 8291 / 8292); writing that by hand is more risk than the dependency. The verifier posts the request itself (`server/push.ts`), one message a day per subscription at its hour (a 60 s timer), never anything else until the social notifications (0.11.7). Keys: `npx web-push generate-vapid-keys`, kept with the other secrets; `VAPID_SUBJECT` is the contact address (`mailto:`). Rows live in `push.json` next to the board (`PUSH_FILE` overrides).
 
+By the same rule, the client-side Steam package (`steamworks.js`, behind the Electron shell's bridge in `desktop/steam-bridge.cjs`) is the owner's decision once an app id exists; until then the shell requires it inside a try, its absence is the normal state, and the web bundle is held to carrying no Steam code (desktop/README.md).
+
 ## Run
 ```
 npm run verifier                       # dev: tsx, 127.0.0.1:4400, board in server/data/board.json

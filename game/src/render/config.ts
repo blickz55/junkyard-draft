@@ -22,3 +22,12 @@ export const overrideAllowed = (): boolean => overrideAllowedFor(import.meta.env
 export const NO_SERVER = 'https://verify.invalid';
 export const isTestEdition = (): boolean => import.meta.env.VERIFIER_URL === NO_SERVER;
 export const verifierUrl = (): string => pickVerifierUrl(location.search, overrideAllowed(), import.meta.env.VERIFIER_URL);
+/**
+ * The edition a build is for (`import.meta.env.EDITION`, scripts/esbuild-config.mjs): `web`, the product, or `steam`, the depot's
+ * build (scripts/build-steam.mjs). For runtime branches only (a word or a button that differs on Steam). It is not a tree-shaking
+ * gate: esbuild does not fold a call through a helper, so a module guarded by `if (isSteamEdition())` would still be bundled. What
+ * keeps the Steam bridge out of a web build is `editionPlugin` there, which resolves `render/steam` to steam-none.ts, and the one
+ * inline `import.meta.env.EDITION === 'steam'` guard in main.ts, which esbuild does fold.
+ */
+export const isSteamEditionFor = (edition: string): boolean => edition === 'steam';
+export const isSteamEdition = (): boolean => isSteamEditionFor(import.meta.env.EDITION);

@@ -3,15 +3,21 @@
 const { app, BrowserWindow, shell, ipcMain, session } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const { makeSteamHandler } = require('./steam-bridge.cjs');
+
+// IPC hardening (review): only our window's main frame may call the shell; anything else is refused before an argument is read.
+let mainWindow = null;
+function assertSender(event, what) {
+  if (!mainWindow || event.sender !== mainWindow.webContents || (event.senderFrame && event.senderFrame !== mainWindow.webContents.mainFrame))
+    throw new Error(`${what}: unexpected sender`);
+}
 
 // exported loop clips go straight to Downloads (no dialog); the name is sanitised and never leaves that folder.
-// IPC hardening (review): only our window's main frame may call it, only clip types, only bounded byte payloads.
-let mainWindow = null;
+// Only clip types, only bounded byte payloads.
 const CLIP_EXT = new Set(['.webm', '.mp4', '.gif']);
 const MAX_CLIP_BYTES = 64 * 1024 * 1024;
 ipcMain.handle('jd:save-clip', (event, name, bytes) => {
-  if (!mainWindow || event.sender !== mainWindow.webContents || (event.senderFrame && event.senderFrame !== mainWindow.webContents.mainFrame))
-    throw new Error('save-clip: unexpected sender');
+  assertSender(event, 'save-clip');
   const safe = String(name)
     .replace(/[^a-z0-9._$-]+/gi, '_')
     .slice(0, 80);
@@ -24,6 +30,45 @@ ipcMain.handle('jd:save-clip', (event, name, bytes) => {
   const file = path.join(dir, safe);
   fs.writeFileSync(file, buf);
   return file;
+});
+
+// The Steam bridge (desktop/steam-bridge.cjs, desktop/README.md). steamworks.js is required only inside a try, so a shell without it
+// (every shell until the owner installs it) answers "not available" and the game plays as the web edition does. It is attempted only
+// for a Steam build (dist/build.json's edition, scripts/build-steam.mjs) that knows its app id: SteamAppId in the environment when
+// Steam launched us, else steam_appid.txt beside the executable for a dev launch (and, unpackaged, beside package.json), a file that
+// never ships in a depot and is git-ignored.
+const DIST = path.join(__dirname, '..', 'dist');
+function buildEdition() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(DIST, 'build.json'), 'utf8')).edition === 'steam' ? 'steam' : 'web';
+  } catch {
+    return 'web';
+  }
+}
+function readAppId(text) {
+  const t = String(text ?? '').trim();
+  return /^[1-9]\d{0,9}$/.test(t) ? Number(t) : null;
+}
+function steamAppId() {
+  const fromSteam = readAppId(process.env.SteamAppId);
+  if (fromSteam) return fromSteam;
+  const dirs = [path.dirname(process.execPath)];
+  if (!app.isPackaged) dirs.push(app.getAppPath());
+  for (const dir of dirs) {
+    try {
+      const id = readAppId(fs.readFileSync(path.join(dir, 'steam_appid.txt'), 'utf8'));
+      if (id) return id;
+    } catch {}
+  }
+  return null;
+}
+const steam = makeSteamHandler({
+  load: () => require('steamworks.js'),
+  appId: buildEdition() === 'steam' ? steamAppId() : null,
+});
+ipcMain.handle('jd:steam', (event, op, args) => {
+  assertSender(event, 'steam');
+  return steam(op, args);
 });
 
 function createWindow() {
@@ -40,7 +85,7 @@ function createWindow() {
   });
   // JD_DEV_API=1 exposes the dev-only window.__jd test hooks (used by tools/perf.ts and smoke tests); never set in normal use.
   const query = process.env.JD_DEV_API === '1' ? { dev: '1' } : undefined;
-  win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), query ? { query } : undefined);
+  win.loadFile(path.join(DIST, 'index.html'), query ? { query } : undefined);
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://')) shell.openExternal(url);
     return { action: 'deny' };

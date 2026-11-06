@@ -77,6 +77,29 @@ export function stringNotesPlugin() {
     },
   };
 }
+/**
+ * The editions a build can be for. `web` is the product (the hosted site, the installable web app and the plain Electron shell);
+ * `steam` is the same game built for the Steam depot (scripts/build-steam.mjs), where the shell's Steam bridge is live.
+ * There is no demo or test edition here: the tester build is the web edition with NO_SERVER baked (scripts/build-test.mjs).
+ */
+export const EDITIONS = ['web', 'steam'];
+const STEAM_NONE = fileURLToPath(new URL('../game/src/render/steam-none.ts', import.meta.url));
+/**
+ * What keeps the Steam bridge out of a web build: every import of `render/steam` resolves to game/src/render/steam-none.ts
+ * (the same exports, no bridge) unless the edition is `steam`. The define `import.meta.env.EDITION` is for runtime branches
+ * and for the one inline guard in main.ts, which esbuild folds; a gate through a helper function (`isSteamEdition()` in
+ * render/config.ts) is not folded, and the module it guards would still be bundled, so the plugin is the gate and
+ * `tools/bundle-size.ts --forbid` holds the output to it (tests/editions.test.mjs).
+ */
+export function editionPlugin(edition = 'web') {
+  if (!EDITIONS.includes(edition)) throw new Error(`unknown edition ${JSON.stringify(edition)} (one of ${EDITIONS.join(', ')})`);
+  return {
+    name: 'edition',
+    setup(build) {
+      build.onResolve({ filter: /[\\/]render[\\/]steam$/ }, () => (edition === 'steam' ? undefined : { path: STEAM_NONE }));
+    },
+  };
+}
 /** Phaser's version and notice for the bundle's one legal comment (the per-file banners are dropped: the same MIT notice 17 times). */
 export function phaserNotice(root) {
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'node_modules', 'phaser', 'package.json'), 'utf8'));
@@ -91,6 +114,7 @@ export function buildOptions({
   version = '0.0.0',
   verifierUrl = process.env.VERIFIER_URL || DEFAULT_VERIFIER_URL,
   entryNames = 'main',
+  edition = 'web',
 }) {
   return {
     entryPoints: [path.join(root, 'game', 'src', 'main.ts')],
@@ -98,7 +122,7 @@ export function buildOptions({
     format: 'esm',
     // 0.10.2: the game is built from phaser/src with only the modules it uses (game/phaser-entry.cjs); the types still come from the package
     alias: { phaser: path.join(root, 'game', 'phaser-entry.cjs') },
-    plugins: dev ? [phaserFlagsPlugin()] : [phaserFlagsPlugin(), stringNotesPlugin()],
+    plugins: dev ? [phaserFlagsPlugin(), editionPlugin(edition)] : [phaserFlagsPlugin(), stringNotesPlugin(), editionPlugin(edition)],
     legalComments: 'none',
     banner: { js: phaserNotice(root) },
     target: ['es2022', 'chrome110', 'firefox110', 'safari16'],
@@ -113,6 +137,9 @@ export function buildOptions({
       'import.meta.env.BUILD': JSON.stringify(`${version}+${commit}`),
       // default verifier the title/results screens talk to; `?verifier=` overrides it at runtime only in dev builds and on loopback pages (game/src/render/config.ts)
       'import.meta.env.VERIFIER_URL': JSON.stringify(verifierUrl),
+      // which edition this build is (web | steam): runtime branches read it through render/config.ts; the Steam bridge's
+      // module is kept out of a web build by editionPlugin above, not by this value
+      'import.meta.env.EDITION': JSON.stringify(edition),
     },
     loader: { '.png': 'file', '.wav': 'file' },
   };

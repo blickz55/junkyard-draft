@@ -16,8 +16,12 @@ phaserjs/
 node_modules/
 dist/
 dist-test/
+dist-steam/
 .test-link.json
 release/
+
+# a dev launch's Steam app id (desktop/main.cjs reads it beside the executable, or beside package.json unpackaged); never in a depot
+steam_appid.txt
 
 # control room raw telemetry (summaries live in docs/STATUS.md)
 .control-room/events.jsonl
