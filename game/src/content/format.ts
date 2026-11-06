@@ -28,6 +28,11 @@ export function utcMonth(month: string): string {
 const LOCAL_HOUR = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
 /** "9:00 AM": a local hour of the day (the daily reminder's picker, 0.10.4). */
 export const localHour = (hour: number): string => LOCAL_HOUR.format(new Date(2026, 0, 1, hour, 0, 0));
+/** "7:00 PM": an instant as a time of day in the reminder's convention, in the device's zone unless one is given (tests). */
+export const localTime = (d: Date, timeZone?: string): string =>
+  (timeZone ? new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone }) : LOCAL_HOUR).format(d);
+/** When the next yard opens: the next 00:00 UTC after `now` (the daily is minted by UTC date, sim/daily.ts). */
+export const nextYardOpensAt = (now = new Date()): Date => new Date((Math.floor(now.getTime() / 86_400_000) + 1) * 86_400_000);
 /** "$1,758"; negative amounts use the typographic minus the share text always used: "−$40". */
 export const money = (n: number): string => (n < 0 ? `−${MONEY.format(-n)}` : MONEY.format(n));
 export const int = (n: number): string => INT.format(n);

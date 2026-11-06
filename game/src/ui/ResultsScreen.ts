@@ -39,7 +39,7 @@ import { labelFor } from '../identity/identity';
 import { todaySeed, revealGate, todayUTC } from '../render/daily';
 import { shiftUtcDate } from '../daily/streak';
 import { medalFor, medalsLine, type Medals } from '../daily/medals';
-import { openFeedback, openPlayerCard, openPolicy, openPrivacy, openThread } from './panels';
+import { openFeedback, openPlayerCard, openPolicy, openPrivacy, openRecord, openThread } from './panels';
 import { reactionLine, reactionTotal, type ReactionCounts } from '../content/reactions';
 import { loadReactions } from '../render/reactions';
 import { friendButton, reactionBar, talkButton } from './ReactionBar';
@@ -53,7 +53,7 @@ import { forkLabel } from '../content/fork';
 import type { CardInput } from '../render/card';
 import { loadForkBests } from '../render/storage';
 import { t } from '../content/strings';
-import { money, int, utcDateTime } from '../content/format';
+import { money, int, utcDateTime, localTime, nextYardOpensAt } from '../content/format';
 import { withTitle } from '../content/title';
 import { submissionOrigin } from '../render/devapi';
 import { yardLabel } from '../content/yard';
@@ -320,6 +320,30 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
     'margin:0.4em auto 0; max-width:44em; text-align:left',
   );
   header.append(foreman);
+  // the game ends on the record and the appointment (the consultant panel, 2026-11-06): every daily this audience plays ends on its stats
+  // and the time of the next one. The in-a-row count ticks when the score goes in, because a checked daily is what counts a day.
+  const daysRow = h('div', { class: 'jd-dim', tid: 'days-row', style: 'font-size:0.875em; margin-top:0.35em' });
+  const paintDays = () => {
+    const streak = currentStreak();
+    daysRow.replaceChildren(
+      t('share.days', { n: daysPlayed() }),
+      streak >= 2 ? t('results.checkedInARow', { n: streak }) : '',
+      ' · ',
+      h('button', { class: 'jd-link', tid: 'record', type: 'button', onClick: () => openRecord(scene) }, t('title.record')),
+    );
+  };
+  if (!o.replayed && !fork) {
+    paintDays();
+    header.append(daysRow);
+    if (isToday)
+      header.append(
+        h(
+          'div',
+          { class: 'jd-dim', tid: 'next-yard', style: 'font-size:0.875em; margin-top:0.2em' },
+          t('results.nextYard', { time: localTime(nextYardOpensAt()) }),
+        ),
+      );
+  }
   let foremanSettled = !!foreman.textContent?.trim() && bests.runs === 1;
   // Sal's shifts beside the player's, and the shift where he pulled furthest ahead: one thing to try next time (the eleventh panel asked for
   // "my shifts side by side with Sal's"). Only for a whole game of the player's own.
@@ -903,6 +927,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
         if (isMintedDailySeed(run.seed)) {
           const dd = dailyDateOf(run.seed);
           if (dd) recordDailyDate(dd);
+          paintDays(); // the day just counted: the in-a-row count ticks where the player is looking
         } // PLAN-v3 0.6.3: a checked daily (recorded or keep-best) counts for the streak by the daily's date; late ones returned above
         const label = body.player || player;
         scene.lastPlayer = label;

@@ -355,6 +355,8 @@ export const MORE_STRINGS = {
   'results.deltaBestUnder': s('{d} under your best on this yard ({best})', 'deltas row (d carries the minus sign)'),
   'results.deltaBestEqual': s('equals your best on this yard', 'deltas row'),
   'results.medalPill': s('Medal: {medal}', 'deltas row pill on a closed daily'),
+  'results.checkedInARow': s(' · {n} checked days in a row', 'the results, after the days played: consecutive checked dailies, shown from two'),
+  'results.nextYard': s('The next yard opens at {time}.', "the results on today's yard: the appointment, in the device's local time"),
   'results.sinceYesterday': s(
     "Since yesterday: {yesterday} on yesterday's yard, {today} today ({delta})",
     "under the yard label on today's daily when yesterday's was played on this device",

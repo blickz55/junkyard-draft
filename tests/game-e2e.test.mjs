@@ -493,6 +493,9 @@ test(
     assert.equal(bests.bySeed['classic-e2e-seed']?.score, completed, 'personal_best_equals_completed_score (seed)');
     assert.equal(bests.runs, 1);
     assert.equal(await page.evaluate(() => localStorage.getItem('jd.save.v1')), null, 'save cleared after finishing');
+    // the game ends on the record (2026-11-06): the days played and a way to the record; no appointment on a yard that is not today's
+    assert.match(await page.getByTestId('days-row').textContent(), /^\d+ days? played · Your record$/);
+    assert.equal(await page.locator('[data-testid=next-yard]').count(), 0, 'no next-yard line on a classic yard');
   },
 );
 
@@ -1259,3 +1262,52 @@ test(
     assert.deepEqual(page.errors, [], 'no page errors across the session');
   },
 );
+
+test("today's yard ends on the appointment, and the checked days in a row tick when the score goes in", { timeout: 120000 }, async () => {
+  const { api, draft, mode, results, when } = page.jd;
+  const dayBack = (n) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+  await page.goto(f.gameUrl());
+  await page.evaluate((ds) => localStorage.setItem('jd.dailystreak.v1', JSON.stringify(ds)), [dayBack(1)]);
+  const minted = await vjson('/daily'); // the minted seed, not the practice one: only today's yard has an appointment
+  await page.goto(f.gameUrl(`scene=game&seed=${minted.seed}`));
+  await draft();
+  await page.getByTestId('job-start').click();
+  await page.jd.noDialog('job-card');
+  // a game of this device's own: the card's parts sold in the first shift, so the replay is no duplicate of an earlier test's no-build game
+  await page.evaluate(() => {
+    const j = window.__jd;
+    j.pick(0);
+    for (const m of j.state().bin) if (m.kind !== 'conveyor') j.act({ t: 'sell', id: m.id });
+    j.run();
+  });
+  await mode('running', 10000);
+  await api('finishRun');
+  await mode('summary', 10000);
+  await api('next');
+  await draftRound(2, 10000);
+  await playThrough(5);
+  await results();
+  assert.match(await page.getByTestId('next-yard').textContent(), /^The next yard opens at \d{1,2}:\d{2} (AM|PM)\.$/);
+  assert.match(await page.getByTestId('days-row').textContent(), /^\d+ days? played · Your record$/, 'yesterday alone is no chain yet');
+  await page.getByTestId('submit').click();
+  // a device with no name yet is asked for one first (run alone, this test has none)
+  const asked = await page
+    .getByTestId('dialog-input')
+    .waitFor({ timeout: 2000 })
+    .then(
+      () => true,
+      () => false,
+    );
+  if (asked) {
+    await page.getByTestId('dialog-input').fill('e2e player');
+    await page.keyboard.press('Enter');
+  }
+  await when(() => /^Checked/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, 15000).catch(async (e) => {
+    throw new Error(`${e.message}; status read: ${await page.getByTestId('status').textContent()}`);
+  });
+  assert.match(await page.getByTestId('days-row').textContent(), /^\d+ days? played · 2 checked days in a row · Your record$/, 'the day just counted');
+  await page.getByTestId('record').click();
+  await page.waitForSelector('[data-testid=record-dialog]', { timeout: 5000 });
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => localStorage.removeItem('jd.dailystreak.v1'));
+});

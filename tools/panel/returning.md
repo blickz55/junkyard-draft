@@ -88,6 +88,7 @@ If you finish a whole game, the most useful thing you can do is decide honestly 
   "bestMoment": "...",
   "worstMoment": "...",
   "oneChange": "the one thing that would make your person want to play again",
+  "nextYardOpens": "what the end of a game said about when the next yard opens, word for word, or null",
   "completionCode": "..."
 }
 ```

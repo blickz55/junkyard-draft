@@ -21,6 +21,7 @@ console.log(
 );
 console.log(`would pay: yes ${count((r) => r.wouldPay === 'yes')}, maybe ${count((r) => r.wouldPay === 'maybe')}, no ${count((r) => r.wouldPay === 'no')}`);
 console.log(`stuck at least once: ${count((r) => r.stuck?.length)}`);
+console.log(`saw when the next yard opens: ${count((r) => r.nextYardOpens)}`);
 for (const r of reports) {
   console.log(
     `\n${r.persona} (${r.device}): fun ${r.fun}, clear ${r.clear}, lessons ${r.lessonsFinished}, games ${r.gamesFinished}, best ${r.bestStars}★ $${r.bestMoney}, again ${r.playedAnotherByChoice}`,
