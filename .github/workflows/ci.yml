@@ -45,7 +45,8 @@ jobs:
       - run: npm run build
       - run: npm run verifier:build
   engines:
-    runs-on: ubuntu-latest
+    # pinned (2026-11-06): ubuntu-latest moved past 24.04 and the pinned Playwright's WebKit build still links libicu 74, so WebKit would not launch there
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
