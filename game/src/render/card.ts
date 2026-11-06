@@ -5,7 +5,7 @@
  * outcome only when one was played, and "unverified" or "practice fork" otherwise. The text is composed by a pure
  * function so a test can pin every wording; the canvas just draws it.
  */
-import { roundGlyph, seedLabel, standingText, outcomeText, type Rank } from './share';
+import { roundGlyph, seedLabel, standingText, outcomeText, salText, type Rank } from './share';
 import { RULES } from '../sim/rules';
 import { t } from '../content/strings';
 import { money, int } from '../content/format';
@@ -30,6 +30,8 @@ export interface CardInput {
   build?: string;
   /** stars on the job (rules v4) */
   stars?: number;
+  /** Sal's game on this yard, the one mark everyone has (2026-11-06); the card draws three extras, so this one goes first */
+  sal?: number | null;
 }
 export interface CardText {
   title: string;
@@ -43,6 +45,7 @@ export interface CardText {
 
 export function cardText(i: CardInput): CardText {
   const extras: string[] = [];
+  if (i.sal != null) extras.push(salText(i.score, i.sal));
   let standing: string;
   if (i.fork) standing = t('card.try', { player: i.fork.player, round: i.fork.round + 1 });
   else if (i.verified) standing = standingText({ rank: i.rank, percentile: i.percentile, n: i.n, player: i.player }) || t('card.checked');

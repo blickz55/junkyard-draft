@@ -522,7 +522,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
       if (mine) void showReactions(mine);
       const prior = !mine ? loadSubmissions()[run.seed] : undefined;
       const hres = await fetch(
-        `${verifierUrl}/histogram?seed=${encodeURIComponent(run.seed)}${mine ? `&hash=${encodeURIComponent(mine)}` : ''}${groupParam(verifierUrl)}`,
+        `${verifierUrl}/histogram?seed=${encodeURIComponent(run.seed)}${mine ? `&hash=${encodeURIComponent(mine)}` : !o.replayed && !fork ? `&score=${run.score}` : ''}${groupParam(verifierUrl)}`,
         { headers: { ...groupHeaders(verifierUrl), ...authHeaders(verifierUrl) } }, // the key says whose friends to mark
       );
       const hg = (await hres.json()) as {
@@ -531,6 +531,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
         bins: { from: number; to: number; count: number }[];
         mine: { score: number; rank: number; bin: number; percentile: number } | null;
         around: { rank: number; player: string; score: number; mine: boolean }[];
+        would?: { score: number; rank: number } | null;
         friends?: { player: string; score: number }[];
         botPar?: number | null;
         medals?: Medals | null;
@@ -568,9 +569,13 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
             ? hg.n >= 5
               ? t('results.headBetter', { pct: int(hg.mine.percentile), n: int(hg.n), scope })
               : t('results.headRank', { rank: int(hg.mine.rank), n: hg.n, scope })
-            : hg.n
-              ? t('results.headUnchecked', { n: hg.n, scope })
-              : '',
+            : hg.would // the room before the form (2026-11-06): where this score would stand, before anything is asked
+              ? hg.n
+                ? t('results.headRoom', { n: hg.n, scope, rank: int(hg.would.rank) })
+                : t('results.headFirst', { scope })
+              : hg.n
+                ? t('results.headUnchecked', { n: hg.n, scope })
+                : '',
           !!hg.mine,
         );
       if (hg.botPar != null && hg.botPar !== botPar) {
@@ -819,19 +824,18 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
     }
   };
 
-  /** The display name for the board: the saved one, or a dialog on the first submission; null when the player cancels. */
-  const ensurePlayer = async (): Promise<string | null> => {
+  /**
+   * The display name for the board: the claimed one, else the saved one (claimed on the way), else anonymous. Nothing is asked before the
+   * score is sent (the consultant panel, 2026-11-06): the first social act was a text field, and a Cancel cost the game its whole retention
+   * layer for that player. The name is asked once the score is on the board, below.
+   */
+  const knownPlayer = async (): Promise<string> => {
     const id = loadIdentity();
     if (id.name && id.tag) return labelFor(id.name, id.tag); // claimed: the server stamps the same label from the key
-    let player = loadPlayer();
-    if (!player) {
-      const typed = await promptText(scene, t('results.nameTitle'), t('results.nameLabel', { max: 32 }), 'player', 32);
-      if (typed === null) return null;
-      player = typed.trim() ? typed.trim().slice(0, 32) : 'anonymous';
-      if (player !== 'anonymous') savePlayer(player);
-    }
+    const player = loadPlayer();
+    if (!player) return 'anonymous';
     // PLAN-v3 0.6.0: the local name migrates into the first claim; offline or refused, the submission still goes out with the plain name
-    if (player !== 'anonymous' && bearerAllowed(verifierUrl)) {
+    if (bearerAllowed(verifierUrl)) {
       const c = await claimName(verifierUrl, player);
       if (c && 'name' in c) return labelFor(c.name, c.tag);
     }
@@ -857,11 +861,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
       let verified = false,
         queued = false;
       try {
-        const player = await ensurePlayer();
-        if (player === null) {
-          setStatus(t('results.cancelled'));
-          return;
-        }
+        const player = await knownPlayer();
         setStatus(t('results.submitting'));
         let body: {
           ok: boolean;
@@ -961,6 +961,27 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
         } catch {
           setStatus(t('results.checkedNoRank', { score: money(body.score ?? run.score), label }), 'jd-green');
         }
+        // the room before the form (2026-11-06): the score is on the board; now, and only now, a name for it. Empty or cancelled leaves it
+        // anonymous, and Home's "Choose a name" claims it later, because the server relabels every entry of this key when a name is claimed.
+        if (player === 'anonymous' && bearerAllowed(verifierUrl) && !loadIdentity().name) {
+          const typed = await promptText(scene, t('results.nameAfterTitle'), t('results.nameAfterLabel', { max: 32 }), 'player', 32);
+          const name = typed?.trim().slice(0, 32) ?? '';
+          if (name) {
+            savePlayer(name);
+            const c = await claimName(verifierUrl, name);
+            if (c && 'name' in c) {
+              const named = labelFor(c.name, c.tag);
+              scene.lastPlayer = named;
+              recordSubmission(run.seed, {
+                score: body.score ?? run.score,
+                replayHash: body.entry.replayHash,
+                verifiedAt: body.entry.verifiedAt,
+                player: named,
+              });
+              setStatus(t('results.checkedNamed', { score: money(body.score ?? run.score), label: named }), 'jd-green');
+            }
+          }
+        }
         try {
           await loadBoard(true);
         } catch {
@@ -1017,6 +1038,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
       rerolls: run.rerolls,
       belts: run.belts,
       badges: badgesFor(run, botPar).map((b) => b.title),
+      sal: botPar, // what the deltas row prints: the device's figure, or the server's once it answers
     });
   scene.cardInput = () => ({
     seed: run.seed,
@@ -1035,6 +1057,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
     fork: fork ? { player: fork.player, round: fork.round } : null,
     permalink: permalink(),
     build: import.meta.env.BUILD,
+    sal: botPar,
   }); // PLAN-v4 0.7.4
   const cardBtn = btn(
     t('results.cardBtn'),

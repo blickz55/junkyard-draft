@@ -59,7 +59,7 @@ pwa.register(import.meta.env.DEV || isTestEdition()); // 0.10.3: the service wor
 
 // opt-in funnel events go to the same verifier the boards use; nothing is sent unless the player turned it on
 if (isTestEdition()) useTestWords();
-telemetry.configure({ url: () => (isTestEdition() ? location.origin : resolveVerifierUrl()), eager: isTestEdition() });
+telemetry.configure({ url: () => (isTestEdition() ? location.origin : resolveVerifierUrl()), eager: isTestEdition(), dayProp: !isTestEdition() }); // the test link's worker learns the day prop when it is next deployed
 telemetry.init();
 
 // The Steam edition (scripts/build-steam.mjs): the bridge module (render/steam.ts) loads in a chunk of its own and says where the

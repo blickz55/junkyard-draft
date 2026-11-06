@@ -88,3 +88,18 @@ test('badges in share text (PLAN-v1 0.4.6): only the detailed variant of a verif
   );
   assert.doesNotMatch(shareText({ ...base, badges: [], rank: { n: 1, of: 1 }, variant: 'detailed' }), /badges/);
 });
+
+test('Sal in the share text (2026-11-06): the one mark everyone on a yard has, right after the standing, in both variants and on a try; none without him', () => {
+  const under = shareText({ ...base, sal: 1274 });
+  assert.equal(under, "Junkyard Draft · Daily 2026-10-25 · $1,234\n░▒▓▓▒▒\nscore on this device, not yet checked\n$40 short of Sal's $1,274");
+  assert.match(shareText({ ...base, score: 1300, sal: 1274 }), /\nbeat Sal's \$1,274 by \$26$/);
+  assert.match(shareText({ ...base, score: 1274, sal: 1274 }), /\nlevel with Sal's \$1,274$/);
+  assert.match(
+    shareText({ ...base, sal: 1274, variant: 'detailed', daysPlayed: 3 }),
+    /not yet checked\n\$40 short of Sal's \$1,274\nshifts /,
+    'before the detail',
+  );
+  assert.match(shareText({ ...base, sal: 1274, fork: { player: 'Ann', round: 2 } }), /not on the board\n\$40 short of Sal's \$1,274$/, 'a try carries it too');
+  assert.doesNotMatch(shareText({ ...base, sal: null }), /Sal/);
+  assert.doesNotMatch(shareText(base), /Sal/);
+});

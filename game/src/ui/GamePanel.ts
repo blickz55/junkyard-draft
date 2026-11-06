@@ -27,7 +27,8 @@ import { prefs } from '../render/prefs';
 import { audio } from '../render/audio';
 import { cellLine, yardLines } from '../render/mirror';
 import { loadBests } from '../render/storage';
-import { isDailySeed, isMintedDailySeed, dailyDateOf } from '../sim/daily';
+import { isDailySeed, isMintedDailySeed } from '../sim/daily';
+import { dailyClosed } from '../render/daily';
 import { isWeeklySeed, weeklyClosed } from '../sim/weekly';
 import { challengerTotal, type Challenge } from '../render/challenge';
 import type { Spot } from '../render/guide';
@@ -229,9 +230,9 @@ export class GamePanel {
             ? t('game.suffixArchivedWeekly')
             : ''
           : isMintedDailySeed(seed)
-            ? dailyDateOf(seed) === new Date().toISOString().slice(0, 10)
-              ? ''
-              : t('game.suffixArchivedDaily')
+            ? dailyClosed(seed, new Date()) // yesterday's yard is open for 48 hours and plays for the board (2026-11-06)
+              ? t('game.suffixArchivedDaily')
+              : ''
             : isDailySeed(seed)
               ? t('game.suffixPractice')
               : ''; // PLAN-v3 0.6.1/0.6.2: the HUD says which daily this is

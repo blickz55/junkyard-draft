@@ -43,6 +43,7 @@ const section = (title: string, pairs: [string, number][]) => {
 };
 section('FIRST PLACEMENT REJECTED (reason)', groupBy('first_place_rejected', 'reason'));
 section('GAMES COMPLETED (mode)', groupBy('game_complete', 'mode'));
+section('DAILY STARTS (day)', groupBy('daily_start', 'day'));
 section('SUBMISSIONS (result)', groupBy('daily_submit_result', 'result'));
 section('SHARES (variant)', groupBy('share_copied', 'variant'));
 section('TIPS OPENED (id)', groupBy('tip_opened', 'id'));

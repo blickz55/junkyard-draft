@@ -8,7 +8,8 @@ import { choiceDialog } from './choice';
 import type { Job } from '../sim/yard';
 import { isTutorialSeed, TUTORIAL_SEED } from '../sim/yard';
 import { isWeeklySeed } from '../sim/weekly';
-import { isMintedDailySeed } from '../sim/daily';
+import { dailyDateOf, isMintedDailySeed } from '../sim/daily';
+import { todayUTC } from '../render/daily';
 import { RULES } from '../sim/rules';
 import { t } from '../content/strings';
 import { int, money } from '../content/format';
@@ -70,9 +71,9 @@ export function openJobCard(scene: Phaser.Scene, seed: string, job: Job, onStart
         ? 'job.head'
         : isWeeklySeed(seed)
           ? 'job.headWeek'
-          : isMintedDailySeed(seed)
+          : isMintedDailySeed(seed) && dailyDateOf(seed) === todayUTC()
             ? 'job.headToday'
-            : 'job.head';
+            : 'job.head'; // yesterday's yard, still open, is a job but not today's (2026-11-06)
   choiceDialog(scene, {
     title: t(head),
     tid: 'job-card',

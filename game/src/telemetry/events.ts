@@ -24,7 +24,7 @@ export const EVENTS = {
   game_begin: ['kind'],
   lesson_done: ['n'],
   second_game_start: [],
-  daily_start: [],
+  daily_start: ['day'],
   daily_submit_result: ['result'],
   share_copied: ['variant'],
   clip_exported: ['format'],

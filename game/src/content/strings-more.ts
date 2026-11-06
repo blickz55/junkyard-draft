@@ -337,6 +337,14 @@ export const MORE_STRINGS = {
   'results.headReplay': s('Recording', 'headline when watching'),
   'results.headBetter': s('Better than {pct} % of {n} games {scope}', 'headline (0.9.2): the standing sentence, five games or more'),
   'results.headRank': s('#{rank} of {n, plural, one {# game} other {# games}} {scope}', 'headline under five games'),
+  'results.headRoom': s(
+    '{n, plural, one {# game} other {# games}} {scope}. Yours would be #{rank}. Put it on the board to make it count.',
+    'headline before the score is sent (2026-11-06): where it would stand among the checked games',
+  ),
+  'results.headFirst': s(
+    'No game on the board {scope} yet. Yours would be first. Put it on the board to make it count.',
+    'headline before the score is sent, with an empty board',
+  ),
   'results.headUnchecked': s(
     '{n, plural, one {# game} other {# games}} {scope}. Put yours on the board to see where it stands.',
     'headline without a checked entry of this game',
@@ -418,6 +426,12 @@ export const MORE_STRINGS = {
   'results.submitTitle': s('Our server plays your game again to check it, then adds it to the board.', 'tooltip'),
   'results.submitting': s('Checking your game…', 'status line'),
   'results.cancelled': s('OK, not sent.', 'status line'),
+  'results.nameAfterTitle': s('Your score is on the board. A name for it?', 'dialog title, after the score is checked (2026-11-06)'),
+  'results.nameAfterLabel': s(
+    'Shown next to your score as Name#tag. Up to {max} characters. Leave it empty to stay anonymous.',
+    'dialog label, after the score is checked',
+  ),
+  'results.checkedNamed': s('Checked: {score}. On the board as {label}.', 'status line once the name is claimed after the score'),
   'results.busy': s('Our server is busy and nothing was saved. Try again in a moment.', 'status line'),
   'results.savedOffline': s("You're offline, so your game is saved here. It goes to the board next time you play online.", 'status line'),
   'results.savedButton': s('Saved · waiting for a connection', 'Submit button after an offline save'),

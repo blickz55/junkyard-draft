@@ -582,7 +582,7 @@ test(
     // spoiler_free_share (PLAN-v1 0.4.3): label · score, six glyphs, the standing, days played; no per-round dollars, no layout; the link (0.9.2)
     assert.match(
       shared,
-      /^Junkyard Draft · yard classic-e2e-seed · \$[\d,]+\n[░▒▓█]{6}\n#1 of 1 on the board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\n1 day played\nhttp:\/\/127\.0\.0\.1:\d+\/\?challenge=[0-9a-f]+(&verifier=[^\n]+)?$/,
+      /^Junkyard Draft · yard classic-e2e-seed · \$[\d,]+\n[░▒▓█]{6}\n#1 of 1 on the board as e2e player#[2-9A-HJKMNP-TV-Z]{4}\n(beat Sal's \$[\d,]+ by \$[\d,]+|\$[\d,]+ short of Sal's \$[\d,]+|level with Sal's \$[\d,]+)\n1 day played\nhttp:\/\/127\.0\.0\.1:\d+\/\?challenge=[0-9a-f]+(&verifier=[^\n]+)?$/,
       `default share text (0.9.2: the "Beat this" link of the checked game by default): ${JSON.stringify(shared)}`,
     );
     assert.doesNotMatch(shared, /shifts \$|hopper|conveyor|crusher|seed=/);
@@ -636,7 +636,8 @@ test('exports: the share card, the loop clip and the GIF say checked for this ch
   assert.match(card.filename, /^junkyard-classic-e2e-seed-\$[\d,]+-card\.png$/);
   assert.match(card.footer, /^junkyard draft · checked · build /);
   assert.match(card.standing, /^#1 of 1 on the board/);
-  assert.deepEqual(card.extras, [], 'no group, no medal, no challenge, no link: nothing invented');
+  assert.equal(card.extras.length, 1, 'no group, no medal, no challenge, no link: nothing invented but Sal (2026-11-06)');
+  assert.match(card.extras[0], /^(beat Sal's \$[\d,]+ by \$[\d,]+|\$[\d,]+ short of Sal's \$[\d,]+|level with Sal's \$[\d,]+)$/);
   // loop_clip_exports (PLAN-v1 0.4.2): the best round is re-simulated and recorded live in Chromium; the clip is non-empty, at least 3 s, and takes under 10 s to make
   const clip = await page.evaluate(() =>
     window.__jdGame.scene
@@ -1169,6 +1170,7 @@ test(
   async () => {
     await page.waitForSelector('[data-testid=daily-hist] .jd-hist-bar', { timeout: 10000 });
     assert.ok((await page.locator('[data-testid=daily-hist] .jd-hist-bar').count()) >= 1, 'the daily strip shows a mini histogram once a verified run exists');
+    assert.match(await page.getByTestId('daily-count').textContent(), /^\d+ games? today$/, 'the count as text, not a hover title (2026-11-06)');
     // the title's button plays the minted seed, and the HUD names it (PLAN-v3 0.6.1)
     await page.getByTestId('daily').click();
     await when((seed) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, dinfo.seed);
@@ -1263,51 +1265,92 @@ test(
   },
 );
 
-test("today's yard ends on the appointment, and the checked days in a row tick when the score goes in", { timeout: 120000 }, async () => {
-  const { api, draft, mode, results, when } = page.jd;
-  const dayBack = (n) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
-  await page.goto(f.gameUrl());
-  await page.evaluate((ds) => localStorage.setItem('jd.dailystreak.v1', JSON.stringify(ds)), [dayBack(1)]);
-  const minted = await vjson('/daily'); // the minted seed, not the practice one: only today's yard has an appointment
-  await page.goto(f.gameUrl(`scene=game&seed=${minted.seed}`));
-  await draft();
-  await page.getByTestId('job-start').click();
-  await page.jd.noDialog('job-card');
-  // a game of this device's own: the card's parts sold in the first shift, so the replay is no duplicate of an earlier test's no-build game
-  await page.evaluate(() => {
-    const j = window.__jd;
-    j.pick(0);
-    for (const m of j.state().bin) if (m.kind !== 'conveyor') j.act({ t: 'sell', id: m.id });
-    j.run();
-  });
-  await mode('running', 10000);
-  await api('finishRun');
-  await mode('summary', 10000);
-  await api('next');
-  await draftRound(2, 10000);
-  await playThrough(5);
-  await results();
-  assert.match(await page.getByTestId('next-yard').textContent(), /^The next yard opens at \d{1,2}:\d{2} (AM|PM)\.$/);
-  assert.match(await page.getByTestId('days-row').textContent(), /^\d+ days? played · Your record$/, 'yesterday alone is no chain yet');
-  await page.getByTestId('submit').click();
-  // a device with no name yet is asked for one first (run alone, this test has none)
-  const asked = await page
-    .getByTestId('dialog-input')
-    .waitFor({ timeout: 2000 })
-    .then(
-      () => true,
-      () => false,
+test(
+  "today's yard ends on the appointment, the score is placed before a name is asked, and the checked days in a row tick when it goes in",
+  { timeout: 120000 },
+  async () => {
+    const { api, draft, mode, results, when } = page.jd;
+    const dayBack = (n) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+    await page.goto(f.gameUrl());
+    await page.evaluate((ds) => localStorage.setItem('jd.dailystreak.v1', JSON.stringify(ds)), [dayBack(1)]);
+    const minted = await vjson('/daily'); // the minted seed, not the practice one: only today's yard has an appointment
+    await page.goto(f.gameUrl(`scene=game&seed=${minted.seed}`));
+    await draft();
+    await page.getByTestId('job-start').click();
+    await page.jd.noDialog('job-card');
+    // a game of this device's own: the card's parts sold in the first shift, so the replay is no duplicate of an earlier test's no-build game
+    await page.evaluate(() => {
+      const j = window.__jd;
+      j.pick(0);
+      for (const m of j.state().bin) if (m.kind !== 'conveyor') j.act({ t: 'sell', id: m.id });
+      j.run();
+    });
+    await mode('running', 10000);
+    await api('finishRun');
+    await mode('summary', 10000);
+    await api('next');
+    await draftRound(2, 10000);
+    await playThrough(5);
+    await results();
+    assert.match(await page.getByTestId('next-yard').textContent(), /^The next yard opens at \d{1,2}:\d{2} (AM|PM)\.$/);
+    assert.match(await page.getByTestId('days-row').textContent(), /^\d+ days? played · Your record$/, 'yesterday alone is no chain yet');
+    // the room before the form (2026-11-06): the score is placed among today's games before anything is asked
+    await when(() => /Yours would be/.test(document.querySelector('[data-testid=headline]')?.textContent || ''), null, 10000);
+    assert.match(
+      await page.getByTestId('headline').textContent(),
+      /^(\d+ games? today\. Yours would be #\d+\.|No game on the board today yet\. Yours would be first\.) Put it on the board to make it count\.$/,
     );
-  if (asked) {
+    // a device with no name yet: the score goes first, the name is asked once it is on the board
+    await page.evaluate(() => {
+      localStorage.removeItem('jd.player');
+      const id = JSON.parse(localStorage.getItem('jd.identity.v1') || 'null');
+      if (id) localStorage.setItem('jd.identity.v1', JSON.stringify({ ...id, name: null, tag: null }));
+    });
+    await page.getByTestId('submit').click();
+    await when(() => /^Checked/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, 15000).catch(async (e) => {
+      throw new Error(`${e.message}; status read: ${await page.getByTestId('status').textContent()}`);
+    });
+    assert.match(await page.getByTestId('days-row').textContent(), /^\d+ days? played · 2 checked days in a row · Your record$/, 'the day just counted');
+    // the name is asked now, after the score is checked; the answer relabels the entry
+    await page.getByTestId('dialog-input').waitFor({ timeout: 5000 });
     await page.getByTestId('dialog-input').fill('e2e player');
     await page.keyboard.press('Enter');
-  }
-  await when(() => /^Checked/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, 15000).catch(async (e) => {
-    throw new Error(`${e.message}; status read: ${await page.getByTestId('status').textContent()}`);
+    await when(() => /On the board as e2e player#/.test(document.querySelector('[data-testid=status]')?.textContent || ''), null, 10000);
+    await page.getByTestId('record').click();
+    await page.waitForSelector('[data-testid=record-dialog]', { timeout: 5000 });
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => localStorage.removeItem('jd.dailystreak.v1'));
+  },
+);
+
+test("yesterday's yard is still open on Home: a door to it while the rule takes it, none once this device has it checked", { timeout: 90000 }, async () => {
+  const { title, when } = page.jd;
+  const dayBack = (n) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+  await page.goto(f.gameUrl());
+  await title();
+  await page.evaluate(() => {
+    localStorage.removeItem('jd.dailystreak.v1');
+    localStorage.removeItem('jd.save.v1');
   });
-  assert.match(await page.getByTestId('days-row').textContent(), /^\d+ days? played · 2 checked days in a row · Your record$/, 'the day just counted');
-  await page.getByTestId('record').click();
-  await page.waitForSelector('[data-testid=record-dialog]', { timeout: 5000 });
-  await page.keyboard.press('Escape');
+  const info = await vjson('/daily');
+  assert.equal(info.previous?.date, dayBack(1), 'the verifier names yesterday beside today');
+  await page.goto(f.gameUrl());
+  await title();
+  await page.getByTestId('yesterday-line').waitFor({ timeout: 10000 });
+  const line = await page.getByTestId('yesterday-line').textContent();
+  assert.ok(line.startsWith("Yesterday's yard is still open · ") && line.endsWith('Play it'), line);
+  await page.getByTestId('yesterday-play').click();
+  await when((seed) => window.__jdGame.scene.isActive('Game') && !!window.__jd && window.__jd.state().seed === seed, info.previous.seed);
+  await page.waitForSelector('[data-testid=job-card]');
+  assert.doesNotMatch(await page.getByTestId('hud-seed').textContent(), /past day/, 'it plays for the board, not as practice');
+  assert.equal(await page.locator('.jd-modal h2, .jd-modal .jd-head').first().textContent(), 'The job', "yesterday's job is a job, not today's");
+  // once this device has yesterday checked, the door is gone
+  await page.goto(f.gameUrl());
+  await title();
+  await page.evaluate((d) => localStorage.setItem('jd.dailystreak.v1', JSON.stringify([d])), dayBack(1));
+  await page.goto(f.gameUrl());
+  await title();
+  await when(() => !!document.querySelector('[data-testid=today-card]')?.dataset.seed, null, 10000);
+  assert.equal(await page.getByTestId('yesterday-line').isVisible(), false, 'no door once it is checked');
   await page.evaluate(() => localStorage.removeItem('jd.dailystreak.v1'));
 });

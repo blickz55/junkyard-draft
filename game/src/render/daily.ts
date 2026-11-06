@@ -15,7 +15,15 @@ export interface DailyInfo {
   seed: string;
   closesAt: string;
   commitment: string;
+  /** yesterday's yard, as the server names it beside today's (PLAN-v3 0.6.1); it stays open for 48 hours from its 00:00 UTC */
+  previous?: { date: string; seed: string };
 }
+const previousOf = (x: unknown): DailyInfo['previous'] => {
+  const q = x as { date?: unknown; seed?: unknown } | null;
+  return q && typeof q.date === 'string' && typeof q.seed === 'string' && isMintedDailySeed(q.seed) && dailyDateOf(q.seed) === q.date
+    ? { date: q.date, seed: q.seed }
+    : undefined;
+};
 const KEY = 'jd.daily.v1';
 
 export const todayUTC = (now = new Date()): string => now.toISOString().slice(0, 10);
@@ -33,6 +41,8 @@ export function acceptDaily(body: unknown, now = new Date()): DailyInfo | null {
     closesAt: typeof x.closesAt === 'string' ? x.closesAt : '',
     commitment: typeof x.commitment === 'string' ? x.commitment : '',
   };
+  const previous = previousOf((x as { previous?: unknown }).previous);
+  if (previous) info.previous = previous;
   try {
     localStorage.setItem(KEY, JSON.stringify(info));
   } catch {
@@ -44,14 +54,16 @@ export function acceptDaily(body: unknown, now = new Date()): DailyInfo | null {
 export function cachedDaily(now = new Date()): DailyInfo | null {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<DailyInfo> | null;
-    return raw && raw.date === todayUTC(now) && typeof raw.seed === 'string' && isMintedDailySeed(raw.seed)
-      ? {
-          date: raw.date,
-          seed: raw.seed,
-          closesAt: typeof raw.closesAt === 'string' ? raw.closesAt : '',
-          commitment: typeof raw.commitment === 'string' ? raw.commitment : '',
-        }
-      : null;
+    if (!(raw && raw.date === todayUTC(now) && typeof raw.seed === 'string' && isMintedDailySeed(raw.seed))) return null;
+    const info: DailyInfo = {
+      date: raw.date,
+      seed: raw.seed,
+      closesAt: typeof raw.closesAt === 'string' ? raw.closesAt : '',
+      commitment: typeof raw.commitment === 'string' ? raw.commitment : '',
+    };
+    const previous = previousOf(raw.previous);
+    if (previous) info.previous = previous;
+    return info;
   } catch {
     return null;
   }
@@ -68,6 +80,19 @@ export async function fetchDaily(verifierUrl: string, timeoutMs = 2500): Promise
   } catch {
     return null;
   }
+}
+/**
+ * Yesterday's yard, still open (the consultant panel, 2026-11-06): the rule has accepted yesterday's daily for 48 hours since PLAN-v3 0.6.3,
+ * and no screen offered it. Null unless today's daily names yesterday, that day is not closed, and this device has no checked daily for it.
+ */
+export function yesterdayOffer(
+  info: DailyInfo | null,
+  dailyDates: readonly string[],
+  now = new Date(),
+): { seed: string; date: string; closesAt: string } | null {
+  const prev = info?.previous;
+  if (!prev || prev.date !== shiftUtcDate(todayUTC(now), -1) || dailyDates.includes(prev.date) || dailyClosed(prev.seed, now)) return null;
+  return { seed: prev.seed, date: prev.date, closesAt: `${shiftUtcDate(prev.date, 2)}T00:00:00.000Z` };
 }
 /** Whether a minted daily seed's window has closed (48 h after 00:00 UTC of its date): UTC arithmetic, same rule as the verifier. */
 export const dailyClosed = (seed: string, now = new Date()): boolean => {

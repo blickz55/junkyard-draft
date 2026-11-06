@@ -40,3 +40,17 @@ test('share card text (PLAN-v4 0.7.4): verified standing only when verified; med
   assert.equal(fork.standing, "a try from Jon#7Q2M's game, from shift 3");
   assert.equal(fork.footer, 'junkyard draft · a try · not on the board');
 });
+
+test('Sal on the card (2026-11-06): the first extra when his game is known, nothing when it is not', () => {
+  assert.deepEqual(cardText({ ...base, verified: false }).extras, []);
+  assert.deepEqual(cardText({ ...base, verified: false, sal: 1274 }).extras, ["$40 short of Sal's $1,274"]);
+  assert.deepEqual(
+    cardText({ ...base, verified: false, sal: 1274, permalink: 'http://x/?seed=1' }).extras,
+    ["$40 short of Sal's $1,274", 'http://x/?seed=1'],
+    'first, because the card draws three',
+  );
+  assert.deepEqual(cardText({ ...base, score: 1300, verified: true, sal: 1274, medal: 'gold' }).extras, [
+    "beat Sal's $1,274 by $26",
+    'medal: gold (final board)',
+  ]);
+});

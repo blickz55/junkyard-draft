@@ -37,7 +37,7 @@ import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { identityDialog, playerLabel } from './identityDialog';
 import { loadIdentity, fetchClaimed, bearerAllowed } from '../render/identity';
 import { HIDDEN_LABEL } from '../identity/identity';
-import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWeekly, todaysYard } from '../render/daily';
+import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWeekly, todaysYard, yesterdayOffer } from '../render/daily';
 import {
   openArchive,
   openDivision,
@@ -61,7 +61,7 @@ import { isFresh, latestPlacement } from '../render/divisions';
 import { periodLabel, placeLine } from '../content/division';
 import { reactionLine, type ReactionCounts } from '../content/reactions';
 import { flushPending, describeOutcomes } from '../render/pending';
-import { loadPending, loadSalBeaten } from '../render/storage';
+import { loadDailyDates, loadPending, loadSalBeaten } from '../render/storage';
 import { salLater } from '../render/sal';
 import { groupHeaders, groupParam, loadGroup, saveGroup } from '../render/groups';
 import { t } from '../content/strings';
@@ -233,6 +233,8 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const jobBox = h('div', { tid: 'today-job' });
   let salKnown: number | null = null; // the number to beat, in place of "you haven't played": Home has no height to spare at 130 %
   const todayLine = h('div', { class: 'jd-dim', tid: 'today-line', style: 'font-size:0.8125em' }); // PLAN-v3 0.6.3: days played and the streak, no loss copy when it breaks
+  // yesterday's yard, while the rule still takes it and this device has not had it checked: a door, no clock time, no streak word (2026-11-06)
+  const yesterdayLine = h('div', { class: 'jd-dim', tid: 'yesterday-line', style: 'font-size:0.8125em; display:none' });
   function paintToday() {
     todayLine.textContent = [
       todayBest
@@ -277,6 +279,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     jobBox,
     dailyBtn,
     todayLine,
+    yesterdayLine,
   );
   const lead = h('div', { class: 'jd-home-lead' });
   if (save) {
@@ -548,6 +551,16 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
         }
         showJob(seed);
         todayCard.dataset.seed = seed;
+        const open = save ? null : yesterdayOffer(info, loadDailyDates());
+        if (open) {
+          yesterdayLine.replaceChildren(
+            t('title.yesterdayOpen', { left: closesIn(open.closesAt, d.now ?? new Date().toISOString()) }),
+            ' ',
+            link(t('title.yesterdayPlay'), 'yesterday-play', () => start(open.seed, true)),
+          );
+          yesterdayLine.style.display = '';
+          ui.refit();
+        }
         if (!(streak === 3 || streak === 7 || streak === 30)) setForeman(foreman, foremanSays(d.final ? 'dailyFinal' : 'dailyOpen'));
         modeSpan.textContent = `${d.final ? t('title.modeRankedFinal') : t('title.modeRankedProvisional', { closes: closesIn(d.closesAt ?? info.closesAt, d.now ?? new Date().toISOString()) })}${groupSel ? t('title.crewSuffix', { name: groupSel.name }) : ''}`; // PLAN-v3 0.6.2: one global deadline, said plainly
         const rows = d.entries.map((e, i) =>
@@ -579,6 +592,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
                   { class: 'jd-hist-mini', tid: 'daily-hist', title: t('title.histTitle', { n: hg.n }) },
                   ...hg.bins.map((b) => h('span', { class: 'jd-hist-bar', style: `height:${Math.max(8, Math.round((100 * b.count) / max))}%` })),
                 ),
+                h('span', { class: 'jd-dim', tid: 'daily-count', style: 'font-size:0.75em; margin-left:0.4em' }, t('title.playedToday', { n: hg.n })), // the count as text: a hover title is not a thing on a phone
               );
             })
             .catch(() => {

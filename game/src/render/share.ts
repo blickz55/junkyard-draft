@@ -43,6 +43,18 @@ export interface ShareInput {
   belts?: number;
   /** stars earned on the job (rules v4), shown as ★★☆; absent on a yard with no job */
   stars?: number;
+  /** Sal's game on this yard (render/sal.ts): the same mark for everyone on a yard, with or without a board; null on a classic yard, a lesson or a recording */
+  sal?: number | null;
+}
+
+/** "beat Sal's $19,240 by $40", "$40 short of Sal's $19,240", "level with Sal's $19,240": a cold reader learns that Sal is a score, not a person. */
+export function salText(score: number, sal: number): string {
+  const d = score - sal;
+  return d > 0
+    ? t('share.salOver', { sal: money(sal), d: money(d) })
+    : d < 0
+      ? t('share.salUnder', { sal: money(sal), d: money(-d) })
+      : t('share.salLevel', { sal: money(sal) });
 }
 
 export const PLAYER_MAX = 32;
@@ -86,6 +98,9 @@ export function shareText(s: ShareInput): string {
   const lines: string[] = [s.stars == null ? head : `${head} · ${'★'.repeat(s.stars)}${'☆'.repeat(3 - s.stars)}`, roundGrid(s.rounds)];
   const standing = standingText(s);
   lines.push(s.fork ? t('share.try', { player: s.fork.player, round: s.fork.round + 1 }) : standing || t('share.local'));
+  // Sal, in every variant: at ten players a day the standing says little to a stranger, and Sal's figure is the one two players on the same
+  // yard can compare (the consultant panel, 2026-11-06); nearly all of the twelfth panel's second games were tries aimed at his bars
+  if (s.sal != null) lines.push(salText(s.score, s.sal));
   if (s.variant === 'detailed') {
     lines.push(t('share.rounds', { list: s.rounds.map((r) => money(r)).join(' · ') }));
     if (s.rerolls) lines.push(t('share.newOffers', { n: int(s.rerolls), cost: money(s.rerolls * RULES.rerollCost) }));

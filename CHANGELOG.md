@@ -5,6 +5,14 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### The morning after, and the first social act — 2026-11-06 (no rules change)
+
+- **The end of a game says the days played, the checked days in a row, and when the next yard opens** in your own time; the in-a-row count ticks when the score goes in.
+- **Yesterday's yard is still open on Home** while the game still takes it (48 hours) and this device has not had it checked: "Play it" keeps a missed day.
+- **The share text and the card carry Sal:** "$40 short of Sal's $19,240", the one mark everyone on a yard has.
+- **The score goes first, the name after:** the results say where your score would stand among today's games before anything is asked; "Put my score on the board" sends it, and only then asks a name for it. Home says how many games are on the board today, in words.
+- **For the people who count:** next-day and seven-day return visits in the funnel and the playtest report.
+
 ### Rules version 12: a Furnace where a Dock stood — 2026-11-04 (saves and scores from version 11 do not carry over)
 
 - **"Show me where" finds more:** the job's machine can go where a Dock stands that shards reach, turning a line that sells shards into one that makes the job's product. The old Dock goes to the shelf.

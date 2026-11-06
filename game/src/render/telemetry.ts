@@ -9,6 +9,7 @@
  * events are deduplicated locally; a 'seed' property is never sent. Turning it off deletes everything.
  */
 import { EVENTS, ONCE_EVENTS, MAX_BATCH, validateEvent, type EventName, type Props, type TelemetryEvent } from '../telemetry/events';
+import { dailyDateOf } from '../sim/daily';
 import { loadSettings, updateSettings, loadTelemetryState, saveTelemetryState, clearTelemetryState } from './storage';
 
 export type Sender = (url: string, body: string, beacon: boolean) => Promise<boolean>;
@@ -45,6 +46,13 @@ export function gameKind(seed: string): string {
   return lesson ? `lesson-${lesson[1]}` : seed.startsWith('daily-') ? 'daily' : 'practice';
 }
 
+/** Which day's yard a daily start is: today's, yesterday's (open for 48 hours), or an earlier one from the archive (2026-11-06). */
+const dayOf = (seed: string): 'today' | 'yesterday' | 'earlier' => {
+  const d = dailyDateOf(seed);
+  const today = Math.floor(Date.now() / 86_400_000);
+  const day = d ? Math.floor(Date.parse(`${d}T00:00:00Z`) / 86_400_000) : NaN;
+  return day === today ? 'today' : day === today - 1 ? 'yesterday' : 'earlier';
+};
 class Telemetry {
   private queue: TelemetryEvent[] = [];
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -65,10 +73,13 @@ class Telemetry {
     if (st.installId) saveTelemetryState({ ...st, pending: this.queue.slice(-MAX_QUEUE) });
   }
   /** Wire the transport (the game sets the verifier URL provider; tests inject a sender). */
-  configure(o: { url?: () => string; sender?: Sender; eager?: boolean }) {
+  /** whether daily_start says which day's yard it was: off on the tester build until its worker learns the prop (2026-11-06) */
+  private dayProp = true;
+  configure(o: { url?: () => string; sender?: Sender; eager?: boolean; dayProp?: boolean }) {
     if (o.url) this.urlProvider = o.url;
     if (o.sender) this.sender = o.sender;
     if (o.eager != null) this.eager = o.eager;
+    if (o.dayProp != null) this.dayProp = o.dayProp;
   }
 
   get enabled(): boolean {
@@ -152,7 +163,7 @@ class Telemetry {
     saveTelemetryState({ ...st, games });
     this.track('game_begin', { kind: gameKind(seed) });
     if (games === 2) this.track('second_game_start');
-    if (seed.startsWith('daily-')) this.track('daily_start');
+    if (seed.startsWith('daily-')) this.track('daily_start', this.dayProp ? { day: dayOf(seed) } : {});
   }
 
   private eventsUrl(): string {

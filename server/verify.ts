@@ -442,6 +442,8 @@ export interface Histogram {
   mine: { score: number; rank: number; bin: number; percentile: number } | null;
   /** up to five entries above and five below the caller (board order), for the "around you" slice */
   around: { rank: number; player: string; score: number; mine: boolean }[];
+  /** where a score not on the board would stand (2026-11-06): one more than the entries strictly above it; null without a score or with an entry of the caller's own */
+  would: { score: number; rank: number } | null;
 }
 /** A bin width that reads well on an axis: 1, 2, 2.5, 5 × 10^k, at least 1. */
 export function niceStep(raw: number): number {
@@ -456,9 +458,11 @@ export function niceStep(raw: number): number {
  * so the bin count may differ. Percentile = share of other verified runs with a strictly lower score (ties do not count
  * as beaten). With no entries the histogram is empty; nothing is ever invented.
  */
-export function histogramOf(ranked: BoardEntry[], hash?: string, binCount = 10): Omit<Histogram, 'seed'> {
+export function histogramOf(ranked: BoardEntry[], hash?: string, binCount = 10, score?: number): Omit<Histogram, 'seed'> {
   const n = ranked.length;
-  if (n === 0) return { n: 0, step: 1, bins: [], mine: null, around: [] };
+  const would = (mine: boolean) =>
+    !mine && score !== undefined && Number.isFinite(score) ? { score, rank: 1 + ranked.filter((e) => e.score > score).length } : null;
+  if (n === 0) return { n: 0, step: 1, bins: [], mine: null, around: [], would: would(false) };
   const max = Math.max(...ranked.map((e) => e.score), 1);
   const step = niceStep(max / binCount);
   const count = Math.floor(max / step) + 1;
@@ -477,7 +481,7 @@ export function histogramOf(ranked: BoardEntry[], hash?: string, binCount = 10):
       return { rank: ranked.indexOf(e) + 1, player: e.player, score: e.score, mine: e.replayHash === hash };
     });
   }
-  return { n, step, bins, mine, around };
+  return { n, step, bins, mine, around, would: would(idx >= 0) };
 }
 
 export interface VerifierOptions {
@@ -1488,8 +1492,8 @@ export class Verifier {
     return Object.keys(this.data.pars ?? {}).length;
   }
   /** Verified score distribution for a seed; `hash` locates the caller's own entry. */
-  histogram(seed: string, hash?: string, members?: ReadonlySet<string> | null, now = new Date()): Histogram {
-    return { seed, ...histogramOf(this.rank(seed, this.data, members, now), hash) };
+  histogram(seed: string, hash?: string, members?: ReadonlySet<string> | null, now = new Date(), score?: number): Histogram {
+    return { seed, ...histogramOf(this.rank(seed, this.data, members, now), hash, 10, score) };
   }
   /** The issued daily for a UTC date, minting and persisting it on first request; null when that day has not opened yet (PLAN-v3 0.6.1). */
   /** Hand an event to the announcer (PLAN-v4 0.7.6); announcing never affects the operation that caused it. */
@@ -3044,9 +3048,12 @@ export function createServer(verifier: Verifier, opts: ServerOptions = {}) {
         if (!gs.ok) return json(gs.status, { ok: false, error: gs.error });
         const seed = (url.searchParams.get('seed') || '').slice(0, 64);
         const viewer = bearerPlayer(req);
+        // a score not on the board yet (2026-11-06): where it would stand, so the results can say so before anything is asked
+        const scoreQ = url.searchParams.get('score');
+        const would = scoreQ !== null && /^\d{1,9}$/.test(scoreQ) ? Number(scoreQ) : undefined;
         return json(200, {
           ok: true,
-          ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined, gs.members, new Date((opts.now ?? Date.now)())),
+          ...verifier.histogram(seed, (url.searchParams.get('hash') || '').slice(0, 64) || undefined, gs.members, new Date((opts.now ?? Date.now)()), would),
           friends: community && viewer ? verifier.scoresOn(seed, new Set(community.friendsOf(viewer)), new Date((opts.now ?? Date.now)())) : [],
           group: gs.group,
           botPar: withPar(seed),

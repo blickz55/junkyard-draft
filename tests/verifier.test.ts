@@ -896,7 +896,7 @@ test('histogram (PLAN-v1 0.4.1): bins and percentile for 1, 4 and 200 entries; n
         actions: 10,
         replayHash: `hash-${score}-${i}`,
       }));
-  assert.deepEqual(histogramOf([]), { n: 0, step: 1, bins: [], mine: null, around: [] }, 'no entries: empty, nothing invented');
+  assert.deepEqual(histogramOf([]), { n: 0, step: 1, bins: [], mine: null, around: [], would: null }, 'no entries: empty, nothing invented');
   assert.deepEqual([niceStep(0), niceStep(3), niceStep(17), niceStep(42), niceStep(70), niceStep(230), niceStep(0.4)], [1, 5, 20, 50, 100, 250, 1]);
   // one entry: one bin that holds it, rank 1, percentile 0 (nobody to beat)
   const one = histogramOf(mk([228]), 'hash-228-0');
@@ -921,6 +921,14 @@ test('histogram (PLAN-v1 0.4.1): bins and percentile for 1, 4 and 200 entries; n
   assert.equal(four.around.length, 4);
   assert.equal(four.around.filter((a) => a.mine).length, 1);
   assert.equal(histogramOf(mk([1, 2, 3]), 'unknown').mine, null, 'an unknown hash gets no "mine" and no neighbours');
+  // where a score not on the board would stand (2026-11-06): one more than the entries strictly above it, a tie standing with its equal
+  const board = mk([2088, 1697, 1210, 400]);
+  assert.deepEqual(histogramOf(board, undefined, 10, 1500).would, { score: 1500, rank: 3 });
+  assert.deepEqual(histogramOf(board, undefined, 10, 1697).would, { score: 1697, rank: 2 });
+  assert.deepEqual(histogramOf(board, undefined, 10, 3000).would, { score: 3000, rank: 1 });
+  assert.deepEqual(histogramOf([], undefined, 10, 500).would, { score: 500, rank: 1 }, 'an empty board: first');
+  assert.equal(histogramOf(board, 'hash-1210-2', 10, 1210).would, null, "an entry of the caller's own: the standing is real, nothing would-be");
+  assert.equal(histogramOf(board).would, null);
   // two hundred entries: percentile of the median is about 50, ties are not beaten, around has 11 rows
   const scores = Array.from({ length: 200 }, (_, i) => 100 + i * 10);
   scores[57] = scores[58]; // a tie
