@@ -2165,6 +2165,17 @@ export interface StoredEvent {
   props: Props;
 }
 
+export interface ReturnWindow {
+  /** installs old enough to have had the chance */ eligible: number;
+  /** of them, installs that started the app again inside the window */ returned: number;
+  finishedDayOne: { eligible: number; returned: number };
+  notFinished: { eligible: number; returned: number };
+}
+export interface Returns {
+  /** came back on the next UTC day */ nextDay: ReturnWindow;
+  /** came back on any of the seven UTC days after the first */ sevenDay: ReturnWindow;
+}
+
 /** Append-only JSON-lines store for opt-in funnel events with time-based retention (PLAN-v1 0.3.7). */
 export class EventStore {
   constructor(
@@ -2238,8 +2249,8 @@ export class EventStore {
     fs.renameSync(tmp, this.file);
     return rows.length - keep.length;
   }
-  /** Unique installs per funnel step, plus event counts. */
-  funnel(rows: StoredEvent[] = this.rows()) {
+  /** Unique installs per funnel step, plus event counts, plus the return visits. */
+  funnel(rows: StoredEvent[] = this.rows(), now = new Date()) {
     const byName = new Map<string, Set<string>>();
     const counts: Record<string, number> = {};
     for (const r of rows) {
@@ -2247,7 +2258,55 @@ export class EventStore {
       counts[r.name] = (counts[r.name] ?? 0) + 1;
     }
     const installs = new Set(rows.map((r) => r.installId)).size;
-    return { installs, events: rows.length, steps: FUNNEL.map((name) => ({ name, installs: byName.get(name)?.size ?? 0 })), counts };
+    return {
+      installs,
+      events: rows.length,
+      steps: FUNNEL.map((name) => ({ name, installs: byName.get(name)?.size ?? 0 })),
+      counts,
+      returns: this.returns(rows, now),
+    };
+  }
+  /**
+   * Return visits (2026-11-06; docs/GOALS.md names "comes back tomorrow unasked" as the one goal that matters, and nothing counted it):
+   * of the consenting installs whose first app_start is at least a day (seven days) before the read, how many started the app again on
+   * the next UTC day (on any of the seven days after), split by whether they finished a game on their first day. Days are UTC on the
+   * server's clock (receivedAt), so a client's clock cannot move an install between days.
+   */
+  returns(rows: StoredEvent[] = this.rows(), now = new Date()): Returns {
+    const dayOf = (ms: number) => Math.floor(ms / 86_400_000);
+    const first = new Map<string, number>();
+    const visits = new Map<string, Set<number>>();
+    for (const r of rows) {
+      if (r.name !== 'app_start') continue;
+      const t = Date.parse(r.receivedAt);
+      if (!Number.isFinite(t)) continue;
+      if (!first.has(r.installId) || t < first.get(r.installId)!) first.set(r.installId, t);
+      (visits.get(r.installId) ?? visits.set(r.installId, new Set()).get(r.installId)!).add(dayOf(t));
+    }
+    const finished = new Set<string>();
+    for (const r of rows) {
+      if (r.name !== 'game_complete' || r.props.mode === 'replay') continue;
+      const f = first.get(r.installId);
+      const t = Date.parse(r.receivedAt);
+      if (f !== undefined && Number.isFinite(t) && dayOf(t) === dayOf(f)) finished.add(r.installId);
+    }
+    const window = (days: number): ReturnWindow => {
+      const w: ReturnWindow = { eligible: 0, returned: 0, finishedDayOne: { eligible: 0, returned: 0 }, notFinished: { eligible: 0, returned: 0 } };
+      for (const [id, t] of first) {
+        if (now.getTime() - t < days * 86_400_000) continue; // too young to have had the chance
+        const d0 = dayOf(t);
+        const came = [...visits.get(id)!].some((d) => d - d0 >= 1 && d - d0 <= days);
+        const split = finished.has(id) ? w.finishedDayOne : w.notFinished;
+        w.eligible++;
+        split.eligible++;
+        if (came) {
+          w.returned++;
+          split.returned++;
+        }
+      }
+      return w;
+    };
+    return { nextDay: window(1), sevenDay: window(7) };
   }
 }
 

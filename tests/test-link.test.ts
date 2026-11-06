@@ -187,6 +187,7 @@ test('the report: how far they got, where they stopped, what held them up and wh
     'Finished a real game': 1,
     'Played again after that': 1,
     'Came back on a later day': 1,
+    'Came back the next day': 1,
     'Answered the survey': 1,
   });
   assert.deepEqual(s.stops, [

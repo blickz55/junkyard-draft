@@ -47,6 +47,17 @@ section('SUBMISSIONS (result)', groupBy('daily_submit_result', 'result'));
 section('SHARES (variant)', groupBy('share_copied', 'variant'));
 section('TIPS OPENED (id)', groupBy('tip_opened', 'id'));
 section('SETTINGS CHANGED (key)', groupBy('settings_changed', 'key'));
+// the return (2026-11-06): the one goal in docs/GOALS.md, counted from app_start on the server's clock, over installs old enough to have had the chance
+const ret = f.returns;
+const share = (w: { eligible: number; returned: number }) =>
+  `${String(w.returned).padStart(5)} of ${String(w.eligible).padEnd(5)} ${pct(w.returned, w.eligible).padStart(5)}`;
+console.log('\nRETURN (consenting installs, UTC days, installs younger than the window excluded)');
+console.log(
+  `  came back the next day        ${share(ret.nextDay)}   finished a game on day one ${share(ret.nextDay.finishedDayOne)}   did not ${share(ret.nextDay.notFinished)}`,
+);
+console.log(
+  `  came back within seven days   ${share(ret.sevenDay)}   finished a game on day one ${share(ret.sevenDay.finishedDayOne)}   did not ${share(ret.sevenDay.notFinished)}`,
+);
 const minutes = rows
   .filter((r) => r.name === 'session_end')
   .map((r) => Number(r.props.minutes))

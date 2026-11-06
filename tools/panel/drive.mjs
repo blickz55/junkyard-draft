@@ -42,13 +42,16 @@ function yesterday() {
   const seed = `daily-${day}`;
   const at = `${day}T19:30:00.000Z`;
   const score = 9840;
+  // under the rules as they stand, or the returning agent reads "under earlier rules" instead of the real morning after (2026-11-06)
+  const v = Number(fs.readFileSync(path.join(ROOT, 'game', 'src', 'sim', 'types.ts'), 'utf8').match(/RULES_VERSION = (\d+)/)[1]);
   return {
     'jd.onboarded.v1': '1',
     'jd.lessons.v1': JSON.stringify([1, 2, 3]),
-    'jd.bests.v2': JSON.stringify({ byVersion: { 8: { overall: { score, seed, at }, bySeed: { [seed]: { score, at } }, runs: 1 } } }),
-    'jd.stars.v1': JSON.stringify({ 8: { [seed]: 2 } }),
+    'jd.bests.v2': JSON.stringify({ byVersion: { [v]: { overall: { score, seed, at }, bySeed: { [seed]: { score, at } }, runs: 1 } } }),
+    'jd.stars.v1': JSON.stringify({ [v]: { [seed]: 2 } }),
     'jd.days.v1': JSON.stringify([day]),
-    'jd.history.v1': JSON.stringify({ byVersion: { 8: { [seed]: [{ score, at }] } } }),
+    'jd.dailystreak.v1': JSON.stringify([day]),
+    'jd.history.v1': JSON.stringify({ byVersion: { [v]: { [seed]: [{ score, at }] } } }),
   };
 }
 

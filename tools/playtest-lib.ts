@@ -120,6 +120,14 @@ export function summarize(events: readonly EventRow[], feedback: readonly Feedba
     { label: 'Finished a real game', testers: count((l) => l.some(finished)) },
     { label: 'Played again after that', testers: count((l) => l.slice(l.findIndex(finished) + 1).some(realBegin) && l.some(finished)) },
     { label: 'Came back on a later day', testers: count((l) => new Set(l.map((e) => e.at.slice(0, 10))).size > 1) },
+    // the next UTC day after the first visit, the one return docs/GOALS.md asks for (2026-11-06)
+    {
+      label: 'Came back the next day',
+      testers: count((l) => {
+        const days = [...new Set(l.map((e) => Math.floor(Date.parse(e.at) / 86_400_000)))].filter(Number.isFinite);
+        return days.some((d) => d === Math.min(...days) + 1);
+      }),
+    },
     { label: 'Answered the survey', testers: count((l) => installs.has(l[0].install)) },
   ];
 
