@@ -215,12 +215,21 @@ function readRaw(key: string): unknown {
     return undefined;
   }
 }
+/** The keys SyncData is read from: a write to one of them is a change of the record (the desktop's record file listens, render/recordfile.ts). */
+const RECORD_KEYS = new Set([K.settings, K.bests, K.stars, K.days, K.dailyStreak, K.medals, K.standings, K.watched, K.kinds]);
+const recordListeners = new Set<() => void>();
+/** Hear every change of what `readSyncData` reads, after the write; returns the way to stop listening. */
+export function onRecordChange(fn: () => void): () => void {
+  recordListeners.add(fn);
+  return () => void recordListeners.delete(fn);
+}
 function write(key: string, value: unknown) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (e) {
     markStorageFailure(e);
   }
+  if (RECORD_KEYS.has(key)) for (const fn of recordListeners) fn();
 }
 
 /** A small JSON record by key (the web-app state, 0.10.3); undefined when absent or unreadable. */

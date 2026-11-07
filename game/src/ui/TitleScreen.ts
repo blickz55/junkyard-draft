@@ -39,6 +39,7 @@ import { loadIdentity, fetchClaimed, bearerAllowed } from '../render/identity';
 import { HIDDEN_LABEL } from '../identity/identity';
 import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWeekly, todaysYard, yesterdayOffer } from '../render/daily';
 import {
+  desktopRecordSync,
   openArchive,
   openDivision,
   openFriends,
@@ -439,7 +440,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     'nav',
     { class: 'jd-home-foot', tid: 'home-foot' },
     link(t('home.howto'), 'howto', () => openHowTo(scene, tips)),
-    link(t('title.record'), 'record', () => openRecord(scene), t('title.recordTitle')),
+    link(t('title.record'), 'record', () => openRecord(scene, restart), t('title.recordTitle')), // a copy opened there changes the bests Home shows
     testing ? null : link(t('title.crews'), 'groups', () => openGroups(scene, verifierUrl, () => scene.scene.restart()), t('title.crewsTitle')),
     inboxLink,
     talkLink,
@@ -685,6 +686,10 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     void syncNow(verifierUrl).then((learnt) => {
       if (learnt && screen.isConnected && !ui.dialogOpen) restart();
     });
+  // the desktop shell's record file (render/recordfile.ts): once per page, the file comes in and merges, and the record goes back to it from then on
+  void desktopRecordSync().then((learnt) => {
+    if (learnt && screen.isConnected && !ui.dialogOpen) restart();
+  });
 }
 
 function importRecording(scene: Phaser.Scene) {
