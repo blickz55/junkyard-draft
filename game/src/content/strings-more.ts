@@ -447,6 +447,22 @@ export const MORE_STRINGS = {
   'results.keepBest': s('Checked: {score}. Your earlier {earlier} on this yard stays on the board: each player keeps one best score.', 'status line'),
   'results.checkedRank': s('Checked: {score}. You are {rank} on the board as {label}.', 'status line'),
   'results.checkedNoRank': s('Checked: {score} as {label}. It is on the board.', 'status line'),
+  'results.finalFirst': s(
+    'First on the board today. Places are final at {when}{inbox}.',
+    "the final line under a checked daily's status (the consultant panel, 2026-11-06): no game on today's board before this one",
+  ),
+  'results.finalCount': s('Places among {n} games so far are final at {when}{inbox}.', 'the final line: five games or more on the board, this one counted'),
+  'results.finalBoard': s(
+    'Places on the final board are set at {when}{inbox}.',
+    'the final line: under five games, or the count unknown, so the final board alone and no count',
+  ),
+  'results.finalInbox': s(
+    '; yours then lands in your inbox',
+    'the tail of the final line where this device has a key our server takes: the day closing writes where it finished to the inbox (0.11.11)',
+  ),
+  'results.finalToday': s('{time} today', "the final line's moment, in the device's own zone: the same local day"),
+  'results.finalTomorrow': s('{time} tomorrow', "the final line's moment: the next local day"),
+  'results.finalOn': s('{time} on {day}', "the final line's moment, later than tomorrow: the weekday, as the device has it"),
   'results.shareNative': s('Share…', 'Share row: the phone share sheet (0.10.6), first in the row where the browser has one'),
   'results.shareNativeTitle': s("Your phone's share sheet: the text, the link, and a picture where it takes one.", 'tooltip'),
   'results.shareNativeFailed': s('Sharing did not work: {why}.', 'status after the share sheet failed'),

@@ -31,6 +31,17 @@ export const localHour = (hour: number): string => LOCAL_HOUR.format(new Date(20
 /** "7:00 PM": an instant as a time of day in the reminder's convention, in the device's zone unless one is given (tests). */
 export const localTime = (d: Date, timeZone?: string): string =>
   (timeZone ? new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone }) : LOCAL_HOUR).format(d);
+const LOCAL_DATE = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+/** "2026-11-07": the calendar date of an instant where the device is, or in the zone given (tests). */
+export function localDate(d: Date, timeZone?: string): string {
+  const parts = (timeZone ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone }) : LOCAL_DATE).formatToParts(d);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+const LOCAL_WEEKDAY = new Intl.DateTimeFormat('en-US', { weekday: 'long' });
+/** "Saturday": the weekday of an instant where the device is, or in the zone given (tests). */
+export const localWeekday = (d: Date, timeZone?: string): string =>
+  (timeZone ? new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone }) : LOCAL_WEEKDAY).format(d);
 /** When the next yard opens: the next 00:00 UTC after `now` (the daily is minted by UTC date, sim/daily.ts). */
 export const nextYardOpensAt = (now = new Date()): Date => new Date((Math.floor(now.getTime() / 86_400_000) + 1) * 86_400_000);
 /** "$1,758"; negative amounts use the typographic minus the share text always used: "−$40". */

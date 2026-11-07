@@ -36,7 +36,8 @@ import { audio } from '../render/audio';
 import { prefs } from '../render/prefs';
 import { authHeaders, bearerAllowed, claimName, loadIdentity } from '../render/identity';
 import { labelFor } from '../identity/identity';
-import { todaySeed, revealGate, todayUTC } from '../render/daily';
+import { todaySeed, revealGate, todayUTC, dailyClosesAt } from '../render/daily';
+import { finalLine } from '../content/closing';
 import { shiftUtcDate } from '../daily/streak';
 import { medalFor, medalsLine, type Medals } from '../daily/medals';
 import { openFeedback, openPlayerCard, openPolicy, openPrivacy, openRecord, openThread } from './panels';
@@ -510,6 +511,16 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
     status.textContent = text;
     status.className = `jd-results-status ${cls}`;
   };
+  // the promise after the score goes up (the consultant panel, 2026-11-06): once a daily is checked, when the places are final and where
+  // this device's lands, as facts under the status. It exists only then, so a tester build, a try or a recording never has it. A crew's
+  // board is not the board, so its count is not said.
+  const finalNote = h('div', { class: 'jd-dim jd-results-status', tid: 'final-line', style: 'margin-top:0.25em' });
+  const showFinal = (r: Rank | null) => {
+    const closesAt = dailyClosesAt(run.seed);
+    if (!closesAt) return;
+    finalNote.textContent = finalLine({ closesAt, games: r && r.n != null && !loadGroup() ? r.of : null, today: isToday, inbox: bearerAllowed(verifierUrl) });
+    if (!finalNote.isConnected) status.after(finalNote);
+  };
 
   // played against someone's score: the way to add them (0.11.8)
   if (o.challenge && !o.replayed) {
@@ -982,8 +993,10 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
             }),
             'jd-green',
           );
+          showFinal(r);
         } catch {
           setStatus(t('results.checkedNoRank', { score: money(body.score ?? run.score), label }), 'jd-green');
+          showFinal(null);
         }
         // the room before the form (2026-11-06): the score is on the board; now, and only now, a name for it. Empty or cancelled leaves it
         // anonymous, and Home's "Choose a name" claims it later, because the server relabels every entry of this key when a name is claimed.
