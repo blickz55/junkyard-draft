@@ -5,10 +5,27 @@
  * (the device's submission record, the daily streak); a refused one is dropped (it would never verify); an unreachable or
  * busy verifier keeps it for the next load. The device key goes along as on a live submission, so the entry is the
  * player's own and keep-best applies.
+ *
+ * A finished daily the player never sent (the consultant panel, 2026-11-06) is kept the same way, flagged `unsent`: the flush
+ * skips it, because nothing goes on a board without the player's tap. Home offers the tap (`openUnsent`, then `sendPending`,
+ * the same path a flush takes) until the game is on the board or its day has closed.
  */
 import { authHeaders } from './identity';
-import { recordSubmission, recordDailyDate, loadPending, removePending, type PendingSubmission } from './storage';
+import {
+  recordSubmission,
+  recordDailyDate,
+  loadPending,
+  loadUnsent,
+  forgetUnsent,
+  removePending,
+  saveUnsent,
+  loadPlayer,
+  type PendingSubmission,
+} from './storage';
 import { isMintedDailySeed, dailyDateOf } from '../sim/daily';
+import { dailyClosed } from './daily';
+import { exportReplay } from '../sim/replay';
+import type { RunState } from '../sim/run';
 import { groupHeaders, groupParam } from './groups';
 import type { Rank } from './share';
 import { telemetry } from './telemetry';
@@ -27,14 +44,33 @@ export interface FlushOutcome {
   closesAt?: string;
 }
 
-/** Try every saved submission once, oldest first; resolves with one outcome per saved run (kept ones say so). */
+/** Try every submission the player asked to send once, oldest first; resolves with one outcome per saved run (kept ones say so). An unsent game is never among them. */
 export async function flushPending(verifierUrl: string, fetchFn: typeof fetch = fetch): Promise<FlushOutcome[]> {
   const out: FlushOutcome[] = [];
-  for (const p of loadPending()) out.push(await flushOne(verifierUrl, p, fetchFn));
+  for (const p of loadPending()) out.push(await sendPending(verifierUrl, p, fetchFn));
   return out;
 }
 
-async function flushOne(verifierUrl: string, p: PendingSubmission, fetchFn: typeof fetch): Promise<FlushOutcome> {
+/**
+ * Keep a finished daily of the player's own that is not on the board (2026-11-06), so Home can offer it: never a recording (the caller's
+ * check), a try, a yard that is no minted daily, or a day already closed. The caller leaves out the tester build, where nothing can be sent.
+ */
+export function keepUnsent(run: RunState, build?: string, origin: Pick<PendingSubmission, 'origin'> = {}, now = new Date()): void {
+  if (run.forkedFrom || run.phase !== 'finished' || !isMintedDailySeed(run.seed) || dailyClosed(run.seed, now)) return;
+  saveUnsent({ seed: run.seed, rulesVersion: run.rulesVersion, replay: exportReplay(run, build), player: loadPlayer(), savedAt: now.toISOString(), ...origin });
+}
+/** The unsent games Home offers, oldest first: those whose day is still open. A day that closed is dropped on the way: nothing can go on its board now. */
+export function openUnsent(now = new Date()): PendingSubmission[] {
+  const out: PendingSubmission[] = [];
+  for (const p of loadUnsent()) {
+    if (isMintedDailySeed(p.seed) && !dailyClosed(p.seed, now)) out.push(p);
+    else forgetUnsent(p.seed);
+  }
+  return out;
+}
+
+/** One saved run to our server, with what became of it: a flush does this for each row; Home does it for an unsent game when the player taps. */
+export async function sendPending(verifierUrl: string, p: PendingSubmission, fetchFn: typeof fetch = fetch): Promise<FlushOutcome> {
   const base = { seed: p.seed, savedAt: p.savedAt };
   let body: {
     ok: boolean;
