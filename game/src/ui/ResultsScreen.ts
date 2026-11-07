@@ -54,6 +54,7 @@ import { groupHeaders, groupParam, loadGroup } from '../render/groups';
 import { forkLabel } from '../content/fork';
 import type { CardInput } from '../render/card';
 import { loadForkBests } from '../render/storage';
+import { sendingNow } from '../render/pending';
 import { t } from '../content/strings';
 import { money, int, utcDateTime, localTime, nextYardOpensAt } from '../content/format';
 import { withTitle } from '../content/title';
@@ -899,6 +900,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
           closesAt?: string;
           talk?: { key: string };
         };
+        sendingNow(run.seed, true); // Home, should it come up before the answer, does not offer this game a second time (review, 2026-11-06)
         try {
           const res = await fetch(`${verifierUrl}/verify`, {
             method: 'POST',
@@ -927,6 +929,8 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
           telemetry.track('daily_submit_result', { result: 'busy' });
           setStatus(t('results.savedOffline'), 'jd-amber');
           return;
+        } finally {
+          sendingNow(run.seed, false);
         }
         forgetUnsent(run.seed); // our server answered (2026-11-06): whatever it said, this yard's game is no longer one for Home to offer
         if (body.ok && body.late) {

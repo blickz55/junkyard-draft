@@ -115,8 +115,8 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     });
   // production roadmap 0.8.7: games saved while offline are submitted now, and the player is told what became of them
   const pendingNote = h('div', { class: 'jd-amber jd-home-note', style: 'display:none' }, '');
-  const showOutcomes = (outcomes: FlushOutcome[]) => {
-    pendingNote.textContent = describeOutcomes(outcomes);
+  const showOutcomes = (outcomes: FlushOutcome[], game?: (seed: string) => string) => {
+    pendingNote.textContent = describeOutcomes(outcomes, game);
     pendingNote.style.display = '';
     pendingNote.dataset.testid = 'pending-note';
     const good = outcomes.some((x) => x.status === 'verified' || x.status === 'keep-best');
@@ -133,7 +133,10 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     });
   }
   // a finished daily that is not on the board (the consultant panel, 2026-11-06): kept on this device and offered here, one tap, until it
-  // is on the board or its day closes. Nothing sends it by itself: the tap is the player's. What became of it shows where a flush's outcome does.
+  // is on the board or its day closes. Nothing sends it by itself: the tap is the player's. What became of it shows where a flush's outcome
+  // does, and the game is named by its day there as here (the glossary: the date is the name), never by the yard's code.
+  const gameName = (seed: string) => t(dailyDateOf(seed) === todayUTC() ? 'title.unsentGameToday' : 'title.unsentGameYesterday');
+  const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
   const unsentStrip = (row: PendingSubmission) => {
     const send = btn(
       t('title.unsentSend'),
@@ -145,7 +148,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
           if (outcome.status === 'offline') queueUnsent(row.seed); // the player asked: from now on it goes like any saved game, on the next load
           if (outcome.status === 'busy') send.disabled = false;
           else strip.remove();
-          showOutcomes([outcome]);
+          showOutcomes([outcome], gameName);
           ui.refit();
         });
       },
@@ -157,7 +160,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
       h(
         'span',
         { tid: 'unsent-line', style: 'flex:1 1 16em; min-width:0' },
-        t(dailyDateOf(row.seed) === todayUTC() ? 'title.unsentToday' : 'title.unsentYesterday', { score: money(row.replay.claimedScore) }),
+        cap(t('title.unsentLine', { game: gameName(row.seed), score: money(row.replay.claimedScore) })),
       ),
       send,
     );

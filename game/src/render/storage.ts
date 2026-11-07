@@ -464,6 +464,18 @@ export interface PendingSubmission {
   /** a finished daily the player never sent (2026-11-06): kept so Home can offer it; nothing sends it for them */ unsent?: true;
 }
 export const PENDING_MAX = 5;
+/**
+ * At most PENDING_MAX rows, oldest first. Over that, a game kept unsent gives way before a game the player asked to send, the oldest kept
+ * one first (review, 2026-11-06): a row the player asked for is only ever displaced by another the player asked for.
+ */
+function capPending(rows: PendingSubmission[]): PendingSubmission[] {
+  const out = [...rows];
+  while (out.length > PENDING_MAX) {
+    const i = out.findIndex((q) => q.unsent);
+    out.splice(i >= 0 ? i : 0, 1);
+  }
+  return out;
+}
 export function validatePending(raw: unknown): PendingSubmission[] {
   if (!Array.isArray(raw)) return [];
   const out: PendingSubmission[] = [];
@@ -499,7 +511,7 @@ export function validatePending(raw: unknown): PendingSubmission[] {
       ...(p.unsent === true ? { unsent: true as const } : {}),
     });
   }
-  return out.slice(-PENDING_MAX);
+  return capPending(out);
 }
 /** The rows under the current rules: the others can never verify, so readers skip them and writers drop them. */
 const livePending = (): PendingSubmission[] => validatePending(readRaw(K.pending)).filter((q) => q.rulesVersion === RULES_VERSION);
@@ -517,21 +529,22 @@ const writePending = (rows: PendingSubmission[]): void => {
 export const loadPending = (): PendingSubmission[] => livePending().filter((p) => !p.unsent);
 /** Finished dailies the player has not put on the board (2026-11-06), oldest first; whether a day is still open is the reader's question (render/pending.ts). */
 export const loadUnsent = (): PendingSubmission[] => livePending().filter((p) => p.unsent === true);
-/** Keep a run for later: one per seed (the newest wins, an unsent game included), at most PENDING_MAX (the oldest falls off). */
+/** Keep a run for later: one per seed (the newest wins, an unsent game included), at most PENDING_MAX (a kept game falls off first, then the oldest). */
 export function savePending(p: PendingSubmission): PendingSubmission[] {
-  const next = [...livePending().filter((q) => q.seed !== p.seed), p].slice(-PENDING_MAX);
+  const next = capPending([...livePending().filter((q) => q.seed !== p.seed), p]);
   write(K.pending, next);
   return next;
 }
 /**
  * Keep a finished daily the player did not send (2026-11-06): one per seed, the best score; a game the player asked to send keeps its
- * place whatever it scored. Returns the rows kept.
+ * place whatever it scored, and over the cap only another kept game makes room (review, 2026-11-06). Returns the rows kept.
  */
 export function saveUnsent(p: Omit<PendingSubmission, 'unsent'>): PendingSubmission[] {
   const cur = livePending();
   const same = cur.find((q) => q.seed === p.seed);
   if (same && (!same.unsent || same.replay.claimedScore >= p.replay.claimedScore)) return cur;
-  const next = [...cur.filter((q) => q.seed !== p.seed), { ...p, unsent: true as const }].slice(-PENDING_MAX);
+  const next = capPending([...cur.filter((q) => q.seed !== p.seed), { ...p, unsent: true as const }]);
+  if (!next.some((q) => q.seed === p.seed)) return cur; // every row is a game the player asked to send: none of them makes room
   write(K.pending, next);
   return next;
 }

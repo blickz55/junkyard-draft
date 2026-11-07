@@ -8,7 +8,8 @@
  *
  * A finished daily the player never sent (the consultant panel, 2026-11-06) is kept the same way, flagged `unsent`: the flush
  * skips it, because nothing goes on a board without the player's tap. Home offers the tap (`openUnsent`, then `sendPending`,
- * the same path a flush takes) until the game is on the board or its day has closed.
+ * the same path a flush takes) until the game is on the board or its day has closed. It offers nothing keep-best would refuse
+ * (this device's checked game on the yard ranks at least as well) and nothing on its way to our server from the results right now.
  */
 import { authHeaders } from './identity';
 import {
@@ -16,6 +17,7 @@ import {
   recordDailyDate,
   loadPending,
   loadUnsent,
+  loadSubmissions,
   forgetUnsent,
   removePending,
   saveUnsent,
@@ -51,20 +53,35 @@ export async function flushPending(verifierUrl: string, fetchFn: typeof fetch = 
   return out;
 }
 
+/** This device's checked game on a yard ranks at least as well as a score: keep-best would refuse the game, so nothing offers it (review, 2026-11-06). */
+const checkedStands = (seed: string, score: number): boolean => (loadSubmissions()[seed]?.score ?? -Infinity) >= score;
+/** The yards whose game is on its way to our server from the results right now (review, 2026-11-06): Home, mounted before the answer, does not offer one of those. */
+const onItsWay = new Set<string>();
+export function sendingNow(seed: string, on: boolean): void {
+  if (on) onItsWay.add(seed);
+  else onItsWay.delete(seed);
+}
+
 /**
  * Keep a finished daily of the player's own that is not on the board (2026-11-06), so Home can offer it: never a recording (the caller's
- * check), a try, a yard that is no minted daily, or a day already closed. The caller leaves out the tester build, where nothing can be sent.
+ * check), a try, a yard that is no minted daily, a day already closed, or a game this device's checked one on that yard ranks at least as
+ * well as (keep-best would refuse it, and the results have said the earlier game stands). The caller leaves out the tester build, where
+ * nothing can be sent.
  */
 export function keepUnsent(run: RunState, build?: string, origin: Pick<PendingSubmission, 'origin'> = {}, now = new Date()): void {
-  if (run.forkedFrom || run.phase !== 'finished' || !isMintedDailySeed(run.seed) || dailyClosed(run.seed, now)) return;
+  if (run.forkedFrom || run.phase !== 'finished' || !isMintedDailySeed(run.seed) || dailyClosed(run.seed, now) || checkedStands(run.seed, run.score)) return;
   saveUnsent({ seed: run.seed, rulesVersion: run.rulesVersion, replay: exportReplay(run, build), player: loadPlayer(), savedAt: now.toISOString(), ...origin });
 }
-/** The unsent games Home offers, oldest first: those whose day is still open. A day that closed is dropped on the way: nothing can go on its board now. */
+/**
+ * The unsent games Home offers, oldest first: those whose day is still open and that no checked game of this device's on the yard already
+ * ranks at least as well as. A day that closed, or a game a checked one covers, is dropped on the way: nothing can put it on the board now.
+ * A game on its way from the results stays kept and is not offered until the answer is in.
+ */
 export function openUnsent(now = new Date()): PendingSubmission[] {
   const out: PendingSubmission[] = [];
   for (const p of loadUnsent()) {
-    if (isMintedDailySeed(p.seed) && !dailyClosed(p.seed, now)) out.push(p);
-    else forgetUnsent(p.seed);
+    if (!isMintedDailySeed(p.seed) || dailyClosed(p.seed, now) || checkedStands(p.seed, p.replay.claimedScore)) forgetUnsent(p.seed);
+    else if (!onItsWay.has(p.seed)) out.push(p);
   }
   return out;
 }
@@ -132,16 +149,21 @@ export async function sendPending(verifierUrl: string, p: PendingSubmission, fet
   return { ...base, status: 'verified', score: body.score, rank, player };
 }
 
-/** One line for the title screen about what happened to the saved games; '' when there is nothing to say. */
-export function describeOutcomes(outcomes: FlushOutcome[]): string {
+/**
+ * One line for the title screen about what happened to the saved games; '' when there is nothing to say. A flush names the yard; a game
+ * Home offered is named by `game` ("today's game", review 2026-11-06), never by the yard's code, and it was never a saved game.
+ */
+export function describeOutcomes(outcomes: FlushOutcome[], game?: (seed: string) => string): string {
   if (!outcomes.length) return '';
   const short = (seed: string) => (seed.length > 26 ? `${seed.slice(0, 24)}…` : seed);
   const parts = outcomes.map((o) => {
+    const who = { seed: short(o.seed), game: game?.(o.seed) ?? '' };
+    const score = money(o.score ?? 0);
     switch (o.status) {
       case 'verified':
-        return t('pending.checked', {
-          seed: short(o.seed),
-          score: money(o.score ?? 0),
+        return t(game ? 'title.unsentChecked' : 'pending.checked', {
+          ...who,
+          score,
           rank: o.rank
             ? t('pending.rankSuffix', {
                 rank: o.rank.n != null ? t('common.rankOf', { n: int(o.rank.n), of: int(o.rank.of) }) : t('common.beyondTop', { of: int(o.rank.of) }),
@@ -150,15 +172,15 @@ export function describeOutcomes(outcomes: FlushOutcome[]): string {
           player: o.player ? t('pending.asSuffix', { player: o.player }) : '',
         });
       case 'keep-best':
-        return t('pending.keepBest', { seed: short(o.seed), score: money(o.score ?? 0) });
+        return t(game ? 'title.unsentKeepBest' : 'pending.keepBest', { ...who, score });
       case 'late':
-        return t('pending.late', { seed: short(o.seed), score: money(o.score ?? 0) });
+        return t(game ? 'title.unsentLate' : 'pending.late', { ...who, score });
       case 'rejected':
-        return t('pending.rejected', { seed: short(o.seed), error: o.error ?? '' });
+        return t(game ? 'title.unsentRejected' : 'pending.rejected', { ...who, error: o.error ?? '' });
       case 'busy':
-        return t('pending.busy', { seed: short(o.seed) });
+        return t(game ? 'title.unsentBusy' : 'pending.busy', who);
       default:
-        return t('pending.offline', { seed: short(o.seed) });
+        return t(game ? 'title.unsentOffline' : 'pending.offline', who);
     }
   });
   return `${parts.map((p, i) => (i === 0 ? p.charAt(0).toUpperCase() + p.slice(1) : p)).join('. ')}.`;

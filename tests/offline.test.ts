@@ -22,7 +22,7 @@ const store = new Map<string, string>();
 } as Storage;
 const storage = await import('../game/src/render/storage');
 const { RULES_VERSION } = await import('../game/src/sim/types');
-const { flushPending, describeOutcomes, keepUnsent, openUnsent, sendPending } = await import('../game/src/render/pending');
+const { flushPending, describeOutcomes, keepUnsent, openUnsent, sendPending, sendingNow } = await import('../game/src/render/pending');
 const { apply, newRun } = await import('../game/src/sim/run');
 const { exportReplay } = await import('../game/src/sim/replay');
 const { RULES } = await import('../game/src/sim/rules');
@@ -234,6 +234,41 @@ test('2026-11-06 unsent games: the flag round-trips (the tool origin with it), t
     storage.loadPending().some((p) => p.seed === 'u-d' && !p.unsent),
     'now it goes like any saved game',
   );
+  // the cap (review, 2026-11-06): a kept game never displaces a game the player asked to send; over the cap it gives way first, the oldest kept one first
+  store.clear();
+  for (const s of ['a1', 'a2', 'a3', 'a4', 'a5']) storage.savePending(row(s, 1));
+  storage.saveUnsent(row('k1', 1));
+  assert.deepEqual(
+    storage.loadPending().map((p) => p.seed),
+    ['a1', 'a2', 'a3', 'a4', 'a5'],
+    'five games the player asked to send stay',
+  );
+  assert.deepEqual(storage.loadUnsent(), [], 'and the kept game finds no room');
+  storage.removePending('a5', row('a5', 1).savedAt);
+  storage.saveUnsent(row('k1', 1));
+  storage.saveUnsent(row('k2', 1));
+  assert.deepEqual(
+    storage.loadUnsent().map((p) => p.seed),
+    ['k2'],
+    'a kept game gives way to a newer kept game',
+  );
+  assert.deepEqual(
+    storage.loadPending().map((p) => p.seed),
+    ['a1', 'a2', 'a3', 'a4'],
+  );
+  storage.savePending(row('a6', 1));
+  assert.deepEqual(
+    storage.loadPending().map((p) => p.seed),
+    ['a1', 'a2', 'a3', 'a4', 'a6'],
+    "a game the player asked to send takes the kept game's room, never another asked-for game's",
+  );
+  assert.deepEqual(storage.loadUnsent(), []);
+  store.set('jd.pending.v1', JSON.stringify([row('r1', 1, { unsent: true }), row('r2', 1), row('r3', 1), row('r4', 1), row('r5', 1), row('r6', 1)]));
+  assert.deepEqual(
+    storage.validatePending(JSON.parse(store.get('jd.pending.v1')!)).map((p) => p.seed),
+    ['r2', 'r3', 'r4', 'r5', 'r6'],
+    'on read too, a list over the cap loses its kept rows first',
+  );
   // the flush sends only what the player asked to send; the tap from Home takes the same path, and a checked game is recorded like a live one
   store.clear();
   storage.savePending(row('f-asked', 10));
@@ -268,7 +303,7 @@ test('2026-11-06 unsent games: the flag round-trips (the tool origin with it), t
   assert.equal(storage.loadSubmissions()['f-unsent']?.replayHash, 'h-f-unsent', "the device's submission record, as a live one");
 });
 
-test("2026-11-06 keepUnsent and openUnsent: a finished minted daily of the player's own is kept, flagged; a try, an unfinished game, an unminted yard or a closed day is not; the reader drops a day that closed", () => {
+test("2026-11-06 keepUnsent and openUnsent: a finished minted daily of the player's own is kept, flagged; a try, an unfinished game, an unminted yard, a closed day or a game this device's checked one covers is not; the reader drops a day that closed or a game a checked one covers, and holds back one on its way", () => {
   store.clear();
   const now = new Date('2030-05-10T12:00:00Z');
   const today = 'daily-2030-05-10-abcdefgh';
@@ -310,6 +345,41 @@ test("2026-11-06 keepUnsent and openUnsent: a finished minted daily of the playe
     '2030-05-10T12:00:00.000Z',
     "a day that has closed is not kept, so the older row stands (it is the reader's to drop)",
   );
+  // this device's checked game on the yard (review, 2026-11-06): a game it ranks at least as well as is not kept, and a kept one goes once a
+  // checked game covers it, because keep-best would refuse either; a lower checked game leaves the offer
+  const score = finishedRun(today).score;
+  const checked = (at: number) => storage.recordSubmission(today, { score: at, replayHash: 'h-today', verifiedAt: '2030-05-10T11:00:00Z', player: 'Pat' });
+  checked(score - 1);
+  assert.equal(openUnsent(now).length, 1, 'a lower checked game: the kept one would rank higher, so it is still offered');
+  checked(score); // the device's record keeps its best, as the board does
+  assert.deepEqual(openUnsent(now), [], 'an equal checked game: Home does not offer the kept one');
+  assert.deepEqual(storage.loadUnsent(), [], 'and the device lets it go');
+  keepUnsent(finishedRun(today), 'test', {}, now);
+  assert.deepEqual(storage.loadUnsent(), [], 'nor is one kept at the results');
+  // a game on its way to our server from the results stays kept and is not offered until the answer is in
+  store.delete('jd.submissions.v2');
+  keepUnsent(finishedRun(today), 'test', {}, now);
+  sendingNow(today, true);
+  assert.deepEqual(openUnsent(now), []);
+  assert.equal(storage.loadUnsent().length, 1, 'still kept');
+  sendingNow(today, false);
+  assert.equal(openUnsent(now).length, 1);
+});
+
+test("2026-11-06 Home's outcome names the game by its day, never by the yard's code, and never calls it saved; the flush's lines are as they were", () => {
+  type Outcome = Parameters<typeof describeOutcomes>[0][number];
+  const o = (status: Outcome['status'], extra: Partial<Outcome> = {}): Outcome => ({ seed: 'daily-2030-05-10-abcdefgh', savedAt: '', status, ...extra });
+  const today = () => "today's game";
+  assert.equal(describeOutcomes([o('verified', { score: 10, rank: { n: 1, of: 3 }, player: 'Pat' })], today), "Today's game is checked: $10 · #1 of 3 as Pat.");
+  assert.equal(
+    describeOutcomes([o('keep-best', { score: 10 })], () => "yesterday's game"),
+    "Yesterday's game is checked ($10) but an earlier game of yours on that yard ranks at least as well.",
+  );
+  assert.equal(describeOutcomes([o('late', { score: 10 })], today), "Today's game is checked ($10), but that day's board had already closed.");
+  assert.equal(describeOutcomes([o('rejected', { error: 'x' })], today), "Today's game was not accepted (x) and is no longer kept.");
+  assert.equal(describeOutcomes([o('busy')], today), "Our server is busy; today's game is still waiting.");
+  assert.equal(describeOutcomes([o('offline')], today), "Still offline: today's game waits until you reconnect.");
+  assert.equal(describeOutcomes([o('offline')]), 'Still offline. Your saved game on daily-2030-05-10-abcdefgh waits until you reconnect.');
 });
 
 test('0.8.7 no developer copy on the player\'s screens: the DOM screens and panels never mention npm, localhost, loopback addresses or "local verifier"', () => {
