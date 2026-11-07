@@ -296,3 +296,17 @@ test('Privacy in this build says what this build does, names no server and offer
   assert.equal(await page.locator('[data-testid=data-delete]').count(), 0);
   await page.context().close();
 });
+
+test('the record page in this build still saves and opens a copy: neither needs a server', { timeout: 30000 }, async () => {
+  const page = await (await browser.newContext({ viewport: { width: 1280, height: 800 }, acceptDownloads: true })).newPage();
+  await page.goto(url);
+  await page.getByTestId('record').click();
+  await page.getByTestId('record-dialog').waitFor();
+  assert.equal(await page.locator('[data-testid=record-open]').count(), 1);
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('record-save').click()]);
+  assert.equal(dl.suggestedFilename(), 'junkyard-record.json');
+  const copy = JSON.parse(fs.readFileSync(await dl.path(), 'utf8'));
+  assert.equal(copy.game, 'junkyard-draft');
+  assert.ok(!/token|identity/.test(JSON.stringify(copy)));
+  await page.context().close();
+});
