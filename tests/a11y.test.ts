@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { auditContrast, auditCvd, MATERIALS, SPRITES } from '../tools/a11y-audit';
+import { auditContrast, auditCvd, GRAPHIC_PAIRS, MATERIALS, SEMANTIC, SPRITES } from '../tools/a11y-audit';
 import { contrast, deltaE, hexToRgb, shiftValue, simulate } from '../tools/a11y-lib';
 
 test('every text/background pair the UI draws meets WCAG AA contrast', () => {
@@ -8,6 +8,19 @@ test('every text/background pair the UI draws meets WCAG AA contrast', () => {
   const fails = results.filter((r) => !r.ok).map((r) => `${r.name}: ${r.ratio}:1 < ${r.required}:1`);
   assert.deepEqual(fails, []);
   assert.ok(results.length >= 18, 'the audit covers the known pairs');
+});
+
+test("a try's outline of the previous line (render/lasttime.ts) reads at the non-text minimum against the floor, and stays apart from the cursor and the marks", () => {
+  assert.equal(GRAPHIC_PAIRS.length, 1);
+  const r = auditContrast(GRAPHIC_PAIRS)[0];
+  assert.equal(r.required, 3, 'a drawn mark, not text: WCAG 1.4.11');
+  assert.ok(r.ok, `${r.name}: ${r.ratio}:1 < 3:1`);
+  assert.ok(
+    auditContrast().some((p) => p.name === r.name),
+    'the default audit covers it',
+  );
+  const near = auditCvd({ semantic: SEMANTIC }).filter((p) => !p.ok && (p.a === 'lastTime' || p.b === 'lastTime'));
+  assert.deepEqual(near, []);
 });
 
 test('materials and semantic colours stay apart under protanopia, deuteranopia and tritanopia', () => {

@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { P, CSS } from '../game/src/render/palette';
+import { LAST_TIME } from '../game/src/render/lasttime';
 import { contrast, deltaE, deltaL, hexToRgb, over, rgbToHex, shiftValue, simulate, type CvdKind, type RGB } from './a11y-lib';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -24,6 +25,8 @@ export interface TextPair {
   bg: RGB;
   px: number;
   bold?: boolean;
+  /** a drawn mark rather than text: WCAG 1.4.11 asks 3:1 against what it sits on */
+  graphic?: boolean;
 }
 export interface ContrastResult extends TextPair {
   ratio: number;
@@ -66,11 +69,15 @@ export const TEXT_PAIRS: TextPair[] = [
   { name: 'draft card title on floor card', fg: hexToRgb(CSS.text), bg: bgFloor, px: 17, bold: true },
   { name: 'offer index [n] dim on floor card', fg: hexToRgb(CSS.dim), bg: bgFloor, px: 12 },
 ];
+/** The outline a try draws of the previous line (render/lasttime.ts), as the eye sees it: its colour at its alpha over the floor. */
+const lastTimeOnFloor = over(hexToRgb(LAST_TIME.colour), LAST_TIME.alpha, bgFloor);
+/** Marks drawn on the yard that carry meaning (WCAG 1.4.11: 3:1 against what they sit on). */
+export const GRAPHIC_PAIRS: TextPair[] = [{ name: "last time's outline on the yard floor", fg: lastTimeOnFloor, bg: bgFloor, px: 0, graphic: true }];
 
-export function auditContrast(pairs = TEXT_PAIRS): ContrastResult[] {
+export function auditContrast(pairs = [...TEXT_PAIRS, ...GRAPHIC_PAIRS]): ContrastResult[] {
   return pairs.map((p) => {
     const large = p.px >= 24 || (p.bold && p.px >= 18.66);
-    const required = large ? 3 : 4.5;
+    const required = p.graphic || large ? 3 : 4.5;
     const ratio = +contrast(p.fg, p.bg).toFixed(2);
     return { ...p, ratio, required, ok: ratio >= required, fgHex: rgbToHex(p.fg), bgHex: rgbToHex(p.bg) };
   });
@@ -87,7 +94,13 @@ export const MATERIALS: Record<string, RGB> = {
 /** The sprites as drawn: the mean colour of each item frame, measured by tools/make-art.mjs. Shapes differ too; this holds the drawing to the palette's rule. */
 const measured = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools', 'make-art', 'item-colours.json'), 'utf8')) as Record<string, string>;
 export const SPRITES: Record<string, RGB> = Object.fromEntries(Object.entries(measured).map(([k, v]) => [k, hexToRgb(v)]));
-export const SEMANTIC: Record<string, RGB> = { ok: hexToRgb(P.ok), bad: hexToRgb(P.bad), amberSelect: hexToRgb(P.amber), cursorFrame: hexToRgb(P.cursor) };
+export const SEMANTIC: Record<string, RGB> = {
+  ok: hexToRgb(P.ok),
+  bad: hexToRgb(P.bad),
+  amberSelect: hexToRgb(P.amber),
+  cursorFrame: hexToRgb(P.cursor),
+  lastTime: lastTimeOnFloor,
+};
 
 export interface PairResult {
   group: string;
@@ -130,7 +143,7 @@ if (isMain) {
   console.log('CONTRAST');
   for (const r of contrastResults)
     console.log(
-      `  ${r.ok ? 'ok  ' : 'FAIL'} ${r.ratio.toFixed(2).padStart(5)}:1 (need ${r.required}) ${r.name}  ${r.fgHex} on ${r.bgHex} @${r.px}px${r.bold ? ' bold' : ''}`,
+      `  ${r.ok ? 'ok  ' : 'FAIL'} ${r.ratio.toFixed(2).padStart(5)}:1 (need ${r.required}) ${r.name}  ${r.fgHex} on ${r.bgHex} ${r.graphic ? 'graphic' : `@${r.px}px${r.bold ? ' bold' : ''}`}`,
     );
   console.log('CVD (worst pair per group and simulation)');
   for (const group of ['materials', 'sprites', 'semantic'])
