@@ -37,7 +37,7 @@ import { fetchVerifiedReplay, playVerifiedReplay } from '../render/verified';
 import { identityDialog, playerLabel } from './identityDialog';
 import { loadIdentity, fetchClaimed, bearerAllowed } from '../render/identity';
 import { HIDDEN_LABEL } from '../identity/identity';
-import { acceptDaily, cachedDaily, practiceSeed, todaySeed, revealGate, fetchWeekly, todaysYard, yesterdayOffer } from '../render/daily';
+import { acceptDaily, cachedDaily, practiceSeed, todaySeed, todayUTC, revealGate, fetchWeekly, todaysYard, yesterdayOffer } from '../render/daily';
 import {
   openArchive,
   openDivision,
@@ -60,8 +60,9 @@ import { hasInbox, loadInbox } from '../render/inbox';
 import { isFresh, latestPlacement } from '../render/divisions';
 import { periodLabel, placeLine } from '../content/division';
 import { reactionLine, type ReactionCounts } from '../content/reactions';
-import { flushPending, describeOutcomes } from '../render/pending';
-import { loadDailyDates, loadPending, loadSalBeaten } from '../render/storage';
+import { flushPending, describeOutcomes, openUnsent, sendPending, type FlushOutcome } from '../render/pending';
+import { loadDailyDates, loadPending, loadSalBeaten, queueUnsent, type PendingSubmission } from '../render/storage';
+import { dailyDateOf } from '../sim/daily';
 import { salLater } from '../render/sal';
 import { groupHeaders, groupParam, loadGroup, saveGroup } from '../render/groups';
 import { t } from '../content/strings';
@@ -115,19 +116,63 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     });
   // production roadmap 0.8.7: games saved while offline are submitted now, and the player is told what became of them
   const pendingNote = h('div', { class: 'jd-amber jd-home-note', style: 'display:none' }, '');
+  const showOutcomes = (outcomes: FlushOutcome[], game?: (seed: string) => string) => {
+    pendingNote.textContent = describeOutcomes(outcomes, game);
+    pendingNote.style.display = '';
+    pendingNote.dataset.testid = 'pending-note';
+    const good = outcomes.some((x) => x.status === 'verified' || x.status === 'keep-best');
+    pendingNote.classList.toggle('jd-amber', good);
+    pendingNote.classList.toggle('jd-dim', !good);
+  };
   const pending = loadPending();
   if (pending.length) {
     pendingNote.textContent = t('title.pendingWaiting', { n: pending.length });
     pendingNote.style.display = '';
     pendingNote.dataset.testid = 'pending-note';
     void flushPending(verifierUrl).then((outcomes) => {
-      if (!pendingNote.isConnected) return;
-      pendingNote.textContent = describeOutcomes(outcomes);
-      const good = outcomes.some((x) => x.status === 'verified' || x.status === 'keep-best');
-      pendingNote.classList.toggle('jd-amber', good);
-      pendingNote.classList.toggle('jd-dim', !good);
+      if (pendingNote.isConnected) showOutcomes(outcomes);
     });
   }
+  // a finished daily that is not on the board (the consultant panel, 2026-11-06): kept on this device and offered here, one tap, until it
+  // is on the board or its day closes. Nothing sends it by itself: the tap is the player's. What became of it shows where a flush's outcome
+  // does, and the game is named by its day there as here (the glossary: the date is the name), never by the yard's code.
+  const gameName = (seed: string) => t(dailyDateOf(seed) === todayUTC() ? 'title.unsentGameToday' : 'title.unsentGameYesterday');
+  const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+  const unsentStrip = (row: PendingSubmission) => {
+    const send = btn(
+      t('title.unsentSend'),
+      'unsent-submit',
+      () => {
+        send.disabled = true;
+        void sendPending(verifierUrl, row).then((outcome) => {
+          if (!strip.isConnected) return;
+          if (outcome.status === 'offline') queueUnsent(row.seed); // the player asked: from now on it goes like any saved game, on the next load
+          if (outcome.status === 'busy') send.disabled = false;
+          else strip.remove();
+          showOutcomes([outcome], gameName);
+          ui.refit();
+        });
+      },
+      { variant: 'primary', small: true },
+    );
+    const strip = h(
+      'div',
+      { class: 'jd-row jd-between jd-panel', tid: 'unsent-row', style: 'padding:0.4em 0.8em' },
+      h(
+        'span',
+        { tid: 'unsent-line', style: 'flex:1 1 16em; min-width:0' },
+        cap(t('title.unsentLine', { game: gameName(row.seed), score: money(row.replay.claimedScore) })),
+      ),
+      send,
+    );
+    strip.dataset.seed = row.seed;
+    return strip;
+  };
+  const unsentBox = h(
+    'div',
+    { tid: 'unsent', style: 'display:flex; flex-direction:column; gap:0.35em' },
+    ...(isTestEdition() ? [] : openUnsent()).map(unsentStrip),
+  );
   // the web app's notices (0.10.3): a new version waiting (never shown mid-game: only home asks), and the install offer after the second finished game
   const notices = h('div', { tid: 'notices', style: 'display:flex; flex-direction:column; gap:0.35em' });
   const updateStrip = () =>
@@ -673,6 +718,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
     testing ? h('div', { class: 'jd-dim jd-home-note', tid: 'test-banner' }, t('test.banner')) : null,
     testing ? h('div', { class: 'jd-home-note' }, feedbackLink) : null,
     notices,
+    unsentBox,
     playerNote,
     pendingNote,
     h('div', { class: 'jd-home-main' }, lead, h('div', { class: 'jd-home-side' }, rankCard, strip)),

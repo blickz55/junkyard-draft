@@ -12,6 +12,9 @@ import type { ClipResult } from '../clip';
 import type { ResultsShown } from '../../ui/ResultsScreen';
 import { loadPlayer, loadSubmissions } from '../storage';
 import { canonicalReplayJson } from '../../sim/replay';
+import { keepUnsent } from '../pending';
+import { submissionOrigin } from '../devapi';
+import { isTestEdition } from '../config';
 
 /** Results: bookkeeping (bests, save) happens here; the screen itself is DOM (ui/ResultsScreen.ts). */
 export class ResultsScene extends Phaser.Scene {
@@ -211,6 +214,7 @@ export class ResultsScene extends Phaser.Scene {
       recordDayPlayed();
       recordRun(run.seed, run.score);
       recordKinds(run.picks); // 0.9.7: machines drafted, for the record page
+      if (!isTestEdition()) keepUnsent(run, import.meta.env.BUILD, submissionOrigin()); // 2026-11-06: a daily not put on the board is offered from Home until it is
     } // 0.8.7: the device's own history per seed, shown on the results board when the verifier is away
     if (!data.replayed && run.job && runStars(run) === 3) audio.jobDone();
     else audio.roundEnd(true);

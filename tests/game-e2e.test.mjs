@@ -1364,3 +1364,128 @@ test("yesterday's yard is still open on Home: a door to it while the rule takes 
   assert.equal(await page.getByTestId('yesterday-line').isVisible(), false, 'no door once it is checked');
   await page.evaluate(() => localStorage.removeItem('jd.dailystreak.v1'));
 });
+
+test(
+  "a finished daily not put on the board is kept: Home names it by its day and offers one tap, which checks it and counts the day; a game this device's checked one ranks at least as well as is neither kept nor offered, nor is one whose day closed",
+  { timeout: 240000 },
+  async () => {
+    const { api, draft, mode, results, title, when, textMatches, draftRound } = page.jd;
+    const dayBack = (n) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+    /** a game of its own on a yard, the card's parts sold in the second shift: no earlier game on the yard went that way, and our server refuses a recording it holds */
+    const playOwn = async (seed) => {
+      await page.goto(f.gameUrl(`scene=game&seed=${seed}`));
+      await draft();
+      await page.getByTestId('job-start').click();
+      await page.jd.noDialog('job-card');
+      for (let r = 1; r <= RULES.rounds; r++) {
+        await draftRound(r, 10000);
+        await page.evaluate((sellNow) => {
+          const j = window.__jd;
+          j.pick(0);
+          if (sellNow) for (const m of j.state().bin) if (m.kind !== 'conveyor') j.act({ t: 'sell', id: m.id });
+          j.run();
+        }, r === 2);
+        await mode('running', 10000);
+        await api('finishRun');
+        await mode('summary', 10000);
+        await api('next');
+      }
+      await results();
+      return Number((await page.getByTestId('score').textContent()).replace(/\D/g, ''));
+    };
+    /** Home, fresh, once it has heard from our server: no offer, nothing sent, nothing kept */
+    const nothingOffered = async (why) => {
+      await page.goto(f.gameUrl());
+      await title();
+      await when(() => !!document.querySelector('[data-testid=today-card]')?.dataset.seed, null, 10000);
+      assert.equal(await page.locator('[data-testid=unsent-line]').count(), 0, why);
+      assert.equal(await page.locator('[data-testid=pending-note]').count(), 0, 'and nothing was sent');
+      assert.equal(await page.evaluate(() => localStorage.getItem('jd.pending.v1')), null, 'the device let it go');
+    };
+    await page.goto(f.gameUrl());
+    await title();
+    await page.evaluate(() => {
+      localStorage.removeItem('jd.dailystreak.v1');
+      localStorage.removeItem('jd.pending.v1');
+      localStorage.removeItem('jd.save.v1');
+    });
+    const minted = await vjson('/daily');
+    // today's yard, where this device has a checked game (the scenarios above): with that game's score raised past anything a game can earn,
+    // keep-best would refuse a new one, so the results keep nothing and Home offers nothing (the results already said the earlier game stands)
+    const subs = await page.evaluate(() => localStorage.getItem('jd.submissions.v2'));
+    assert.ok(JSON.parse(subs ?? '{}').byVersion?.[V]?.[minted.seed], "this device has a checked game on today's yard (the scenarios above)");
+    await page.evaluate(
+      ({ v, seed }) => {
+        const all = JSON.parse(localStorage.getItem('jd.submissions.v2'));
+        all.byVersion[v][seed].score = 9_999_999;
+        localStorage.setItem('jd.submissions.v2', JSON.stringify(all));
+      },
+      { v: V, seed: minted.seed },
+    );
+    await playOwn(minted.seed);
+    assert.equal(
+      await page.evaluate(() => localStorage.getItem('jd.pending.v1')),
+      null,
+      "a game this device's checked one ranks at least as well as is not kept",
+    );
+    await page.getByTestId('home').click();
+    await title();
+    await when(() => !!document.querySelector('[data-testid=today-card]')?.dataset.seed, null, 10000);
+    assert.equal(await page.locator('[data-testid=unsent-line]').count(), 0, 'and Home does not offer it');
+    await page.evaluate((s) => localStorage.setItem('jd.submissions.v2', s), subs); // the record as it was
+    // yesterday's yard, still open and never checked from this device: the game is kept as the results come up
+    const prev = minted.previous;
+    assert.equal(prev?.date, dayBack(1), 'our server names yesterday beside today');
+    const onBoard = async () => (await vjson(`/daily?date=${prev.date}&limit=100`)).entries.length;
+    const before = await onBoard();
+    const score = await playOwn(prev.seed);
+    const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('jd.pending.v1') || '[]'));
+    assert.equal(kept.length, 1, 'the game is kept on the device as the results come up');
+    assert.equal(kept[0].seed, prev.seed);
+    assert.equal(kept[0].unsent, true, 'flagged as never sent');
+    assert.equal(kept[0].replay.claimedScore, score);
+    // Home without a Submit: the fact, named by the day, and the one tap; nothing goes on the board by itself
+    await page.getByTestId('home').click();
+    await title();
+    await page.getByTestId('unsent-line').waitFor({ timeout: 10000 });
+    assert.equal(await page.getByTestId('unsent-line').textContent(), `Yesterday's game, $${dollars(score)}, is not on the board.`);
+    assert.equal(await page.getByTestId('unsent-submit').textContent(), 'Put it on the board');
+    assert.equal(await page.locator('[data-testid=pending-note]').count(), 0, 'nothing is being sent for the player');
+    await when(() => !!document.querySelector('[data-testid=today-card]')?.dataset.seed, null, 10000); // Home has heard from our server
+    assert.equal(await onBoard(), before, 'the board did not move by itself');
+    await shot('home-unsent');
+    // the tap takes the path a saved game takes: checked, recorded on the device, the day counted; the outcome names the day, never the yard's code
+    await page.getByTestId('unsent-submit').click();
+    await textMatches('pending-note', /is checked/, 20000);
+    assert.match(
+      await page.getByTestId('pending-note').textContent(),
+      new RegExp(`^Yesterday's game is checked: \\$${dollars(score)} · #\\d+ of \\d+ as e2e player#[^.]+\\.$`),
+    );
+    assert.equal(await onBoard(), before + 1, 'on the board');
+    assert.equal(await page.locator('[data-testid=unsent-line]').count(), 0, 'the offer is gone');
+    assert.equal(await page.evaluate(() => localStorage.getItem('jd.pending.v1')), null, 'nothing is kept any more');
+    assert.deepEqual(
+      await page.evaluate(() => JSON.parse(localStorage.getItem('jd.dailystreak.v1') || '[]')),
+      [prev.date],
+      'the day counts as a checked day, as after a live submission',
+    );
+    await page.getByTestId('record').click();
+    await page.waitForSelector('[data-testid=record-dialog]', { timeout: 5000 });
+    assert.match(await page.getByTestId('record-days').textContent(), /1 checked day · 1 in a row now · longest run 1/, 'the record shows the day');
+    await page.keyboard.press('Escape');
+    await page.jd.noDialog('record-dialog');
+    // the checked game stands: the same game kept again is not offered, because keep-best would refuse it, and the device lets it go
+    await page.evaluate((row) => localStorage.setItem('jd.pending.v1', JSON.stringify([row])), kept[0]);
+    await nothingOffered("a game this device's checked one ranks at least as well as is not offered");
+    // a kept game whose day has closed is not offered either
+    const old = await vjson(`/daily?date=${dayBack(2)}`);
+    assert.equal(old.final, true);
+    await page.evaluate(
+      ({ seed, row }) => localStorage.setItem('jd.pending.v1', JSON.stringify([{ ...row, seed, replay: { ...row.replay, seed }, unsent: true }])),
+      { seed: old.seed, row: kept[0] },
+    );
+    await nothingOffered('a closed day is not offered');
+    await page.evaluate(() => localStorage.removeItem('jd.dailystreak.v1'));
+    assert.deepEqual(page.errors, [], 'no page errors');
+  },
+);

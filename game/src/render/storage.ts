@@ -461,8 +461,21 @@ export interface PendingSubmission {
   player: string;
   savedAt: string;
   /** a tool played it (0.12.5) */ origin?: 'tool';
+  /** a finished daily the player never sent (2026-11-06): kept so Home can offer it; nothing sends it for them */ unsent?: true;
 }
 export const PENDING_MAX = 5;
+/**
+ * At most PENDING_MAX rows, oldest first. Over that, a game kept unsent gives way before a game the player asked to send, the oldest kept
+ * one first (review, 2026-11-06): a row the player asked for is only ever displaced by another the player asked for.
+ */
+function capPending(rows: PendingSubmission[]): PendingSubmission[] {
+  const out = [...rows];
+  while (out.length > PENDING_MAX) {
+    const i = out.findIndex((q) => q.unsent);
+    out.splice(i >= 0 ? i : 0, 1);
+  }
+  return out;
+}
 export function validatePending(raw: unknown): PendingSubmission[] {
   if (!Array.isArray(raw)) return [];
   const out: PendingSubmission[] = [];
@@ -494,23 +507,16 @@ export function validatePending(raw: unknown): PendingSubmission[] {
       },
       player: isStr(p.player) ? p.player : '',
       savedAt: isStr(p.savedAt) ? p.savedAt : '',
+      ...(p.origin === 'tool' ? { origin: 'tool' as const } : {}),
+      ...(p.unsent === true ? { unsent: true as const } : {}),
     });
   }
-  return out.slice(-PENDING_MAX);
+  return capPending(out);
 }
-/** Submissions waiting for a connection, oldest first; only those under the current rules can still verify. */
-export const loadPending = (): PendingSubmission[] => validatePending(readRaw(K.pending)).filter((p) => p.rulesVersion === RULES_VERSION);
-/** Keep a run for later: one per seed (the newest wins), at most PENDING_MAX (the oldest falls off). */
-/** Writers also drop runs from other rules versions: they can never verify, so they are not worth keeping. */
+/** The rows under the current rules: the others can never verify, so readers skip them and writers drop them. */
 const livePending = (): PendingSubmission[] => validatePending(readRaw(K.pending)).filter((q) => q.rulesVersion === RULES_VERSION);
-export function savePending(p: PendingSubmission): PendingSubmission[] {
-  const next = [...livePending().filter((q) => q.seed !== p.seed), p].slice(-PENDING_MAX);
-  write(K.pending, next);
-  return next;
-}
-export function removePending(seed: string, savedAt: string): void {
-  const next = livePending().filter((q) => !(q.seed === seed && q.savedAt === savedAt));
-  if (next.length) write(K.pending, next);
+const writePending = (rows: PendingSubmission[]): void => {
+  if (rows.length) write(K.pending, rows);
   else {
     try {
       localStorage.removeItem(K.pending);
@@ -518,6 +524,47 @@ export function removePending(seed: string, savedAt: string): void {
       /* ignore */
     }
   }
+};
+/** Submissions the player asked to send, waiting for a connection, oldest first. A game kept unsent (`loadUnsent`) is not among them. */
+export const loadPending = (): PendingSubmission[] => livePending().filter((p) => !p.unsent);
+/** Finished dailies the player has not put on the board (2026-11-06), oldest first; whether a day is still open is the reader's question (render/pending.ts). */
+export const loadUnsent = (): PendingSubmission[] => livePending().filter((p) => p.unsent === true);
+/** Keep a run for later: one per seed (the newest wins, an unsent game included), at most PENDING_MAX (a kept game falls off first, then the oldest). */
+export function savePending(p: PendingSubmission): PendingSubmission[] {
+  const next = capPending([...livePending().filter((q) => q.seed !== p.seed), p]);
+  write(K.pending, next);
+  return next;
+}
+/**
+ * Keep a finished daily the player did not send (2026-11-06): one per seed, the best score; a game the player asked to send keeps its
+ * place whatever it scored, and over the cap only another kept game makes room (review, 2026-11-06). Returns the rows kept.
+ */
+export function saveUnsent(p: Omit<PendingSubmission, 'unsent'>): PendingSubmission[] {
+  const cur = livePending();
+  const same = cur.find((q) => q.seed === p.seed);
+  if (same && (!same.unsent || same.replay.claimedScore >= p.replay.claimedScore)) return cur;
+  const next = capPending([...cur.filter((q) => q.seed !== p.seed), { ...p, unsent: true as const }]);
+  if (!next.some((q) => q.seed === p.seed)) return cur; // every row is a game the player asked to send: none of them makes room
+  write(K.pending, next);
+  return next;
+}
+/** The unsent game on a seed is no longer wanted: our server answered a game on that yard, or its day closed. */
+export function forgetUnsent(seed: string): void {
+  const cur = livePending();
+  const next = cur.filter((q) => !(q.seed === seed && q.unsent));
+  if (next.length !== cur.length) writePending(next);
+}
+/** The player asked, from Home, for an unsent game to go and our server could not be reached: from now on it is sent like any saved game. */
+export function queueUnsent(seed: string): void {
+  const next = livePending().map((q) => {
+    if (!(q.seed === seed && q.unsent)) return q;
+    const { unsent: _unsent, ...asked } = q;
+    return asked;
+  });
+  write(K.pending, next);
+}
+export function removePending(seed: string, savedAt: string): void {
+  writePending(livePending().filter((q) => !(q.seed === seed && q.savedAt === savedAt)));
 }
 
 /** Once-only moments the foreman comments on (0.9.1): the first share, the first crew. True the first time a key is seen. */
