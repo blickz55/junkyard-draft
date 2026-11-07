@@ -57,4 +57,44 @@ runtime dependency at a time). When it comes, it goes under `dependencies`, not 
 only those, with `asarUnpack` for its `.node` binary, which cannot load from inside the asar; the shell's `require` is already
 inside a try, so nothing else in it changes. The Steam overlay needs the package's Electron switches too, which is for that day.
 
-Not done yet: code signing, macOS/Linux builds (config present, never run), auto-update, `steamworks.js` (above).
+## The record file (Steam Auto-Cloud with no Steam code)
+
+The shell keeps the player's record as one file, `record.json`, in Electron's userData folder:
+
+| OS      | Path                                                   |
+| ------- | ------------------------------------------------------ |
+| Windows | `%APPDATA%\Junkyard Draft\record.json`                 |
+| macOS   | `~/Library/Application Support/Junkyard Draft/record.json` |
+| Linux   | `~/.config/Junkyard Draft/record.json`                 |
+
+(`Junkyard Draft` is the `productName` in package.json; an unpackaged `npm run desktop` uses the package name, `junkyard-draft`,
+instead. `JD_RECORD_DIR` in the environment moves the file, which the smoke test uses to keep its writes out of the real folder.)
+
+What is in it is exactly what an email account carries between devices (`SyncData` in `game/src/render/storage.ts`: the bests,
+stars, days played, checked days, medals, standings, who watched, machines picked, and the sound and chatter settings), packed by
+`game/src/render/recordfile.ts` as `{ format: 1, game: "junkyard-draft", savedAt, rules, record }`. The device key, the name, the
+crew code and the sign-in are not in it, and the shell's handler (`desktop/record-file.cjs`) writes only the record's keys whatever
+the page sends, so nothing else can get in. The page writes the file a moment after anything in the record changes, and on leaving;
+at start, from Home, the file is read, checked with the same validator as the account copy and merged the same way (`mergeSync`:
+a best is the higher of the two, days are the union, a yard's standing is the newest), so nothing a machine earned is lost in either
+direction. A missing or corrupt file is ignored. Writes go to `record.json.tmp` first and are renamed over, so a crash mid-write
+leaves the old file whole. The same file is what "Save a copy" on the record page downloads and "Open a copy" reads, on the web and
+in the shell alike, so a web player can carry a record to the desktop by hand and back.
+
+Steam Auto-Cloud can carry that folder between a player's machines without a line of Steam code in the shell. In the Steamworks
+app admin, under Application > Steam Cloud, set the byte and file quotas (one file of a few hundred KB at most; a megabyte is the
+handler's cap), then add Auto-Cloud roots, one per OS:
+
+| OS      | Root               | Subdirectory              | Pattern       |
+| ------- | ------------------ | ------------------------- | ------------- |
+| Windows | `WinAppDataRoaming` | `Junkyard Draft`          | `record.json` |
+| macOS   | `MacAppSupport`    | `Junkyard Draft`          | `record.json` |
+| Linux   | `LinuxHome`        | `.config/Junkyard Draft`  | `record.json` |
+
+Leave `record.json.tmp` out (the pattern names the one file). Steam syncs the folder down before the game launches and up after it
+quits, so the merge on start is what reconciles two machines that both played offline. The roots' exact names are in the dropdown
+on that page; check them against the paths above before publishing the config, and test with two accounts' machines, because
+nothing here can see whether Steam carried the file.
+
+Not done yet: code signing, macOS/Linux builds (config present, never run), auto-update, `steamworks.js` (above), the Auto-Cloud
+config itself (the owner's, on the Steamworks site, once an app id exists).
