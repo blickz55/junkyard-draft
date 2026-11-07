@@ -23,6 +23,7 @@ import {
   currentStreak,
   loadHistory,
   savePending,
+  forgetUnsent,
   firstTime,
   recordStanding,
   recordMedal,
@@ -927,6 +928,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
           setStatus(t('results.savedOffline'), 'jd-amber');
           return;
         }
+        forgetUnsent(run.seed); // our server answered (2026-11-06): whatever it said, this yard's game is no longer one for Home to offer
         if (body.ok && body.late) {
           // PLAN-v3 0.6.2: the day closed; the game was checked and is real, the final board does not move
           telemetry.track('daily_submit_result', { result: 'late' });

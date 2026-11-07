@@ -68,6 +68,12 @@ export const STRINGS = {
     '{n, plural, one {# saved game waiting to be checked…} other {# saved games waiting to be checked…}}',
     'while saved offline games are being sent',
   ),
+  'title.unsentToday': s(
+    "Today's game, {score}, is not on the board.",
+    "Home: a finished game on today's yard that was never sent, kept on this device until it is (2026-11-06)",
+  ),
+  'title.unsentYesterday': s("Yesterday's game, {score}, is not on the board.", "Home: the same for yesterday's yard, while its day is open"),
+  'title.unsentSend': s('Put it on the board', 'Home: the button beside that line; the game goes the way a saved one does'),
   'title.resolutionStandard': s('Graphics: Standard', 'settings button'),
   'title.resolutionHigh': s('Graphics: Sharp', 'settings button'),
   'title.resolutionAuto': s('Graphics: Automatic', 'settings button'),

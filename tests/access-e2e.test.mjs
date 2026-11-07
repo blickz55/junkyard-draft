@@ -10,6 +10,7 @@ const f = await fixture({ verifier: true, verifierEnv: { DAILY_SECRET: 'access-e
 after(() => f.close());
 const page = await f.page();
 const { api, frames, title, draft, mode, textMatches, when } = page.jd;
+const { RULES_VERSION } = await import('../game/src/sim/types.ts');
 
 const openKeys = async () => {
   await page.goto(f.gameUrl());
@@ -213,9 +214,24 @@ test('Home at phone width: Tab reaches everything, on screen, with a ring', { ti
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(f.gameUrl());
   await title();
+  // a finished daily not yet on the board (2026-11-06) puts a button on Home: keep one so the audit reaches it
+  await page.evaluate(
+    ({ v, seed }) =>
+      localStorage.setItem(
+        'jd.pending.v1',
+        JSON.stringify([
+          { seed, rulesVersion: v, replay: { format: 1, rulesVersion: v, seed, actions: [], claimedScore: 1234 }, player: '', savedAt: '', unsent: true },
+        ]),
+      ),
+    { v: RULES_VERSION, seed: `daily-${new Date().toISOString().slice(0, 10)}-abcdefgh` },
+  );
+  await page.goto(f.gameUrl());
+  await title();
   const want = await reachable();
+  assert.ok(want.includes('unsent-submit'), `the kept game's button is on Home: ${want.join(', ')}`);
   const stops = await walk();
   audit('Home', stops, want);
+  await page.evaluate(() => localStorage.removeItem('jd.pending.v1'));
 });
 
 test('the dialogs at phone width: Tab goes round each and never wanders behind it', { timeout: 120000 }, async () => {
