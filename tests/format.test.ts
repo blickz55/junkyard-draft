@@ -1,7 +1,18 @@
 // The appointment (2026-11-06): when the next yard opens, as a time of day in the player's zone.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { localTime, nextYardOpensAt } from '../game/src/content/format';
+import { localDate, localTime, localWeekday, nextYardOpensAt } from '../game/src/content/format';
+
+test('a calendar date and a weekday where the device is, or in the zone given (the final line, 2026-11-06)', () => {
+  const d = new Date('2026-11-08T00:00:00Z');
+  assert.equal(localDate(d, 'UTC'), '2026-11-08');
+  assert.equal(localDate(d, 'America/New_York'), '2026-11-07', 'still the evening before, west of UTC');
+  assert.equal(localDate(d, 'Asia/Kolkata'), '2026-11-08');
+  assert.equal(localWeekday(d, 'UTC'), 'Sunday');
+  assert.equal(localWeekday(d, 'America/New_York'), 'Saturday');
+  assert.match(localDate(d), /^\d{4}-\d{2}-\d{2}$/, "the device's own zone");
+  assert.match(localWeekday(d), /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$/);
+});
 
 test('the next yard opens at the next 00:00 UTC', () => {
   assert.equal(nextYardOpensAt(new Date('2026-11-06T23:30:00Z')).toISOString(), '2026-11-07T00:00:00.000Z');

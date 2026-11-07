@@ -99,6 +99,9 @@ let board, sub, dinfo, identity, plantedSave, groupCode, buddyToken, bsub, share
 test('boot: damaged storage shapes fall back, the telemetry toggle records consent', { timeout: 60000 }, async () => {
   await page.goto(f.gameUrl());
   await title();
+  // a device with no lesson and no game keeps the record card's words (the progress lines are for a lesson done, 2026-11-06)
+  assert.match(await page.getByTestId('rank').textContent(), /No finished games yet\.0 games played on this device/);
+  assert.equal(await page.locator('[data-testid=home-progress]').count(), 0);
   // malformed_storage_shapes_fall_back: valid JSON with the wrong shape must not crash boot or the title
   await page.evaluate(() => {
     localStorage.setItem('jd.bests.v1', JSON.stringify({ bySeed: null }));
@@ -1311,6 +1314,13 @@ test(
       throw new Error(`${e.message}; status read: ${await page.getByTestId('status').textContent()}`);
     });
     assert.match(await page.getByTestId('days-row').textContent(), /^\d+ days? played · 2 checked days in a row · Your record$/, 'the day just counted');
+    // the promise after the score goes up (2026-11-06): when the places are final, in this device's own time and calendar, and where its place
+    // lands; the count only from five games, the first on today's board said to be
+    await page.getByTestId('final-line').waitFor({ timeout: 5000 });
+    assert.match(
+      await page.getByTestId('final-line').textContent(),
+      /^(First on the board today\. Places are final at|Places among ([5-9]|\d\d+) games so far are final at|Places on the final board are set at) \d{1,2}:\d{2} (AM|PM) (today|tomorrow|on (Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)); yours then lands in your inbox\.$/,
+    );
     // the name is asked now, after the score is checked; the answer relabels the entry
     await page.getByTestId('dialog-input').waitFor({ timeout: 5000 });
     await page.getByTestId('dialog-input').fill('e2e player');

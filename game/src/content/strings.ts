@@ -117,6 +117,11 @@ export const STRINGS = {
   'title.salBeaten': s("{n, plural, one {You've beaten Sal on # yard} other {You've beaten Sal on # yards}}", 'Home, the rank card'),
   'title.todayUnderway': s('Your game on it is waiting above', 'bests panel: a saved game on this yard'),
   'title.gamesOnDevice': s('{n, plural, one {# game played} other {# games played}} on this device', 'bests panel'),
+  'title.lessonsDone': s(
+    'Lessons done: {n} of {total}.',
+    'bests panel: a device with a lesson done and no finished game yet reads its progress, in place of the zeros (the consultant panel, 2026-11-06)',
+  ),
+  'title.firstGameNext': s('Your first game is next.', 'bests panel, under the lessons done: what comes next, as a fact'),
   'title.underRules': s('From earlier versions ({version})', 'collapsed archived bests'),
   'title.archivedBest': s('best {score} (yard {seed}) · ', 'archived bests, before the count'),
   'title.archivedGames': s('{n, plural, one {# game} other {# games}}, kept for the record', 'archived bests'),

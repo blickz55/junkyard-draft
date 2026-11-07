@@ -100,6 +100,16 @@ export const dailyClosed = (seed: string, now = new Date()): boolean => {
   return !!d && isMintedDailySeed(seed) && shiftUtcDate(d, 2) <= todayUTC(now);
 };
 /**
+ * When a minted daily's places become final (the consultant panel, 2026-11-06): the server's own moment for the yard it named today,
+ * which a re-issued day moves, else 00:00 UTC two days after the date, the rule `dailyClosed` reads; null for any other yard.
+ */
+export function dailyClosesAt(seed: string, now = new Date()): Date | null {
+  if (!isMintedDailySeed(seed)) return null;
+  const known = cachedDaily(now);
+  const theirs = known && known.seed === seed ? Date.parse(known.closesAt) : NaN;
+  return new Date(Number.isFinite(theirs) ? theirs : `${shiftUtcDate(dailyDateOf(seed)!, 2)}T00:00:00.000Z`);
+}
+/**
  * Reveal gate (PLAN-v3 0.6.6): on an open daily other players' replays are watchable only once this device has a
  * verified entry for that seed (or the day has closed). Returns the reason to show while gated, null when watchable.
  * The verifier enforces the same rule on GET /replay; this only keeps the buttons honest.

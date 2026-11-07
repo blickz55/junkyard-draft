@@ -36,7 +36,8 @@ import { audio } from '../render/audio';
 import { prefs } from '../render/prefs';
 import { authHeaders, bearerAllowed, claimName, loadIdentity } from '../render/identity';
 import { labelFor } from '../identity/identity';
-import { todaySeed, revealGate, todayUTC } from '../render/daily';
+import { todaySeed, revealGate, todayUTC, dailyClosesAt } from '../render/daily';
+import { boardGames, finalLine } from '../content/closing';
 import { shiftUtcDate } from '../daily/streak';
 import { medalFor, medalsLine, type Medals } from '../daily/medals';
 import { openFeedback, openPlayerCard, openPolicy, openPrivacy, openRecord, openThread } from './panels';
@@ -59,6 +60,9 @@ import { withTitle } from '../content/title';
 import { submissionOrigin } from '../render/devapi';
 import { yardLabel } from '../content/yard';
 import { machineName, materialName } from '../content/machines';
+
+/** The most entries one board request hands back (MAX_BOARD_LIMIT, server/verify.ts): a list this long may stop short of the board. */
+const RANK_LIMIT = 100;
 
 /** What the scene keeps so tests and later screens can read it. */
 export interface ResultsHost extends Phaser.Scene {
@@ -510,6 +514,19 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
     status.textContent = text;
     status.className = `jd-results-status ${cls}`;
   };
+  // the promise after the score goes up (the consultant panel, 2026-11-06): once a daily is checked, when the places are final and where
+  // this device's lands, as facts under the status. It exists only then, so a tester build, a try or a recording never has it. A crew's
+  // board is not the board, so its count is not said. The board request stops at RANK_LIMIT entries, so its length is exact only under
+  // that; the chart's `n` is the whole board, and once the chart has loaded with this game on it the line reads that (boardGames).
+  const finalNote = h('div', { class: 'jd-dim jd-results-status', tid: 'final-line', style: 'margin-top:0.25em' });
+  let chartGames: number | null = null; // every game on the board with this one counted, from the chart; null until it has loaded
+  const showFinal = (r: Rank | null) => {
+    const closesAt = dailyClosesAt(run.seed);
+    if (!closesAt) return;
+    const games = boardGames({ chart: chartGames, rank: r, cap: RANK_LIMIT, crew: !!loadGroup() });
+    finalNote.textContent = finalLine({ closesAt, games, today: isToday, inbox: bearerAllowed(verifierUrl) });
+    if (!finalNote.isConnected) status.after(finalNote);
+  };
 
   // played against someone's score: the way to add them (0.11.8)
   if (o.challenge && !o.replayed) {
@@ -580,6 +597,10 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
       if (hg.mine) {
         scene.lastPercentile = hg.mine.percentile;
         scene.lastN = hg.n;
+        if (!loadGroup()) {
+          chartGames = hg.n; // the whole board with this game on it: past the board request's cap, the final line's only exact count
+          if (finalNote.isConnected) showFinal(scene.lastRank);
+        }
         if (!o.replayed)
           recordStanding({ seed: run.seed, at: new Date().toISOString(), score: hg.mine.score, percentile: hg.mine.percentile, n: hg.n, rank: hg.mine.rank }); // 0.9.7: the record page
         if (!foremanSettled) {
@@ -866,7 +887,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
     return player;
   };
   const rankOf = async (replayHash: string): Promise<Rank> => {
-    const res = await fetch(`${verifierUrl}/board?seed=${encodeURIComponent(run.seed)}&limit=100${groupParam(verifierUrl)}`, {
+    const res = await fetch(`${verifierUrl}/board?seed=${encodeURIComponent(run.seed)}&limit=${RANK_LIMIT}${groupParam(verifierUrl)}`, {
       headers: groupHeaders(verifierUrl),
     });
     const body = (await res.json()) as { entries: { replayHash: string }[] };
@@ -982,8 +1003,10 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
             }),
             'jd-green',
           );
+          showFinal(r);
         } catch {
           setStatus(t('results.checkedNoRank', { score: money(body.score ?? run.score), label }), 'jd-green');
+          showFinal(null);
         }
         // the room before the form (2026-11-06): the score is on the board; now, and only now, a name for it. Empty or cancelled leaves it
         // anonymous, and Home's "Choose a name" claims it later, because the server relabels every entry of this key when a name is claimed.

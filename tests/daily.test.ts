@@ -14,7 +14,7 @@ const store = new Map<string, string>();
     return store.size;
   },
 } as Storage;
-const { acceptDaily, cachedDaily, yesterdayOffer } = await import('../game/src/render/daily');
+const { acceptDaily, cachedDaily, yesterdayOffer, dailyClosesAt } = await import('../game/src/render/daily');
 
 const now = new Date('2026-11-06T15:00:00Z');
 const seedOf = (date: string) => `daily-${date}-abcdefgh`; // the minted form: a date and eight base32 letters
@@ -46,4 +46,15 @@ test('the offer: null with no yard known, once this device has it checked, once 
   // the window closes 48 hours after yesterday's 00:00 UTC, which is the stroke of tomorrow: a minute before, it is still open
   const late = new Date('2026-11-06T23:59:59Z');
   assert.ok(yesterdayOffer(info, [], late), 'open until the last second of today');
+});
+
+test("when a daily's places are final (2026-11-06): the server's moment for the yard it named today, the 48-hour rule for any other minted yard, nothing else", () => {
+  store.clear();
+  assert.equal(dailyClosesAt('classic-e2e-seed', now), null);
+  assert.equal(dailyClosesAt('daily-2026-11-05', now), null, 'the practice yard is on no board');
+  assert.equal(dailyClosesAt(seedOf('2026-11-05'), now)!.toISOString(), '2026-11-07T00:00:00.000Z', "yesterday's yard: 00:00 UTC two days after its date");
+  assert.equal(dailyClosesAt(seedOf('2026-11-06'), now)!.toISOString(), '2026-11-08T00:00:00.000Z', 'today, before the server has said');
+  acceptDaily(body({ closesAt: '2026-11-08T06:00:00.000Z' }), now); // a re-issued day closes later than the rule: the server's word stands
+  assert.equal(dailyClosesAt(seedOf('2026-11-06'), now)!.toISOString(), '2026-11-08T06:00:00.000Z');
+  assert.equal(dailyClosesAt(seedOf('2026-11-05'), now)!.toISOString(), '2026-11-07T00:00:00.000Z', 'another yard keeps the rule');
 });

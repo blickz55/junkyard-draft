@@ -74,6 +74,7 @@ import { choiceDialog } from './choice';
 import { LESSONS } from '../content/lessons';
 import { jobFlavour, jobLine, starMarks, yardNote } from '../content/job';
 import { rankLine, rankNext } from '../content/ranks';
+import { homeProgress } from '../content/progress';
 
 export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   const save = loadSave();
@@ -223,6 +224,7 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
   // ---- the one thing to do ----
   const stars = careerStars();
   const earlier = loadArchivedBests()[0]?.bests.overall ?? null; // no best under these rules yet: the last one under earlier rules, said so
+  const progress = homeProgress(lessonsDone(), gamesEver()); // a lesson done and no game yet (the consultant panel, 2026-11-06): progress, never zeros
   const todayBest = bests.bySeed[todaySeed()];
   const modeSpan = h(
     'span',
@@ -327,16 +329,23 @@ export function mountTitle(scene: Phaser.Scene, tips: TipsPanel) {
       ? h('div', { class: 'jd-gold', tid: 'sal-beaten', style: 'font-size:0.8125em' }, t('title.salBeaten', { n: loadSalBeaten().length }))
       : null,
     divisionBox,
-    h(
-      'div',
-      { style: 'font-size:0.875em; margin-top:0.25em' },
-      bests.overall
-        ? t('title.bestScore', { score: money(bests.overall.score), yard: yardLabel(bests.overall.seed) })
-        : earlier
-          ? t('title.bestEarlier', { score: money(earlier.score), yard: yardLabel(earlier.seed) })
-          : t('title.noGames'),
-    ),
-    h('div', { class: 'jd-dim', style: 'font-size:0.75em' }, t('title.gamesOnDevice', { n: gamesEver() })),
+    ...(progress
+      ? [
+          h('div', { tid: 'home-progress', style: 'font-size:0.875em; margin-top:0.25em' }, progress.done),
+          h('div', { class: 'jd-dim', tid: 'home-next', style: 'font-size:0.75em' }, progress.next),
+        ]
+      : [
+          h(
+            'div',
+            { style: 'font-size:0.875em; margin-top:0.25em' },
+            bests.overall
+              ? t('title.bestScore', { score: money(bests.overall.score), yard: yardLabel(bests.overall.seed) })
+              : earlier
+                ? t('title.bestEarlier', { score: money(earlier.score), yard: yardLabel(earlier.seed) })
+                : t('title.noGames'),
+          ),
+          h('div', { class: 'jd-dim', style: 'font-size:0.75em' }, t('title.gamesOnDevice', { n: gamesEver() })),
+        ]),
     ...loadArchivedBests().map(({ version, bests: ab }) =>
       h(
         'details',
