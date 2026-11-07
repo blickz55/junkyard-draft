@@ -28,7 +28,7 @@ import { TipsPanel } from '../../ui/TipsPanel';
 import { GamePanel, coarsePointer, type PanelState } from '../../ui/GamePanel';
 import { telemetry } from '../telemetry';
 import { RULES } from '../../sim/rules';
-import type { SimEvent, MachineKind } from '../../sim/types';
+import type { SimEvent, MachineKind, Layout } from '../../sim/types';
 import { CELL } from '../textures';
 import { fit } from '../atlas';
 import { label } from '../ui';
@@ -134,6 +134,8 @@ export class GameScene extends Phaser.Scene {
   private reveal = false;
   /** the card the results' next-time line named, lit on a try's first draft until the pick (2026-11-06) */
   private showCard: MachineKind | null = null;
+  /** a try's previous line at this shift, outlined on the yard until the shift starts (render/lasttime.ts) */
+  private lastTime: Layout | null = null;
   /** the watched replay's identity, so a fork can name its origin (PLAN-v4 0.7.3) */
   private replayOrigin: ReplayOrigin | null = null;
   init(data: {
@@ -151,6 +153,7 @@ export class GameScene extends Phaser.Scene {
       actions: Action[];
       round: number;
       /** the card the results named, lit on the first draft */ showCard?: MachineKind;
+      /** the previous game's line at this shift, outlined on the first build (render/lasttime.ts) */ lastTime?: Layout;
     };
     /** the game whose results a recording was opened from: it ends back there */
     comeBack?: { run: RunState; shown: ResultsShown };
@@ -160,10 +163,11 @@ export class GameScene extends Phaser.Scene {
     this.challenge = data.challenge && data.challenge.seed === data.seed && !data.replay && !data.fork ? data.challenge : null;
     this.replayOrigin = data.replay ? { hash: data.replayHash ?? null, player: data.replayPlayer ?? 'replay', actions: data.replay } : null;
     let forked: ForkOrigin | null = null;
+    this.showCard = data.fork?.showCard ?? null; // the scene instance is reused: a game after a try starts with neither
+    this.lastTime = data.fork?.lastTime ?? null;
     if (data.fork) {
       // PLAN-v4 0.7.3: resume from the forked state's action prefix (deterministic), then mark the run as a fork
       const f = forkFrom(data.seed, data.fork.actions, RULES_VERSION, data.fork.round, data.fork.origin);
-      this.showCard = data.fork.showCard ?? null;
       data = { seed: data.seed, fresh: false, actions: f.actions.slice() };
       forked = f.forkedFrom!;
     }
@@ -239,7 +243,7 @@ export class GameScene extends Phaser.Scene {
       this,
       (x, y) => this.cellXY(x, y),
       (i) => this.binSlot(i),
-    ).attach();
+    ).attach(this.lastTime);
     this.view.drawYard(this.run.layout);
     this.inputCtl = new InputController(this, this.inputHost()).attach();
     this.panel = new GamePanel(
@@ -720,6 +724,7 @@ export class GameScene extends Phaser.Scene {
       lessonPick: this.tutorial ? lessonPick(this.run) : null,
       lessonReady: this.tutorial && lessonReady(this.run),
       lessonWants: this.tutorial ? lessonWants(this.run) : null,
+      lastTime: this.view.lastTimeLayout(),
     };
   }
   renderSide() {

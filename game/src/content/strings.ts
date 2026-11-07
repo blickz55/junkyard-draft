@@ -1229,6 +1229,10 @@ export const STRINGS = {
   'mirror.rubble': s('{spot}: rubble, nothing can go here', 'a blocked spot'),
   'mirror.empty': s('{spot}: empty', 'a free spot'),
   'mirror.truck': s('{spot}: kept for the scrap truck', 'a spot kept free until the truck comes'),
+  'mirror.lastTime': s(
+    '{spot}: empty; last time a {machine} stood here, facing {facing}',
+    "a try: an empty spot where the previous game's line had a part (render/lasttime.ts)",
+  ),
   'mirror.shelf': s('On the shelf: {machine}', 'a part waiting to be placed'),
   'mirror.holding': s('{here}. Holding {machine}', 'the cursor with a part in hand'),
   'mirror.right': s('right', 'a direction'),

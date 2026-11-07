@@ -244,6 +244,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
                 origin: { hash: null, player: t('results.yourGame') },
                 actions: run.actions,
                 round: tryShift - 1,
+                lastTime: run.rounds[tryShift - 1]?.layout, // this game's line at that shift, outlined on the try's first build (render/lasttime.ts)
                 ...(next && next.shift === tryShift ? { showCard: next.card } : {}),
               },
             });

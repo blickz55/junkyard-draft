@@ -17,7 +17,7 @@ import { canBuyBelt, canReroll, cardParts, draftOffers, orderFor, shippedTotal, 
 import type { Job } from '../sim/yard';
 import { analyseRound } from '../sim/bottleneck';
 import { againLine, bottleneckLine, sameLimit } from '../content/bottleneck';
-import type { Machine, MachineKind, Material } from '../sim/types';
+import type { Layout, Machine, MachineKind, Material } from '../sim/types';
 import { RULES } from '../sim/rules';
 import { isTutorialSeed, JOB_MACHINE, priceOf, starsFor, yardFor } from '../sim/yard';
 import { cellIndex, runLayout } from '../sim/sim';
@@ -97,6 +97,8 @@ export interface PanelState {
   lessonReady: boolean;
   /** the button the lesson's step calls for */
   lessonWants: 'buy' | 'sell' | null;
+  /** a try's previous line at this shift (render/lasttime.ts), for the mirror to say its outlined spots; null on any other game and once the shift has started */
+  lastTime: Layout | null;
 }
 /** What the panel asks the scene to do. */
 export interface PanelActions {
@@ -183,6 +185,8 @@ export class GamePanel {
   private mirrorEl: HTMLElement;
   private cursorEl: HTMLElement;
   private mirrorText = '';
+  /** the previous line the last render was given, so the cursor's line and the mirror say the same spots */
+  private lastTime: Layout | null = null;
   /** the card a tap on a piece opens */
   private inspectEl: HTMLElement;
   private inspectRing: HTMLElement | null = null;
@@ -670,19 +674,20 @@ export class GamePanel {
   /** The yard in words for a screen reader (0.12.4): it changes with the layout, so not during a shift. */
   private drawMirror(s: PanelState) {
     if (s.mode === 'running') return;
-    const lines = yardLines(s.run);
+    const lines = yardLines(s.run, s.lastTime);
     const text = lines.join('\n');
     if (text === this.mirrorText) return;
     this.mirrorText = text;
     this.mirrorEl.replaceChildren(...lines.map((l) => h('li', {}, l)));
   }
   announceCell(run: RunState, x: number, y: number, held: MachineKind | null) {
-    this.cursorEl.textContent = cellLine(run, x, y, held);
+    this.cursorEl.textContent = cellLine(run, x, y, held, this.lastTime);
   }
   focusControls() {
     this.root.querySelector<HTMLElement>('button:not([disabled])')?.focus();
   }
   render(s: PanelState) {
+    this.lastTime = s.lastTime;
     this.drawMirror(s);
     this.drawTruck(s.run);
     const key = this.keyOf(s);

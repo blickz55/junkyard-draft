@@ -1,11 +1,75 @@
 // What the third panel asked for, played in a browser: a lit spot takes one tap, a pick can be taken back, a machine can be moved on purpose,
-// the end of a game names Sal, his recording comes back to your own results, and a try picks up at the first order missed.
+// the end of a game names Sal, his recording comes back to your own results, and a try picks up at the first order missed, showing the
+// previous line in outline (render/lasttime.ts).
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { fixture, cellCenter } from './e2e/fixture.mjs';
+import { fixture, cellCenter, binSlotCenter } from './e2e/fixture.mjs';
 
 const f = await fixture();
 after(() => f.close());
+
+/**
+ * A game of the player's own that placed its parts in the one shift its try starts at, so the try has a previous line to outline there: the first
+ * card each shift, and in that shift its parts on free spots with no part beside them, which feed nothing and take nothing, so the shift earns
+ * what it earned with them on the shelf and the results name the same shift. Played here first, the way ui/ResultsScreen.ts reads a game, so the
+ * page can play the same actions and the test knows the shift before the page does.
+ */
+const gameWithPlacements = async () => {
+  const { newRun, apply } = await import('../game/src/sim/run.ts');
+  const { nextTime } = await import('../game/src/render/nexttime.ts');
+  const { RULES } = await import('../game/src/sim/rules.ts');
+  const tryShiftOf = (run) => {
+    const orders = run.job?.orders;
+    if (!orders) return 0;
+    const missed = run.rounds.findIndex((r, i) => r.earned < orders[i]);
+    if (missed < 0) return 0; // Sal's score would decide: a yard with no miss is not the one for this
+    const next = nextTime(run, null);
+    return next && next.shift >= 2 ? next.shift : missed > 0 ? missed + 1 : 0;
+  };
+  const isolated = (layout) => {
+    const W = layout.width;
+    const at = (x, y) => layout.machines.some((m) => m.x === x && m.y === y);
+    for (let y = 0; y < layout.height; y++)
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (at(x, y) || layout.rubble?.includes(i) || layout.reserved?.includes(i)) continue;
+        if ([1, 0, -1, 0].some((dx, k) => at(x + dx, y + [0, 1, 0, -1][k]))) continue;
+        return { x, y };
+      }
+    return null;
+  };
+  const play = (seed, placeAt) => {
+    const r = newRun(seed);
+    const shifts = [];
+    for (let shift = 1; shift <= RULES.rounds; shift++) {
+      const acts = [{ t: 'pick', i: 0 }];
+      apply(r, acts[0]);
+      if (shift === placeAt)
+        for (const part of [...r.bin]) {
+          if (part.kind === 'conveyor') continue;
+          const c = isolated(r.layout);
+          if (!c) break;
+          const a = { t: 'place', id: part.id, x: c.x, y: c.y, dir: 0 };
+          apply(r, a);
+          acts.push(a);
+        }
+      apply(r, { t: 'run' });
+      if (shift < RULES.rounds) apply(r, { t: 'next' });
+      shifts.push(acts);
+    }
+    return { run: r, shifts };
+  };
+  for (let n = 0; n < 40; n++) {
+    const seed = `last-${n}`;
+    const shift = tryShiftOf(play(seed, 0).run);
+    if (shift < 2) continue;
+    const game = play(seed, shift);
+    const placed = game.shifts[shift - 1].filter((a) => a.t === 'place');
+    if (placed.length < 2 || tryShiftOf(game.run) !== shift) continue;
+    return { seed, shift, shifts: game.shifts, placed };
+  }
+  return null;
+};
 
 /** The rest of a game through the dev API: the first card each shift, nothing built. */
 const finish = async (page) => {
@@ -259,6 +323,83 @@ test('a try picks up at the first order missed, and goes on no board', { timeout
   assert.deepEqual(page.errors, []);
   await page.ctx.close();
 });
+
+test(
+  'a try shows the previous line as faint outlines where nothing stands yet, out of the hit test, until the shift starts; and it starts at the speed the game ended at',
+  { timeout: 180000 },
+  async () => {
+    const game = await gameWithPlacements();
+    assert.ok(game, 'a yard whose game placed parts in the shift its try starts at');
+    const page = await f.page();
+    const { api, draft, results, mode, when, drag, frames, settled } = page.jd;
+    await page.goto(f.gameUrl(`scene=game&seed=${game.seed}`));
+    await draft();
+    await page.getByTestId('job-start').click();
+    await page.jd.noDialog('job-card');
+    for (const [i, acts] of game.shifts.entries()) {
+      await api('pick', acts[0].i);
+      await mode('build');
+      for (const a of acts.slice(1)) assert.ok(await api('act', a), `the page takes ${JSON.stringify(a)}`);
+      await api('run');
+      await mode('running');
+      if (i === game.shifts.length - 1) await page.getByTestId('speed-4').click(); // the speed the game ends at
+      await api('finishRun');
+      await mode('summary');
+      await api('next');
+      if (i < game.shifts.length - 1) await when((r) => window.__jd.state().round === r && window.__jd.phase() === 'draft', i + 2);
+    }
+    await results();
+    assert.equal(await page.getByTestId('try-from').textContent(), `Try again from shift ${game.shift}`, 'the page names the shift the test played for');
+    await page.getByTestId('try-from').click();
+    await when((n) => window.__jd.scene() === 'Game' && window.__jd.phase() === 'draft' && window.__jd.state().round === n, game.shift);
+    assert.equal(await page.evaluate(() => window.__jdGame.scene.getScene('Game').ctl.speed), 4, 'the try starts at the speed the game ended at');
+    const memory = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('[data-testid=yard-mirror] li')].map((l) => l.textContent).filter((l) => /last time a .+ stood here/.test(l)),
+      );
+    const outline = () =>
+      page.evaluate(() => {
+        const g = window.__jdGame.scene.getScene('Game').children.getByName('last-time');
+        return g ? { drawn: g.commandBuffer.length > 0, interactive: !!g.input } : null;
+      });
+    const lines = await memory();
+    assert.equal(lines.length, game.placed.length, `one line per part placed there last time: ${lines.join(' | ')}`);
+    for (const a of game.placed)
+      assert.ok(
+        lines.some((l) => l.startsWith(`Row ${a.y + 1}, column ${a.x + 1}: empty; last time a `)),
+        `the spot of ${JSON.stringify(a)}: ${lines.join(' | ')}`,
+      );
+    assert.deepEqual(await outline(), { drawn: true, interactive: false }, 'drawn on the yard on the first draft, never interactive');
+    // a part dragged onto an outlined spot lands there like on any empty spot, and takes that outline with it: the memory follows the layout
+    await api('pick', 0);
+    await mode('build');
+    await settled();
+    const spot = game.placed[0];
+    assert.ok(!(await api('state')).layout.machines.some((m) => m.x === spot.x && m.y === spot.y), 'the outlined spot is empty');
+    await drag(binSlotCenter(0), cellCenter(spot.x, spot.y));
+    await when(([x, y]) => window.__jd.state().layout.machines.some((m) => m.x === x && m.y === y), [spot.x, spot.y]);
+    const fewer = await memory();
+    assert.equal(fewer.length, lines.length - 1, `one outline fewer: ${fewer.join(' | ')}`);
+    assert.ok(!fewer.some((l) => l.startsWith(`Row ${spot.y + 1}, column ${spot.x + 1}:`)), 'and it is that one');
+    assert.deepEqual(await outline(), { drawn: true, interactive: false });
+    await api('undo');
+    await when((n) => [...document.querySelectorAll('[data-testid=yard-mirror] li')].filter((l) => /last time/.test(l.textContent)).length === n, lines.length);
+    // the shift starts: the memory goes, and does not come back for the summary or the next shift
+    await api('run');
+    await mode('running');
+    await frames(2);
+    assert.deepEqual(await outline(), { drawn: false, interactive: false }, 'nothing drawn once the shift runs');
+    await api('finishRun');
+    await mode('summary');
+    assert.deepEqual(await memory(), [], 'the mirror has let it go');
+    await api('next');
+    await when((r) => window.__jd.state().round === r && window.__jd.phase() === 'draft', game.shift + 1);
+    assert.deepEqual(await memory(), []);
+    assert.deepEqual(await outline(), { drawn: false, interactive: false });
+    assert.deepEqual(page.errors, []);
+    await page.ctx.close();
+  },
+);
 
 test('a refusal at either edge of a phone-size yard stays on the screen, its arrow over the cell', { timeout: 60000 }, async () => {
   const page = await f.page({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
