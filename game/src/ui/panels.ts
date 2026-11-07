@@ -32,3 +32,8 @@ export const openFriends = (...args: Parameters<Panels['openFriends']>) => openi
 export const openMessages = (...args: Parameters<Panels['openMessages']>) => opening(args[0], (m) => m.openMessages(...args));
 export const openEmailLink = (...args: Parameters<Panels['openEmailLink']>) => opening(args[0], (m) => m.openEmailLink(...args));
 export const openLinkLanding = (...args: Parameters<Panels['openLinkLanding']>) => opening(args[0], (m) => m.openLinkLanding(...args));
+/** The desktop shell's record file (render/recordfile.ts), once per page from Home; resolves whether this device learnt anything. Nothing without a shell. */
+export const desktopRecordSync = (): Promise<boolean> =>
+  (window as unknown as { jdDesktop?: { record?: unknown } }).jdDesktop?.record
+    ? import('./lazy').then((m) => m.desktopRecordSync()).catch(() => false)
+    : Promise.resolve(false);

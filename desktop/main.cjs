@@ -4,6 +4,7 @@ const { app, BrowserWindow, shell, ipcMain, session } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { makeSteamHandler } = require('./steam-bridge.cjs');
+const { makeRecordHandler } = require('./record-file.cjs');
 
 // IPC hardening (review): only our window's main frame may call the shell; anything else is refused before an argument is read.
 let mainWindow = null;
@@ -69,6 +70,16 @@ const steam = makeSteamHandler({
 ipcMain.handle('jd:steam', (event, op, args) => {
   assertSender(event, 'steam');
   return steam(op, args);
+});
+
+// The record file (desktop/record-file.cjs, desktop/README.md): the player's record as one JSON file under userData, written by the
+// page whenever its record changes and read back at start, so a record survives the machine; Steam Auto-Cloud carries that folder
+// with no Steam code here. JD_RECORD_DIR moves it (the smoke test keeps its writes out of the real folder); the device key never
+// enters it, whatever the page sends (the handler keeps the record's keys only).
+const record = makeRecordHandler({ fs, file: () => path.join(process.env.JD_RECORD_DIR || app.getPath('userData'), 'record.json') });
+ipcMain.handle('jd:record', (event, op, args) => {
+  assertSender(event, 'record');
+  return record(op, args);
 });
 
 function createWindow() {

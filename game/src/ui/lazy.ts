@@ -17,6 +17,7 @@ export { openPolicy } from './PolicyPanel';
 export { openPrivacy } from './PrivacyPanel';
 export { mountResults } from './ResultsScreen';
 export { openRecord } from './RecordPanel';
+export { desktopRecordSync } from '../render/recordfile';
 export { openReminder } from './ReminderPanel';
 export { openSettings } from './SettingsPanel';
 export { openThread } from './ThreadPanel';

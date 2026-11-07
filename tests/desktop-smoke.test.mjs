@@ -24,9 +24,11 @@ test(
   },
   async () => {
     const { _electron: electron } = await import('playwright');
+    const recordDir = fs.mkdtempSync(path.join(process.env.TEMP || process.env.TMPDIR || '.', 'jd-record-smoke-')); // the record file lands here, not in the real app folder
+    const recordFile = path.join(recordDir, 'record.json');
     const app = await electron.launch({
       executablePath: EXE,
-      env: { ...process.env, JD_DEV_API: '1', JD_CLIP_DIR: process.env.TEMP || process.env.TMPDIR || '.' },
+      env: { ...process.env, JD_DEV_API: '1', JD_CLIP_DIR: process.env.TEMP || process.env.TMPDIR || '.', JD_RECORD_DIR: recordDir },
     });
     const errors = [];
     try {
@@ -53,6 +55,40 @@ test(
       assert.equal(await page.evaluate("window.jdDesktop.steam.unlock('smoke')"), false);
       // text entry without window.prompt (review F04): the title's player name, custom seed and replay import are DOM dialogs
       await page.waitForFunction(() => !!document.querySelector('[data-testid=settings]'), null, { timeout: 20000 }); // function predicates: the built page's CSP (0.8.0) blocks the eval that polls a string one
+      // the record file (desktop/record-file.cjs): Home wrote this device's record to JD_RECORD_DIR by itself; the IPC answers load and save; what
+      // is saved holds the record's keys only, atomically (no temp file left), and a key handed to it never reaches the disk
+      const deadline = Date.now() + 10000;
+      while (Date.now() < deadline && !fs.existsSync(recordFile)) await new Promise((r) => setTimeout(r, 100));
+      assert.ok(fs.existsSync(recordFile), `the page wrote ${recordFile} on its own at start`);
+      const own = JSON.parse(fs.readFileSync(recordFile, 'utf8'));
+      assert.equal(own.format, 1);
+      assert.equal(own.game, 'junkyard-draft');
+      assert.deepEqual(Object.keys(own.record), ['settings', 'bests', 'stars', 'days', 'dailies', 'medals', 'standings', 'watched', 'kinds']);
+      const probe = {
+        format: 1,
+        game: 'junkyard-draft',
+        savedAt: 'smoke-probe',
+        rules: 1,
+        record: {},
+        token: 'deadbeefdeadbeef',
+        identity: { token: 'cafebabe' },
+      };
+      assert.equal(await page.evaluate((p) => window.jdDesktop.record.save(p), probe), true, 'save answers true');
+      const written = fs.readFileSync(recordFile, 'utf8');
+      assert.ok(!/deadbeef|cafebabe|token|identity/.test(written), 'the key never reaches the disk');
+      assert.ok(!fs.existsSync(`${recordFile}.tmp`), 'no temporary file left after the rename');
+      assert.deepEqual(await page.evaluate(() => window.jdDesktop.record.load()), {
+        format: 1,
+        game: 'junkyard-draft',
+        savedAt: 'smoke-probe',
+        rules: 1,
+        record: {},
+      });
+      await assert.rejects(
+        page.evaluate(() => window.jdDesktop.record.save('not an object')),
+        /data must be an object/,
+        'a call out of bounds rejects',
+      );
       await page.click('[data-testid=settings]');
       await page.click('[data-testid=player]');
       await page.fill('[data-testid=dialog-input]', 'Desk Tester');
@@ -100,6 +136,7 @@ test(
       assert.deepEqual(errors, [], 'no page errors in the packaged app');
     } finally {
       await app.close();
+      fs.rmSync(recordDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   },
 );
