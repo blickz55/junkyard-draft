@@ -10,6 +10,9 @@ import { lookFrom, PLAIN, type Look } from '../content/cosmetics';
 import { normaliseDates, streakOf } from '../daily/streak';
 import { cleanPlayer } from './share';
 
+/** How many days played and checked days the device keeps: the newest; the record file counts against the same cap. */
+export const DAYS_KEPT = 400;
+
 export { dailySeed };
 
 /** Every record written before 0.5.0 was made under rules version 2; the one-time migration files them there, whatever version runs now. */
@@ -606,14 +609,14 @@ export const recordForkBest = (seed: string, score: number, game = -Infinity): {
 /** UTC dates with at least one finished run on this device (PLAN-v1 0.4.3 share line; the streak of 0.6.4 builds on it). Bounded, validated. */
 export const loadDaysPlayed = (): string[] => {
   const raw = readRaw(K.days);
-  return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x)).slice(-400) : [];
+  return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x)).slice(-DAYS_KEPT) : [];
 };
 export const recordDayPlayed = (now = new Date()): number => {
   const d = now.toISOString().slice(0, 10);
   const all = loadDaysPlayed();
   if (!all.includes(d)) {
     all.push(d);
-    write(K.days, all.slice(-400));
+    write(K.days, all.slice(-DAYS_KEPT));
   }
   return all.length;
 };
@@ -621,10 +624,10 @@ export const daysPlayed = (): number => loadDaysPlayed().length;
 /** UTC dates of the dailies this device submitted and had verified (by the daily's date, PLAN-v3 0.6.3). Distinct, sorted, bounded. */
 export const loadDailyDates = (): string[] => {
   const raw = readRaw(K.dailyStreak);
-  return Array.isArray(raw) ? normaliseDates(raw.filter((x): x is string => typeof x === 'string')).slice(-400) : [];
+  return Array.isArray(raw) ? normaliseDates(raw.filter((x): x is string => typeof x === 'string')).slice(-DAYS_KEPT) : [];
 };
 export const recordDailyDate = (date: string): string[] => {
-  const all = normaliseDates([...loadDailyDates(), date]).slice(-400);
+  const all = normaliseDates([...loadDailyDates(), date]).slice(-DAYS_KEPT);
   write(K.dailyStreak, all);
   return all;
 };
@@ -795,8 +798,8 @@ export function writeSyncData(d: SyncData, settings: Partial<Settings> | null): 
   write(K.bests, all);
   const stars = (readRaw(K.stars) as Record<string, unknown> | null) ?? {};
   write(K.stars, { ...stars, [String(RULES_VERSION)]: d.stars });
-  write(K.days, d.days.slice(-400));
-  write(K.dailyStreak, d.dailies.slice(-400));
+  write(K.days, d.days.slice(-DAYS_KEPT));
+  write(K.dailyStreak, d.dailies.slice(-DAYS_KEPT));
   writeByVersion(K.medals, RULES_VERSION, d.medals);
   writeByVersion(K.standings, RULES_VERSION, d.standings);
   writeByVersion(K.watched, RULES_VERSION, d.watched);
@@ -858,7 +861,7 @@ export const loadMedals = (version: number = RULES_VERSION): MedalRecord[] => by
 export function recordMedal(seed: string, medal: MedalName, score: number, version: number = RULES_VERSION, now = new Date()): MedalRecord[] {
   const list = loadMedals(version).filter((m) => m.seed !== seed);
   list.push({ seed, medal, score, at: now.toISOString() });
-  const kept = list.slice(-400);
+  const kept = list.slice(-DAYS_KEPT);
   writeByVersion(K.medals, version, kept);
   return kept;
 }

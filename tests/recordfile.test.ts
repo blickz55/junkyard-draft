@@ -223,3 +223,35 @@ test('the desktop file: it comes in and merges once, the record goes back to it 
   assert.equal(loads, 1);
   delete win.jdDesktop;
 });
+
+test('a copy saved under other rules keeps its days and checked days; its scores, stars, medals, standings and machine counts stay out', () => {
+  const raw = rf.packRecord(
+    copy({
+      days: ['2030-01-01'],
+      dailies: ['2030-01-01'],
+      bests: { overall: { score: 9, seed: 'a', at: 't' }, bySeed: { a: { score: 9, at: 't' } }, runs: 2 },
+      stars: { a: 2 },
+      medals: [{ seed: 'a', medal: 'bronze', score: 9, at: '2030-01-02T00:00:00.000Z' }],
+      kinds: { press: 3 },
+    }),
+  );
+  assert.equal(rf.otherRules(raw), false);
+  assert.equal(rf.unpackRecord(raw)!.bests.bySeed.a.score, 9, 'the same rules: everything comes');
+  const older = { ...raw, rules: RULES_VERSION - 1 };
+  assert.equal(rf.otherRules(older), true);
+  const got = rf.unpackRecord(older)!;
+  assert.deepEqual([got.days, got.dailies], [['2030-01-01'], ['2030-01-01']]);
+  assert.deepEqual([got.bests.overall, Object.keys(got.bests.bySeed), got.bests.runs], [null, [], 0]);
+  assert.deepEqual([got.stars, got.medals, got.standings, got.watched, got.kinds], [{}, [], [], [], {}]);
+  assert.equal(rf.otherRules({ ...raw, rules: RULES_VERSION + 1 }), true, 'a version ahead is other rules too');
+});
+
+test('what lands is what is counted: a copy whose days fall off the kept 400 adds nothing', () => {
+  store.clear();
+  const days = Array.from({ length: storage.DAYS_KEPT }, (_, i) => new Date(Date.UTC(2031, 3, 11 + i)).toISOString().slice(0, 10));
+  storage.writeSyncData(copy({ days }), null);
+  const added = rf.takeRecord(copy({ days: ['2031-01-01', '2031-01-02', '2031-01-03', '2031-01-04', '2031-01-05'] }));
+  assert.deepEqual([added.days, added.any], [0, false]);
+  assert.equal(storage.loadDaysPlayed().length, storage.DAYS_KEPT);
+  assert.equal(storage.loadDaysPlayed()[0], '2031-04-11', 'the kept days are the newest');
+});

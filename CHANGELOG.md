@@ -5,6 +5,15 @@ older replays and saves on purpose.
 
 ## Unreleased (v0.11 Say something, production roadmap)
 
+### The later list, round one — 2026-11-07 (no rules change)
+
+- **Home after a lesson reads progress, not zeros:** "Lessons done: 2 of 3." and "Your first game is next." until the first game is finished.
+- **Once a daily is checked, the results say when the places are final and where yours lands:** "First on the board today. Places are final at 7:00 PM on Sunday; yours then lands in your inbox."
+- **A finished daily that was never put on the board is kept,** and Home offers "Put it on the board" while its day is open; nothing keep-best would refuse is offered.
+- **A try shows your previous line in outline** where nothing stands yet, until the shift starts; the screen reader hears it on the spot.
+- **The record as one file:** "Save a copy" and "Open a copy" on the record page merge records between devices with nothing lost; the desktop app keeps the same file under its data folder, ready for Steam Auto-Cloud. A copy saved under other rules brings its days only.
+- **Measured, not built:** a coach move when no card pays (a paying move in 0 of 11 stuck picks against a 40 % gate) and the raise at 35 % (no raise beats the current one on the skill ladder); the numbers are in DESIGN.md.
+
 ### The morning after, and the first social act — 2026-11-06 (no rules change)
 
 - **The end of a game says the days played, the checked days in a row, and when the next yard opens** in your own time; the in-a-row count ticks when the score goes in.

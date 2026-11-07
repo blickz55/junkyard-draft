@@ -10,13 +10,14 @@
  * then on every change of the record (`onRecordChange`) goes back to the file, a little later, so a run of writes is one save.
  */
 import { RULES_VERSION } from '../sim/types';
-import { onRecordChange, readSyncData, validateSync, writeSyncData, type SyncData } from './storage';
+import { DAYS_KEPT, onRecordChange, readSyncData, validateSync, writeSyncData, type SyncData } from './storage';
 import { mergeSync, sameProgress } from './sync';
 
 export const RECORD_FORMAT = 1;
 export const RECORD_GAME = 'junkyard-draft';
 /** What the web saves the copy as. */
 export const RECORD_FILE_NAME = 'junkyard-record.json';
+const EMPTY = validateSync({})!;
 
 export interface RecordFile {
   format: number;
@@ -40,7 +41,19 @@ export function unpackRecord(raw: unknown): SyncData | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const r = raw as Record<string, unknown>;
   if (r.format !== RECORD_FORMAT || r.game !== RECORD_GAME) return null;
-  return validateSync(r.record);
+  const copy = validateSync(r.record);
+  if (!copy) return null;
+  // a copy saved under other rules: its days and checked days are days whatever the rules; its scores, stars, medals, standings
+  // and machine counts were earned under those rules and would land in this version's slot (the device archives old versions apart)
+  if (otherRules(raw)) return { ...copy, bests: EMPTY.bests, stars: {}, medals: [], standings: [], watched: [], kinds: {} };
+  return copy;
+}
+
+/** Whether a file was saved under other rules than this game's (a version behind or ahead); such a copy brings its days only. */
+export function otherRules(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object') return false;
+  const rules = (raw as Record<string, unknown>).rules;
+  return typeof rules === 'number' && rules !== RULES_VERSION;
 }
 
 /** What merging a copy added to this device's record: the counts the record page shows, and whether anything at all changed. */
@@ -73,14 +86,16 @@ export function additions(before: SyncData, after: SyncData): Additions {
   };
 }
 
-const EMPTY = validateSync({})!;
 /** Whether a record holds any progress: a device with none takes a copy's settings too, as a device joining an account does. */
 export const hasProgress = (d: SyncData): boolean => !sameProgress(d, EMPTY);
+
+/** What writeSyncData keeps of a record (the newest days), so what is counted is what lands. */
+const kept = (d: SyncData): SyncData => ({ ...d, days: d.days.slice(-DAYS_KEPT), dailies: d.dailies.slice(-DAYS_KEPT) });
 
 /** Merge a copy into this device's record and say what it added; nothing this device earned is lost, and nothing is written when nothing changes. */
 export function takeRecord(copy: SyncData): Additions {
   const local = readSyncData();
-  const merged = mergeSync(local, copy);
+  const merged = kept(mergeSync(local, copy));
   const added = additions(local, merged);
   if (added.any) writeSyncData(merged, hasProgress(local) ? null : copy.settings);
   return added;

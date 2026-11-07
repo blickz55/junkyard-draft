@@ -53,6 +53,10 @@ export const MORE_STRINGS = {
   'record.added': s('{list} added.', 'status after opening a copy; {list} like "3 days, 2 medals and 1 best"'),
   'record.addedNone': s('Nothing new to add: everything in that copy is already here.', 'status when a copy brings nothing'),
   'record.unreadable': s("Couldn't read that file.", 'status when the chosen file is not JSON'),
+  'record.otherRules': s(
+    'That copy was saved under other rules: its days and checked days carry over, its scores and medals do not.',
+    'status after opening a copy saved under another version of the rules; the additions line follows it',
+  ),
   'record.notRecord': s("That file isn't a saved copy of a record.", 'status when the JSON is not a record of this game'),
   'record.listComma': s('{a}, {b}', 'joins the parts of a list but the last'),
   'record.listAnd': s('{a} and {b}', 'joins the last two parts of a list'),

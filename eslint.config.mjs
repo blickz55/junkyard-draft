@@ -20,6 +20,7 @@ export default tseslint.config(
       'tools/scratch*/**',
       'tools/scratch/**',
       '.control-room/**',
+      '.claude/**',
       'docs/**',
       'game/public/**',
       'tests/golden/**',

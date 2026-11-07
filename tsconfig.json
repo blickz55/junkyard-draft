@@ -15,5 +15,6 @@
     "types": ["node"],
     "paths": { "phaser": ["./node_modules/phaser/types/phaser.d.ts", "./vendor/phaser/types/phaser.d.ts"] }
   },
+  "exclude": ["tools/scratch"],
   "include": ["game/src/**/*.ts", "tests/**/*.ts", "tools/**/*.ts", "server/**/*.ts", "deploy/**/*.ts"]
 }

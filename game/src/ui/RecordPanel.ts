@@ -8,7 +8,7 @@
 import type Phaser from 'phaser';
 import { h, btn, ui } from './dom';
 import { recordData, type RecordData } from '../render/record';
-import { packRecord, unpackRecord, takeRecord, RECORD_FILE_NAME, type Additions } from '../render/recordfile';
+import { packRecord, unpackRecord, takeRecord, otherRules, RECORD_FILE_NAME, type Additions } from '../render/recordfile';
 import { readSyncData } from '../render/storage';
 import { t } from '../content/strings';
 import '../content/strings-more';
@@ -161,7 +161,7 @@ export function openRecord(scene: Phaser.Scene, onChanged?: () => void): void {
   };
   const body = h('div', { style: 'display:flex; flex-direction:column; gap:0.5em; max-height:60vh; overflow:auto' }, ...recordSections(recordData()));
   // a copy of the record as one file (render/recordfile.ts): saved here, opened here; needs no server, so the test edition has it too
-  const status = h('div', { class: 'jd-mono jd-dim', tid: 'record-status', style: 'font-size:0.75em; min-height:1.2em' });
+  const status = h('div', { class: 'jd-mono jd-dim', tid: 'record-status', role: 'status', style: 'font-size:0.75em; min-height:1.2em' });
   const say = (text: string) => {
     status.textContent = text;
   };
@@ -195,12 +195,13 @@ export function openRecord(scene: Phaser.Scene, onChanged?: () => void): void {
         }
         const copy = unpackRecord(raw);
         if (!copy) return say(t('record.notRecord'));
+        const note = otherRules(raw) ? t('record.otherRules') + ' ' : '';
         const added = takeRecord(copy);
         if (added.any) {
           changed = true;
           body.replaceChildren(...recordSections(recordData()));
         }
-        say(added.any ? t('record.added', { list: additionsList(added) }) : t('record.addedNone'));
+        say(note + (added.any ? t('record.added', { list: additionsList(added) }) : t('record.addedNone')));
       },
       () => say(t('record.unreadable')),
     );
