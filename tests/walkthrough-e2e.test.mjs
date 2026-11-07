@@ -102,6 +102,13 @@ for (const device of [
         await page.getByTestId('lesson-next').click();
         await when((seed) => window.__jd?.state().seed === seed, next.seed, 10000);
         await page.waitForSelector('[data-testid=job-card]');
+      } else {
+        // the last lesson goes home (the consultant panel, 2026-11-06): with a lesson done and no game yet, Home reads progress, never zeros
+        await page.getByTestId('lesson-home').click();
+        await title();
+        assert.equal(await page.getByTestId('home-progress').textContent(), `Lessons done: 1 of ${LESSONS.length}.`);
+        assert.equal(await page.getByTestId('home-next').textContent(), 'Your first game is next.');
+        assert.doesNotMatch(await page.getByTestId('rank').textContent(), /No finished games yet|games played on this device/, 'the zero lines are gone');
       }
       await page.ctx.close();
     });
@@ -142,6 +149,10 @@ test('the lessons on Home: progress shows, the next one is first in line, and ev
   await page.reload();
   await title();
   assert.equal(await page.getByTestId('learn').textContent(), 'Lessons (1 of 3 done)');
+  // the record card before the first game (the consultant panel, 2026-11-06): what is done and what is next, and no zeros
+  assert.equal(await page.getByTestId('home-progress').textContent(), 'Lessons done: 1 of 3.');
+  assert.equal(await page.getByTestId('home-next').textContent(), 'Your first game is next.');
+  assert.doesNotMatch(await page.getByTestId('rank').textContent(), /No finished games yet|0 games played/, 'no zeros under a lesson done');
   await page.getByTestId('learn').click();
   await page.waitForSelector('[data-testid=lessons-dialog]');
   assert.equal(await page.getByTestId('lesson-1').textContent(), '1. Your first line ✓');

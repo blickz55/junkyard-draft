@@ -99,6 +99,9 @@ let board, sub, dinfo, identity, plantedSave, groupCode, buddyToken, bsub, share
 test('boot: damaged storage shapes fall back, the telemetry toggle records consent', { timeout: 60000 }, async () => {
   await page.goto(f.gameUrl());
   await title();
+  // a device with no lesson and no game keeps the record card's words (the progress lines are for a lesson done, 2026-11-06)
+  assert.match(await page.getByTestId('rank').textContent(), /No finished games yet\.0 games played on this device/);
+  assert.equal(await page.locator('[data-testid=home-progress]').count(), 0);
   // malformed_storage_shapes_fall_back: valid JSON with the wrong shape must not crash boot or the title
   await page.evaluate(() => {
     localStorage.setItem('jd.bests.v1', JSON.stringify({ bySeed: null }));
