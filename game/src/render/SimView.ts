@@ -17,6 +17,7 @@ import { prefs } from './prefs';
 import type { MachineView } from './InputController';
 import { digestTick, rubbleFrame, itemPose, machineFrame, transformColour, type TickDigest } from './simframes';
 import { beltShape, type BeltShape } from './placement';
+import { drawLastTime, lastTimeCells } from './lasttime';
 
 /** how many junk piles the sheet holds (rubble-0 …) */
 
@@ -40,6 +41,10 @@ export class SimView {
   private readonly shipsThisTick = new Map<number, number>();
   private stallMark!: Phaser.GameObjects.Image;
   private beltCount!: Phaser.GameObjects.Text;
+  /** a try (render/lasttime.ts): the previous game's line at this shift, outlined where nothing stands yet, until the shift starts */
+  private lastTime: Layout | null = null;
+  private lastGfx!: Phaser.GameObjects.Graphics;
+  private lastKey = '';
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -47,7 +52,11 @@ export class SimView {
     private readonly binSlot: (i: number) => { px: number; py: number },
   ) {}
 
-  attach(): this {
+  /** `lastTime` is the previous game's line to outline on a try (null on any other game). */
+  attach(lastTime: Layout | null = null): this {
+    this.lastTime = lastTime;
+    this.lastKey = '';
+    this.lastGfx = this.scene.add.graphics().setDepth(1).setName('last-time'); // under the sprites and never interactive: the hit test does not see it
     this.stallMark = fit(this.scene.add.image(0, 0, tinted(this.scene, 'tile-sel', P.red)))
       .setOrigin(0)
       .setDepth(7)
@@ -66,6 +75,29 @@ export class SimView {
     this.itemSprites.clear();
     this.jamMarks.clear();
     this.belts.clear();
+    this.lastTime = null;
+  }
+  // ---------- last time (render/lasttime.ts) ----------
+  /** The outlines follow the layout: a spot the player fills loses its outline, Undo brings it back; nothing once the shift has started. */
+  private syncLastTime(run: RunState) {
+    if (!this.lastTime) return;
+    if (run.phase !== 'draft' && run.phase !== 'build') return this.dropLastTime();
+    const cells = lastTimeCells(this.lastTime, run.layout);
+    const key = cells.map((c) => `${c.kind}${c.x}.${c.y}.${c.dir}`).join();
+    if (key === this.lastKey) return;
+    this.lastKey = key;
+    drawLastTime(this.lastGfx, cells, this.cellXY);
+  }
+  /** The shift starts: the memory goes, for good; the line in play is the only line from here. */
+  private dropLastTime() {
+    if (!this.lastTime) return;
+    this.lastTime = null;
+    this.lastKey = '';
+    this.lastGfx.clear();
+  }
+  /** The previous line still shown, for the mirror to say (render/mirror.ts); null on any other game and once the shift has started. */
+  lastTimeLayout(): Layout | null {
+    return this.lastTime;
   }
   /** What lies on the yard before anything is built: a junk pile on each rubble cell, picked and turned by the cell index, so a yard always looks the same. */
   drawYard(layout: Layout) {
@@ -110,6 +142,7 @@ export class SimView {
   }
   /** Machines follow the run: placed ones on their cells, shelf ones in their slots, the held one under the cursor; returns the ids that exist. */
   sync(run: RunState, hand: Hand): Set<number> {
+    this.syncLastTime(run);
     const alive = new Set<number>();
     const place = (m: Machine, inBin: boolean, px: number, py: number) => {
       let v = this.views.get(m.id);
@@ -176,6 +209,7 @@ export class SimView {
   // ---------- the live shift ----------
   /** One frame of the running shift: belts roll, machines show their state frames, items move between cells. */
   animate(sim: SimState, phase: number, delta: number, speed: number, time: number) {
+    if (this.lastTime) this.dropLastTime(); // the first frame of the shift: the previous line goes
     this.beltFrame = (this.beltFrame + delta * speed * 0.012 * (BELT_FRAMES / 3)) % BELT_FRAMES; // same cycle time as the old 3 frames, finer steps
     const bf = `belt-${Math.floor(this.beltFrame)}`;
     const bendFrame = `belt-bend-${Math.floor(this.beltFrame)}`;
@@ -256,6 +290,7 @@ export class SimView {
   }
   /** The round is over: items and jam marks go, machines return to their rest frames and settle. */
   teardownRound() {
+    this.dropLastTime(); // a shift skipped before a frame was drawn ends it too
     for (const s of this.itemSprites.values()) s.destroy();
     this.itemSprites.clear();
     for (const j of this.jamMarks.values()) j.destroy();
