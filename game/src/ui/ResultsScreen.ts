@@ -37,7 +37,7 @@ import { prefs } from '../render/prefs';
 import { authHeaders, bearerAllowed, claimName, loadIdentity } from '../render/identity';
 import { labelFor } from '../identity/identity';
 import { todaySeed, revealGate, todayUTC, dailyClosesAt } from '../render/daily';
-import { finalLine } from '../content/closing';
+import { boardGames, finalLine } from '../content/closing';
 import { shiftUtcDate } from '../daily/streak';
 import { medalFor, medalsLine, type Medals } from '../daily/medals';
 import { openFeedback, openPlayerCard, openPolicy, openPrivacy, openRecord, openThread } from './panels';
@@ -60,6 +60,9 @@ import { withTitle } from '../content/title';
 import { submissionOrigin } from '../render/devapi';
 import { yardLabel } from '../content/yard';
 import { machineName, materialName } from '../content/machines';
+
+/** The most entries one board request hands back (MAX_BOARD_LIMIT, server/verify.ts): a list this long may stop short of the board. */
+const RANK_LIMIT = 100;
 
 /** What the scene keeps so tests and later screens can read it. */
 export interface ResultsHost extends Phaser.Scene {
@@ -513,12 +516,15 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
   };
   // the promise after the score goes up (the consultant panel, 2026-11-06): once a daily is checked, when the places are final and where
   // this device's lands, as facts under the status. It exists only then, so a tester build, a try or a recording never has it. A crew's
-  // board is not the board, so its count is not said.
+  // board is not the board, so its count is not said. The board request stops at RANK_LIMIT entries, so its length is exact only under
+  // that; the chart's `n` is the whole board, and once the chart has loaded with this game on it the line reads that (boardGames).
   const finalNote = h('div', { class: 'jd-dim jd-results-status', tid: 'final-line', style: 'margin-top:0.25em' });
+  let chartGames: number | null = null; // every game on the board with this one counted, from the chart; null until it has loaded
   const showFinal = (r: Rank | null) => {
     const closesAt = dailyClosesAt(run.seed);
     if (!closesAt) return;
-    finalNote.textContent = finalLine({ closesAt, games: r && r.n != null && !loadGroup() ? r.of : null, today: isToday, inbox: bearerAllowed(verifierUrl) });
+    const games = boardGames({ chart: chartGames, rank: r, cap: RANK_LIMIT, crew: !!loadGroup() });
+    finalNote.textContent = finalLine({ closesAt, games, today: isToday, inbox: bearerAllowed(verifierUrl) });
     if (!finalNote.isConnected) status.after(finalNote);
   };
 
@@ -591,6 +597,10 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
       if (hg.mine) {
         scene.lastPercentile = hg.mine.percentile;
         scene.lastN = hg.n;
+        if (!loadGroup()) {
+          chartGames = hg.n; // the whole board with this game on it: past the board request's cap, the final line's only exact count
+          if (finalNote.isConnected) showFinal(scene.lastRank);
+        }
         if (!o.replayed)
           recordStanding({ seed: run.seed, at: new Date().toISOString(), score: hg.mine.score, percentile: hg.mine.percentile, n: hg.n, rank: hg.mine.rank }); // 0.9.7: the record page
         if (!foremanSettled) {
@@ -877,7 +887,7 @@ export function mountResults(scene: ResultsHost, run: RunState, o: ResultsShown)
     return player;
   };
   const rankOf = async (replayHash: string): Promise<Rank> => {
-    const res = await fetch(`${verifierUrl}/board?seed=${encodeURIComponent(run.seed)}&limit=100${groupParam(verifierUrl)}`, {
+    const res = await fetch(`${verifierUrl}/board?seed=${encodeURIComponent(run.seed)}&limit=${RANK_LIMIT}${groupParam(verifierUrl)}`, {
       headers: groupHeaders(verifierUrl),
     });
     const body = (await res.json()) as { entries: { replayHash: string }[] };
