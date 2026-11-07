@@ -160,7 +160,7 @@ test('0.8.7 flush: verified runs are recorded and removed with their rank, a ref
   const line = describeOutcomes(out);
   assert.match(
     line,
-    /^Your saved game on flush-ok is checked: \$123 · #2 of 2 as Pat#AAAA\. your saved game on flush-bad was not accepted \(did not reproduce\) and is no longer kept\. your saved game on flush-late is checked \(\$77\), but that day's board had already closed\.$/,
+    /^Your saved game on yard flush-ok is checked: \$123 · #2 of 2 as Pat#AAAA\. your saved game on yard flush-bad was not accepted \(did not reproduce\) and is no longer kept\. your saved game on yard flush-late is checked \(\$77\), but that day's board had already closed\.$/,
   );
   // offline: everything stays
   storage.savePending(mk('flush-off', '2030-03-05T00:00:00Z'));
@@ -172,7 +172,7 @@ test('0.8.7 flush: verified runs are recorded and removed with their rank, a ref
     ['offline'],
   );
   assert.equal(storage.loadPending().length, 1, 'kept for the next load');
-  assert.match(describeOutcomes(off), /^Still offline. Your saved game on flush-off waits until you reconnect.$/);
+  assert.match(describeOutcomes(off), /^Still offline. Your saved game on yard flush-off waits until you reconnect.$/);
   assert.equal(describeOutcomes([]), '');
 });
 
@@ -379,7 +379,7 @@ test("2026-11-06 Home's outcome names the game by its day, never by the yard's c
   assert.equal(describeOutcomes([o('rejected', { error: 'x' })], today), "Today's game was not accepted (x) and is no longer kept.");
   assert.equal(describeOutcomes([o('busy')], today), "Our server is busy; today's game is still waiting.");
   assert.equal(describeOutcomes([o('offline')], today), "Still offline: today's game waits until you reconnect.");
-  assert.equal(describeOutcomes([o('offline')]), 'Still offline. Your saved game on daily-2030-05-10-abcdefgh waits until you reconnect.');
+  assert.equal(describeOutcomes([o('offline')]), 'Still offline. Your saved game on the yard of 10 May waits until you reconnect.');
 });
 
 test('0.8.7 no developer copy on the player\'s screens: the DOM screens and panels never mention npm, localhost, loopback addresses or "local verifier"', () => {

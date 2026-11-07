@@ -12,6 +12,7 @@
  * (this device's checked game on the yard ranks at least as well) and nothing on its way to our server from the results right now.
  */
 import { authHeaders } from './identity';
+import { yardLabel } from '../content/yard';
 import {
   recordSubmission,
   recordDailyDate,
@@ -150,14 +151,15 @@ export async function sendPending(verifierUrl: string, p: PendingSubmission, fet
 }
 
 /**
- * One line for the title screen about what happened to the saved games; '' when there is nothing to say. A flush names the yard; a game
+ * One line for the title screen about what happened to the saved games; '' when there is nothing to say. A flush names the yard as the
+ * glossary does (today's yard, the yard of 6 November, yard <name>; never its code); a game
  * Home offered is named by `game` ("today's game", review 2026-11-06), never by the yard's code, and it was never a saved game.
  */
-export function describeOutcomes(outcomes: FlushOutcome[], game?: (seed: string) => string): string {
+export function describeOutcomes(outcomes: FlushOutcome[], game?: (seed: string) => string, now = new Date()): string {
   if (!outcomes.length) return '';
   const short = (seed: string) => (seed.length > 26 ? `${seed.slice(0, 24)}…` : seed);
   const parts = outcomes.map((o) => {
-    const who = { seed: short(o.seed), game: game?.(o.seed) ?? '' };
+    const who = { seed: yardLabel(short(o.seed), now), game: game?.(o.seed) ?? '' };
     const score = money(o.score ?? 0);
     switch (o.status) {
       case 'verified':

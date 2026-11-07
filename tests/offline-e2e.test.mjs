@@ -98,14 +98,14 @@ test('submit while offline: saved and waiting; a second run lists both; the titl
   // the title while offline says a run is waiting
   await page.getByTestId('home').click();
   await page.waitForSelector('[data-testid=pending-note]');
-  await textMatches('pending-note', /^Still offline\. Your saved game on classic-offline-e2e-seed waits/);
+  await textMatches('pending-note', /^Still offline\. Your saved game on yard classic-offline-e2e-seed waits/);
 });
 
 test('the verifier comes up: a reload of the title submits the saved run and says so; online results show the checked board', { timeout: 120000 }, async () => {
   verifier = await startVerifier({ port: VPORT, env: { DAILY_SECRET: 'offline-e2e-secret', VERIFIER_LOG: '0', BOT_PAR: '0' } });
   await page.goto(`${f.url}/?dev=1&verifier=${VURL}`);
   await title();
-  await textMatches('pending-note', /^Your saved game on classic-offline-e2e-seed is checked: \$[\d,]+ · #1 of 1 as Offline Pat\.$/, 20000);
+  await textMatches('pending-note', /^Your saved game on yard classic-offline-e2e-seed is checked: \$[\d,]+ · #1 of 1 as Offline Pat\.$/, 20000);
   assert.match(
     await page.getByTestId('pending-note').textContent(),
     new RegExp(`\\$${score1.toLocaleString('en-US')} · #1 of 1`),

@@ -12,6 +12,7 @@ older replays and saves on purpose.
 - **A finished daily that was never put on the board is kept,** and Home offers "Put it on the board" while its day is open; nothing keep-best would refuse is offered.
 - **A try shows your previous line in outline** where nothing stands yet, until the shift starts; the screen reader hears it on the spot.
 - **The record as one file:** "Save a copy" and "Open a copy" on the record page merge records between devices with nothing lost; the desktop app keeps the same file under its data folder, ready for Steam Auto-Cloud. A copy saved under other rules brings its days only.
+- **A saved game's yard is named by its day** in the line Home shows after sending it ("Your saved game on the yard of 6 November is checked"), no longer by its code.
 - **Measured, not built:** a coach move when no card pays (a paying move in 0 of 11 stuck picks against a 40 % gate) and the raise at 35 % (no raise beats the current one on the skill ladder); the numbers are in DESIGN.md.
 
 ### The morning after, and the first social act — 2026-11-06 (no rules change)
