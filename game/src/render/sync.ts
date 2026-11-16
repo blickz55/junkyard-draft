@@ -3,7 +3,8 @@
  * merging: nothing a device earned is ever lost, so a best is the higher of the two, days are the union, a yard's standing is the
  * newest. Machine counts take the higher side, because adding them would count a game twice each time two devices meet.
  */
-import type { Bests, SyncData } from './storage';
+import { RULES_VERSION } from '../sim/types';
+import { validateSync, type Bests, type SyncData } from './storage';
 
 const newest = <T extends { seed: string; at: string }>(a: readonly T[], b: readonly T[]): T[] => {
   const by = new Map<string, T>();
@@ -58,4 +59,21 @@ export function sameProgress(a: SyncData, b: SyncData): boolean {
     ]);
   };
   return canon(a) === canon(b);
+}
+
+/** What goes up to the account: the record and the rules it was earned under (the server keeps the blob as it is). */
+export const stampBlob = (d: SyncData): SyncData & { rules: number } => ({ ...d, rules: RULES_VERSION });
+
+/**
+ * What a blob from the account holds as this game can use it. A blob stamped with other rules brings its days only: its scores,
+ * stars, medals, standings and machine counts were earned under those rules and would land in this version's slot, as with a
+ * record file (recordfile.ts). A blob with no stamp is from before it existed and is taken as it is.
+ */
+export function readBlob(raw: unknown): SyncData | null {
+  const d = validateSync(raw);
+  if (!d) return null;
+  const rules = (raw as Record<string, unknown>).rules;
+  if (typeof rules !== 'number' || rules === RULES_VERSION) return d;
+  const none = validateSync({}) as SyncData;
+  return { ...d, bests: none.bests, stars: {}, medals: [], standings: [], watched: [], kinds: {} };
 }

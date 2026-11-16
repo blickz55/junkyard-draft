@@ -27,7 +27,8 @@ import { createServer, playerIdFromToken, Verifier } from '../server/verify';
 import { apply, newRun } from '../game/src/sim/run';
 import { encodeReplay, exportReplay } from '../game/src/sim/replay';
 import { RULES } from '../game/src/sim/rules';
-import { mergeSync, sameProgress } from '../game/src/render/sync';
+import { mergeSync, readBlob, sameProgress, stampBlob } from '../game/src/render/sync';
+import { RULES_VERSION } from '../game/src/sim/types';
 import type { SyncData } from '../game/src/render/storage';
 
 const tokens = { a: 'a'.repeat(32), b: 'b'.repeat(32), c: 'c'.repeat(32) };
@@ -423,4 +424,28 @@ test('merging two devices keeps everything either earned, in either order, and m
   assert.ok(!sameProgress(m, phone));
   assert.equal(mergeSync(empty(), desk).bests.overall?.score, 700);
   assert.equal(mergeSync(desk, empty()).bests.overall?.score, 700);
+});
+
+test('the account blob carries its rules version: other rules bring days only, no stamp is taken as is', () => {
+  const rec = {
+    settings: {},
+    bests: { overall: { score: 900, seed: 'a', at: '2030-01-01' }, bySeed: { a: { score: 900, at: '2030-01-01' } }, runs: 3 },
+    stars: { a: 3 },
+    days: ['2030-01-01'],
+    dailies: ['2030-01-01'],
+    medals: [{ seed: 'a', medal: 'gold', score: 900, at: '2030-01-01' }],
+    standings: [],
+    watched: [],
+    kinds: { crusher: 2 },
+  };
+  const stamped = stampBlob(rec as never);
+  assert.equal(stamped.rules, RULES_VERSION);
+  assert.equal(readBlob(stamped)?.bests.overall?.score, 900, 'same rules: all of it');
+  assert.equal(readBlob(rec)?.stars.a, 3, 'no stamp: as it is');
+  const old = readBlob({ ...rec, rules: RULES_VERSION - 1 })!;
+  assert.deepEqual(old.days, ['2030-01-01']);
+  assert.deepEqual(old.dailies, ['2030-01-01']);
+  assert.equal(old.bests.overall, null);
+  assert.deepEqual([old.stars, old.medals, old.kinds], [{}, [], {}]);
+  assert.equal(readBlob('nope'), null);
 });
