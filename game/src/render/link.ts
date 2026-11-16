@@ -4,8 +4,8 @@
  * the signed-in player, and the player's id, name and tag are cached in its place.
  */
 import { authHeaders, setPlayer } from './identity';
-import { loadLinked, readSyncData, saveLinked, validateSync, writeSyncData, type SyncData } from './storage';
-import { mergeSync, sameProgress } from './sync';
+import { loadLinked, readSyncData, saveLinked, writeSyncData, type SyncData } from './storage';
+import { mergeSync, readBlob, sameProgress, stampBlob } from './sync';
 
 /** The token a link arrived with, once: it leaves the address bar, so reloading or sharing the page cannot use it again. */
 export function takeLinkToken(): string | null {
@@ -38,7 +38,7 @@ export async function verifyLink(verifierUrl: string, token: string): Promise<Ve
     if (!res.ok || !b.ok || !b.playerId || !b.tag) return { ok: false, code: b.code === 'link-gone' || b.code === 'linked-elsewhere' ? b.code : 'failed' };
     setPlayer(b.playerId, b.name ?? null, b.tag);
     saveLinked(true);
-    const remote = validateSync(b.blob);
+    const remote = readBlob(b.blob);
     if (remote) writeSyncData(mergeSync(readSyncData(), remote), b.joined ? remote.settings : null);
     return { ok: true, joined: !!b.joined };
   } catch {
@@ -66,13 +66,13 @@ export async function syncNow(verifierUrl: string): Promise<boolean> {
     const res = await fetch(`${verifierUrl}/me/sync`, { headers: authHeaders(verifierUrl) });
     if (res.status === 403) saveLinked(false);
     if (!res.ok) return false;
-    const remote = validateSync(((await res.json()) as { blob?: unknown }).blob);
+    const remote = readBlob(((await res.json()) as { blob?: unknown }).blob);
     const local = readSyncData();
     const merged: SyncData = remote ? mergeSync(local, remote) : local;
     const learnt = !sameProgress(merged, local);
     if (learnt) writeSyncData(merged, null);
     if (!remote || !sameProgress(merged, remote) || JSON.stringify(remote.settings) !== JSON.stringify(merged.settings))
-      await send(verifierUrl, '/me/sync', { blob: merged });
+      await send(verifierUrl, '/me/sync', { blob: stampBlob(merged) });
     return learnt;
   } catch {
     return false;
